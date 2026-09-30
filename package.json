@@ -14,5 +14,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
-  "packageManager": "pnpm@12.8.1"
+  "packageManager": "pnpm@12.8.1",
+  "devDependencies": {
+    "turbo": "^2.11.5"
+  }
 }
