@@ -1,0 +1,26 @@
+name: Tarefa
+description: Uma entrega de um módulo do roteiro
+title: "Mxx · "
+labels: []
+body:
+  - type: textarea
+    id: objetivo
+    attributes:
+      label: Objetivo
+      description: O que precisa existir quando esta tarefa terminar?
+    validations:
+      required: true
+  - type: textarea
+    id: aceite
+    attributes:
+      label: Critérios de aceite
+      description: Como saber que está pronto? Uma linha por critério.
+      value: |
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: notas
+    attributes:
+      label: Notas
+      description: Links, dúvidas, decisões pendentes.

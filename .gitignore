@@ -1,0 +1,60 @@
+# ── Dependências e artefatos de build (recriados a qualquer momento) ──
+node_modules/
+.pnp
+.pnp.*
+.next/
+out/
+build/
+dist/
+coverage/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
+
+# ── Dados financeiros reais: NUNCA versionar ──
+# Só a pasta samples/ pode ter exemplos, e só com dados sintéticos.
+*.ofx
+*.qfx
+*.pdf
+*.csv
+*.xls
+*.xlsx
+!samples/**/*.ofx
+!samples/**/*.pdf
+!samples/**/*.csv
+data/
+inbox/
+processed/
+backups/
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.sql.gz
+*.age
+
+# ── Segredos e variáveis de ambiente ──
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets.yaml
+
+# ── Python (serviço services/ml, a partir do M09) ──
+__pycache__/
+.venv/
+.pytest_cache/
+
+# ── Playwright ──
+test-results/
+playwright-report/
+.playwright-mcp/
+
+# ── Sistema e editor ──
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+npm-debug.log*
+.pnpm-debug.log*

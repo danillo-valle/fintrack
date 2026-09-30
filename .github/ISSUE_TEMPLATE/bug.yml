@@ -1,0 +1,27 @@
+name: Bug
+description: Algo não funciona como deveria
+labels: []
+body:
+  - type: textarea
+    id: passos
+    attributes:
+      label: Como reproduzir
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: esperado
+    attributes:
+      label: O que era esperado
+    validations:
+      required: true
+  - type: textarea
+    id: aconteceu
+    attributes:
+      label: O que aconteceu
+      description: Cole a mensagem de erro completa, se houver. Nunca cole dados financeiros reais.
+    validations:
+      required: true
