@@ -1,0 +1,7 @@
+pnpm-lock.yaml
+.next/
+.turbo/
+coverage/
+node_modules/
+next-env.d.ts
+src/generated/
