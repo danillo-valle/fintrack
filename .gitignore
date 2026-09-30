@@ -58,3 +58,6 @@ playwright-report/
 !.vscode/extensions.json
 npm-debug.log*
 .pnpm-debug.log*
+
+# Claude Code: configuração pessoal (permissões aprovadas)
+.claude/settings.local.json
