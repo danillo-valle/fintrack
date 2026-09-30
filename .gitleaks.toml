@@ -1,0 +1,14 @@
+# Configuração do gitleaks: procura senhas, tokens e chaves no código.
+title = "fintrack"
+
+# Usa as mais de 150 regras padrão (AWS, GitHub, Stripe, chaves privadas...)
+[extend]
+useDefault = true
+
+# Arquivos que podem conter textos parecidos com segredos, mas não são
+[allowlist]
+description = "Arquivos sem segredos reais"
+paths = [
+  '''pnpm-lock\.yaml''',
+  '''\.env\.example''',
+]

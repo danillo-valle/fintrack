@@ -1,0 +1,28 @@
+# Lefthook: roda verificações automáticas em momentos do Git.
+# Documentação: https://lefthook.dev
+#
+# pre-commit  → antes de gravar o commit (rápido: só os arquivos do commit)
+# commit-msg  → confere o formato da mensagem do commit
+# pre-push    → antes de enviar ao GitHub (completo: lint, tipos e testes)
+
+pre-commit:
+  parallel: true
+  jobs:
+    - name: segredos
+      run: gitleaks git --pre-commit --staged --redact --no-banner --verbose
+
+    - name: dados-financeiros
+      run: scripts/check_no_financial_data.sh {staged_files}
+
+    - name: formatacao
+      run: pnpm exec lint-staged
+
+commit-msg:
+  jobs:
+    - name: mensagem-convencional
+      run: pnpm exec commitlint --edit {1}
+
+pre-push:
+  jobs:
+    - name: qualidade
+      run: pnpm turbo run lint typecheck test
