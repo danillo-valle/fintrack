@@ -1,5 +1,5 @@
 # Integração contínua: roda a cada pull request e a cada push na main.
-# Os nomes dos jobs ("qualidade" e "seguranca") são os que o ruleset exige.
+# Os nomes dos jobs ("qualidade", "seguranca" e "e2e") são os que o ruleset exige.
 name: CI
 
 on:
@@ -68,3 +68,40 @@ jobs:
         uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  e2e:
+    name: e2e
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Baixa o código
+        uses: actions/checkout@v7
+
+      - name: Instala o pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Instala o Node e reaproveita o cache do pnpm
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Instala as dependências
+        run: pnpm install --frozen-lockfile
+
+      - name: Instala o Chromium do Playwright e as bibliotecas do sistema
+        run: pnpm --filter @fintrack/web exec playwright install --with-deps chromium
+
+      - name: Testes de ponta a ponta e acessibilidade (axe)
+        run: pnpm turbo run test:e2e
+        env:
+          TURBO_TELEMETRY_DISABLED: 1
+          NEXT_TELEMETRY_DISABLED: 1
+
+      - name: Guarda o relatório quando algo falha
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: relatorio-playwright
+          path: apps/web/playwright-report/
+          retention-days: 7
