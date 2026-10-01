@@ -1,26 +1,214 @@
+/*
+ * Tema do FinTrack.
+ * Tailwind v4 + shadcn/ui: as cores são variáveis CSS (tokens) em :root (tema claro)
+ * e em .dark (tema escuro). Os componentes usam os nomes, nunca a cor direta.
+ * Cores em OKLCH: L = luminosidade (0–1), C = saturação, H = matiz (0–360).
+ * Todas as combinações de texto têm contraste ≥ 4,5:1 (WCAG 2.2 AA).
+ */
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* O tema escuro é ligado pela classe .dark no <html> (next-themes cuida disso) */
+@custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --radius: 0.625rem;
+
+  /* Superfícies e texto */
+  --background: oklch(0.985 0.004 250);
+  --foreground: oklch(0.22 0.025 255);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.025 255);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.025 255);
+  --muted: oklch(0.955 0.008 250);
+  --muted-foreground: oklch(0.48 0.025 255);
+
+  /* Ação principal: azul-tinta */
+  --primary: oklch(0.44 0.13 258);
+  --primary-foreground: oklch(0.985 0.004 250);
+  --secondary: oklch(0.94 0.012 250);
+  --secondary-foreground: oklch(0.26 0.03 255);
+  --accent: oklch(0.94 0.012 250);
+  --accent-foreground: oklch(0.26 0.03 255);
+
+  /* Bordas e foco */
+  --border: oklch(0.9 0.01 250);
+  --input: oklch(0.86 0.012 250);
+  --ring: oklch(0.44 0.13 258);
+
+  /* Semântica financeira: nunca use estas cores sem ícone ou texto junto */
+  --income: oklch(0.49 0.12 155);
+  --expense: oklch(0.52 0.19 27);
+  --warning: oklch(0.52 0.12 70);
+  --destructive: oklch(0.52 0.19 27);
+
+  /* Gráficos (M08) */
+  --chart-1: oklch(0.44 0.13 258);
+  --chart-2: oklch(0.49 0.12 155);
+  --chart-3: oklch(0.52 0.19 27);
+  --chart-4: oklch(0.62 0.12 70);
+  --chart-5: oklch(0.55 0.1 300);
+
+  /* Menu lateral */
+  --sidebar: oklch(0.97 0.006 250);
+  --sidebar-foreground: oklch(0.22 0.025 255);
+  --sidebar-primary: oklch(0.44 0.13 258);
+  --sidebar-primary-foreground: oklch(0.985 0.004 250);
+  --sidebar-accent: oklch(0.93 0.015 250);
+  --sidebar-accent-foreground: oklch(0.22 0.025 255);
+  --sidebar-border: oklch(0.9 0.01 250);
+  --sidebar-ring: oklch(0.44 0.13 258);
 }
 
+.dark {
+  --background: oklch(0.17 0.015 255);
+  --foreground: oklch(0.96 0.006 250);
+  --card: oklch(0.21 0.018 255);
+  --card-foreground: oklch(0.96 0.006 250);
+  --popover: oklch(0.21 0.018 255);
+  --popover-foreground: oklch(0.96 0.006 250);
+  --muted: oklch(0.25 0.018 255);
+  --muted-foreground: oklch(0.72 0.02 255);
+
+  --primary: oklch(0.76 0.11 258);
+  --primary-foreground: oklch(0.17 0.015 255);
+  --secondary: oklch(0.27 0.02 255);
+  --secondary-foreground: oklch(0.96 0.006 250);
+  --accent: oklch(0.27 0.02 255);
+  --accent-foreground: oklch(0.96 0.006 250);
+
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.76 0.11 258);
+
+  --income: oklch(0.78 0.14 155);
+  --expense: oklch(0.74 0.15 25);
+  --warning: oklch(0.82 0.13 80);
+  --destructive: oklch(0.7 0.17 25);
+
+  --chart-1: oklch(0.76 0.11 258);
+  --chart-2: oklch(0.78 0.14 155);
+  --chart-3: oklch(0.74 0.15 25);
+  --chart-4: oklch(0.82 0.13 80);
+  --chart-5: oklch(0.72 0.12 300);
+
+  --sidebar: oklch(0.19 0.016 255);
+  --sidebar-foreground: oklch(0.96 0.006 250);
+  --sidebar-primary: oklch(0.76 0.11 258);
+  --sidebar-primary-foreground: oklch(0.17 0.015 255);
+  --sidebar-accent: oklch(0.27 0.02 255);
+  --sidebar-accent-foreground: oklch(0.96 0.006 250);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.76 0.11 258);
+}
+
+/* Liga cada variável a um nome de utilitário do Tailwind: bg-income, text-expense... */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-income: var(--income);
+  --color-expense: var(--expense);
+  --color-warning: var(--warning);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    @apply border-border outline-ring;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+  /* Números alinhados em colunas em todo o app */
+  .tabular {
+    font-variant-numeric: tabular-nums;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Foco nunca escondido atrás do que fica fixo na tela (WCAG 2.2, critério 2.4.11).
+   scroll-padding diz ao navegador: "ao rolar até o elemento focado, deixe esta folga".
+   No celular, a folga de cima é o cabeçalho; a de baixo, a barra de navegação e o botão "+". */
+html {
+  scroll-padding-bottom: 2rem;
+}
+/* Com um aviso na tela, a folga de baixo cresce até acima dele, e o conteúdo ganha espaço
+   extra no fim para que até o último item possa subir acima do aviso */
+html:has([data-sonner-toast]) {
+  scroll-padding-bottom: 10rem;
+}
+html:has([data-sonner-toast]) main#conteudo {
+  padding-bottom: 12rem;
+}
+@media (max-width: 767px) {
+  html {
+    scroll-padding-top: 4.5rem;
+    scroll-padding-bottom: 9rem;
+  }
+  html:has([data-sonner-toast]) {
+    scroll-padding-bottom: 17rem;
+  }
+  html:has([data-sonner-toast]) main#conteudo {
+    padding-bottom: 19rem;
+  }
+}
+
+/* Anel de foco dos avisos (o aviso, o "Desfazer" e o "Fechar aviso").
+   O CSS do Sonner usa uma sombra cinza fraca e remove o contorno; aqui trocamos por um
+   contorno na cor do anel, com contraste acima de 3:1 nos dois temas. O !important é
+   necessário porque o Sonner injeta o próprio CSS depois do nosso. */
+[data-sonner-toast]:focus-visible,
+[data-sonner-toast] [data-button]:focus-visible,
+[data-sonner-toast] [data-close-button]:focus-visible {
+  outline: 2px solid var(--ring) !important;
+  outline-offset: 2px;
+}
+
+/* Respeita quem pediu ao sistema menos animação */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

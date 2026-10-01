@@ -5,7 +5,8 @@
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"],
+      "env": ["APP_VERSION"]
     },
     "lint": {
       "dependsOn": ["^lint"]
@@ -20,6 +21,10 @@
     "dev": {
       "cache": false,
       "persistent": true
+    },
+    "test:e2e": {
+      "cache": false,
+      "passThroughEnv": ["CI", "PLAYWRIGHT_*"]
     }
   }
 }
