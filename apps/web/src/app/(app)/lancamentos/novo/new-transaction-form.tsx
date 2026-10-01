@@ -30,6 +30,26 @@ export function NewTransactionForm() {
   const [date, setDate] = useState(() => todayISO());
   const [errors, setErrors] = useState<{ amount?: string; description?: string }>({});
 
+  // O erro some assim que o campo fica válido; voltar a ficar inválido só é apontado no próximo envio
+  function clearError(field: keyof typeof errors) {
+    setErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }
+
+  function handleAmountChange(next: bigint) {
+    setCents(next);
+    if (next > 0n) clearError("amount");
+  }
+
+  function handleDescriptionChange(next: string) {
+    setDescription(next);
+    if (next.trim() !== "") clearError("description");
+  }
+
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const found: typeof errors = {};
@@ -103,7 +123,7 @@ export function NewTransactionForm() {
             id="amount"
             name="amount"
             value={cents}
-            onValueChange={setCents}
+            onValueChange={handleAmountChange}
             aria-invalid={errors.amount ? true : undefined}
             aria-describedby={errors.amount ? "amount-error" : "amount-help"}
             className="h-12 text-lg"
@@ -123,7 +143,7 @@ export function NewTransactionForm() {
             id="description"
             name="description"
             value={description}
-            onChange={(event) => setDescription(event.target.value)}
+            onChange={(event) => handleDescriptionChange(event.target.value)}
             autoComplete="off"
             aria-invalid={errors.description ? true : undefined}
             aria-describedby={errors.description ? "description-error" : undefined}

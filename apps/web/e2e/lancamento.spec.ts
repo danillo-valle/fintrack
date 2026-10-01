@@ -20,8 +20,13 @@ test("mostra os erros e só salva com valor e descrição", async ({ page }) => 
   await expect(amount).toBeFocused();
   await expect(toasts).toHaveCount(0);
 
-  // Só o valor preenchido: o erro de descrição continua e o foco vai para ela
+  // Corrigir o valor apaga o erro dele na hora, sem esperar o próximo envio
   await page.keyboard.type("4235");
+  await expect(amountError).toBeHidden();
+  await expect(amount).not.toHaveAttribute("aria-invalid");
+  await expect(descriptionError).toBeVisible();
+
+  // Só o valor preenchido: o erro de descrição continua e o foco vai para ela
   await save.focus();
   await page.keyboard.press("Enter");
   await expect(amountError).toBeHidden();
@@ -29,8 +34,12 @@ test("mostra os erros e só salva com valor e descrição", async ({ page }) => 
   await expect(description).toBeFocused();
   await expect(toasts).toHaveCount(0);
 
-  // Valor e descrição: salva, limpa o formulário e não mostra erro
+  // Corrigir a descrição também apaga o erro dela na hora
   await page.keyboard.type("Mercado");
+  await expect(descriptionError).toBeHidden();
+  await expect(description).not.toHaveAttribute("aria-invalid");
+
+  // Valor e descrição: salva, limpa o formulário e não mostra erro
   await page.keyboard.press("Enter");
   await expect(toasts.filter({ hasText: "R$ 42,35 registrada" })).toBeVisible();
   await expect(descriptionError).toBeHidden();
