@@ -157,11 +157,14 @@
   body {
     @apply bg-background text-foreground antialiased;
   }
-  /* Celular (abaixo do md, 768px): ao receber foco por Tab, o elemento para acima do "+" e da
-     barra inferior (WCAG 2.4.11). O topo do "+" fica a 8rem do fundo (4.5rem de distância +
-     3.5rem de altura); 1rem a mais deixa o anel de foco visível */
+  /* Celular (abaixo do md, 768px): ao receber foco por Tab ou Shift+Tab, o elemento para fora
+     do cabeçalho fixo, do "+" e da barra inferior (WCAG 2.4.11). 1rem a mais nos dois lados
+     deixa o anel de foco visível.
+     - topo: o cabeçalho tem 3.5rem (h-14)
+     - fundo: o topo do "+" fica a 8rem do fundo (4.5rem de distância + 3.5rem de altura) */
   @media (width < 48rem) {
     html {
+      scroll-padding-top: 4.5rem;
       scroll-padding-bottom: calc(9rem + env(safe-area-inset-bottom));
     }
   }

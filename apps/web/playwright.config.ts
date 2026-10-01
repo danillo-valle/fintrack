@@ -1,5 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
+// Testes que só fazem sentido no layout de celular: rodam só no projeto "celular"
+const MOBILE_ONLY = [/\.celular\.spec\.ts$/, /foco-visivel\.spec\.ts$/];
+
 // Testes de ponta a ponta: abrem o app num navegador de verdade e usam como uma pessoa usaria
 export default defineConfig({
   testDir: "./e2e",
@@ -14,12 +17,12 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] }, testIgnore: /\.celular\.spec\.ts$/ },
+    { name: "chromium", use: { ...devices["Desktop Chrome"] }, testIgnore: MOBILE_ONLY },
     // Largura de celular (abaixo de 768px): barra inferior e botão flutuante "+" na tela
     {
       name: "celular",
       use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 } },
-      testMatch: /\.celular\.spec\.ts$/,
+      testMatch: MOBILE_ONLY,
     },
   ],
   // Sobe o app sozinho; se ele já estiver rodando (pnpm dev), reaproveita
