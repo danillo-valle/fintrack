@@ -1,35 +1,32 @@
 import { defineConfig, devices } from "@playwright/test";
 
-// Testes que só fazem sentido no layout de celular: rodam só no projeto "celular"
-const MOBILE_ONLY = [/\.celular\.spec\.ts$/, /foco-visivel\.spec\.ts$/];
+const PORT = 3000;
+const BASE_URL = `http://localhost:${PORT}`;
+const CI = Boolean(process.env.CI);
 
-// Testes de ponta a ponta: abrem o app num navegador de verdade e usam como uma pessoa usaria
+// Testes de ponta a ponta: abrem um navegador de verdade e usam o app como uma pessoa usaria.
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  reporter: process.env.CI ? "github" : "list",
+  forbidOnly: CI, // no CI, um test.only esquecido reprova a execução
+  retries: CI ? 2 : 0,
+  // No terminal, uma linha por teste; sempre grava também o relatório HTML (playwright show-report)
+  reporter: [[CI ? "github" : "list"], ["html", { open: "never" }]],
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: BASE_URL,
     locale: "pt-BR",
     timezoneId: "America/Sao_Paulo",
-    trace: "on-first-retry",
+    trace: "on-first-retry", // guarda um "filme" do teste quando ele falha e é repetido
   },
   projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] }, testIgnore: MOBILE_ONLY },
-    // Largura de celular (abaixo de 768px): barra inferior e botão flutuante "+" na tela
-    {
-      name: "celular",
-      use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 } },
-      testMatch: MOBILE_ONLY,
-    },
+    { name: "desktop", use: { ...devices["Desktop Chrome"] } },
+    { name: "celular", use: { ...devices["Pixel 7"] } },
   ],
-  // Sobe o app sozinho; se ele já estiver rodando (pnpm dev), reaproveita
+  // Sobe o app antes dos testes. Se você já estiver com "pnpm dev" rodando, reaproveita.
   webServer: {
     command: "pnpm dev",
-    url: "http://localhost:3000",
-    reuseExistingServer: !process.env.CI,
+    url: `${BASE_URL}/api/health`,
+    reuseExistingServer: !CI,
     timeout: 120_000,
   },
 });

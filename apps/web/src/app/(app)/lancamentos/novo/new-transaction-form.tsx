@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { flushSync } from "react-dom";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { undoToastOptions } from "@/components/feedback/undo-toast";
+import { undoToast } from "@/components/feedback/undo-toast";
 import { MoneyInput } from "@/components/money/money-input";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,10 +16,19 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { todayISO } from "@/lib/dates";
+import { focusAfterToast } from "@/lib/focus";
 import { formatBRL } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
 type Kind = "expense" | "income";
+type Errors = { amount?: string; description?: string };
+
+function validate(cents: bigint, description: string): Errors {
+  const found: Errors = {};
+  if (cents <= 0n) found.amount = "Informe um valor maior que zero.";
+  if (description.trim() === "") found.description = "Descreva o lançamento, por exemplo: Mercado.";
+  return found;
+}
 
 // Formulário de demonstração: valida e mostra o aviso, mas ainda não salva (o salvamento chega no M07)
 export function NewTransactionForm() {
@@ -28,60 +36,45 @@ export function NewTransactionForm() {
   const [cents, setCents] = useState<bigint>(0n);
   const [description, setDescription] = useState("");
   const [date, setDate] = useState(() => todayISO());
-  const [errors, setErrors] = useState<{ amount?: string; description?: string }>({});
+  const [errors, setErrors] = useState<Errors>({});
+  const amountRef = useRef<HTMLInputElement>(null);
+  const descriptionRef = useRef<HTMLInputElement>(null);
 
-  // O erro some assim que o campo fica válido; voltar a ficar inválido só é apontado no próximo envio
-  function clearError(field: keyof typeof errors) {
-    setErrors((current) => {
-      if (!current[field]) return current;
-      const next = { ...current };
-      delete next[field];
-      return next;
-    });
+  // O erro de um campo some assim que ele fica válido. Um erro novo só aparece no próximo envio:
+  // avisar enquanto a pessoa ainda está digitando atrapalha mais do que ajuda.
+  function changeAmount(value: bigint) {
+    setCents(value);
+    if (value > 0n) setErrors((current) => ({ ...current, amount: undefined }));
   }
-
-  function handleAmountChange(next: bigint) {
-    setCents(next);
-    if (next > 0n) clearError("amount");
-  }
-
-  function handleDescriptionChange(next: string) {
-    setDescription(next);
-    if (next.trim() !== "") clearError("description");
+  function changeDescription(value: string) {
+    setDescription(value);
+    if (value.trim() !== "") setErrors((current) => ({ ...current, description: undefined }));
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const found: typeof errors = {};
-    if (cents <= 0n) found.amount = "Informe um valor maior que zero.";
-    if (description.trim() === "")
-      found.description = "Descreva o lançamento, por exemplo: Mercado.";
-    // flushSync: o campo já precisa estar com aria-invalid e a mensagem de erro quando receber o foco
-    flushSync(() => setErrors(found));
-    if (found.amount || found.description) {
-      document.getElementById(found.amount ? "amount" : "description")?.focus();
-      return;
-    }
+    const found = validate(cents, description);
+    setErrors(found);
+    // Leva o foco ao primeiro campo com erro: o leitor de tela lê o rótulo e a mensagem
+    if (found.amount) return amountRef.current?.focus();
+    if (found.description) return descriptionRef.current?.focus();
 
     const label = kind === "expense" ? "Despesa" : "Receita";
     const saved = { kind, cents, description, date };
-    toast.success(
-      `${label} de ${formatBRL(cents)} registrada`,
-      undoToastOptions({
-        description: `${description} · exemplo: o salvamento de verdade chega no M07`,
-        onUndo: () => {
-          flushSync(() => {
-            setKind(saved.kind);
-            setCents(saved.cents);
-            setDescription(saved.description);
-            setDate(saved.date);
-          });
-          // Volta para o primeiro campo restaurado, em vez de deixar o foco no body
-          document.getElementById("amount")?.focus();
-          toast("Lançamento desfeito");
-        },
-      }),
-    );
+    undoToast(`${label} de ${formatBRL(cents)} registrada`, {
+      variant: "success",
+      description: `${description} · exemplo: o salvamento de verdade chega no M07.`,
+      onUndo: () => {
+        setKind(saved.kind);
+        setCents(saved.cents);
+        setDescription(saved.description);
+        setDate(saved.date);
+        setErrors({});
+        toast("Lançamento desfeito");
+        // Devolve o foco ao formulário, no primeiro campo a revisar
+        focusAfterToast(() => amountRef.current);
+      },
+    });
     setCents(0n);
     setDescription("");
   }
@@ -120,10 +113,11 @@ export function NewTransactionForm() {
         <Field data-invalid={errors.amount ? true : undefined}>
           <FieldLabel htmlFor="amount">Valor</FieldLabel>
           <MoneyInput
+            ref={amountRef}
             id="amount"
             name="amount"
             value={cents}
-            onValueChange={handleAmountChange}
+            onValueChange={changeAmount}
             aria-invalid={errors.amount ? true : undefined}
             aria-describedby={errors.amount ? "amount-error" : "amount-help"}
             className="h-12 text-lg"
@@ -140,10 +134,11 @@ export function NewTransactionForm() {
         <Field data-invalid={errors.description ? true : undefined}>
           <FieldLabel htmlFor="description">Descrição</FieldLabel>
           <Input
+            ref={descriptionRef}
             id="description"
             name="description"
             value={description}
-            onChange={(event) => handleDescriptionChange(event.target.value)}
+            onChange={(event) => changeDescription(event.target.value)}
             autoComplete="off"
             aria-invalid={errors.description ? true : undefined}
             aria-describedby={errors.description ? "description-error" : undefined}
@@ -162,7 +157,9 @@ export function NewTransactionForm() {
             type="date"
             value={date}
             onChange={(event) => setDate(event.target.value)}
-            className="h-10"
+            // O botão do calendário fica dentro do campo e não ativa o focus-visible dele:
+            // com focus-within:, o anel do app aparece também quando o foco está nesse botão
+            className="focus-within:border-ring focus-within:ring-ring h-10 focus-within:ring-3"
           />
         </Field>
 

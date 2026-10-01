@@ -57,7 +57,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main
           id="conteudo"
           tabIndex={-1}
-          className="mx-auto w-full max-w-5xl flex-1 px-4 pt-6 pb-[calc(17rem+env(safe-area-inset-bottom))] outline-none md:px-8 md:pt-10 md:pb-12"
+          className="mx-auto w-full max-w-5xl flex-1 px-4 pt-6 pb-36 outline-none md:px-8 md:pt-10 md:pb-12"
         >
           {children}
         </main>

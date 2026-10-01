@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { appendDigits, centsToDecimal, digitsToCents, dropLastDigit, formatBRL } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -40,11 +40,22 @@ export function MoneyInput({
   onValueChange,
   className,
   onFocus,
+  ref: externalRef,
   ...props
 }: Props) {
   const [internal, setInternal] = useState<bigint>(defaultValue);
   const cents = value ?? internal;
-  const ref = useRef<HTMLInputElement>(null);
+  const ref = useRef<HTMLInputElement | null>(null);
+  // O campo precisa da própria referência (para o cursor e o beforeinput) e também repassa
+  // a referência a quem usa o componente (por exemplo, para levar o foco até ele num erro)
+  const setRefs = useCallback(
+    (el: HTMLInputElement | null) => {
+      ref.current = el;
+      if (typeof externalRef === "function") externalRef(el);
+      else if (externalRef) externalRef.current = el;
+    },
+    [externalRef],
+  );
 
   // Guardam a versão mais recente do valor e da função de atualização,
   // para o listener abaixo nunca trabalhar com um valor antigo
@@ -93,7 +104,7 @@ export function MoneyInput({
     <>
       <Input
         {...props}
-        ref={ref}
+        ref={setRefs}
         type="text"
         inputMode="numeric"
         autoComplete="off"

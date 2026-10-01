@@ -1,15 +1,15 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { flushSync } from "react-dom";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ErrorState } from "@/components/feedback/error-state";
-import { undoToastOptions } from "@/components/feedback/undo-toast";
+import { undoToast } from "@/components/feedback/undo-toast";
 import { AmountText } from "@/components/money/amount-text";
 import { MoneyInput } from "@/components/money/money-input";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { focusAfterToast } from "@/lib/focus";
 import { centsToDecimal } from "@/lib/money";
 
 export function MoneyInputDemo() {
@@ -37,62 +37,66 @@ const SAMPLE: Item[] = [
   { id: 3, description: "Farmácia (exemplo)", cents: -6790n },
 ];
 
-// Excluir sem confirmação, mas com "Desfazer": mais rápido que perguntar "tem certeza?" e igualmente seguro
-export function UndoDeleteDemo({ headingId }: { headingId: string }) {
+// Excluir sem confirmação, mas com "Desfazer": mais rápido que perguntar "tem certeza?" e igualmente seguro.
+// Cuidado com o foco: o botão clicado some da tela. Sem tratamento, o foco cairia no início da
+// página e quem usa teclado teria de recomeçar. Por isso o foco vai para a próxima lixeira
+// (ou para o aviso de lista vazia) e, ao desfazer, volta para a lixeira do item restaurado.
+export function UndoDeleteDemo() {
   const [items, setItems] = useState<Item[]>(SAMPLE);
-  const deleteButtons = useRef(new Map<number, HTMLButtonElement>());
+  const listRef = useRef<HTMLUListElement>(null);
+  const emptyRef = useRef<HTMLParagraphElement>(null);
 
-  // O botão focado some junto com o item; sem isto o foco cairia no body
+  const trashButton = (id: number) =>
+    listRef.current?.querySelector<HTMLButtonElement>(`[data-item-id="${id}"]`);
+
   function remove(item: Item) {
     const index = items.findIndex((i) => i.id === item.id);
-    const remaining = items.filter((i) => i.id !== item.id);
-    const next = remaining[index] ?? remaining[index - 1];
+    const rest = items.filter((i) => i.id !== item.id);
+    // Próximo item; se era o último da lista, o anterior
+    const neighbor = rest[index] ?? rest[index - 1];
+    setItems(rest);
 
-    flushSync(() => setItems(remaining));
-    if (next) deleteButtons.current.get(next.id)?.focus();
-    else document.getElementById(headingId)?.focus();
-
-    toast(
-      `"${item.description}" excluído`,
-      undoToastOptions({
-        onUndo: () => {
-          flushSync(() => setItems((current) => [...current, item].sort((a, b) => a.id - b.id)));
-          deleteButtons.current.get(item.id)?.focus();
-        },
-      }),
-    );
+    undoToast(`"${item.description}" excluído`, {
+      onUndo: () => {
+        setItems((current) => [...current, item].sort((a, b) => a.id - b.id));
+        focusAfterToast(() => trashButton(item.id));
+      },
+    });
+    focusAfterToast(() => (neighbor ? trashButton(neighbor.id) : emptyRef.current));
   }
 
   return (
-    <ul className="divide-y rounded-xl border">
-      {items.map((item) => (
-        <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-3">
-          <span className="min-w-0 truncate">{item.description}</span>
-          <span className="flex items-center gap-2">
-            <AmountText cents={item.cents} />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => remove(item)}
-              ref={(el) => {
-                if (el) deleteButtons.current.set(item.id, el);
-                return () => {
-                  deleteButtons.current.delete(item.id);
-                };
-              }}
-              aria-label={`Excluir ${item.description}`}
-            >
-              <Trash2 aria-hidden />
-            </Button>
-          </span>
-        </li>
-      ))}
+    <div>
+      <ul ref={listRef} className="divide-y rounded-xl border empty:hidden">
+        {items.map((item) => (
+          <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-3">
+            <span className="min-w-0 truncate">{item.description}</span>
+            <span className="flex items-center gap-2">
+              <AmountText cents={item.cents} />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                data-item-id={item.id}
+                onClick={() => remove(item)}
+                aria-label={`Excluir ${item.description}`}
+              >
+                <Trash2 aria-hidden />
+              </Button>
+            </span>
+          </li>
+        ))}
+      </ul>
       {items.length === 0 ? (
-        <li className="text-muted-foreground px-4 py-3 text-sm">
-          Lista vazia. Use &quot;Desfazer&quot; no aviso.
-        </li>
+        // tabIndex={-1}: pode receber o foco pelo código, mas não entra na ordem do Tab
+        <p
+          ref={emptyRef}
+          tabIndex={-1}
+          className="text-muted-foreground focus-visible:ring-ring rounded-xl border px-4 py-3 text-sm outline-none focus-visible:ring-3"
+        >
+          Lista vazia. Use &quot;Desfazer&quot; no aviso (Alt+T leva até ele).
+        </p>
       ) : null}
-    </ul>
+    </div>
   );
 }

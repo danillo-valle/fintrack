@@ -2,18 +2,8 @@
 
 import { ThemeProvider } from "next-themes";
 import { useEffect } from "react";
+import { ToastKeyboard } from "@/components/feedback/toast-keyboard";
 import { Toaster } from "@/components/ui/sonner";
-
-// Anel de foco dos avisos igual ao do resto do app (ring-3 ring-ring). O "!" é necessário porque
-// o CSS do Sonner fica fora das camadas do Tailwind e ganharia das classes. O contêiner focado
-// pelo Alt+T tem altura zero (os avisos são absolutos), então o anel dele aparece em cada aviso,
-// via group-focus-visible.
-const FOCUS_RING = "outline-none focus-visible:ring-3! focus-visible:ring-ring!";
-const TOAST_FOCUS_RING = {
-  toast: `${FOCUS_RING} group-focus-visible:ring-3! group-focus-visible:ring-ring!`,
-  actionButton: FOCUS_RING,
-  closeButton: FOCUS_RING,
-};
 
 // Tudo que precisa existir uma vez só, em volta do app inteiro
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -26,16 +16,22 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
       {children}
-      {/* No celular, os avisos sobem acima do "+" (8rem do fundo) e da barra inferior.
-          Os rótulos substituem os padrões em inglês do Sonner ("Notifications", "Close toast");
-          o leitor de tela anuncia a região como "Notificações alt+T" */}
       <Toaster
         position="bottom-center"
         closeButton
-        mobileOffset={{ bottom: "calc(8.5rem + env(safe-area-inset-bottom))" }}
+        // Nomes lidos pelo leitor de tela (o padrão do Sonner é em inglês)
         containerAriaLabel="Notificações"
-        toastOptions={{ closeButtonAriaLabel: "Fechar aviso", classNames: TOAST_FOCUS_RING }}
+        // No celular, o aviso fica acima do botão "+" e da barra de navegação.
+        // A folga de rolagem para o foco não ficar embaixo dele está no globals.css.
+        mobileOffset={{ bottom: "calc(8.75rem + env(safe-area-inset-bottom))" }}
+        // Este toastOptions substitui o do components/ui/sonner.tsx: por isso repete o rounded-2xl
+        toastOptions={{
+          closeButtonAriaLabel: "Fechar aviso",
+          classNames: { toast: "rounded-2xl" },
+        }}
       />
+      {/* Sair do aviso com Tab: o foco volta visível e não fica girando (veja o arquivo) */}
+      <ToastKeyboard />
     </ThemeProvider>
   );
 }

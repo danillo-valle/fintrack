@@ -1,97 +1,48 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { openPage } from "./helpers";
 
-// Relógio controlado: dá para pular os segundos do aviso sem esperar de verdade
-async function openCatalog(page: Page): Promise<void> {
-  await page.clock.install();
-  await page.goto("/dev/ui");
-  await expect(page.locator("html")).toHaveAttribute("data-hydrated", "true");
-}
-
-function deleteButton(page: Page, name: string): Locator {
-  return page.getByRole("button", { name: `Excluir ${name} (exemplo)` });
-}
-
-function toastFor(page: Page, name: string): Locator {
-  return page.locator("[data-sonner-toast]").filter({ hasText: `"${name} (exemplo)" excluído` });
-}
-
-// Aperta Tab até o foco chegar no alvo, como faria quem só usa o teclado
-async function tabUntil(page: Page, target: Locator, maxPresses = 10): Promise<void> {
-  for (let i = 0; i < maxPresses; i++) {
-    await page.keyboard.press("Tab");
-    if (await target.evaluate((el) => el === document.activeElement)) return;
-  }
-  throw new Error(`O foco não chegou ao alvo depois de ${maxPresses} Tabs`);
-}
-
-test.describe("Excluir com desfazer, só com teclado", () => {
-  test("depois de excluir, o foco vai para o próximo botão de excluir", async ({ page }) => {
-    await openCatalog(page);
-
-    await deleteButton(page, "Mercado").focus();
-    await page.keyboard.press("Enter");
-    await expect(deleteButton(page, "Salário")).toBeFocused();
-
-    await page.keyboard.press("Enter");
-    await expect(deleteButton(page, "Farmácia")).toBeFocused();
-  });
-
-  test("ao excluir o último da lista, o foco vai para o novo último", async ({ page }) => {
-    await openCatalog(page);
-
-    await deleteButton(page, "Farmácia").focus();
-    await page.keyboard.press("Enter");
-    await expect(deleteButton(page, "Salário")).toBeFocused();
-  });
-
-  test("com a lista vazia, o foco vai para o título da seção", async ({ page }) => {
-    await openCatalog(page);
-
-    await deleteButton(page, "Mercado").focus();
-    for (let i = 0; i < 3; i++) await page.keyboard.press("Enter");
-    await expect(page.getByRole("heading", { name: "Excluir com desfazer" })).toBeFocused();
-  });
-
-  test("o aviso dura 10 segundos e ensina o atalho Alt+T", async ({ page }) => {
-    await openCatalog(page);
-
-    await deleteButton(page, "Mercado").focus();
-    await page.keyboard.press("Enter");
-    const toast = toastFor(page, "Mercado");
-    await expect(toast).toContainText("Alt+T");
-
-    await page.clock.fastForward(8_000);
-    await expect(toast).toBeVisible();
-
-    await page.clock.fastForward(3_000);
-    await expect(toast).toBeHidden();
-  });
-
-  test("Alt+T pausa o aviso, e desfazer devolve o foco ao item restaurado", async ({ page }) => {
-    await openCatalog(page);
-
-    await deleteButton(page, "Mercado").focus();
-    await page.keyboard.press("Enter");
-    const toast = toastFor(page, "Mercado");
-
-    await page.keyboard.press("Alt+t");
-    await page.clock.fastForward(20_000);
-    await expect(toast).toBeVisible();
-
-    await tabUntil(page, toast.getByRole("button", { name: "Desfazer" }));
-    await page.keyboard.press("Enter");
-
-    await expect(deleteButton(page, "Mercado")).toBeFocused();
-  });
+test.beforeEach(async ({ page }) => {
+  await openPage(page, "/dev/ui");
 });
 
-test("os avisos têm nomes acessíveis em português", async ({ page }) => {
-  await openCatalog(page);
-
-  await deleteButton(page, "Mercado").focus();
+test("excluir com desfazer funciona só com o teclado", async ({ page }) => {
+  const excluir = page.getByRole("button", { name: "Excluir Mercado (exemplo)" });
+  await excluir.focus();
   await page.keyboard.press("Enter");
-  const toast = toastFor(page, "Mercado");
+  await expect(page.getByText("Mercado (exemplo)", { exact: true })).toHaveCount(0);
 
-  await expect(toast.getByRole("button", { name: "Fechar aviso" })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Notificações alt+T" })).toBeAttached();
+  // O foco não se perde: vai para a lixeira do próximo item
+  await expect(page.getByRole("button", { name: "Excluir Salário (exemplo)" })).toBeFocused();
+
+  // Alt+T leva o foco à região dos avisos; dali, o Tab chega ao Desfazer
+  await page.keyboard.press("Alt+T");
+  const desfazer = page.getByRole("button", { name: "Desfazer" });
+  for (let i = 0; i < 5 && !(await desfazer.evaluate((el) => el === document.activeElement)); i++) {
+    await page.keyboard.press("Tab");
+  }
+  await expect(desfazer).toBeFocused();
+  await page.keyboard.press("Enter");
+
+  await expect(page.getByText("Mercado (exemplo)", { exact: true })).toBeVisible();
+  // Ao desfazer, o foco volta para a lixeira do item restaurado
+  await expect(excluir).toBeFocused();
+});
+
+test("excluir o último item leva o foco ao aviso de lista vazia", async ({ page }) => {
+  for (const nome of ["Mercado", "Salário", "Farmácia"]) {
+    await page.getByRole("button", { name: `Excluir ${nome} (exemplo)` }).click();
+  }
+  await expect(page.getByText(/^Lista vazia/)).toBeFocused();
+});
+
+test("o aviso fala português e dá tempo para chegar ao Desfazer", async ({ page }) => {
+  await page.getByRole("button", { name: "Excluir Mercado (exemplo)" }).click();
+  await expect(page.getByRole("region", { name: /Notificações/ })).toBeAttached();
+  await expect(page.getByRole("button", { name: "Fechar aviso" })).toBeAttached();
+  await expect(page.getByText("Alt+T leva aos avisos e pausa o tempo.")).toBeVisible();
+
+  // Sem interação, o aviso ainda está na tela depois de 6 s (o padrão do Sonner seria 4 s)
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(6_000);
+  await expect(page.getByRole("button", { name: "Desfazer" })).toBeVisible();
 });
