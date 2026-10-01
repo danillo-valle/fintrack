@@ -2,6 +2,7 @@
 
 import { useTheme } from "next-themes";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
+import { cn } from "@/lib/utils";
 import {
   CircleCheckIcon,
   InfoIcon,
@@ -36,8 +37,8 @@ const Toaster = ({ toastOptions, ...props }: ToasterProps) => {
       toastOptions={{
         ...toastOptions,
         classNames: {
-          toast: "cn-toast",
           ...toastOptions?.classNames,
+          toast: cn("cn-toast", toastOptions?.classNames?.toast),
         },
       }}
       {...props}
