@@ -10,9 +10,15 @@
   },
   "bypass_actors": [],
   "rules": [
-    { "type": "deletion" },
-    { "type": "non_fast_forward" },
-    { "type": "required_linear_history" },
+    {
+      "type": "deletion"
+    },
+    {
+      "type": "non_fast_forward"
+    },
+    {
+      "type": "required_linear_history"
+    },
     {
       "type": "pull_request",
       "parameters": {
@@ -28,7 +34,17 @@
       "type": "required_status_checks",
       "parameters": {
         "strict_required_status_checks_policy": true,
-        "required_status_checks": [{ "context": "qualidade" }, { "context": "seguranca" }]
+        "required_status_checks": [
+          {
+            "context": "qualidade"
+          },
+          {
+            "context": "seguranca"
+          },
+          {
+            "context": "e2e"
+          }
+        ]
       }
     }
   ]
