@@ -16,13 +16,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
       {children}
       {/* No celular, sobe os avisos para não cobrirem a barra de navegação.
-          containerAriaLabel: o leitor de tela anuncia a região como "Avisos alt+T", o mesmo
-          atalho que os avisos com "Desfazer" ensinam na descrição */}
+          Os rótulos substituem os padrões em inglês do Sonner ("Notifications", "Close toast");
+          o leitor de tela anuncia a região como "Notificações alt+T" */}
       <Toaster
         position="bottom-center"
         closeButton
         mobileOffset={{ bottom: "5.5rem" }}
-        containerAriaLabel="Avisos"
+        containerAriaLabel="Notificações"
+        toastOptions={{ closeButtonAriaLabel: "Fechar aviso" }}
       />
     </ThemeProvider>
   );

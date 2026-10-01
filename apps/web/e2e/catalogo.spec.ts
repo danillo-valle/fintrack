@@ -84,3 +84,14 @@ test.describe("Excluir com desfazer, só com teclado", () => {
     await expect(deleteButton(page, "Mercado")).toBeFocused();
   });
 });
+
+test("os avisos têm nomes acessíveis em português", async ({ page }) => {
+  await openCatalog(page);
+
+  await deleteButton(page, "Mercado").focus();
+  await page.keyboard.press("Enter");
+  const toast = toastFor(page, "Mercado");
+
+  await expect(toast.getByRole("button", { name: "Fechar aviso" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Notificações alt+T" })).toBeAttached();
+});
