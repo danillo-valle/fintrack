@@ -6,6 +6,7 @@ e o antigo passa a ter status "substituída por ADR-00X".
 
 Modelo para um ADR novo: copie `0001-stack-e-monorepo.md` e troque o conteúdo.
 
-| Nº  | Decisão                                                | Status |
-| --- | ------------------------------------------------------ | ------ |
-| 001 | [Stack principal e monorepo](0001-stack-e-monorepo.md) | aceita |
+| Nº  | Decisão                                                               | Status |
+| --- | --------------------------------------------------------------------- | ------ |
+| 001 | [Stack principal e monorepo](0001-stack-e-monorepo.md)                | aceita |
+| 002 | [Design system, tokens e dinheiro em centavos](0002-design-system.md) | aceita |

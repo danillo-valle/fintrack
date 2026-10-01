@@ -2,7 +2,6 @@
 
 import { useTheme } from "next-themes";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
-import { cn } from "@/lib/utils";
 import {
   CircleCheckIcon,
   InfoIcon,
@@ -11,7 +10,7 @@ import {
   Loader2Icon,
 } from "lucide-react";
 
-const Toaster = ({ toastOptions, ...props }: ToasterProps) => {
+const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme();
 
   return (
@@ -33,12 +32,9 @@ const Toaster = ({ toastOptions, ...props }: ToasterProps) => {
           "--border-radius": "var(--radius)",
         } as React.CSSProperties
       }
-      // Mescla em vez de substituir: quem passa toastOptions não perde a classe padrão
       toastOptions={{
-        ...toastOptions,
         classNames: {
-          ...toastOptions?.classNames,
-          toast: cn("cn-toast", toastOptions?.classNames?.toast),
+          toast: "cn-toast",
         },
       }}
       {...props}
