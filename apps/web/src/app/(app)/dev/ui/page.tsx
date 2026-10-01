@@ -39,8 +39,7 @@ function Section({
       aria-labelledby={id}
       className="border-t py-8 first-of-type:border-t-0 first-of-type:pt-0"
     >
-      {/* tabIndex -1: não entra no Tab, mas pode receber foco quando o conteúdo da seção some */}
-      <h2 id={id} tabIndex={-1} className="mb-4 text-lg font-semibold">
+      <h2 id={id} className="mb-4 text-lg font-semibold">
         {title}
       </h2>
       {children}
@@ -120,7 +119,7 @@ export default function UiCatalogPage() {
       </Section>
 
       <Section id="desfazer" title="Excluir com desfazer">
-        <UndoDeleteDemo headingId="desfazer" />
+        <UndoDeleteDemo />
       </Section>
     </>
   );
