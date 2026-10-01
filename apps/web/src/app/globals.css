@@ -158,14 +158,25 @@
     @apply bg-background text-foreground antialiased;
   }
   /* Celular (abaixo do md, 768px): ao receber foco por Tab ou Shift+Tab, o elemento para fora
-     do cabeçalho fixo, do "+" e da barra inferior (WCAG 2.4.11). 1rem a mais nos dois lados
-     deixa o anel de foco visível.
+     de tudo o que é fixo (WCAG 2.4.11). 1rem a mais nos dois lados deixa o anel de foco visível.
      - topo: o cabeçalho tem 3.5rem (h-14)
-     - fundo: o topo do "+" fica a 8rem do fundo (4.5rem de distância + 3.5rem de altura) */
+     - fundo, de baixo para cima: barra inferior, "+" (topo a 8rem) e avisos, que começam a
+       8.5rem (mobileOffset em providers.tsx) e têm até 7.5rem (3 linhas ou 3 empilhados).
+       A zona fica reservada mesmo sem aviso: ao excluir, o foco muda antes de o aviso aparecer.
+     O padding inferior do <main> (app-shell.tsx) usa a mesma medida, para o último item
+     conseguir rolar até acima de tudo. */
   @media (width < 48rem) {
     html {
       scroll-padding-top: 4.5rem;
-      scroll-padding-bottom: calc(9rem + env(safe-area-inset-bottom));
+      scroll-padding-bottom: calc(17rem + env(safe-area-inset-bottom));
+    }
+  }
+  /* Entre 600px e o md o layout já é de celular, mas o Sonner ainda usa a distância de desktop
+     (24px do fundo) e cobriria o "+" e a barra. O !important vence a variável que o Sonner
+     grava no próprio elemento. */
+  @media (600px < width < 48rem) {
+    [data-sonner-toaster][data-y-position="bottom"] {
+      --offset-bottom: calc(8.5rem + env(safe-area-inset-bottom)) !important;
     }
   }
   /* Números alinhados em colunas em todo o app */
