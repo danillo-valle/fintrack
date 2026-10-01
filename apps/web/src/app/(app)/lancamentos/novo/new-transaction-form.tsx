@@ -97,7 +97,7 @@ export function NewTransactionForm() {
               <label
                 key={option}
                 className={cn(
-                  "has-focus-visible:ring-ring/50 flex h-10 cursor-pointer items-center justify-center rounded-md text-sm font-medium has-focus-visible:ring-3",
+                  "has-focus-visible:ring-ring flex h-10 cursor-pointer items-center justify-center rounded-md text-sm font-medium has-focus-visible:ring-3",
                   kind === option && "bg-background shadow-sm",
                   kind === option && option === "expense" && "text-expense",
                   kind === option && option === "income" && "text-income",

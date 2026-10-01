@@ -16,7 +16,7 @@ export function NewTransactionFab() {
     <Link
       href={HREF}
       aria-label="Novo lançamento"
-      className="bg-primary text-primary-foreground focus-visible:ring-ring/50 fixed right-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 flex size-14 items-center justify-center rounded-full shadow-lg outline-none focus-visible:ring-4 md:hidden"
+      className="bg-primary text-primary-foreground focus-visible:ring-ring fixed right-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 flex size-14 items-center justify-center rounded-full shadow-lg outline-none focus-visible:ring-4 md:hidden"
     >
       <Plus aria-hidden className="size-6" />
     </Link>

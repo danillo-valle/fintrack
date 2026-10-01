@@ -4,12 +4,15 @@ import { ThemeProvider } from "next-themes";
 import { useEffect } from "react";
 import { Toaster } from "@/components/ui/sonner";
 
-// Anel de foco dos avisos com os tokens do tema. O "!" é necessário porque o CSS do Sonner fica
-// fora das camadas do Tailwind e ganharia das classes. O contêiner focado pelo Alt+T tem altura
-// zero (os avisos são absolutos), então o anel dele aparece em cada aviso, via group-focus-visible.
+// Anel de foco dos avisos igual ao do resto do app (ring-3 ring-ring). O "!" é necessário porque
+// o CSS do Sonner fica fora das camadas do Tailwind e ganharia das classes. O contêiner focado
+// pelo Alt+T tem altura zero (os avisos são absolutos), então o anel dele aparece em cada aviso,
+// via group-focus-visible.
+const FOCUS_RING = "outline-none focus-visible:ring-3! focus-visible:ring-ring!";
 const TOAST_FOCUS_RING = {
-  toast: "group-focus-visible:ring-3! group-focus-visible:ring-ring!",
-  actionButton: "focus-visible:ring-3! focus-visible:ring-ring!",
+  toast: `${FOCUS_RING} group-focus-visible:ring-3! group-focus-visible:ring-ring!`,
+  actionButton: FOCUS_RING,
+  closeButton: FOCUS_RING,
 };
 
 // Tudo que precisa existir uma vez só, em volta do app inteiro

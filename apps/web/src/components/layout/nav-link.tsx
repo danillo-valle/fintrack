@@ -24,7 +24,7 @@ export function NavLink({ href, label, variant, icon }: Props) {
       // aria-current avisa o leitor de tela qual é a página atual
       aria-current={active ? "page" : undefined}
       className={cn(
-        "focus-visible:ring-ring/50 outline-none focus-visible:ring-3",
+        "focus-visible:ring-ring outline-none focus-visible:ring-3",
         variant === "sidebar" &&
           "text-sidebar-foreground hover:bg-sidebar-accent flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium",
         variant === "sidebar" && active && "bg-sidebar-accent text-sidebar-accent-foreground",
