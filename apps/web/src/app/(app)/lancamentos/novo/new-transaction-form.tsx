@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { flushSync } from "react-dom";
 import { toast } from "sonner";
+import { undoToastOptions } from "@/components/feedback/undo-toast";
 import { MoneyInput } from "@/components/money/money-input";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,24 +36,32 @@ export function NewTransactionForm() {
     if (cents <= 0n) found.amount = "Informe um valor maior que zero.";
     if (description.trim() === "")
       found.description = "Descreva o lançamento, por exemplo: Mercado.";
-    setErrors(found);
-    if (Object.keys(found).length > 0) return;
+    // flushSync: o campo já precisa estar com aria-invalid e a mensagem de erro quando receber o foco
+    flushSync(() => setErrors(found));
+    if (found.amount || found.description) {
+      document.getElementById(found.amount ? "amount" : "description")?.focus();
+      return;
+    }
 
     const label = kind === "expense" ? "Despesa" : "Receita";
     const saved = { kind, cents, description, date };
-    toast.success(`${label} de ${formatBRL(cents)} registrada`, {
-      description: `${description} · exemplo: o salvamento de verdade chega no M07`,
-      action: {
-        label: "Desfazer",
-        onClick: () => {
-          setKind(saved.kind);
-          setCents(saved.cents);
-          setDescription(saved.description);
-          setDate(saved.date);
+    toast.success(
+      `${label} de ${formatBRL(cents)} registrada`,
+      undoToastOptions({
+        description: `${description} · exemplo: o salvamento de verdade chega no M07`,
+        onUndo: () => {
+          flushSync(() => {
+            setKind(saved.kind);
+            setCents(saved.cents);
+            setDescription(saved.description);
+            setDate(saved.date);
+          });
+          // Volta para o primeiro campo restaurado, em vez de deixar o foco no body
+          document.getElementById("amount")?.focus();
           toast("Lançamento desfeito");
         },
-      },
-    });
+      }),
+    );
     setCents(0n);
     setDescription("");
   }

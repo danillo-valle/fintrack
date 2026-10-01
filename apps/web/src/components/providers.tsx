@@ -15,8 +15,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
       {children}
-      {/* No celular, sobe os avisos para não cobrirem a barra de navegação */}
-      <Toaster position="bottom-center" closeButton mobileOffset={{ bottom: "5.5rem" }} />
+      {/* No celular, sobe os avisos para não cobrirem a barra de navegação.
+          containerAriaLabel: o leitor de tela anuncia a região como "Avisos alt+T", o mesmo
+          atalho que os avisos com "Desfazer" ensinam na descrição */}
+      <Toaster
+        position="bottom-center"
+        closeButton
+        mobileOffset={{ bottom: "5.5rem" }}
+        containerAriaLabel="Avisos"
+      />
     </ThemeProvider>
   );
 }

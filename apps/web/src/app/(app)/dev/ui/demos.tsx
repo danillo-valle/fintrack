@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ErrorState } from "@/components/feedback/error-state";
+import { undoToastOptions } from "@/components/feedback/undo-toast";
 import { AmountText } from "@/components/money/amount-text";
 import { MoneyInput } from "@/components/money/money-input";
 import { Button } from "@/components/ui/button";
@@ -36,17 +38,29 @@ const SAMPLE: Item[] = [
 ];
 
 // Excluir sem confirmação, mas com "Desfazer": mais rápido que perguntar "tem certeza?" e igualmente seguro
-export function UndoDeleteDemo() {
+export function UndoDeleteDemo({ headingId }: { headingId: string }) {
   const [items, setItems] = useState<Item[]>(SAMPLE);
+  const deleteButtons = useRef(new Map<number, HTMLButtonElement>());
 
+  // O botão focado some junto com o item; sem isto o foco cairia no body
   function remove(item: Item) {
-    setItems((current) => current.filter((i) => i.id !== item.id));
-    toast(`"${item.description}" excluído`, {
-      action: {
-        label: "Desfazer",
-        onClick: () => setItems((current) => [...current, item].sort((a, b) => a.id - b.id)),
-      },
-    });
+    const index = items.findIndex((i) => i.id === item.id);
+    const remaining = items.filter((i) => i.id !== item.id);
+    const next = remaining[index] ?? remaining[index - 1];
+
+    flushSync(() => setItems(remaining));
+    if (next) deleteButtons.current.get(next.id)?.focus();
+    else document.getElementById(headingId)?.focus();
+
+    toast(
+      `"${item.description}" excluído`,
+      undoToastOptions({
+        onUndo: () => {
+          flushSync(() => setItems((current) => [...current, item].sort((a, b) => a.id - b.id)));
+          deleteButtons.current.get(item.id)?.focus();
+        },
+      }),
+    );
   }
 
   return (
@@ -61,6 +75,12 @@ export function UndoDeleteDemo() {
               variant="ghost"
               size="icon"
               onClick={() => remove(item)}
+              ref={(el) => {
+                if (el) deleteButtons.current.set(item.id, el);
+                return () => {
+                  deleteButtons.current.delete(item.id);
+                };
+              }}
               aria-label={`Excluir ${item.description}`}
             >
               <Trash2 aria-hidden />

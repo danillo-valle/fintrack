@@ -12,7 +12,8 @@
     "test": "turbo run test",
     "check": "turbo run lint typecheck test build",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "e2e": "pnpm --filter @fintrack/web e2e"
   },
   "packageManager": "pnpm@12.8.1",
   "devDependencies": {
