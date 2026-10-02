@@ -108,7 +108,8 @@ export function TwoFactorSetup() {
           Passo 2 de 3: ler o QR code
         </h2>
         <p className="text-muted-foreground mb-4 text-sm">
-          No app autenticador (Google Authenticator, Microsoft Authenticator, 1Password, Bitwarden),
+          Serve qualquer app de códigos de 6 dígitos: o app Senhas do iPhone e do Mac, Google
+          Authenticator, Microsoft Authenticator, 1Password, Bitwarden, Authy ou outro. No app,
           toque em adicionar e aponte a câmera para o código.
         </p>
         {/* Fundo branco fixo: o leitor de QR precisa de contraste, inclusive no tema escuro */}
