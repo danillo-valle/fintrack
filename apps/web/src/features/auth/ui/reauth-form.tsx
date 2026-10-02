@@ -3,10 +3,11 @@
 import { useActionState, useState } from "react";
 import { Fingerprint, KeyRound, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Field, FieldGroup, FieldLabel, FieldSeparator } from "@/components/ui/field";
+import { Field, FieldError, FieldGroup, FieldLabel, FieldSeparator } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth-client";
 import { isCancelled } from "@/lib/auth/messages";
+import { useFieldErrors } from "@/lib/use-field-errors";
 import { finishPasskeyReauth, reauthenticate, type ReauthState } from "../server/actions";
 import { FormAlert } from "./form-alert";
 import { PasswordInput } from "./password-input";
@@ -17,6 +18,7 @@ const initial: ReauthState = { error: null };
 
 // Confirmação de identidade antes de uma ação sensível: senha, código do app ou passkey.
 export function ReauthForm({ next, sessionId }: Props) {
+  const { errors, validate, fieldProps, errorId } = useFieldErrors();
   const [method, setMethod] = useState<"password" | "totp">("password");
   const [state, formAction, pending] = useActionState(reauthenticate, initial);
   const [passkeyError, setPasskeyError] = useState<string | null>(null);
@@ -37,12 +39,19 @@ export function ReauthForm({ next, sessionId }: Props) {
   return (
     <>
       <FormAlert message={state.error ?? passkeyError} />
-      <form action={formAction}>
+      <form
+        action={formAction}
+        noValidate
+        // Server Action: a conferência roda antes; com erro, o envio nem acontece
+        onSubmit={(event) => {
+          if (!validate(event.currentTarget)) event.preventDefault();
+        }}
+      >
         <input type="hidden" name="method" value={method} />
         <input type="hidden" name="next" value={next} />
         <FieldGroup>
           {method === "password" ? (
-            <Field>
+            <Field data-invalid={errors.password ? true : undefined}>
               <FieldLabel htmlFor="password">Senha</FieldLabel>
               <PasswordInput
                 id="password"
@@ -50,10 +59,13 @@ export function ReauthForm({ next, sessionId }: Props) {
                 autoComplete="current-password"
                 required
                 autoFocus
+                data-msg-missing="Digite a sua senha."
+                {...fieldProps("password")}
               />
+              <FieldError id={errorId("password")}>{errors.password}</FieldError>
             </Field>
           ) : (
-            <Field>
+            <Field data-invalid={errors.code ? true : undefined}>
               <FieldLabel htmlFor="code">Código do app autenticador</FieldLabel>
               <Input
                 id="code"
@@ -65,7 +77,11 @@ export function ReauthForm({ next, sessionId }: Props) {
                 required
                 autoFocus
                 className="tabular h-12 text-center text-lg tracking-[0.3em]"
+                data-msg-missing="Digite o código de 6 números do app."
+                data-msg-pattern="O código tem 6 números."
+                {...fieldProps("code")}
               />
+              <FieldError id={errorId("code")}>{errors.code}</FieldError>
             </Field>
           )}
           <Button type="submit" size="lg" className="h-11" disabled={pending}>

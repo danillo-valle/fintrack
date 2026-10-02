@@ -4,10 +4,11 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { authClient } from "@/lib/auth-client";
 import { authErrorMessage } from "@/lib/auth/messages";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth/password-policy";
+import { useFieldErrors } from "@/lib/use-field-errors";
 import { FormAlert } from "./form-alert";
 import { PasswordInput } from "./password-input";
 
@@ -21,6 +22,7 @@ import { PasswordInput } from "./password-input";
 // - um e-mail avisa a troca, para a pessoa saber se não foi ela.
 // Sem campo "repita a senha": o botão Mostrar do PasswordInput evita o erro de digitação.
 export function ChangePasswordForm() {
+  const { errors, validate, fieldProps, errorId } = useFieldErrors();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -39,6 +41,8 @@ export function ChangePasswordForm() {
 
     setError(null);
     setSuccess(null);
+    // Campos vazios ou senha nova curta: aviso embaixo do campo, foco no primeiro
+    if (!validate(form)) return;
     // Trocar pela mesma senha não muda nada e passaria a falsa ideia de que a conta ficou segura
     if (currentPassword === newPassword) {
       setError("A senha nova precisa ser diferente da atual.");
@@ -81,9 +85,9 @@ export function ChangePasswordForm() {
     <>
       <FormAlert message={error} />
       <FormAlert message={success} variant="success" focusOnShow />
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} noValidate>
         <FieldGroup>
-          <Field>
+          <Field data-invalid={errors.currentPassword ? true : undefined}>
             <FieldLabel htmlFor="current-password">Senha atual</FieldLabel>
             <PasswordInput
               ref={currentRef}
@@ -92,9 +96,12 @@ export function ChangePasswordForm() {
               autoComplete="current-password"
               maxLength={PASSWORD_MAX_LENGTH}
               required
+              data-msg-missing="Digite a senha atual."
+              {...fieldProps("currentPassword")}
             />
+            <FieldError id={errorId("currentPassword")}>{errors.currentPassword}</FieldError>
           </Field>
-          <Field>
+          <Field data-invalid={errors.newPassword ? true : undefined}>
             <FieldLabel htmlFor="new-password">Senha nova</FieldLabel>
             <PasswordInput
               ref={newRef}
@@ -104,8 +111,10 @@ export function ChangePasswordForm() {
               minLength={PASSWORD_MIN_LENGTH}
               maxLength={PASSWORD_MAX_LENGTH}
               required
-              aria-describedby="new-password-help"
+              data-msg-missing="Digite a senha nova."
+              {...fieldProps("newPassword", "new-password-help")}
             />
+            <FieldError id={errorId("newPassword")}>{errors.newPassword}</FieldError>
             <FieldDescription id="new-password-help">
               Pelo menos {PASSWORD_MIN_LENGTH} caracteres. Uma frase é mais fácil de lembrar e mais
               difícil de adivinhar. Senhas vazadas são recusadas.

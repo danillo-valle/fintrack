@@ -37,7 +37,7 @@ test("excluir o último item leva o foco ao aviso de lista vazia", async ({ page
 
 test("o aviso fala português e dá tempo para chegar ao Desfazer", async ({ page }) => {
   await page.getByRole("button", { name: "Excluir Mercado (exemplo)" }).click();
-  await expect(page.getByRole("region", { name: /Notificações/ })).toBeAttached();
+  await expect(page.getByRole("region", { name: "Avisos (Alt+T)" })).toBeAttached();
   await expect(page.getByRole("button", { name: "Fechar aviso" })).toBeAttached();
   await expect(page.getByText("Alt+T leva aos avisos e pausa o tempo.")).toBeVisible();
 

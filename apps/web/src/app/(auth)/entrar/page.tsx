@@ -6,6 +6,7 @@ import { safeNextPath } from "@/lib/auth/routes";
 import { getSession } from "@/lib/auth/session";
 import { AuthCard } from "@/features/auth/ui/auth-card";
 import { SignInForm } from "@/features/auth/ui/sign-in-form";
+import { TEXT_LINK } from "@/lib/styles";
 
 export const metadata: Metadata = { title: "Entrar" };
 
@@ -37,7 +38,7 @@ export default async function SignInPage({ searchParams }: PageProps<"/entrar">)
       footer={
         <>
           Ainda não tem conta?{" "}
-          <Link href="/cadastro" className="text-primary underline underline-offset-4">
+          <Link href="/cadastro" className={TEXT_LINK}>
             Criar conta
           </Link>
         </>

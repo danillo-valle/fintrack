@@ -21,6 +21,16 @@ export const SIGN_IN_PATH = "/entrar";
 export const TWO_FACTOR_SETUP_PATH = "/configurar-2fa";
 export const REAUTH_PATH = "/reautenticar";
 
+/**
+ * Cookie que o Better Auth grava entre a senha certa e o código do 2FA (vale 10 minutos).
+ * Nome: o cookiePrefix do auth.ts + ".two_factor"; com HTTPS (M05), ganha o prefixo __Secure-.
+ * Sem ele, a tela do código não tem o que confirmar: /entrar/dois-fatores manda para /entrar.
+ */
+export const TWO_FACTOR_PENDING_COOKIES = [
+  "fintrack.two_factor",
+  "__Secure-fintrack.two_factor",
+] as const;
+
 export function isPublicPath(pathname: string): boolean {
   return (
     (AUTH_PAGES as readonly string[]).includes(pathname) ||

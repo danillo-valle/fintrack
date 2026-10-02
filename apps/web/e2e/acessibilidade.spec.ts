@@ -8,6 +8,7 @@ import {
   openPage,
   PAGES,
   PUBLIC_PAGES,
+  startTwoFactor,
   testEmail,
 } from "./helpers";
 
@@ -76,6 +77,25 @@ test.describe("ligar o 2FA e reautenticar", () => {
     await expect(page.getByRole("heading", { name: /Passo 2 de 3/ })).toBeFocused();
     await page.getByText("Não consegue ler? Digite a chave").click();
     await checkAxe(page); // passo 2: QR code e chave
+  });
+
+  test("/entrar/dois-fatores nos dois modos e com erro não tem violações", async ({
+    page,
+    request,
+  }, testInfo) => {
+    const email = testEmail("a11y-dois-fatores", testInfo.project.name);
+    const password = "frase longa para acessibilidade";
+    await createTestUser(request, { email, password });
+    await startTwoFactor(page, email, password);
+    await checkAxe(page); // app autenticador
+    await page.getByRole("button", { name: "Confirmar" }).click();
+    await expect(page.getByLabel("Código do app autenticador")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    await checkAxe(page); // com o aviso do campo
+    await page.getByRole("button", { name: "Usar um código de backup" }).click();
+    await checkAxe(page); // código de backup
   });
 
   test("/reautenticar não tem violações", async ({ page }, testInfo) => {

@@ -5,11 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fingerprint, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Field, FieldGroup, FieldLabel, FieldSeparator } from "@/components/ui/field";
+import { Field, FieldError, FieldGroup, FieldLabel, FieldSeparator } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth-client";
 import { authErrorMessage, isCancelled } from "@/lib/auth/messages";
 import { passkeySupport, passkeyUnavailableMessage } from "@/lib/auth/passkey-support";
+import { useFieldErrors } from "@/lib/use-field-errors";
 import { FormAlert } from "./form-alert";
 import { PasswordInput } from "./password-input";
 
@@ -22,6 +23,7 @@ type Props = {
 };
 
 export function SignInForm({ next, googleEnabled, notice }: Props) {
+  const { errors, validate, fieldProps, errorId } = useFieldErrors();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -44,6 +46,8 @@ export function SignInForm({ next, googleEnabled, notice }: Props) {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // Campos vazios ou fora do formato: aviso embaixo do campo, foco no primeiro
+    if (!validate(event.currentTarget)) return;
     const form = new FormData(event.currentTarget);
     setPending(true);
     setError(null);
@@ -100,9 +104,9 @@ export function SignInForm({ next, googleEnabled, notice }: Props) {
     <>
       <FormAlert message={notice ?? null} variant="success" />
       <FormAlert message={error} />
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} noValidate>
         <FieldGroup>
-          <Field>
+          <Field data-invalid={errors.email ? true : undefined}>
             <FieldLabel htmlFor="email">E-mail</FieldLabel>
             {/* "webauthn" no autocomplete liga a sugestão de passkey neste campo */}
             <Input
@@ -112,9 +116,12 @@ export function SignInForm({ next, googleEnabled, notice }: Props) {
               autoComplete="username webauthn"
               required
               className="h-10"
+              data-msg-missing="Digite o seu e-mail."
+              {...fieldProps("email")}
             />
+            <FieldError id={errorId("email")}>{errors.email}</FieldError>
           </Field>
-          <Field>
+          <Field data-invalid={errors.password ? true : undefined}>
             <FieldLabel htmlFor="password">Senha</FieldLabel>
             <PasswordInput
               ref={passwordRef}
@@ -122,7 +129,10 @@ export function SignInForm({ next, googleEnabled, notice }: Props) {
               name="password"
               autoComplete="current-password"
               required
+              data-msg-missing="Digite a sua senha."
+              {...fieldProps("password")}
             />
+            <FieldError id={errorId("password")}>{errors.password}</FieldError>
             {/* Depois do campo, não antes: o Tab vai do e-mail direto para a senha */}
             <Link
               href="/esqueci-a-senha"

@@ -33,10 +33,13 @@ export const PAGES = [
   "/dev/ui",
 ];
 
-/** Telas de entrada (abertas, sem sessão). Também passam pelos testes de acessibilidade e foco. */
+/**
+ * Telas de entrada (abertas, sem sessão). Também passam pelos testes de acessibilidade e foco.
+ * /entrar/dois-fatores não está aqui: sem a senha digitada antes, ela volta para /entrar.
+ * Os testes chegam nela pelo caminho real, com startTwoFactor().
+ */
 export const PUBLIC_PAGES = [
   "/entrar",
-  "/entrar/dois-fatores",
   "/cadastro",
   "/verifique-seu-email",
   "/esqueci-a-senha",
@@ -214,6 +217,17 @@ export async function signInThroughUi(page: Page, email: string, password: strin
   await expect(page.locator("html[data-hydrated]")).toBeAttached();
   await page.getByLabel("Código do app autenticador").fill(totp(secret));
   await page.getByRole("button", { name: "Confirmar" }).click();
+}
+
+/** Digita e-mail e senha em /entrar e para na tela do código (/entrar/dois-fatores). */
+export async function startTwoFactor(page: Page, email: string, password: string) {
+  await page.context().setExtraHTTPHeaders({ "X-Forwarded-For": fakeIp() });
+  await openPage(page, "/entrar");
+  await page.getByLabel("E-mail").fill(email);
+  await page.getByLabel("Senha", { exact: true }).fill(password);
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  await expect(page).toHaveURL(/\/entrar\/dois-fatores/);
+  await expect(page.locator("html[data-hydrated]")).toBeAttached();
 }
 
 /** E-mail de teste único por arquivo, teste e aparelho (desktop e celular rodam ao mesmo tempo). */

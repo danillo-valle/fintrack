@@ -3,6 +3,8 @@ import Link from "next/link";
 import { AuthCard } from "@/features/auth/ui/auth-card";
 import { FormAlert } from "@/features/auth/ui/form-alert";
 import { ResetPasswordForm } from "@/features/auth/ui/reset-password-form";
+import { TEXT_LINK } from "@/lib/styles";
+import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Criar senha nova" };
 
@@ -16,7 +18,7 @@ export default async function ResetPasswordPage({ searchParams }: PageProps<"/re
     <AuthCard
       title="Criar senha nova"
       footer={
-        <Link href="/entrar" className="text-primary underline underline-offset-4">
+        <Link href="/entrar" className={TEXT_LINK}>
           Voltar para a entrada
         </Link>
       }
@@ -26,10 +28,7 @@ export default async function ResetPasswordPage({ searchParams }: PageProps<"/re
       ) : (
         <>
           <FormAlert message="Este link não é válido ou já foi usado. Peça um novo." />
-          <Link
-            href="/esqueci-a-senha"
-            className="text-primary text-sm underline underline-offset-4"
-          >
+          <Link href="/esqueci-a-senha" className={cn(TEXT_LINK, "text-sm")}>
             Pedir um link novo
           </Link>
         </>

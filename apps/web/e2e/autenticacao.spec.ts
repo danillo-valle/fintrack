@@ -14,6 +14,7 @@ import {
   PAGES,
   signInThroughUi,
   sql,
+  startTwoFactor,
   test,
   testEmail,
   totp,
@@ -89,6 +90,92 @@ test.describe("sem sessão", () => {
       await expect(page.getByLabel("Senha", { exact: true })).toBeFocused();
       await expect(page.getByLabel("Senha", { exact: true })).toHaveValue("");
     }
+  });
+
+  test("dois fatores: abrir sem ter digitado a senha volta para /entrar", async ({ page }) => {
+    await page.goto("/entrar/dois-fatores?next=%2Forcamento");
+    await expect(page).toHaveURL("/entrar?next=%2Forcamento");
+  });
+
+  test("dois fatores: campo vazio ou com letras recebe o aviso na página", async ({
+    page,
+    request,
+  }, testInfo) => {
+    const email = testEmail("codigo-formato", testInfo.project.name);
+    await createTestUser(request, { email, password: PASSWORD });
+    await startTwoFactor(page, email, PASSWORD);
+
+    const campo = page.getByLabel("Código do app autenticador");
+    await page.getByRole("button", { name: "Confirmar" }).click();
+    await expect(campo).toBeFocused();
+    await expect(campo).toHaveAttribute("aria-invalid", "true");
+    await expect(page.getByText("Digite o código de 6 números do app.")).toBeVisible();
+
+    // Letras nem entram no campo; com menos de 6 números, o aviso diz o formato
+    await campo.pressSequentially("12ab");
+    await expect(campo).toHaveValue("12");
+    await page.getByRole("button", { name: "Confirmar" }).click();
+    await expect(page.getByText("O código tem 6 números.")).toBeVisible();
+    await expect(campo).toBeFocused();
+  });
+
+  test("dois fatores: o modo backup não fala mais em app autenticador", async ({
+    page,
+    request,
+  }, testInfo) => {
+    const email = testEmail("codigo-modo", testInfo.project.name);
+    await createTestUser(request, { email, password: PASSWORD });
+    await startTwoFactor(page, email, PASSWORD);
+    await expect(page.getByText("Falta confirmar que é você.")).toBeVisible();
+    await expect(page.getByText("app Senhas do iPhone e do Mac")).toBeVisible();
+
+    await page.getByRole("button", { name: "Usar um código de backup" }).click();
+    await expect(page.getByLabel("Código de backup")).toBeFocused();
+    await expect(page.getByText(/app autenticador/)).toHaveCount(1); // só o botão de voltar a ele
+    await expect(page.getByRole("button", { name: "Usar o app autenticador" })).toBeVisible();
+  });
+
+  test("dois fatores: verificação expirada leva o foco ao aviso e ao caminho de volta", async ({
+    page,
+    request,
+  }, testInfo) => {
+    const email = testEmail("codigo-expirado", testInfo.project.name);
+    const { secret } = await createTestUser(request, { email, password: PASSWORD });
+    await startTwoFactor(page, email, PASSWORD);
+    // O cookie que liga a senha ao código vale 10 minutos; apagá-lo simula a espera
+    await page.context().clearCookies({ name: "fintrack.two_factor" });
+
+    await page.getByLabel("Código do app autenticador").fill(totp(secret ?? ""));
+    await page.getByRole("button", { name: "Confirmar" }).click();
+    await expect(formAlert(page)).toContainText("A verificação expirou");
+    await expect(formAlert(page)).toBeFocused();
+    // O campo some: outro código não resolveria. Fica o caminho de volta
+    await expect(page.getByLabel("Código do app autenticador")).toHaveCount(0);
+    await page.getByRole("link", { name: "Entrar de novo" }).click();
+    await expect(page).toHaveURL(/\/entrar(\?|$)/);
+  });
+
+  test("formulários avisam na página, em português, e marcam o campo", async ({ page }) => {
+    await openPage(page, "/entrar");
+    await page.getByRole("button", { name: "Entrar", exact: true }).click();
+    const email = page.getByLabel("E-mail");
+    await expect(email).toBeFocused();
+    await expect(email).toHaveAttribute("aria-invalid", "true");
+    await expect(page.getByText("Digite o seu e-mail.")).toBeVisible();
+    await expect(page.getByText("Digite a sua senha.")).toBeVisible();
+    // O aviso some assim que o campo fica válido
+    await email.fill("ana@fintrack.test");
+    await expect(page.getByText("Digite o seu e-mail.")).toHaveCount(0);
+    await expect(email).not.toHaveAttribute("aria-invalid", "true");
+
+    await openPage(page, "/esqueci-a-senha");
+    await expect(
+      page.getByText("Vamos mandar um link para você criar uma senha nova."),
+    ).toBeVisible();
+    await page.getByLabel("E-mail da conta").fill("ana");
+    await page.getByRole("button", { name: "Enviar o link" }).click();
+    await expect(page.getByText("Digite um e-mail válido, como nome@exemplo.com.")).toBeVisible();
+    await expect(page.getByLabel("E-mail da conta")).toBeFocused();
   });
 
   test("código errado do app não entra", async ({ page, request }, testInfo) => {

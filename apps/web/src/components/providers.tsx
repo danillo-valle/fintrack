@@ -19,8 +19,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <Toaster
         position="bottom-center"
         closeButton
-        // Nomes lidos pelo leitor de tela (o padrão do Sonner é em inglês)
-        containerAriaLabel="Notificações"
+        // Nome da região lido pelo leitor de tela. customAriaLabel substitui o nome inteiro: com
+        // containerAriaLabel, o Sonner emendava o atalho cru ("Notificações alt+T").
+        customAriaLabel="Avisos (Alt+T)"
         // No celular, o aviso fica acima do botão "+" e da barra de navegação.
         // A folga de rolagem para o foco não ficar embaixo dele está no globals.css.
         mobileOffset={{ bottom: "calc(8.75rem + env(safe-area-inset-bottom))" }}

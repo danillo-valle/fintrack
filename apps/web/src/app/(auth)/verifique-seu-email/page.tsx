@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { MailCheck } from "lucide-react";
 import { AuthCard } from "@/features/auth/ui/auth-card";
+import { TEXT_LINK } from "@/lib/styles";
 
 export const metadata: Metadata = { title: "Confirme seu e-mail" };
 
@@ -23,7 +24,7 @@ export default async function CheckEmailPage({ searchParams }: PageProps<"/verif
             Não chegou? Confira o spam. Se tentar entrar sem confirmar, um link novo é enviado.
           </p>
           <p>
-            <Link href="/entrar" className="text-primary underline underline-offset-4">
+            <Link href="/entrar" className={TEXT_LINK}>
               Ir para a tela de entrada
             </Link>
           </p>

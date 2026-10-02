@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { authClient } from "@/lib/auth-client";
 import { authErrorMessage } from "@/lib/auth/messages";
+import { useFieldErrors } from "@/lib/use-field-errors";
 import { BackupCodes } from "./backup-codes";
 import { FormAlert } from "./form-alert";
 import { PasswordInput } from "./password-input";
@@ -13,12 +14,15 @@ import { PasswordInput } from "./password-input";
 // Gera 10 códigos de backup novos (os antigos deixam de valer). Pede a senha:
 // o próprio Better Auth exige, porque é uma ação sensível.
 export function RegenerateBackupCodes() {
+  const { errors, validate, fieldProps, errorId } = useFieldErrors();
   const [codes, setCodes] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // Campos vazios ou fora do formato: aviso embaixo do campo, foco no primeiro
+    if (!validate(event.currentTarget)) return;
     setPending(true);
     setError(null);
     const { data, error } = await authClient.twoFactor.generateBackupCodes({
@@ -48,17 +52,19 @@ export function RegenerateBackupCodes() {
   return (
     <>
       <FormAlert message={error} />
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} noValidate>
         <FieldGroup>
-          <Field>
+          <Field data-invalid={errors.password ? true : undefined}>
             <FieldLabel htmlFor="backup-password">Senha</FieldLabel>
             <PasswordInput
               id="backup-password"
               name="password"
               autoComplete="current-password"
               required
-              aria-describedby="backup-help"
+              data-msg-missing="Digite a sua senha."
+              {...fieldProps("password", "backup-help")}
             />
+            <FieldError id={errorId("password")}>{errors.password}</FieldError>
             <FieldDescription id="backup-help">
               Use quando tiver gastado vários códigos ou quando achar que alguém os viu.
             </FieldDescription>
