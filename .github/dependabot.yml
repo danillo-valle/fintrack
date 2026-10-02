@@ -15,6 +15,17 @@ updates:
     groups:
       menores:
         update-types: [minor, patch]
+    # Saltos de versão maior que já se mostraram incompatíveis (testados no M03):
+    # TypeScript 7 (o typescript-eslint ainda não suporta), ESLint 10 (quebra o plugin do React)
+    # e @types/node acima do Node que o projeto usa (.node-version = 24).
+    # Cada um volta num módulo de manutenção, testado de propósito.
+    ignore:
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      - dependency-name: eslint
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
