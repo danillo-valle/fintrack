@@ -22,7 +22,7 @@ import { PasswordInput } from "./password-input";
 // - um e-mail avisa a troca, para a pessoa saber se não foi ela.
 // Sem campo "repita a senha": o botão Mostrar do PasswordInput evita o erro de digitação.
 export function ChangePasswordForm() {
-  const { errors, validate, fieldProps, errorId } = useFieldErrors();
+  const { errors, validate, fieldProps, errorId, alertId, markAlert } = useFieldErrors();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -46,6 +46,7 @@ export function ChangePasswordForm() {
     // Trocar pela mesma senha não muda nada e passaria a falsa ideia de que a conta ficou segura
     if (currentPassword === newPassword) {
       setError("A senha nova precisa ser diferente da atual.");
+      markAlert("newPassword");
       newRef.current?.focus();
       return;
     }
@@ -62,9 +63,11 @@ export function ChangePasswordForm() {
       // Senha atual errada: o foco volta para ela; outros erros (senha nova fraca) vão para a nova
       if (error.code === "INVALID_PASSWORD") {
         setError("A senha atual não confere.");
+        markAlert("currentPassword");
         currentRef.current?.focus();
       } else {
         setError(authErrorMessage(error));
+        markAlert("newPassword");
         newRef.current?.focus();
       }
       return;
@@ -83,7 +86,7 @@ export function ChangePasswordForm() {
 
   return (
     <>
-      <FormAlert message={error} />
+      <FormAlert id={alertId} message={error} />
       <FormAlert message={success} variant="success" focusOnShow />
       <form onSubmit={handleSubmit} noValidate>
         <FieldGroup>
@@ -112,7 +115,7 @@ export function ChangePasswordForm() {
               maxLength={PASSWORD_MAX_LENGTH}
               required
               data-msg-missing="Digite a senha nova."
-              {...fieldProps("newPassword", "new-password-help")}
+              {...fieldProps("newPassword", { helpId: "new-password-help" })}
             />
             <FieldError id={errorId("newPassword")}>{errors.newPassword}</FieldError>
             <FieldDescription id="new-password-help">

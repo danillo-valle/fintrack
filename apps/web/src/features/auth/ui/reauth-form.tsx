@@ -18,7 +18,7 @@ const initial: ReauthState = { error: null };
 
 // Confirmação de identidade antes de uma ação sensível: senha, código do app ou passkey.
 export function ReauthForm({ next, sessionId }: Props) {
-  const { errors, validate, fieldProps, errorId } = useFieldErrors();
+  const { errors, validate, fieldProps, errorId, alertId } = useFieldErrors();
   const [method, setMethod] = useState<"password" | "totp">("password");
   const [state, formAction, pending] = useActionState(reauthenticate, initial);
   const [passkeyError, setPasskeyError] = useState<string | null>(null);
@@ -38,7 +38,7 @@ export function ReauthForm({ next, sessionId }: Props) {
 
   return (
     <>
-      <FormAlert message={state.error ?? passkeyError} />
+      <FormAlert id={alertId} message={state.error ?? passkeyError} />
       <form
         action={formAction}
         noValidate
@@ -60,7 +60,7 @@ export function ReauthForm({ next, sessionId }: Props) {
                 required
                 autoFocus
                 data-msg-missing="Digite a sua senha."
-                {...fieldProps("password")}
+                {...fieldProps("password", { linkAlert: Boolean(state.error) })}
               />
               <FieldError id={errorId("password")}>{errors.password}</FieldError>
             </Field>
@@ -79,7 +79,7 @@ export function ReauthForm({ next, sessionId }: Props) {
                 className="tabular h-12 text-center text-lg tracking-[0.3em]"
                 data-msg-missing="Digite o código de 6 números do app."
                 data-msg-pattern="O código tem 6 números."
-                {...fieldProps("code")}
+                {...fieldProps("code", { linkAlert: Boolean(state.error) })}
               />
               <FieldError id={errorId("code")}>{errors.code}</FieldError>
             </Field>

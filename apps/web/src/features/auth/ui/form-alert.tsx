@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 
 type Props = {
   message: string | null;
+  /** Para um campo apontar para este aviso com aria-describedby (useFieldErrors.alertId) */
+  id?: string;
   variant?: "error" | "success";
   /** Leva o foco ao aviso quando ele aparece (útil quando o formulário inteiro falhou) */
   focusOnShow?: boolean;
@@ -13,7 +15,7 @@ type Props = {
 
 // Mensagem do formulário inteiro (ex.: "E-mail ou senha incorretos").
 // role="alert" faz o leitor de tela anunciar na hora; o ícone e o texto não dependem da cor.
-export function FormAlert({ message, variant = "error", focusOnShow = false }: Props) {
+export function FormAlert({ message, variant = "error", focusOnShow = false, id }: Props) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -26,6 +28,7 @@ export function FormAlert({ message, variant = "error", focusOnShow = false }: P
   return (
     <div
       ref={ref}
+      id={id}
       tabIndex={-1}
       role={variant === "error" ? "alert" : "status"}
       data-slot="form-alert"

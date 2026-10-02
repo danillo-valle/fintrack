@@ -33,6 +33,54 @@ test.describe("sem sessão", () => {
     }
   });
 
+  test("o botão Mostrar troca o nome, sem aria-pressed junto", async ({ page }) => {
+    // Os dois juntos fazem o leitor de tela dizer "Esconder a senha, pressionado": confuso.
+    // Fica só a troca de nome, que inclui o texto visível (WCAG 2.5.3).
+    await openPage(page, "/entrar");
+    const mostrar = page.getByRole("button", { name: "Mostrar a senha" });
+    await expect(mostrar).not.toHaveAttribute("aria-pressed");
+    await mostrar.click();
+    const esconder = page.getByRole("button", { name: "Esconder a senha" });
+    await expect(esconder).toBeVisible();
+    await expect(esconder).not.toHaveAttribute("aria-pressed");
+    await expect(page.getByLabel("Senha", { exact: true })).toHaveAttribute("type", "text");
+  });
+
+  test("erro do servidor fica ligado ao campo que recebe o foco", async ({
+    page,
+    request,
+  }, testInfo) => {
+    const email = testEmail("erro-ligado", testInfo.project.name);
+    await createTestUser(request, { email, password: PASSWORD });
+
+    // Senha errada: o foco vai para a senha, que aponta para o aviso
+    await openPage(page, "/entrar");
+    await page.getByLabel("E-mail").fill(email);
+    const senha = page.getByLabel("Senha", { exact: true });
+    await senha.fill("nao e a senha certa");
+    await page.getByRole("button", { name: "Entrar", exact: true }).click();
+    await expect(formAlert(page)).toContainText("E-mail ou senha incorretos.");
+    await expect(senha).toBeFocused();
+    await expect(senha).toHaveAttribute("aria-invalid", "true");
+    const alertId = await formAlert(page).getAttribute("id");
+    expect(alertId).toBeTruthy();
+    await expect(senha).toHaveAttribute("aria-describedby", new RegExp(`\\b${alertId}\\b`));
+    // Ao digitar de novo, a marca sai
+    await senha.fill("outra tentativa");
+    await expect(senha).not.toHaveAttribute("aria-invalid", "true");
+
+    // Código errado: o mesmo no campo do código
+    await startTwoFactor(page, email, PASSWORD);
+    const codigo = page.getByLabel("Código do app autenticador");
+    await codigo.fill("000000");
+    await page.getByRole("button", { name: "Confirmar" }).click();
+    await expect(formAlert(page)).toContainText("Código incorreto");
+    await expect(codigo).toBeFocused();
+    await expect(codigo).toHaveAttribute("aria-invalid", "true");
+    const codeAlertId = await formAlert(page).getAttribute("id");
+    await expect(codigo).toHaveAttribute("aria-describedby", new RegExp(`\\b${codeAlertId}\\b`));
+  });
+
   test("no login, o Tab vai do e-mail direto para a senha", async ({ page }) => {
     await openPage(page, "/entrar");
     await page.getByLabel("E-mail").focus();
@@ -111,12 +159,19 @@ test.describe("sem sessão", () => {
     await expect(campo).toHaveAttribute("aria-invalid", "true");
     await expect(page.getByText("Digite o código de 6 números do app.")).toBeVisible();
 
-    // Letras nem entram no campo; com menos de 6 números, o aviso diz o formato
+    // Letras nem entram no campo, e um aviso discreto diz por quê
     await campo.pressSequentially("12ab");
     await expect(campo).toHaveValue("12");
+    await expect(page.getByText("Só números entram neste campo.")).toBeVisible();
+    // Com menos de 6 números, o aviso diz o formato
     await page.getByRole("button", { name: "Confirmar" }).click();
     await expect(page.getByText("O código tem 6 números.")).toBeVisible();
     await expect(campo).toBeFocused();
+    // Voltar a digitar já tira o aviso de formato (ele volta no próximo envio, se preciso)
+    await campo.press("3");
+    await expect(page.getByText("O código tem 6 números.")).toHaveCount(0);
+    await expect(campo).not.toHaveAttribute("aria-invalid", "true");
+    await expect(page.getByText("Só números entram neste campo.")).toHaveCount(0);
   });
 
   test("dois fatores: o modo backup não fala mais em app autenticador", async ({

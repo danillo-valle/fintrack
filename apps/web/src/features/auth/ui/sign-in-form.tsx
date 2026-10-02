@@ -23,7 +23,7 @@ type Props = {
 };
 
 export function SignInForm({ next, googleEnabled, notice }: Props) {
-  const { errors, validate, fieldProps, errorId } = useFieldErrors();
+  const { errors, validate, fieldProps, errorId, alertId, markAlert } = useFieldErrors();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -62,6 +62,8 @@ export function SignInForm({ next, googleEnabled, notice }: Props) {
     if (error) {
       setPending(false);
       setError(authErrorMessage(error));
+      // O aviso fica ligado à senha, que recebe o foco: o leitor de tela lê o motivo junto
+      markAlert("password");
       // A senha é apagada e recebe o foco: o próximo passo natural é digitá-la de novo
       if (passwordRef.current) passwordRef.current.value = "";
       passwordRef.current?.focus();
@@ -103,7 +105,7 @@ export function SignInForm({ next, googleEnabled, notice }: Props) {
   return (
     <>
       <FormAlert message={notice ?? null} variant="success" />
-      <FormAlert message={error} />
+      <FormAlert id={alertId} message={error} />
       <form onSubmit={handleSubmit} noValidate>
         <FieldGroup>
           <Field data-invalid={errors.email ? true : undefined}>

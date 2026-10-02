@@ -42,7 +42,9 @@ export function TwoFactorForm({ next }: { next: string }) {
   const [expired, setExpired] = useState(false);
   const [pending, setPending] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { errors, validate, fieldProps, errorId, clear } = useFieldErrors();
+  // Um caractere que não é número foi descartado no modo do app: o aviso diz por quê
+  const [dropped, setDropped] = useState(false);
+  const { errors, validate, fieldProps, errorId, alertId, markAlert, clear } = useFieldErrors();
   const text = MODES[mode];
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -67,6 +69,8 @@ export function TwoFactorForm({ next }: { next: string }) {
         setExpired(true);
         return;
       }
+      // Código errado: o campo esvazia, recebe o foco e fica ligado ao aviso
+      markAlert("code");
       if (inputRef.current) inputRef.current.value = "";
       inputRef.current?.focus();
       return;
@@ -75,16 +79,20 @@ export function TwoFactorForm({ next }: { next: string }) {
     router.refresh();
   }
 
-  // No modo do app, só números e espaço entram no campo: "12ab" vira "12" enquanto se digita
+  // No modo do app, só números e espaço entram no campo: "12ab" vira "12" enquanto se digita.
+  // Sem aviso, a pessoa (ou o leitor de tela) não entenderia por que a tecla "não pegou".
   function keepDigits(event: React.ChangeEvent<HTMLInputElement>) {
     if (mode !== "totp") return;
     const clean = event.currentTarget.value.replace(/[^\d ]/g, "");
-    if (clean !== event.currentTarget.value) event.currentTarget.value = clean;
+    const discarded = clean !== event.currentTarget.value;
+    if (discarded) event.currentTarget.value = clean;
+    setDropped(discarded);
   }
 
   function switchMode() {
     setMode((m) => (m === "totp" ? "backup" : "totp"));
     setError(null);
+    setDropped(false);
     clear();
     // Depois de trocar, o foco vai para o campo novo
     requestAnimationFrame(() => inputRef.current?.focus());
@@ -106,7 +114,7 @@ export function TwoFactorForm({ next }: { next: string }) {
 
   return (
     <>
-      <FormAlert message={error} />
+      <FormAlert id={alertId} message={error} />
       <form onSubmit={handleSubmit} noValidate>
         <FieldGroup>
           <Field data-invalid={errors.code ? true : undefined}>
@@ -126,10 +134,17 @@ export function TwoFactorForm({ next }: { next: string }) {
               data-msg-missing={text.missing}
               data-msg-pattern="O código tem 6 números."
               onChange={keepDigits}
-              {...fieldProps("code", "code-help")}
+              // O aviso de formato some na primeira tecla: num código de 6 números, esperar o campo
+              // ficar válido deixaria "O código tem 6 números." na tela enquanto se digita
+              {...fieldProps("code", { helpId: "code-help", clearOnInput: true })}
               className="tabular h-12 text-center text-lg tracking-[0.3em]"
             />
             <FieldError id={errorId("code")}>{errors.code}</FieldError>
+            {/* Região "polite" sempre presente: o leitor de tela anuncia quando o texto aparece.
+                Vazia, fica fora do fluxo (sr-only) e não abre espaço no layout. */}
+            <p aria-live="polite" className={dropped ? "text-muted-foreground text-sm" : "sr-only"}>
+              {dropped ? "Só números entram neste campo." : ""}
+            </p>
             <FieldDescription id="code-help">{text.help}</FieldDescription>
           </Field>
           <Button type="submit" size="lg" className="h-11" disabled={pending}>

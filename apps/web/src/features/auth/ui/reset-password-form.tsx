@@ -15,7 +15,7 @@ import { PasswordInput } from "./password-input";
 // Troca de senha pelo link do e-mail. O token vem na URL (?token=...) e vale uma vez.
 // Depois da troca, todas as sessões abertas caem (revokeSessionsOnPasswordReset no auth.ts).
 export function ResetPasswordForm({ token }: { token: string }) {
-  const { errors, validate, fieldProps, errorId } = useFieldErrors();
+  const { errors, validate, fieldProps, errorId, alertId, markAlert } = useFieldErrors();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -34,6 +34,8 @@ export function ResetPasswordForm({ token }: { token: string }) {
     if (error) {
       setPending(false);
       setError(authErrorMessage(error));
+      // Senha vazada ou curta: o aviso fica ligado ao campo, que recebe o foco
+      markAlert("password");
       passwordRef.current?.focus();
       return;
     }
@@ -42,7 +44,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
 
   return (
     <>
-      <FormAlert message={error} />
+      <FormAlert id={alertId} message={error} />
       <form onSubmit={handleSubmit} noValidate>
         <FieldGroup>
           <Field data-invalid={errors.password ? true : undefined}>
@@ -56,7 +58,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
               maxLength={PASSWORD_MAX_LENGTH}
               required
               data-msg-missing="Digite a senha nova."
-              {...fieldProps("password", "password-help")}
+              {...fieldProps("password", { helpId: "password-help" })}
             />
             <FieldError id={errorId("password")}>{errors.password}</FieldError>
             <FieldDescription id="password-help">

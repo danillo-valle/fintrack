@@ -16,7 +16,7 @@ import { PasswordInput } from "./password-input";
 // Cadastro. Só os e-mails da lista ALLOWED_EMAILS passam (hook no auth.ts);
 // para os outros, o servidor recusa e esta tela mostra o motivo.
 export function SignUpForm() {
-  const { errors, validate, fieldProps, errorId } = useFieldErrors();
+  const { errors, validate, fieldProps, errorId, alertId, markAlert } = useFieldErrors();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -45,8 +45,14 @@ export function SignUpForm() {
       setError(authErrorMessage(error));
       // Foco no campo que provavelmente precisa mudar
       const passwordProblem = ["PASSWORD_TOO_SHORT", "PASSWORD_TOO_LONG", "PASSWORD_COMPROMISED"];
-      if (error.code && passwordProblem.includes(error.code)) passwordRef.current?.focus();
-      else emailRef.current?.focus();
+      // O aviso fica ligado ao campo que recebe o foco
+      if (error.code && passwordProblem.includes(error.code)) {
+        markAlert("password");
+        passwordRef.current?.focus();
+      } else {
+        markAlert("email");
+        emailRef.current?.focus();
+      }
       return;
     }
     router.push(`/verifique-seu-email?email=${encodeURIComponent(email)}`);
@@ -54,7 +60,7 @@ export function SignUpForm() {
 
   return (
     <>
-      <FormAlert message={error} />
+      <FormAlert id={alertId} message={error} />
       <form onSubmit={handleSubmit} noValidate>
         <FieldGroup>
           <Field data-invalid={errors.name ? true : undefined}>
@@ -96,7 +102,7 @@ export function SignUpForm() {
               maxLength={PASSWORD_MAX_LENGTH}
               required
               data-msg-missing="Crie uma senha."
-              {...fieldProps("password", "password-help")}
+              {...fieldProps("password", { helpId: "password-help" })}
             />
             <FieldError id={errorId("password")}>{errors.password}</FieldError>
             <FieldDescription id="password-help">

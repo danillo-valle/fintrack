@@ -14,7 +14,8 @@ import { PasswordInput } from "./password-input";
 // Gera 10 códigos de backup novos (os antigos deixam de valer). Pede a senha:
 // o próprio Better Auth exige, porque é uma ação sensível.
 export function RegenerateBackupCodes() {
-  const { errors, validate, fieldProps, errorId } = useFieldErrors();
+  // Prefixo "backup-": a tela Segurança tem outro formulário (trocar a senha) com avisos próprios
+  const { errors, validate, fieldProps, errorId, alertId, markAlert } = useFieldErrors("backup-");
   const [codes, setCodes] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -23,6 +24,7 @@ export function RegenerateBackupCodes() {
     event.preventDefault();
     // Campos vazios ou fora do formato: aviso embaixo do campo, foco no primeiro
     if (!validate(event.currentTarget)) return;
+    const form = event.currentTarget;
     setPending(true);
     setError(null);
     const { data, error } = await authClient.twoFactor.generateBackupCodes({
@@ -31,6 +33,9 @@ export function RegenerateBackupCodes() {
     setPending(false);
     if (error || !data) {
       setError(authErrorMessage(error));
+      // Senha errada: foco e aviso ligados ao campo da senha
+      markAlert("password");
+      form.querySelector<HTMLInputElement>('input[name="password"]')?.focus();
       return;
     }
     setCodes(data.backupCodes);
@@ -51,7 +56,7 @@ export function RegenerateBackupCodes() {
 
   return (
     <>
-      <FormAlert message={error} />
+      <FormAlert id={alertId} message={error} />
       <form onSubmit={handleSubmit} noValidate>
         <FieldGroup>
           <Field data-invalid={errors.password ? true : undefined}>
@@ -62,7 +67,7 @@ export function RegenerateBackupCodes() {
               autoComplete="current-password"
               required
               data-msg-missing="Digite a sua senha."
-              {...fieldProps("password", "backup-help")}
+              {...fieldProps("password", { helpId: "backup-help" })}
             />
             <FieldError id={errorId("password")}>{errors.password}</FieldError>
             <FieldDescription id="backup-help">

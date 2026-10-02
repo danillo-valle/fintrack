@@ -21,7 +21,8 @@ export function PasswordInput({ className, ...props }: Props) {
       <button
         type="button"
         onClick={() => setVisible((v) => !v)}
-        aria-pressed={visible}
+        // Só a troca de nome, sem aria-pressed: os dois juntos fariam o leitor de tela dizer
+        // "Esconder a senha, pressionado". O nome contém o texto visível (WCAG 2.5.3).
         aria-label={visible ? "Esconder a senha" : "Mostrar a senha"}
         className="text-muted-foreground hover:text-foreground focus-visible:ring-ring absolute inset-y-1 right-1 flex items-center gap-1 rounded-md px-2 text-xs font-medium outline-none focus-visible:ring-3"
       >
