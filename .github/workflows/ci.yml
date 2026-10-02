@@ -48,7 +48,11 @@ jobs:
 
       # Segredo aleatório a cada execução: nenhum segredo fixo no repositório
       - name: Gera um segredo temporário para o Better Auth
-        run: echo "BETTER_AUTH_SECRET=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+        run: |
+          # Segredo descartável, só para este job. ::add-mask:: esconde o valor em todos os logs
+          SECRET=$(openssl rand -base64 32)
+          echo "::add-mask::$SECRET"
+          echo "BETTER_AUTH_SECRET=$SECRET" >> "$GITHUB_ENV"
 
       - name: Confere a formatação
         run: pnpm format:check
@@ -135,7 +139,11 @@ jobs:
         run: pnpm --filter @fintrack/web exec playwright install --with-deps chromium
 
       - name: Gera um segredo temporário para o Better Auth
-        run: echo "BETTER_AUTH_SECRET=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+        run: |
+          # Segredo descartável, só para este job. ::add-mask:: esconde o valor em todos os logs
+          SECRET=$(openssl rand -base64 32)
+          echo "::add-mask::$SECRET"
+          echo "BETTER_AUTH_SECRET=$SECRET" >> "$GITHUB_ENV"
 
       - name: Cria as tabelas no banco de teste (migrações do Prisma)
         run: pnpm db:deploy

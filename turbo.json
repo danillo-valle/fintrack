@@ -14,19 +14,19 @@
   ],
   "tasks": {
     "build": {
-      "dependsOn": ["^build", "^db:generate"],
+      "dependsOn": ["^build", "^db:generate", "db:generate"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"],
       "env": ["APP_VERSION"]
     },
     "lint": {
-      "dependsOn": ["^lint"]
+      "dependsOn": ["^lint", "^db:generate"]
     },
     "typecheck": {
-      "dependsOn": ["^typecheck", "^db:generate"]
+      "dependsOn": ["^typecheck", "^db:generate", "db:generate"]
     },
     "test": {
-      "dependsOn": ["^test", "^db:generate"],
+      "dependsOn": ["^test", "^db:generate", "db:generate"],
       "outputs": []
     },
     "dev": {
