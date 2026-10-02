@@ -3,11 +3,19 @@ import { Plus, ReceiptText } from "lucide-react";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
+import { requireUser } from "@/lib/auth/session";
 
-export default function HomePage() {
+export default async function HomePage() {
+  // Toda página do app começa conferindo a sessão (skill auth-guard)
+  const { user } = await requireUser();
+  const firstName = user.name.split(" ")[0] ?? user.name;
+
   return (
     <>
-      <PageHeader title="Início" description="Resumo do mês da casa" />
+      <PageHeader
+        title="Início"
+        description={`Olá, ${firstName}. Este é o resumo do mês da casa.`}
+      />
       <EmptyState
         icon={ReceiptText}
         title="Nenhum lançamento ainda"
