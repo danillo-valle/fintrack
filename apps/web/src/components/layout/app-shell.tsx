@@ -15,7 +15,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Primeiro item do Tab: permite pular o menu e ir direto ao conteúdo */}
       <a
         href="#conteudo"
-        className="bg-primary text-primary-foreground sr-only z-50 rounded-lg px-4 py-2 focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
+        className="bg-primary text-primary-foreground focus-visible:ring-ring focus-visible:ring-offset-background sr-only z-50 rounded-lg px-4 py-2 outline-none focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus-visible:ring-3 focus-visible:ring-offset-2"
       >
         Pular para o conteúdo
       </a>

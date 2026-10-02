@@ -65,5 +65,5 @@ Antes de criar um componente próprio, veja se ele já existe no catálogo: `/de
 ## Antes de concluir
 
 - `pnpm check` e `pnpm e2e` passam.
-- A tela nova entrou na lista `PAGES` de `e2e/helpers.ts` (usada pelos testes de acessibilidade e de foco).
+- A tela nova entrou na lista `PAGES` (app, com sessão) ou `PUBLIC_PAGES` (telas de entrada) de `e2e/helpers.ts`, usadas pelos testes de acessibilidade, de foco e de proteção.
 - Conferiu no catálogo, nos dois temas, em largura de celular (390px) e de desktop.

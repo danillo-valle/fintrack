@@ -21,6 +21,15 @@ jobs:
     name: qualidade
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    # O build carrega a configuração do Better Auth, que confere as variáveis (src/lib/env.ts).
+    # Aqui não há banco nem e-mail: são valores de mentira, só para o build passar.
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      BETTER_AUTH_URL: http://localhost:3000
+      ALLOWED_EMAILS: ana@fintrack.test
+      EMAIL_FROM: FinTrack <nao-responda@fintrack.local>
+      SMTP_HOST: localhost
+      SMTP_PORT: "1025"
     steps:
       - name: Baixa o código
         uses: actions/checkout@v7
@@ -36,6 +45,14 @@ jobs:
 
       - name: Instala as dependências exatamente como no lockfile
         run: pnpm install --frozen-lockfile
+
+      # Segredo aleatório a cada execução: nenhum segredo fixo no repositório
+      - name: Gera um segredo temporário para o Better Auth
+        run: |
+          # Segredo descartável, só para este job. ::add-mask:: esconde o valor em todos os logs
+          SECRET=$(openssl rand -base64 32)
+          echo "::add-mask::$SECRET"
+          echo "BETTER_AUTH_SECRET=$SECRET" >> "$GITHUB_ENV"
 
       - name: Confere a formatação
         run: pnpm format:check
@@ -72,7 +89,36 @@ jobs:
   e2e:
     name: e2e
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
+    # Serviços que o GitHub sobe ao lado do job, iguais aos do compose.yml
+    services:
+      db:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: fintrack
+          POSTGRES_PASSWORD: fintrack
+          POSTGRES_DB: fintrack
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fintrack -d fintrack"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+      mail:
+        image: axllent/mailpit:v1.31.3
+        ports:
+          - 1025:1025
+          - 8025:8025
+    env:
+      DATABASE_URL: postgresql://fintrack:fintrack@localhost:5432/fintrack
+      BETTER_AUTH_URL: http://localhost:3000
+      ALLOWED_EMAILS: ana@fintrack.test,bruno@fintrack.test
+      EMAIL_FROM: FinTrack <nao-responda@fintrack.local>
+      SMTP_HOST: localhost
+      SMTP_PORT: "1025"
+      PASSKEY_RP_ID: localhost
+      # A consulta de senhas vazadas depende de um serviço externo: desligada no CI
+      HIBP_CHECK: "off"
+      MAILPIT_URL: http://localhost:8025
     steps:
       - name: Baixa o código
         uses: actions/checkout@v7
@@ -91,6 +137,16 @@ jobs:
 
       - name: Instala o Chromium do Playwright e as bibliotecas do sistema
         run: pnpm --filter @fintrack/web exec playwright install --with-deps chromium
+
+      - name: Gera um segredo temporário para o Better Auth
+        run: |
+          # Segredo descartável, só para este job. ::add-mask:: esconde o valor em todos os logs
+          SECRET=$(openssl rand -base64 32)
+          echo "::add-mask::$SECRET"
+          echo "BETTER_AUTH_SECRET=$SECRET" >> "$GITHUB_ENV"
+
+      - name: Cria as tabelas no banco de teste (migrações do Prisma)
+        run: pnpm db:deploy
 
       - name: Testes de ponta a ponta e acessibilidade (axe)
         run: pnpm turbo run test:e2e

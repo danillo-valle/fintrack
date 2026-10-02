@@ -19,6 +19,8 @@ test("navega por todas as seções pelo menu principal", async ({ page }) => {
     await expect(page).toHaveURL(path);
     await expect(page.getByRole("heading", { level: 1, name: label })).toBeVisible();
     await expect(nav.getByRole("link", { name: label })).toHaveAttribute("aria-current", "page");
+    // O título da aba segue o h1 (WCAG 2.4.2): é o que o leitor de tela anuncia ao trocar de página
+    await expect(page).toHaveTitle(`${label} · FinTrack`);
   }
 });
 

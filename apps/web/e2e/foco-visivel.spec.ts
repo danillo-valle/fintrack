@@ -1,5 +1,14 @@
-import { expect, test, type Page } from "@playwright/test";
-import { openPage, PAGES } from "./helpers";
+import { expect, type Page } from "@playwright/test";
+import {
+  createTestUser,
+  NO_SESSION,
+  openPage,
+  PAGES,
+  PUBLIC_PAGES,
+  startTwoFactor,
+  test,
+  testEmail,
+} from "./helpers";
 
 // WCAG 2.2, critério 2.4.11 (foco não encoberto): o elemento com foco não pode ficar escondido
 // atrás do que fica fixo na tela. No FinTrack, isso é o cabeçalho e a barra de baixo do celular,
@@ -10,13 +19,23 @@ const MAX_STOPS = 60;
 
 /** Diz o que está cobrindo o elemento focado, ou null se ele está inteiro à vista. */
 async function focusProblem(page: Page): Promise<string | null> {
-  return page.evaluate(() => {
+  return page.evaluate(async () => {
+    // O ToastKeyboard rola até o elemento dois quadros de animação depois de mover o foco
+    // (veja focusVisibly). Medir antes disso pegaria o elemento no meio do caminho.
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     const el = document.activeElement as HTMLElement | null;
     if (!el || el === document.body || el.tagName === "MAIN") return null;
     const r = el.getBoundingClientRect();
     const name = el.getAttribute("aria-label") || el.textContent?.trim().slice(0, 40) || el.tagName;
     if (r.width <= 1 || r.height <= 1) return null; // sr-only ou invisível
     if (r.top < 0 || r.bottom > window.innerHeight) return `"${name}" está fora da tela`;
+
+    // Anel do tema (regra do M02): o foco usa o anel de 3px na cor --ring, desenhado com
+    // box-shadow pelo Tailwind (focus-visible:ring-3). O contorno fino padrão do navegador
+    // não vale: some em fundos claros e muda de navegador para navegador.
+    if (getComputedStyle(el).boxShadow === "none") {
+      return `"${name}" usa o contorno do navegador, não o anel do tema`;
+    }
 
     // Testa uma grade de pontos sobre o elemento: o que está por cima em cada ponto?
     // elementFromPoint respeita a ordem de empilhamento (z-index), como os olhos de quem vê a tela.
@@ -68,6 +87,17 @@ for (const path of PAGES) {
     expect(await tour(page, "Shift+Tab")).toEqual([]);
   });
 }
+
+test.describe("telas de entrada, sem sessão", () => {
+  test.use({ storageState: NO_SESSION });
+  for (const path of PUBLIC_PAGES) {
+    test(`${path}: o foco nunca fica escondido (Tab e Shift+Tab)`, async ({ page }) => {
+      await openPage(page, path);
+      expect(await tour(page, "Tab")).toEqual([]);
+      expect(await tour(page, "Shift+Tab")).toEqual([]);
+    });
+  }
+});
 
 test.describe("com um aviso na tela", () => {
   // Passa o mouse sobre o aviso: o Sonner pausa o tempo e o aviso fica na tela durante o teste
@@ -212,4 +242,19 @@ test("os anéis de foco usam cor cheia", async ({ page }) => {
     return [...found];
   });
   expect(transparentes).toEqual([]);
+});
+
+test.describe("tela do código, depois da senha", () => {
+  test.use({ storageState: NO_SESSION });
+  test("/entrar/dois-fatores: o foco nunca fica escondido (Tab e Shift+Tab)", async ({
+    page,
+    request,
+  }, testInfo) => {
+    const email = testEmail("foco-dois-fatores", testInfo.project.name);
+    const password = "frase longa para o teste de foco";
+    await createTestUser(request, { email, password });
+    await startTwoFactor(page, email, password);
+    expect(await tour(page, "Tab")).toEqual([]);
+    expect(await tour(page, "Shift+Tab")).toEqual([]);
+  });
 });

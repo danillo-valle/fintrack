@@ -8,23 +8,28 @@ acompanhado por uma [milestone](https://github.com/danillo-valle/fintrack/milest
 
 ## Stack
 
-Next.js 16 · React 19 · TypeScript · Tailwind CSS v4 · pnpm + Turborepo · Vitest ·
-Playwright · PostgreSQL + Prisma (M04) · Better Auth (M03) · Python (M09)
+Next.js 16 · React 19 · TypeScript · Tailwind CSS v4 · shadcn/ui · pnpm + Turborepo ·
+PostgreSQL 17 + Prisma 7 · Better Auth (2FA, passkeys) · Vitest · Playwright + axe · Python (M09)
 
 ## Rodando localmente
 
-Pré-requisitos: Node 24 (veja `.node-version`) e pnpm (versão em `package.json`).
+Pré-requisitos: Node 24 (veja `.node-version`), pnpm (versão em `package.json`) e Docker.
 
 ```bash
-pnpm install     # instala dependências e os hooks de Git
-pnpm dev         # http://localhost:3000
-pnpm check       # lint, tipos, testes e build, igual ao CI
+cp .env.example .env   # e preencha o que está marcado com TROQUE
+pnpm install           # instala dependências e os hooks de Git
+pnpm db:up             # Postgres e Mailpit (e-mails de teste em http://localhost:8025)
+pnpm db:deploy         # cria as tabelas
+pnpm dev               # http://localhost:3000
+pnpm check             # lint, tipos, testes e build, igual ao CI
+pnpm e2e               # testes de ponta a ponta
 ```
 
 ## Estrutura
 
 ```
 apps/web/          app Next.js
+packages/db/       schema, migrações e cliente do Prisma
 packages/config/   configuração compartilhada de TypeScript
 docs/adr/          decisões de arquitetura
 samples/           dados sintéticos para testes (nunca dados reais)
@@ -35,6 +40,8 @@ samples/           dados sintéticos para testes (nunca dados reais)
 - Hooks locais bloqueiam segredos, arquivos de extrato ou fatura e mensagens de commit fora do padrão.
 - O CI repete as verificações e procura segredos em todo o histórico.
 - A branch `main` só aceita pull request com CI verde.
+- Cadastro fechado, 2FA obrigatório, passkeys, limite de tentativas e reautenticação antes de
+  ações sensíveis ([ADR-003](docs/adr/0003-autenticacao.md)).
 
 ## Licença
 

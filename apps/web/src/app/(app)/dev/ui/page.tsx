@@ -8,6 +8,7 @@ import { AmountText } from "@/components/money/amount-text";
 import { Button } from "@/components/ui/button";
 import { formatDateLong } from "@/lib/dates";
 import { ErrorDemo, MoneyInputDemo, UndoDeleteDemo } from "./demos";
+import { requireUser } from "@/lib/auth/session";
 
 export const metadata: Metadata = {
   title: "Catálogo de componentes",
@@ -48,8 +49,9 @@ function Section({
 }
 
 // Vitrine de todos os componentes do FinTrack. Só existe em desenvolvimento.
-export default function UiCatalogPage() {
+export default async function UiCatalogPage() {
   if (process.env.NODE_ENV === "production") notFound();
+  await requireUser(); // toda página do app começa conferindo a sessão (skill auth-guard)
 
   return (
     <>

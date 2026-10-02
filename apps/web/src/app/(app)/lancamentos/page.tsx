@@ -4,10 +4,13 @@ import { Plus, ReceiptText } from "lucide-react";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
+import { requireUser } from "@/lib/auth/session";
 
 export const metadata: Metadata = { title: "Lançamentos" };
 
-export default function TransactionsPage() {
+export default async function TransactionsPage() {
+  await requireUser(); // toda página do app começa conferindo a sessão (skill auth-guard)
+
   return (
     <>
       <PageHeader

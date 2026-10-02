@@ -1,0 +1,29 @@
+{
+  "name": "@fintrack/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:studio": "prisma studio",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
+    "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "@fintrack/config": "workspace:*",
+    "@types/node": "^24.19.0",
+    "@types/pg": "^8.23.1",
+    "dotenv": "^18.0.5",
+    "prisma": "^7.10.0",
+    "typescript": "^5.9.3"
+  }
+}
