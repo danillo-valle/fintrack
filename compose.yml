@@ -1,0 +1,43 @@
+# Serviços de desenvolvimento do FinTrack: o banco e o "carteiro" de teste.
+#   docker compose up -d --wait   sobe os dois e espera ficarem prontos
+#   docker compose ps             mostra o estado
+#   docker compose down           desliga (os dados do banco ficam no volume db-data)
+#
+# As portas ficam presas a 127.0.0.1: só o próprio servidor alcança, nunca a rede de casa.
+name: fintrack
+
+services:
+  db:
+    # Versão fixada: o volume de dados de uma versão maior não abre em outra
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fintrack
+      POSTGRES_PASSWORD: fintrack # só desenvolvimento; produção (M05) usa senha forte
+      POSTGRES_DB: fintrack
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    # "pronto" = aceitando conexões; o --wait do compose espera isto
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fintrack -d fintrack"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  mail:
+    # Mailpit: recebe os e-mails do app e mostra numa página (http://localhost:8025)
+    image: axllent/mailpit:v1.31.3
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:1025:1025" # SMTP: o app entrega os e-mails aqui
+      - "127.0.0.1:8025:8025" # página e API para ler os e-mails
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  db-data:
