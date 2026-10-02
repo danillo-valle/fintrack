@@ -1,0 +1,76 @@
+"use client";
+
+import { useState } from "react";
+import { RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { authClient } from "@/lib/auth-client";
+import { authErrorMessage } from "@/lib/auth/messages";
+import { BackupCodes } from "./backup-codes";
+import { FormAlert } from "./form-alert";
+import { PasswordInput } from "./password-input";
+
+// Gera 10 códigos de backup novos (os antigos deixam de valer). Pede a senha:
+// o próprio Better Auth exige, porque é uma ação sensível.
+export function RegenerateBackupCodes() {
+  const [codes, setCodes] = useState<string[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPending(true);
+    setError(null);
+    const { data, error } = await authClient.twoFactor.generateBackupCodes({
+      password: String(new FormData(event.currentTarget).get("password") ?? ""),
+    });
+    setPending(false);
+    if (error || !data) {
+      setError(authErrorMessage(error));
+      return;
+    }
+    setCodes(data.backupCodes);
+  }
+
+  if (codes) {
+    return (
+      <div className="flex flex-col gap-3">
+        <FormAlert
+          variant="success"
+          focusOnShow
+          message="Códigos novos gerados. Os antigos não valem mais. Guarde estes agora: eles não aparecem de novo."
+        />
+        <BackupCodes codes={codes} />
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <FormAlert message={error} />
+      <form onSubmit={handleSubmit}>
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="backup-password">Senha</FieldLabel>
+            <PasswordInput
+              id="backup-password"
+              name="password"
+              autoComplete="current-password"
+              required
+              aria-describedby="backup-help"
+            />
+            <FieldDescription id="backup-help">
+              Use quando tiver gastado vários códigos ou quando achar que alguém os viu.
+            </FieldDescription>
+          </Field>
+          <div>
+            <Button type="submit" variant="outline" disabled={pending}>
+              <RefreshCw aria-hidden />
+              {pending ? "Gerando…" : "Gerar códigos novos"}
+            </Button>
+          </div>
+        </FieldGroup>
+      </form>
+    </>
+  );
+}
