@@ -6,6 +6,7 @@ import { Fingerprint, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 import { authErrorMessage, isCancelled } from "@/lib/auth/messages";
+import { passkeySupport, passkeyUnavailableMessage } from "@/lib/auth/passkey-support";
 import { formatDate } from "@/lib/dates";
 import { FormAlert } from "./form-alert";
 
@@ -30,8 +31,14 @@ export function PasskeyManager({ passkeys }: { passkeys: PasskeyItem[] }) {
   }
 
   async function add() {
-    setPending(true);
     setError(null);
+    // Mesmo motivo da tela de entrar: sem suporte, o erro chegaria como "cancelado" e sumiria
+    const support = passkeySupport();
+    if (support !== "ok") {
+      setError(passkeyUnavailableMessage(support, "adicionar"));
+      return;
+    }
+    setPending(true);
     const result = await authClient.passkey.addPasskey({ name: "Passkey do FinTrack" });
     setPending(false);
     if (result?.error) return handleError(result.error);

@@ -9,6 +9,7 @@ import { Field, FieldGroup, FieldLabel, FieldSeparator } from "@/components/ui/f
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth-client";
 import { authErrorMessage, isCancelled } from "@/lib/auth/messages";
+import { passkeySupport, passkeyUnavailableMessage } from "@/lib/auth/passkey-support";
 import { FormAlert } from "./form-alert";
 import { PasswordInput } from "./password-input";
 
@@ -69,6 +70,13 @@ export function SignInForm({ next, googleEnabled, notice }: Props) {
 
   async function handlePasskey() {
     setError(null);
+    // Sem suporte (ex.: celular pelo http da rede de casa), o Better Auth responderia
+    // "cancelado" e a tela ficaria muda. Conferir antes permite explicar o motivo.
+    const support = passkeySupport();
+    if (support !== "ok") {
+      setError(passkeyUnavailableMessage(support, "entrar"));
+      return;
+    }
     const result = await authClient.signIn.passkey();
     if (result?.error) {
       // Cancelar a janela da passkey não é erro: a pessoa só mudou de ideia
