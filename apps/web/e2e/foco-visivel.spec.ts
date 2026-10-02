@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { openPage, PAGES } from "./helpers";
+import { NO_SESSION, openPage, PAGES, PUBLIC_PAGES } from "./helpers";
 
 // WCAG 2.2, critério 2.4.11 (foco não encoberto): o elemento com foco não pode ficar escondido
 // atrás do que fica fixo na tela. No FinTrack, isso é o cabeçalho e a barra de baixo do celular,
@@ -10,7 +10,10 @@ const MAX_STOPS = 60;
 
 /** Diz o que está cobrindo o elemento focado, ou null se ele está inteiro à vista. */
 async function focusProblem(page: Page): Promise<string | null> {
-  return page.evaluate(() => {
+  return page.evaluate(async () => {
+    // O ToastKeyboard rola até o elemento dois quadros de animação depois de mover o foco
+    // (veja focusVisibly). Medir antes disso pegaria o elemento no meio do caminho.
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     const el = document.activeElement as HTMLElement | null;
     if (!el || el === document.body || el.tagName === "MAIN") return null;
     const r = el.getBoundingClientRect();
@@ -68,6 +71,17 @@ for (const path of PAGES) {
     expect(await tour(page, "Shift+Tab")).toEqual([]);
   });
 }
+
+test.describe("telas de entrada, sem sessão", () => {
+  test.use({ storageState: NO_SESSION });
+  for (const path of PUBLIC_PAGES) {
+    test(`${path}: o foco nunca fica escondido (Tab e Shift+Tab)`, async ({ page }) => {
+      await openPage(page, path);
+      expect(await tour(page, "Tab")).toEqual([]);
+      expect(await tour(page, "Shift+Tab")).toEqual([]);
+    });
+  }
+});
 
 test.describe("com um aviso na tela", () => {
   // Passa o mouse sobre o aviso: o Sonner pausa o tempo e o aviso fica na tela durante o teste
