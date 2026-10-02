@@ -1,9 +1,20 @@
 {
   "$schema": "https://turborepo.com/schema.json",
   "ui": "stream",
+  "globalPassThroughEnv": [
+    "DATABASE_URL",
+    "BETTER_AUTH_*",
+    "ALLOWED_EMAILS",
+    "EMAIL_FROM",
+    "SMTP_*",
+    "PASSKEY_RP_ID",
+    "HIBP_CHECK",
+    "GOOGLE_CLIENT_*",
+    "MAILPIT_URL"
+  ],
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "^db:generate"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"],
       "env": ["APP_VERSION"]
@@ -12,19 +23,25 @@
       "dependsOn": ["^lint"]
     },
     "typecheck": {
-      "dependsOn": ["^typecheck"]
+      "dependsOn": ["^typecheck", "^db:generate"]
     },
     "test": {
-      "dependsOn": ["^test"],
+      "dependsOn": ["^test", "^db:generate"],
       "outputs": []
     },
     "dev": {
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "dependsOn": ["^db:generate"]
     },
     "test:e2e": {
       "cache": false,
-      "passThroughEnv": ["CI", "PLAYWRIGHT_*"]
+      "passThroughEnv": ["CI", "PLAYWRIGHT_*"],
+      "dependsOn": ["^db:generate"]
+    },
+    "db:generate": {
+      "inputs": ["prisma/schema.prisma", "prisma.config.ts"],
+      "outputs": ["src/generated/**"]
     }
   }
 }

@@ -13,7 +13,12 @@
     "check": "turbo run lint typecheck test build",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "e2e": "turbo run test:e2e"
+    "e2e": "turbo run test:e2e",
+    "db:up": "docker compose up -d --wait",
+    "db:generate": "pnpm --filter @fintrack/db db:generate",
+    "db:migrate": "pnpm --filter @fintrack/db db:migrate",
+    "db:deploy": "pnpm --filter @fintrack/db db:deploy",
+    "db:studio": "pnpm --filter @fintrack/db db:studio"
   },
   "packageManager": "pnpm@12.8.1",
   "devDependencies": {

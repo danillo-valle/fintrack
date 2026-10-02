@@ -61,3 +61,9 @@ npm-debug.log*
 
 # Claude Code: configuração pessoal (permissões aprovadas)
 .claude/settings.local.json
+
+# ── Prisma: cliente gerado por "prisma generate" (recriado a cada instalação) ──
+packages/db/src/generated/
+
+# ── Playwright: sessões das contas de teste (criadas por e2e/auth.setup.ts) ──
+apps/web/e2e/.auth/
