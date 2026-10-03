@@ -39,8 +39,12 @@
       "passThroughEnv": ["CI", "PLAYWRIGHT_*"],
       "dependsOn": ["^db:generate"]
     },
+    "test:integration": {
+      "cache": false,
+      "dependsOn": ["^db:generate", "db:generate"]
+    },
     "db:generate": {
-      "inputs": ["prisma/schema.prisma", "prisma.config.ts"],
+      "inputs": ["prisma/schema/**", "prisma.config.ts"],
       "outputs": ["src/generated/**"]
     }
   }

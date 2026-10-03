@@ -19,8 +19,8 @@ const nextConfig: NextConfig = {
   // e cobre o primeiro item da barra de navegação do celular. Erros continuam aparecendo.
   devIndicators: false,
 
-  // O pacote do banco é publicado como TypeScript (sem build próprio): o Next.js o compila
-  transpilePackages: ["@fintrack/db"],
+  // Os pacotes do monorepo são publicados como TypeScript (sem build próprio): o Next.js os compila
+  transpilePackages: ["@fintrack/core", "@fintrack/db"],
 };
 
 export default nextConfig;

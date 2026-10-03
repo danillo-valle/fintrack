@@ -28,3 +28,28 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 export type { PrismaClient } from "./generated/prisma/client";
+// O namespace Prisma (Prisma.Decimal, tipos de entrada) e os enums do schema (WalletKind...)
+export { Prisma } from "./generated/prisma/client";
+export * from "./generated/prisma/enums";
+
+// Os tipos dos modelos, para as features importarem daqui e não do código gerado
+export type {
+  AuditLog,
+  Budget,
+  CardStatement,
+  Category,
+  CategoryRule,
+  FinancialAccount,
+  Household,
+  HouseholdMember,
+  InstallmentGroup,
+  ProviderConnection,
+  SyncRun,
+  Transaction,
+  User,
+  Wallet,
+  WalletMember,
+} from "./generated/prisma/client";
+
+// Dinheiro: a ponte entre Prisma.Decimal (banco) e bigint em centavos (@fintrack/core)
+export { fromDbDecimal, fromDbDecimalOrNull, toDbDecimal } from "./money";

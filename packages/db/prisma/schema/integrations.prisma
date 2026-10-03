@@ -1,0 +1,97 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Conexões com bancos, sincronizações e trilha de auditoria (M04; usadas no M06 e no M09)
+//
+//   User ── ProviderConnection ── SyncRun   cada execução da sincronização, auditável
+//   AuditLog                                quem fez o quê, quando e de onde (só acrescenta)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Provedor de dados bancários. Por enquanto, só o Meu Pluggy (Open Finance, M09).
+enum ProviderKind {
+  PLUGGY
+
+  @@map("provider_kind")
+}
+
+enum ConnectionStatus {
+  ACTIVE
+  ERROR
+  REVOKED
+
+  @@map("connection_status")
+}
+
+enum SyncStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+
+  @@map("sync_status")
+}
+
+/// Conexão de uma pessoa com o provedor. Cada cônjuge conecta só as próprias contas.
+model ProviderConnection {
+  id               String           @id @default(uuid(7)) @db.Uuid
+  /// O titular das contas conectadas
+  userId           String
+  /// Carteira onde os lançamentos importados entram
+  walletId         String           @db.Uuid
+  provider         ProviderKind
+  status           ConnectionStatus @default(ACTIVE)
+  clientId         String?
+  /// Client Secret CIFRADO (M09), com a chave fora do banco. Nunca texto claro, nunca em log.
+  secretCiphertext Bytes?
+  lastSyncedAt     DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wallet   Wallet             @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  accounts FinancialAccount[]
+  runs     SyncRun[]
+
+  @@index([userId])
+  @@index([walletId])
+  @@map("provider_connection")
+}
+
+/// Uma execução da sincronização: começou, terminou, quantos itens, qual erro.
+model SyncRun {
+  id           String     @id @default(uuid(7)) @db.Uuid
+  connectionId String     @db.Uuid
+  startedAt    DateTime   @default(now())
+  /// CHECK: nulo enquanto RUNNING; depois, igual ou posterior ao início
+  finishedAt   DateTime?
+  status       SyncStatus @default(RUNNING)
+  itemsCreated Int        @default(0)
+  itemsUpdated Int        @default(0)
+  error        String?
+
+  connection ProviderConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@index([connectionId, startedAt(sort: Desc)])
+  @@map("sync_run")
+}
+
+/// Trilha de auditoria (OWASP A09:2025). SÓ ACRESCENTA: um gatilho no banco recusa UPDATE e
+/// DELETE (veja a migração). Sem chaves estrangeiras de propósito: o registro de que alguém
+/// fez algo precisa sobreviver mesmo que a conta ou a casa sejam apagadas.
+model AuditLog {
+  /// Número sequencial: a ordem dos eventos fica explícita
+  id          BigInt   @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  /// Quem fez (id do usuário); nulo para ações do sistema (sincronização agendada)
+  actorId     String?
+  householdId String?  @db.Uuid
+  /// O que aconteceu, no formato entidade.verbo: "wallet.member_invited", "transactions.exported"
+  action      String
+  entity      String
+  entityId    String?
+  ipAddress   String?
+  userAgent   String?
+  /// Detalhes da ação. Nunca guarde aqui senha, token, segredo ou dado de cartão.
+  metadata    Json?
+
+  @@index([householdId, createdAt(sort: Desc)])
+  @@index([actorId, createdAt(sort: Desc)])
+  @@map("audit_log")
+}

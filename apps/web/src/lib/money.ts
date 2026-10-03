@@ -3,7 +3,13 @@
 // Regra: dinheiro NUNCA é `number`. Um number guarda 0,1 + 0,2 como 0,30000000000000004.
 // Na tela, o valor vive em CENTAVOS como `bigint` (inteiro exato, sem limite prático).
 // Nas bordas (formulário, API, banco) ele viaja como texto decimal: "1234.56".
-// A partir do M04, esse texto é o formato do Prisma.Decimal.
+//
+// As regras puras (conversão, soma, rateio, parcelas) moram em @fintrack/core desde o M04.
+// Este arquivo guarda só o que é da tela: formatar em reais e a digitação estilo maquininha.
+import { centsToDecimal } from "@fintrack/core";
+
+// Reexporta a conversão para quem já importava daqui (as telas do M02 e do M03)
+export { centsToDecimal, decimalToCents } from "@fintrack/core";
 
 const MAX_DIGITS = 11; // até R$ 999.999.999,99
 
@@ -11,26 +17,6 @@ const brl = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
 });
-
-/** Converte centavos em texto decimal: -123456n → "-1234.56" */
-export function centsToDecimal(cents: bigint): string {
-  const negative = cents < 0n;
-  const abs = negative ? -cents : cents;
-  const units = abs / 100n;
-  const rest = (abs % 100n).toString().padStart(2, "0");
-  return `${negative ? "-" : ""}${units}.${rest}`;
-}
-
-/** Converte texto decimal em centavos: "1234.5" → 123450n. Recusa mais de 2 casas. */
-export function decimalToCents(value: string): bigint {
-  const match = /^(-)?(\d+)(?:\.(\d{1,2}))?$/.exec(value.trim());
-  if (!match) {
-    throw new Error(`Valor monetário inválido: "${value}"`);
-  }
-  const [, sign, units = "0", fraction = ""] = match;
-  const cents = BigInt(units) * 100n + BigInt(fraction.padEnd(2, "0"));
-  return sign ? -cents : cents;
-}
 
 /**
  * Formata centavos em reais: 123456n → "R$ 1.234,56".

@@ -18,7 +18,10 @@
     "db:generate": "pnpm --filter @fintrack/db db:generate",
     "db:migrate": "pnpm --filter @fintrack/db db:migrate",
     "db:deploy": "pnpm --filter @fintrack/db db:deploy",
-    "db:studio": "pnpm --filter @fintrack/db db:studio"
+    "db:studio": "pnpm --filter @fintrack/db db:studio",
+    "test:integration": "turbo run test:integration",
+    "db:seed": "pnpm --filter @fintrack/db db:seed",
+    "db:reset": "pnpm --filter @fintrack/db db:reset"
   },
   "packageManager": "pnpm@12.8.1",
   "devDependencies": {

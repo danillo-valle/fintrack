@@ -14,7 +14,8 @@ description: Convenções de código do FinTrack. Use sempre que criar, mover ou
 | Componentes de uma funcionalidade      | `apps/web/src/features/<feature>/ui/`                        |
 | Validação de entrada                   | `apps/web/src/features/<feature>/schemas.ts` (zod)           |
 | Utilitário usado por várias features   | `apps/web/src/lib/`                                          |
-| Regra pura reutilizável, sem I/O       | `packages/core/` (a partir do M04)                           |
+| Regra pura reutilizável, sem I/O       | `packages/core/src/` (dinheiro, datas, cartão)               |
+| Schema, migrações, seed do banco       | `packages/db/` (siga a skill `prisma-migration`)             |
 
 Uma feature só importa outra pelo `server/index.ts` dela. Nunca importe arquivos internos de outra feature.
 
@@ -34,7 +35,9 @@ Uma feature só importa outra pelo `server/index.ts` dela. Nunca importe arquivo
 
 ## Dinheiro e datas
 
-- Dinheiro nunca é `number` nem `parseFloat`. Até o M04, não crie cálculo monetário.
+- Dinheiro nunca é `number` nem `parseFloat`: é `bigint` em centavos (`Cents`, do `@fintrack/core`).
+  Soma, rateio e parcelas: `sumCents`, `allocate`, `installmentAmounts`. Banco: `toDbDecimal`/`fromDbDecimal`.
+- Datas de lançamento são datas civis `AAAA-MM-DD` (`CivilDate`); no banco, coluna `DATE`.
 - Datas exibidas sempre no fuso `America/Sao_Paulo`; datas guardadas sempre em UTC.
 
 ## Antes de concluir
