@@ -14,7 +14,9 @@
     "typecheck": "tsc --noEmit -p .",
     "lint": "eslint --max-warnings=0",
     "test": "vitest run",
-    "test:integration": "vitest run --config vitest.integration.config.mts"
+    "test:integration": "vitest run --config vitest.integration.config.mts",
+    "db:seed": "prisma db seed",
+    "db:reset": "prisma migrate reset --force && prisma db seed"
   },
   "dependencies": {
     "@fintrack/core": "workspace:*",
@@ -29,6 +31,7 @@
     "dotenv": "^18.0.5",
     "eslint": "^9.39.5",
     "prisma": "^7.10.0",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vitest": "^5.0.2"
   }

@@ -6,6 +6,9 @@ allowBuilds:
   lefthook: true
   "@prisma/engines": true
   prisma: true
+  # esbuild (usado pelo tsx do seed): o binário já vem no pacote @esbuild/linux-x64;
+  # o script de instalação só confere isso, então fica desligado
+  esbuild: false
   sharp: false
   unrs-resolver: false
 
