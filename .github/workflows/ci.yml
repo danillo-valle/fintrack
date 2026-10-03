@@ -148,6 +148,17 @@ jobs:
       - name: Cria as tabelas no banco de teste (migrações do Prisma)
         run: pnpm db:deploy
 
+      # As regras que moram no banco (CHECKs, chaves, gatilho da auditoria), provadas contra
+      # o Postgres de verdade. Ficam aqui porque este é o job que tem banco.
+      - name: Testes de integração do banco
+        run: pnpm turbo run test:integration
+        env:
+          TURBO_TELEMETRY_DISABLED: 1
+
+      # Prova que o seed roda num banco que acabou de nascer (e que continua rápido)
+      - name: Seed sintético num banco limpo
+        run: pnpm db:seed
+
       - name: Testes de ponta a ponta e acessibilidade (axe)
         run: pnpm turbo run test:e2e
         env:
