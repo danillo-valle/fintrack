@@ -40,3 +40,19 @@ de uma pessoa só, então o custo de manter componentes precisa ser baixo.
 - Atualizar componentes do shadcn é uma ação explícita (`shadcn add --overwrite`), revisada por diff.
 - Toda cor nova exige par claro/escuro e conferência de contraste.
 - O catálogo `/dev/ui` precisa acompanhar cada componente novo.
+
+## Adendo: decisões de foco da revisão 2 (registrado no M04)
+
+Decisões tomadas na revisão 2 do M02 e que faltavam neste registro:
+
+1. **Anel de foco com a cor cheia.** O shadcn gera `ring-ring/50` (cerca de 2,4:1 no tema
+   claro); o `scripts/corrige-aneis-de-foco.sh` troca por `ring-ring` (3:1 ou mais, WCAG 1.4.11)
+   e roda depois de todo `shadcn add`. O `e2e/foco-visivel.spec.ts` exige o anel do tema
+   (`box-shadow`), não só "algum contorno".
+2. **Nada fixo cobre o elemento focado** (WCAG 2.4.11): o `globals.css` define
+   `scroll-padding` para a barra inferior do celular, o botão "Novo lançamento" e a pilha de
+   avisos, em cada tamanho de tela.
+3. **O foco nunca se perde** depois de uma ação: `lib/focus.ts` (`focusAfterToast`) leva o
+   foco ao lugar certo depois que o aviso aparece, respeitando o `scroll-padding`.
+4. **Avisos com "Desfazer" duram 10 s** (`undoToast`), e `Alt+T` leva o foco aos avisos e pausa
+   o tempo (`ToastKeyboard`); o próximo `Tab` volta à página pulando o aviso.

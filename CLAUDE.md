@@ -1,6 +1,7 @@
 # FinTrack
 
-Controle financeiro da casa para duas pessoas: carteiras pessoais e uma conjunta.
+Controle financeiro pessoal e da casa: cada pessoa tem o seu ambiente, e ambientes compartilhados
+("Casa") juntam gastos de várias pessoas. Feito para qualquer número de usuários.
 Projeto de portfólio construído em módulos (M00 a M12); cada módulo é uma milestone no GitHub.
 
 ## Stack
@@ -10,8 +11,9 @@ Projeto de portfólio construído em módulos (M00 a M12); cada módulo é uma m
 - Interface: shadcn/ui (base Radix, estilo Nova), ícones lucide-react, tema com next-themes
 - Testes: Vitest (unitários), Playwright + axe (ponta a ponta e acessibilidade)
 - Banco: PostgreSQL 17 (container do `compose.yml`) com Prisma ORM 7 em `packages/db` (fixado no 7.x)
+- Regras puras de dinheiro, datas e cartão em `packages/core` (sem I/O; testes de propriedade com fast-check)
 - Autenticação: Better Auth (e-mail e senha, 2FA TOTP obrigatório, passkeys, Google opcional)
-- Próximos módulos: modelo de dados (M04), serviço Python em `services/ml` (M09)
+- Próximos módulos: deploy (M05), lar e permissões (M06), serviço Python em `services/ml` (M09)
 
 Regras específicas do Next.js 16: @apps/web/AGENTS.md
 
@@ -20,6 +22,8 @@ Regras específicas do Next.js 16: @apps/web/AGENTS.md
 - `pnpm db:up` sobe o Postgres e o Mailpit (e-mails de teste em http://localhost:8025)
 - `pnpm dev` inicia o app em http://localhost:3000
 - `pnpm db:migrate --name descricao` cria e aplica uma migração; `pnpm db:studio` abre o banco no navegador
+- `pnpm db:seed` grava a casa fictícia (24 meses); `pnpm db:reset` apaga o banco, migra e roda o seed (só a pessoa roda)
+- `pnpm test:integration` prova as regras do banco (CHECKs, chaves, gatilho) contra o Postgres
 - `bash scripts/gerar-schema-auth.sh` atualiza as tabelas do Better Auth depois de mudar o `auth.ts`
 - `pnpm check` roda lint, tipos, testes e build (o mesmo que o CI)
 - `pnpm --filter @fintrack/web test` roda só os testes do app web
@@ -39,16 +43,21 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
 - `apps/web/src/lib/auth/` regras de acesso: `session.ts` (requireUser), `routes.ts`, `reauth.ts`
 - `apps/web/src/features/auth/` telas e actions de login, 2FA, passkeys e sessões
 - `apps/web/src/proxy.ts` redireciona quem não tem sessão (conveniência, não barreira)
-- `packages/db/` schema, migrações e cliente do Prisma
+- `packages/core/` regras puras: `money.ts` (centavos, rateio, parcelas), `dates.ts`, `card.ts`
+- `packages/db/` schema em pasta (`prisma/schema/`), migrações, seed, cliente e `money.ts` (Decimal ⇄ centavos)
+- `docs/modelo-de-dados.md` diagrama das tabelas (conferido por teste)
 - `apps/web/e2e/` testes Playwright
 - `/dev/ui` catálogo de componentes (só em desenvolvimento)
-- `packages/config/` configuração compartilhada de TypeScript
+- `packages/config/` configuração compartilhada de TypeScript e ESLint (com a trava de dinheiro)
 - `docs/adr/` decisões de arquitetura
-- `samples/` única pasta com arquivos .ofx, .pdf ou .csv, e só sintéticos
+- `samples/` única pasta com arquivos .ofx, .pdf, .csv ou planilhas (.xlsx, .xlsm...), e só sintéticos
 
 ## Regras que não se negociam
 
-- Dinheiro nunca é `number`. Use `Decimal` (a partir do M04).
+- Dinheiro nunca é `number`: `bigint` em centavos no código, `Decimal(14,2)` no banco. Veja o ADR-004.
+- Lançamento separa "quem paga" (conta, cartão, forma de pagamento) de "de quem é" (ambiente = `Wallet`).
+- Cartão: só os 4 últimos dígitos. Nunca número completo, validade ou CVV em lugar nenhum.
+- Mudança no banco: siga a skill `prisma-migration`. Nunca edite migração aplicada; nunca rode reset sem a pessoa pedir.
 - Acesso ao banco só dentro de `features/*/server/` ou `lib/`; o ESLint bloqueia o resto.
 - Toda página de `(app)` e toda Server Action começam com `await requireUser()`; siga a skill `auth-guard`.
 - Variáveis de ambiente novas: no `.env.example` (sem valor real), no `src/lib/env.ts` (validação) e no `globalPassThroughEnv` do `turbo.json`.
