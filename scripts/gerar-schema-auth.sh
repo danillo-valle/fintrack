@@ -19,15 +19,27 @@ set +a
 
 # Versão do CLI igual à do better-auth instalado no app (lida do package.json)
 VERSION=$(node -p 'require("./apps/web/node_modules/better-auth/package.json").version')
-echo "Better Auth $VERSION: gerando as tabelas em packages/db/prisma/schema.prisma"
+AUTH_SCHEMA=packages/db/prisma/schema/auth.prisma
+echo "Better Auth $VERSION: gerando as tabelas em $AUTH_SCHEMA"
 
 # --config  onde está a configuração do Better Auth
-# --output  o schema do Prisma, que o CLI reescreve mantendo o generator e o datasource
+# --output  o arquivo do schema com as tabelas do login (desde o M04, o schema é uma pasta:
+#           o domínio fica nos outros arquivos de packages/db/prisma/schema/)
 # -y        não pergunta antes de sobrescrever
 pnpm dlx "auth@$VERSION" generate \
   --config apps/web/src/lib/auth.ts \
-  --output packages/db/prisma/schema.prisma \
+  --output "$AUTH_SCHEMA" \
   -y
 
-# Formata o schema no padrão do Prisma (alinha as colunas)
+cat <<'NOTA'
+
+Nota (M04): se apareceu o aviso de que householdMemberships, walletMemberships ou outras
+listas do User "rejeitam inserts" (columns reject every insert), pode ignorar. São listas de
+relação do Prisma, não colunas da tabela "user"; o CLI do Better Auth 1.7.7 confunde as duas.
+A conferência abaixo (prisma validate) é a que vale.
+
+NOTA
+
+# Formata o schema no padrão do Prisma (alinha as colunas) e confere a pasta inteira
 pnpm --filter @fintrack/db exec prisma format
+pnpm --filter @fintrack/db exec prisma validate

@@ -1,0 +1,247 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Lançamentos, faturas do cartão, compras parceladas e recorrências (M04)
+//
+//   Transaction        cada entrada ou saída de dinheiro. Responde três perguntas separadas:
+//                        QUEM PAGA      accountId (+ cardId, opcional) e method
+//                        DE QUEM É      walletId (o ambiente: "Casa", "Danillo"...)
+//                        O QUE É        categoryId
+//   CardStatement      fatura do cartão (competência ≠ caixa)
+//   InstallmentGroup   compra parcelada → N lançamentos, um por fatura
+//   Recurrence         conta fixa, assinatura ou receita que se repete todo mês; os
+//                      lançamentos que ela gera apontam para ela (recurrenceId)
+//
+// "Despesa fixa", "variável", "recorrente" e "parcelada" (as abas da planilha) não são
+// colunas: são CALCULADAS. Parcelada = tem installmentGroupId. Fixa, assinatura ou receita
+// recorrente = tem recurrenceId (o tipo está na Recurrence). Variável = nenhuma das duas.
+//
+// Convenções do lançamento:
+//   amount       com SINAL: negativo = saiu dinheiro, positivo = entrou. CHECK: nunca zero
+//   occurredOn   DATE, sem hora: o dia em que aconteceu (ou vai acontecer, se SCHEDULED)
+//   transferId   os dois lados de uma transferência (ou do pagamento da fatura) têm o mesmo
+//                valor aqui; relatórios de gasto ignoram quem tem transferId
+//   deletedAt    exclusão lógica: some das telas, mas o "desfazer" e a auditoria continuam
+//
+// Todas as ligações levam o householdId junto (chaves compostas): o banco garante que
+// conta, ambiente, cartão, categoria e fatura de um lançamento são todos do mesmo grupo.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// PENDING: veio de fora (Open Finance, arquivo, bot) e espera revisão.
+/// SCHEDULED: agendado, ainda não aconteceu (boleto agendado, conta fixa do mês).
+/// CONFIRMED: aconteceu e foi conferido.
+enum TransactionStatus {
+  PENDING
+  SCHEDULED
+  CONFIRMED
+
+  @@map("transaction_status")
+}
+
+/// De onde o lançamento veio. Junto com externalId, impede importar duas vezes.
+enum TransactionSource {
+  MANUAL
+  OFX
+  PDF
+  OPEN_FINANCE
+  BOT
+  RECURRENCE
+
+  @@map("transaction_source")
+}
+
+/// Como o dinheiro saiu ou entrou. CHECK: com cartão, só CREDIT, DEBIT ou VOUCHER.
+enum PaymentMethod {
+  CREDIT
+  DEBIT
+  PIX
+  BOLETO
+  TRANSFER
+  DEPOSIT
+  CASH
+  WITHDRAWAL
+  /// Vale-refeição ou vale-alimentação
+  VOUCHER
+
+  @@map("payment_method")
+}
+
+/// Situação da fatura do cartão. É daqui que vem o "PAGO/ABERTO" de uma compra no cartão.
+enum StatementStatus {
+  OPEN
+  CLOSED
+  PAID
+
+  @@map("statement_status")
+}
+
+/// Tipo de recorrência: as antigas abas "Despesas Fixas" e "Despesas Recorrentes".
+enum RecurrenceKind {
+  /// Conta fixa: aluguel, condomínio, internet, consórcio, seguro
+  FIXED_BILL
+  /// Assinatura: streaming, academia, software (normalmente num cartão virtual)
+  SUBSCRIPTION
+  /// Receita que se repete: salário, aluguel recebido
+  INCOME
+
+  @@map("recurrence_kind")
+}
+
+/// Um lançamento: dinheiro que entrou ou saiu de uma conta, atribuído a um ambiente.
+model Transaction {
+  id                 String            @id @default(uuid(7)) @db.Uuid
+  householdId        String            @db.Uuid
+  /// DE QUEM é: o ambiente onde o lançamento conta ("Casa", "Danillo")
+  walletId           String            @db.Uuid
+  /// QUEM PAGA: a conta (corrente, fatura do cartão, vale...)
+  accountId          String            @db.Uuid
+  /// Com qual cartão daquela conta (opcional: PIX e transferência não têm cartão)
+  cardId             String?           @db.Uuid
+  method             PaymentMethod
+  categoryId         String?           @db.Uuid
+  /// Valor com sinal, em reais com 2 casas (NUMERIC(14,2)). CHECK: diferente de zero
+  amount             Decimal           @db.Decimal(14, 2)
+  /// Dia do lançamento (coluna DATE)
+  occurredOn         DateTime          @db.Date
+  /// CHECK: de 1 a 200 caracteres
+  description        String
+  notes              String?
+  status             TransactionStatus @default(CONFIRMED)
+  source             TransactionSource @default(MANUAL)
+  /// Id do lançamento na origem (FITID do OFX, id da Pluggy, ocorrência da recorrência).
+  /// CHECK: obrigatório fora do MANUAL
+  externalId         String?
+  /// Fatura em que a compra entrou (só cartão de crédito)
+  statementId        String?           @db.Uuid
+  installmentGroupId String?           @db.Uuid
+  /// 1, 2, 3... CHECK: preenchido junto com installmentGroupId, nunca sozinho
+  installmentNumber  Int?              @db.SmallInt
+  /// Recorrência que gerou este lançamento (conta fixa, assinatura, salário)
+  recurrenceId       String?           @db.Uuid
+  transferId         String?           @db.Uuid
+  /// Estorno: aponta para a compra estornada
+  reversalOfId       String?           @db.Uuid
+  /// Quem lançou (nulo para o que veio de importação ou recorrência)
+  createdById        String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  deletedAt          DateTime?
+
+  household        Household         @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  // Chaves COMPOSTAS: cada par precisa existir junto na outra tabela. Um lançamento com o
+  // ambiente de um grupo e a conta de outro é recusado pelo próprio banco.
+  wallet           Wallet            @relation(fields: [walletId, householdId], references: [id, householdId], onDelete: Cascade)
+  account          FinancialAccount  @relation(fields: [accountId, householdId], references: [id, householdId], onDelete: Cascade)
+  // NoAction nas opcionais compostas: SetNull zeraria também o accountId/householdId
+  // (obrigatórios). Cartão e categoria em uso são arquivados, não apagados.
+  card             PaymentCard?      @relation(fields: [cardId, accountId], references: [id, accountId], onDelete: NoAction)
+  category         Category?         @relation(fields: [categoryId, householdId], references: [id, householdId], onDelete: NoAction)
+  statement        CardStatement?    @relation(fields: [statementId, accountId], references: [id, accountId], onDelete: NoAction)
+  installmentGroup InstallmentGroup? @relation(fields: [installmentGroupId, accountId], references: [id, accountId], onDelete: Cascade)
+  recurrence       Recurrence?       @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
+  reversalOf       Transaction?      @relation("Reversal", fields: [reversalOfId], references: [id], onDelete: SetNull)
+  reversals        Transaction[]     @relation("Reversal")
+  createdBy        User?             @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  // Idempotência da importação: o mesmo lançamento da mesma origem na mesma conta, uma vez só.
+  // Lançamentos manuais têm externalId nulo, e no Postgres nulos não colidem entre si.
+  @@unique([accountId, source, externalId])
+  // A parcela 3 de uma compra existe uma vez só
+  @@unique([installmentGroupId, installmentNumber])
+  // A consulta mais comum: "os lançamentos deste ambiente, do mais recente para o mais antigo"
+  @@index([walletId, occurredOn(sort: Desc)])
+  @@index([accountId, occurredOn])
+  @@index([cardId])
+  @@index([statementId])
+  @@index([categoryId])
+  @@index([recurrenceId])
+  @@index([transferId])
+  @@map("transaction")
+}
+
+/// Fatura do cartão: guarda a competência (mês de referência) e o caixa (vencimento).
+model CardStatement {
+  id             String            @id @default(uuid(7)) @db.Uuid
+  accountId      String            @db.Uuid
+  /// Mês da fatura, guardado como o dia 1. CHECK: sempre dia 1
+  referenceMonth DateTime          @db.Date
+  closingDate    DateTime          @db.Date
+  /// CHECK: depois do fechamento
+  dueDate        DateTime          @db.Date
+  /// Valor da fatura (positivo = a pagar). Nulo enquanto a fatura está aberta
+  total          Decimal?          @db.Decimal(14, 2)
+  minimumPayment Decimal?          @db.Decimal(14, 2)
+  status         StatementStatus   @default(OPEN)
+  source         TransactionSource @default(MANUAL)
+  externalId     String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  account      FinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  // Alvo da chave composta (statementId, accountId): a compra está na fatura da própria conta
+  @@unique([id, accountId])
+  @@unique([accountId, referenceMonth])
+  @@map("card_statement")
+}
+
+/// Compra parcelada: a compra original, de onde saem os lançamentos de cada parcela.
+model InstallmentGroup {
+  id               String   @id @default(uuid(7)) @db.Uuid
+  householdId      String   @db.Uuid
+  walletId         String   @db.Uuid
+  accountId        String   @db.Uuid
+  description      String
+  /// Valor total da compra, com sinal. CHECK: diferente de zero
+  totalAmount      Decimal  @db.Decimal(14, 2)
+  /// CHECK: de 2 a 99 parcelas
+  installmentCount Int      @db.SmallInt
+  purchasedOn      DateTime @db.Date
+  createdAt        DateTime @default(now())
+
+  household    Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  wallet       Wallet           @relation(fields: [walletId, householdId], references: [id, householdId], onDelete: Cascade)
+  account      FinancialAccount @relation(fields: [accountId, householdId], references: [id, householdId], onDelete: Cascade)
+  transactions Transaction[]
+
+  // Alvo da chave composta (installmentGroupId, accountId): as parcelas ficam na mesma conta
+  @@unique([id, accountId])
+  @@index([accountId])
+  @@map("installment_group")
+}
+
+/// Recorrência: um lançamento que se repete todo mês no mesmo dia (conta fixa, assinatura,
+/// salário). No M07, ela gera os lançamentos do mês como SCHEDULED, que viram CONFIRMED.
+model Recurrence {
+  id          String         @id @default(uuid(7)) @db.Uuid
+  householdId String         @db.Uuid
+  walletId    String         @db.Uuid
+  accountId   String         @db.Uuid
+  cardId      String?        @db.Uuid
+  categoryId  String?        @db.Uuid
+  kind        RecurrenceKind
+  method      PaymentMethod
+  description String
+  /// Valor previsto, com sinal (contas variáveis, como a de luz, usam a média). CHECK: ≠ zero
+  amount      Decimal        @db.Decimal(14, 2)
+  /// Dia do mês (1 a 31; num mês mais curto, cai no último dia). CHECK: de 1 a 31
+  dayOfMonth  Int            @db.SmallInt
+  startsOn    DateTime       @db.Date
+  /// Nulo = sem prazo. CHECK: depois do início
+  endsOn      DateTime?      @db.Date
+  createdById String?
+  archivedAt  DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  household    Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  wallet       Wallet           @relation(fields: [walletId, householdId], references: [id, householdId], onDelete: Cascade)
+  account      FinancialAccount @relation(fields: [accountId, householdId], references: [id, householdId], onDelete: Cascade)
+  card         PaymentCard?     @relation(fields: [cardId, accountId], references: [id, accountId], onDelete: NoAction)
+  category     Category?        @relation(fields: [categoryId, householdId], references: [id, householdId], onDelete: NoAction)
+  createdBy    User?            @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  transactions Transaction[]
+
+  @@index([householdId])
+  @@index([walletId])
+  @@map("recurrence")
+}

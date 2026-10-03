@@ -1,0 +1,221 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Contas, cartões, categorias, regras de categorização e orçamento (M04)
+//
+//   FinancialAccount   de onde o dinheiro sai ou para onde entra: conta corrente, poupança,
+//                      FATURA de cartão de crédito, vale-refeição, dinheiro vivo.
+//                      Tem um TITULAR (holderId) e um ambiente onde é gerida (walletId).
+//     └── PaymentCard  o plástico ou o virtual daquela conta: físico, virtual, temporário,
+//                      adicional. Tem um PORTADOR (holderId), que pode ser outra pessoa.
+//
+//   Exemplo (a estrutura da planilha de hoje):
+//     fatura "Cartão Master" (titular Lia, ambiente Lia, fecha 3, vence 9)
+//       ├── final 1001  físico            portador Lia
+//       ├── final 1002  virtual           portador Lia
+//       ├── final 1003  físico adicional  portador Caio
+//       └── final 1004  virtual adicional portador Caio
+//     Um cartão CONJUNTO de verdade é uma conta cujo ambiente é o compartilhado ("Casa").
+//
+//   Household ── Category        árvore de categorias do grupo (Alimentação › Mercado)
+//             └─ CategoryRule    "texto contém X" → categoria Y (cascata do M10, 1ª camada)
+//   Wallet ── Budget             quanto o ambiente planeja gastar por categoria em cada mês
+//
+// Regras que o Prisma não sabe escrever (CHECK) estão na migração <data>_dominio (pasta
+// migrations), comentadas uma a uma. Elas aparecem aqui como "CHECK:" para quem lê o schema.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Tipo de conta. CREDIT_CARD tem fechamento e vencimento; as outras, não.
+enum AccountKind {
+  CHECKING
+  SAVINGS
+  CREDIT_CARD
+  /// Vale-refeição e vale-alimentação (Pluxee, Alelo...): saldo recarregado, sem fatura
+  MEAL_VOUCHER
+  CASH
+
+  @@map("account_kind")
+}
+
+/// Formato do cartão. Se é adicional ou não, diz a coluna isAdditional.
+enum CardForm {
+  PHYSICAL
+  /// Virtual que não expira (assinaturas, compras recorrentes)
+  VIRTUAL
+  /// Virtual de uso único ou com prazo curto
+  VIRTUAL_TEMPORARY
+
+  @@map("card_form")
+}
+
+/// Categoria de gasto ou de receita. Transferências não têm categoria.
+enum CategoryKind {
+  EXPENSE
+  INCOME
+
+  @@map("category_kind")
+}
+
+/// Como a regra compara o texto do lançamento. Sem expressão regular de propósito:
+/// regex escrita pelo usuário pode travar o servidor (ReDoS, OWASP).
+enum RuleMatch {
+  CONTAINS
+  STARTS_WITH
+  EQUALS
+
+  @@map("rule_match")
+}
+
+/// Conta: corrente, poupança, fatura de cartão, vale-refeição ou dinheiro vivo.
+/// Nome em inglês "FinancialAccount" porque "Account" já é a tabela do Better Auth (login).
+model FinancialAccount {
+  id             String      @id @default(uuid(7)) @db.Uuid
+  householdId    String      @db.Uuid
+  /// Ambiente onde a conta é gerida e aparece por inteiro (o pessoal do titular, ou "Casa")
+  walletId       String      @db.Uuid
+  /// Titular: quem responde pela conta ou pela fatura no banco
+  holderId       String?
+  name           String
+  kind           AccountKind
+  /// Banco ou emissor, só para exibir ("Itaú", "Pluxee")
+  institution    String?
+  /// Saldo no dia em que a conta começou a ser acompanhada
+  initialBalance Decimal     @default(0) @db.Decimal(14, 2)
+  /// Limite do cartão. CHECK: maior ou igual a zero
+  creditLimit    Decimal?    @db.Decimal(14, 2)
+  /// Dia do fechamento da fatura (1 a 31). CHECK: obrigatório se, e só se, for cartão
+  closingDay     Int?        @db.SmallInt
+  /// Dia do vencimento da fatura (1 a 31). CHECK: obrigatório se, e só se, for cartão
+  dueDay         Int?        @db.SmallInt
+  /// Conexão de Open Finance que traz os dados desta conta (M09)
+  connectionId   String?     @db.Uuid
+  /// Id da conta no provedor (Pluggy), para casar a conta na sincronização
+  externalId     String?
+  archivedAt     DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  // Composta: o ambiente da conta precisa ser do mesmo grupo
+  wallet    Wallet    @relation(fields: [walletId, householdId], references: [id, householdId], onDelete: Cascade)
+  holder    User?     @relation("AccountHolder", fields: [holderId], references: [id], onDelete: SetNull)
+
+  connection        ProviderConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  cards             PaymentCard[]
+  transactions      Transaction[]
+  statements        CardStatement[]
+  installmentGroups InstallmentGroup[]
+  recurrences       Recurrence[]
+
+  // Alvo das chaves compostas (accountId, householdId) de lançamentos, parcelas e
+  // recorrências: ninguém usa a conta de outro grupo.
+  @@unique([id, householdId])
+  @@unique([connectionId, externalId])
+  @@index([householdId])
+  @@index([walletId])
+  @@index([holderId])
+  @@map("financial_account")
+}
+
+/// Cartão (plástico ou virtual) de uma conta. NUNCA o número completo: só os 4 últimos dígitos.
+/// Guardar o número inteiro (PAN) traria as obrigações do padrão PCI DSS, e o app não precisa
+/// dele: o Open Finance (M09) também só devolve o número mascarado.
+model PaymentCard {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  accountId    String    @db.Uuid
+  /// Portador: quem usa este cartão (no adicional, outra pessoa que não o titular da conta)
+  holderId     String?
+  /// Nome para reconhecer na tela ("Master 1001", "Virtual assinaturas")
+  nickname     String
+  /// Bandeira: Mastercard, Visa, Elo, Amex, Pluxee... Texto, e não enum, para uma bandeira
+  /// nova não exigir migração. CHECK: de 2 a 30 caracteres
+  brand        String
+  /// CHECK: exatamente 4 dígitos
+  lastFour     String    @db.Char(4)
+  form         CardForm
+  isAdditional Boolean   @default(false)
+  /// Arquivar em vez de apagar: o cartão some das listas, os lançamentos antigos continuam
+  archivedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  account      FinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  holder       User?            @relation("CardHolder", fields: [holderId], references: [id], onDelete: SetNull)
+  transactions Transaction[]
+  recurrences  Recurrence[]
+
+  // Alvo da chave composta (cardId, accountId) do lançamento: o cartão é daquela conta
+  @@unique([id, accountId])
+  @@index([accountId])
+  @@index([holderId])
+  @@map("payment_card")
+}
+
+/// Categoria, com subcategorias (parentId). Os nomes não se repetem dentro do grupo.
+model Category {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  householdId String       @db.Uuid
+  parentId    String?      @db.Uuid
+  name        String
+  kind        CategoryKind
+  /// Nome de um token de cor do tema ("chart-3"), nunca uma cor fixa
+  color       String?
+  /// Arquivar em vez de apagar: categoria usada em lançamentos não pode ser apagada
+  archivedAt  DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  household    Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  // NoAction (e não Restrict): o banco confere no FIM do comando. Assim, apagar o grupo apaga
+  // pais e filhas juntos; apagar só uma categoria que tem filhas continua proibido.
+  parent       Category?      @relation("CategoryTree", fields: [parentId], references: [id], onDelete: NoAction)
+  children     Category[]     @relation("CategoryTree")
+  transactions Transaction[]
+  rules        CategoryRule[]
+  budgets      Budget[]
+  recurrences  Recurrence[]
+
+  // Alvo das chaves compostas (categoryId, householdId): ninguém usa categoria de outro grupo
+  @@unique([id, householdId])
+  @@unique([householdId, name])
+  @@index([parentId])
+  @@map("category")
+}
+
+/// Regra de categorização: se a descrição combina com `pattern`, o lançamento vai para a categoria.
+model CategoryRule {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  householdId String    @db.Uuid
+  categoryId  String    @db.Uuid
+  /// Texto procurado, já em minúsculas e sem acento. CHECK: de 2 a 100 caracteres
+  pattern     String
+  match       RuleMatch @default(CONTAINS)
+  /// Menor número vence quando duas regras combinam
+  priority    Int       @default(100)
+  createdAt   DateTime  @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  category  Category  @relation(fields: [categoryId, householdId], references: [id, householdId], onDelete: Cascade)
+
+  @@index([householdId, priority])
+  @@map("category_rule")
+}
+
+/// Orçamento: quanto um ambiente planeja gastar numa categoria num mês.
+model Budget {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  householdId String   @db.Uuid
+  walletId    String   @db.Uuid
+  categoryId  String   @db.Uuid
+  /// Mês do orçamento, guardado como o dia 1. CHECK: sempre dia 1
+  month       DateTime @db.Date
+  /// Valor planejado (positivo). CHECK: maior ou igual a zero
+  amount      Decimal  @db.Decimal(14, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  wallet   Wallet   @relation(fields: [walletId, householdId], references: [id, householdId], onDelete: Cascade)
+  category Category @relation(fields: [categoryId, householdId], references: [id, householdId], onDelete: Cascade)
+
+  // Um valor por categoria por mês em cada ambiente
+  @@unique([walletId, categoryId, month])
+  @@map("budget")
+}

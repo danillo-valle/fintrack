@@ -1,6 +1,9 @@
+// O caminho do output é relativo a ESTE arquivo (prisma/schema/), por isso sobe dois níveis
+// até packages/db/src/generated/prisma, a pasta que o .gitignore ignora.
+
 generator client {
   provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  output   = "../../src/generated/prisma"
 }
 
 datasource db {
@@ -20,6 +23,18 @@ model User {
   accounts         Account[]
   twofactors       TwoFactor[]
   passkeys         Passkey[]
+
+  // Relações com o domínio (M04). São listas de relação, não colunas: a tabela "user" não muda.
+  // O CLI do Better Auth preserva estes campos (testado na 1.7.7), mas avisa, por engano,
+  // que eles "rejeitam inserts". O scripts/gerar-schema-auth.sh explica e confere o resultado.
+  householdMemberships HouseholdMember[]
+  walletMemberships    WalletMember[]
+  walletsCreated       Wallet[]             @relation("WalletCreator")
+  accountsHeld         FinancialAccount[]   @relation("AccountHolder")
+  cardsHeld            PaymentCard[]        @relation("CardHolder")
+  transactionsCreated  Transaction[]
+  recurrencesCreated   Recurrence[]
+  providerConnections  ProviderConnection[]
 
   @@unique([email])
   @@map("user")

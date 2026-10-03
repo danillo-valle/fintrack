@@ -1,0 +1,134 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Grupo, ambientes e quem participa de cada um (M04; as regras de acesso chegam no M06)
+//
+//   Household (o grupo: a família, a casa)         qualquer número de pessoas
+//     ├── HouseholdMember   quem faz parte            uma pessoa pode estar em mais de um grupo
+//     └── Wallet            os AMBIENTES do grupo:
+//           PERSONAL  um por pessoa ("Danillo"), criado junto com a pessoa
+//           SHARED    criado por qualquer membro ("Casa", "Viagem 2027"), com os membros que ela escolher
+//           └── WalletMember  quem participa de cada ambiente, com papel OWNER/EDITOR/VIEWER
+//
+// O ambiente responde "DE QUEM é o gasto". "QUEM PAGA" é a conta e o cartão (accounts.prisma).
+// Uma compra do ambiente Casa pode sair do cartão pessoal de alguém: as duas coisas são
+// independentes, e o banco só exige que conta e ambiente sejam do mesmo grupo.
+//
+// Convenções deste schema (veja docs/adr/0004-modelo-de-dados.md):
+//   - ids do domínio: UUID versão 7 (ordenado pelo tempo: índice mais compacto que o v4)
+//   - nomes de tabela em snake_case pelo @@map; colunas em camelCase, como as do Better Auth
+//   - enums em inglês (código), traduzidos só na tela ("Wallet" aparece como "Ambiente")
+//   - toda tabela do domínio carrega householdId: é a fronteira que o banco garante
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Papel de cada pessoa no grupo. OWNER convida e remove membros (M06).
+enum HouseholdRole {
+  OWNER
+  MEMBER
+
+  @@map("household_role")
+}
+
+/// Tipo de ambiente. PERSONAL é de uma pessoa só; SHARED reúne gastos de várias pessoas.
+enum WalletKind {
+  PERSONAL
+  SHARED
+
+  @@map("wallet_kind")
+}
+
+/// O que cada pessoa pode fazer num ambiente (a matriz de papéis do M06).
+enum WalletRole {
+  OWNER
+  EDITOR
+  VIEWER
+
+  @@map("wallet_role")
+}
+
+/// O grupo: as pessoas que podem criar ambientes juntas e compartilham as categorias.
+model Household {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members           HouseholdMember[]
+  wallets           Wallet[]
+  accounts          FinancialAccount[]
+  categories        Category[]
+  rules             CategoryRule[]
+  transactions      Transaction[]
+  installmentGroups InstallmentGroup[]
+  recurrences       Recurrence[]
+
+  @@map("household")
+}
+
+/// Uma pessoa (usuário do Better Auth) dentro de um grupo.
+model HouseholdMember {
+  householdId String        @db.Uuid
+  userId      String
+  role        HouseholdRole @default(MEMBER)
+  joinedAt    DateTime      @default(now())
+
+  // Apagar o grupo ou a conta de login remove o vínculo (onDelete: Cascade)
+  household         Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  walletMemberships WalletMember[]
+
+  // Chave primária composta: a mesma pessoa não entra duas vezes no mesmo grupo
+  @@id([householdId, userId])
+  // "Em que grupo eu estou?" é a primeira consulta de toda tela: índice pelo usuário
+  @@index([userId])
+  @@map("household_member")
+}
+
+/// Ambiente: o que se soma junto ("Danillo", "Casa"). É a unidade de autorização (M06).
+model Wallet {
+  id          String     @id @default(uuid(7)) @db.Uuid
+  householdId String     @db.Uuid
+  name        String
+  kind        WalletKind
+  /// Código ISO 4217 da moeda. Por enquanto, sempre BRL. CHECK: três letras maiúsculas
+  currency    String     @default("BRL") @db.Char(3)
+  /// Quem criou o ambiente (num PERSONAL, a própria pessoa)
+  createdById String?
+  /// Arquivar esconde o ambiente sem apagar o histórico
+  archivedAt  DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  household         Household            @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  createdBy         User?                @relation("WalletCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  members           WalletMember[]
+  accounts          FinancialAccount[]
+  transactions      Transaction[]
+  budgets           Budget[]
+  installmentGroups InstallmentGroup[]
+  recurrences       Recurrence[]
+  connections       ProviderConnection[]
+
+  // Alvo das chaves estrangeiras COMPOSTAS (walletId, householdId) de contas, lançamentos,
+  // parcelas e recorrências: garante, no banco, que nada aponta para ambiente de outro grupo.
+  @@unique([id, householdId])
+  @@index([householdId])
+  @@map("wallet")
+}
+
+/// Quem participa de um ambiente, e com que papel. Só membros do grupo do ambiente:
+/// a chave (householdId, userId) aponta para household_member. Quem sai do grupo sai
+/// também de todos os ambientes dele (Cascade).
+model WalletMember {
+  householdId String     @db.Uuid
+  walletId    String     @db.Uuid
+  userId      String
+  role        WalletRole
+  createdAt   DateTime   @default(now())
+
+  wallet          Wallet          @relation(fields: [walletId, householdId], references: [id, householdId], onDelete: Cascade)
+  householdMember HouseholdMember @relation(fields: [householdId, userId], references: [householdId, userId], onDelete: Cascade)
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([walletId, userId])
+  @@index([userId])
+  @@map("wallet_member")
+}
