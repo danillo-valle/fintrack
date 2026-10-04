@@ -48,6 +48,9 @@ const schema = z.object({
   PASSKEY_RP_ID: z.string().min(1).default("localhost"),
   // Consulta de senhas vazadas (Have I Been Pwned). Só desligue em teste automatizado.
   HIBP_CHECK: z.enum(["on", "off"]).default("on"),
+  // Nível do log JSON (src/lib/logger.ts). O logger lê direto de process.env, para funcionar até
+  // quando outra variável está errada; a validação aqui só impede um valor digitado errado.
+  LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).optional(),
 });
 
 const parsed = schema.safeParse(process.env);
