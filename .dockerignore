@@ -1,0 +1,35 @@
+# O que NÃO vai para dentro do build da imagem (o "contexto" do docker build).
+# Menos arquivos = build mais rápido; e segredo que não entra no contexto não vaza para a imagem.
+
+# Segredos e dados: nunca
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.age
+*.dump
+*.sql.gz
+samples/
+backups/
+
+# Gerado ou reinstalado dentro do container
+**/node_modules
+**/.next
+**/.turbo
+**/dist
+**/coverage
+packages/db/src/generated
+apps/web/playwright-report
+apps/web/test-results
+apps/web/e2e/.auth
+
+# Coisas do seu ambiente, sem uso no build
+.git
+.github
+.claude
+.vscode
+docs
+deploy
+*.md
+!apps/web/AGENTS.md
