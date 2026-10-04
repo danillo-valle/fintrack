@@ -35,6 +35,10 @@ acontece em `requireUser()` / `requireRecentAuth()`.
    `env.ts` ou `mailer.ts` num arquivo com `"use client"`.
 8. **Mensagens de erro** passam por `authErrorMessage()` (`src/lib/auth/messages.ts`). Login errado
    diz sempre "E-mail ou senha incorretos.", sem revelar se o e-mail existe.
+9. **Depois de entrar, confirmar o 2FA, terminar a configuração do 2FA ou sair**, troque de página
+   com `navigateAfterAuthChange(path)` (`src/lib/navigation.ts`), nunca com `router.replace`/`push`.
+   No build de produção, o Next.js guarda rotas pré-carregadas antes do login e as reaproveitava
+   depois dele (laço /entrar ↔ /); ao sair, a navegação completa também descarta as telas guardadas.
 
 ## Modelos
 

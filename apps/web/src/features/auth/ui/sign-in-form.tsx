@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Fingerprint, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel, FieldSeparator } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth-client";
+import { navigateAfterAuthChange } from "@/lib/navigation";
 import { authErrorMessage, isCancelled } from "@/lib/auth/messages";
 import { passkeySupport, passkeyUnavailableMessage } from "@/lib/auth/passkey-support";
 import { useFieldErrors } from "@/lib/use-field-errors";
@@ -24,7 +24,6 @@ type Props = {
 
 export function SignInForm({ next, googleEnabled, notice }: Props) {
   const { errors, validate, fieldProps, errorId, alertId, markAlert } = useFieldErrors();
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const passwordRef = useRef<HTMLInputElement>(null);
@@ -36,13 +35,10 @@ export function SignInForm({ next, googleEnabled, notice }: Props) {
     void PublicKeyCredential.isConditionalMediationAvailable?.().then((available) => {
       if (!available) return;
       void authClient.signIn.passkey({ autoFill: true }).then((result) => {
-        if (!result?.error) {
-          router.replace(next);
-          router.refresh();
-        }
+        if (!result?.error) navigateAfterAuthChange(next);
       });
     });
-  }, [next, router]);
+  }, [next]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -70,8 +66,7 @@ export function SignInForm({ next, googleEnabled, notice }: Props) {
       return;
     }
     if (data && "twoFactorRedirect" in data && data.twoFactorRedirect) return;
-    router.replace(next);
-    router.refresh();
+    navigateAfterAuthChange(next);
   }
 
   async function handlePasskey() {
@@ -89,8 +84,7 @@ export function SignInForm({ next, googleEnabled, notice }: Props) {
       if (!isCancelled(result.error)) setError(authErrorMessage(result.error));
       return;
     }
-    router.replace(next);
-    router.refresh();
+    navigateAfterAuthChange(next);
   }
 
   async function handleGoogle() {

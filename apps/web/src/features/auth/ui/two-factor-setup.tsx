@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth-client";
+import { navigateAfterAuthChange } from "@/lib/navigation";
 import { authErrorMessage } from "@/lib/auth/messages";
 import { BackupCodes } from "./backup-codes";
 import { FormAlert } from "./form-alert";
@@ -26,7 +26,6 @@ function secretFrom(totpURI: string): string {
 // Liga o 2FA em três passos: confirmar a senha → ler o QR code → guardar os códigos de backup.
 // Enquanto o 2FA não está ligado, o app não mostra nenhuma outra tela (requireUser).
 export function TwoFactorSetup() {
-  const router = useRouter();
   const [step, setStep] = useState<Step>({ name: "password" });
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -184,10 +183,7 @@ export function TwoFactorSetup() {
         size="lg"
         className="mt-4 h-11 w-full"
         disabled={!saved}
-        onClick={() => {
-          router.replace("/");
-          router.refresh();
-        }}
+        onClick={() => navigateAfterAuthChange("/")}
       >
         Ir para o FinTrack
         <ArrowRight aria-hidden />

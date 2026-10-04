@@ -2,6 +2,7 @@ import { expect, type Page } from "@playwright/test";
 import {
   createTestUser,
   NO_SESSION,
+  openCatalog,
   openPage,
   PAGES,
   PUBLIC_PAGES,
@@ -108,7 +109,7 @@ test.describe("com um aviso na tela", () => {
   }
 
   test("o foco que vai sozinho para a próxima lixeira fica acima do aviso", async ({ page }) => {
-    await openPage(page, "/dev/ui");
+    await openCatalog(page);
     await page.getByRole("button", { name: "Excluir Salário (exemplo)" }).focus();
     await page.keyboard.press("Enter");
     const farmacia = page.getByRole("button", { name: "Excluir Farmácia (exemplo)" });
@@ -117,7 +118,7 @@ test.describe("com um aviso na tela", () => {
   });
 
   test("lista vazia: o aviso não cobre a mensagem que recebe o foco", async ({ page }) => {
-    await openPage(page, "/dev/ui");
+    await openCatalog(page);
     for (const nome of ["Mercado", "Salário", "Farmácia"]) {
       await page.getByRole("button", { name: `Excluir ${nome} (exemplo)` }).focus();
       await page.keyboard.press("Enter");
@@ -127,7 +128,7 @@ test.describe("com um aviso na tela", () => {
   });
 
   test("Tab e Shift+Tab pela página inteira com o aviso aberto", async ({ page }) => {
-    await openPage(page, "/dev/ui");
+    await openCatalog(page);
     await page.getByRole("button", { name: "Excluir Mercado (exemplo)" }).focus();
     await page.keyboard.press("Enter");
     await keepToastOpen(page);
@@ -151,7 +152,7 @@ test.describe("saindo do aviso pelo teclado", () => {
   test("o foco volta com anel para onde estava e o próximo Tab não entra de novo no aviso", async ({
     page,
   }) => {
-    await openPage(page, "/dev/ui");
+    await openCatalog(page);
     await page.getByRole("button", { name: "Excluir Mercado (exemplo)" }).focus();
     await page.keyboard.press("Enter");
     const salario = page.getByRole("button", { name: "Excluir Salário (exemplo)" });
@@ -175,7 +176,7 @@ test.describe("saindo do aviso pelo teclado", () => {
   test("com três avisos, a pilha aberta pelo Alt+T recolhe e não cobre o foco", async ({
     page,
   }) => {
-    await openPage(page, "/dev/ui");
+    await openCatalog(page);
     await page.getByRole("button", { name: "Excluir Mercado (exemplo)" }).focus();
     const vazia = page.getByText(/^Lista vazia/);
     // A cada Enter, o foco passa sozinho para a próxima lixeira, até a lista ficar vazia
@@ -214,7 +215,7 @@ test("o campo Data mostra o anel do app também no botão do calendário", async
 // WCAG 2.2, critério 1.4.11: o anel de foco precisa de contraste de pelo menos 3:1.
 // Confere que nenhum anel ou contorno de foco usa cor com transparência (o padrão ring/50 do shadcn).
 test("os anéis de foco usam cor cheia", async ({ page }) => {
-  await openPage(page, "/dev/ui");
+  await openCatalog(page);
   const transparentes = await page.evaluate(() => {
     const found = new Set<string>();
     for (const sheet of [...document.styleSheets]) {
