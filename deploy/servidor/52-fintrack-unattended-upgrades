@@ -1,0 +1,10 @@
+// /etc/apt/apt.conf.d/52-fintrack-unattended-upgrades (M05)
+// As atualizações de segurança já são automáticas desde o M00. Com produção na máquina,
+// falta o reinício: algumas correções (kernel, libc) só valem depois de reiniciar.
+// Reinicia sozinho às 04:30, SÓ quando uma atualização pedir. Os containers voltam sozinhos
+// (restart: unless-stopped) e o backup das 03:30 já terminou.
+Unattended-Upgrade::Automatic-Reboot "true";
+Unattended-Upgrade::Automatic-Reboot-Time "04:30";
+Unattended-Upgrade::Automatic-Reboot-WithUsers "true";
+// Limpa pacotes que ninguém usa mais
+Unattended-Upgrade::Remove-Unused-Dependencies "true";

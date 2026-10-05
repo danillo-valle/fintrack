@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# Backup do banco de produção: pg_dump → cifrado com age → pasta local → cópia no Google Drive.
+#
+#   fintrack-backup                 backup diário (o timer das 03:30 chama assim)
+#   fintrack-backup pre-deploy      o que o fintrack-deploy faz antes de migrar
+#   fintrack-backup manual          quando você quiser (antes de uma mudança arriscada, por exemplo)
+#
+# O arquivo sai cifrado com a chave PÚBLICA do age (backup-recipient.txt). Quem tem só a chave
+# pública consegue cifrar, mas não decifrar: nem o servidor, nem o Google lê o backup. A chave
+# PRIVADA fica fora do servidor, no seu gerenciador de senhas, e só aparece no teste de
+# restauração (fintrack-restore-test) ou numa restauração de verdade (runbook).
+#
+# Formato: pg_dump --format=custom (comprimido, restaurável tabela a tabela com pg_restore).
+# shellcheck source=deploy/bin/lib.sh
+source "$(dirname "$(readlink -f "$0")")/lib.sh"
+
+main() {
+  local reason="${1:-diario}" lock="${2:-}"
+  [[ "$reason" =~ ^(diario|pre-deploy|manual)$ ]] || die "uso: fintrack-backup [diario|pre-deploy|manual]"
+  # O deploy já segura o cadeado e chama com --sem-lock
+  [ "$lock" = "--sem-lock" ] || take_lock 600
+
+  local recipient_file="$FINTRACK_HOME/backup-recipient.txt"
+  [ -s "$recipient_file" ] || die "falta a chave pública do age em $recipient_file (passo do manual)"
+  [ "$reason" = diario ] && hc_ping "${HC_BACKUP_URL:-}" /start
+
+  # umask 077: os arquivos nascem legíveis só pelo dono (fintrack)
+  umask 077
+  mkdir -p "$BACKUP_DIR"
+  local stamp file tmp
+  stamp=$(date -u +%Y%m%dT%H%M%SZ)
+  file="$BACKUP_DIR/fintrack-$stamp-$reason.dump.age"
+  tmp="$file.parcial"
+
+  log "backup $reason: gerando $file"
+  # pipefail (no lib.sh): se o pg_dump falhar no meio, o pipeline inteiro falha, e o arquivo
+  # parcial é apagado em vez de virar um "backup" que não restaura
+  if ! compose exec -T db pg_dump -U fintrack -d fintrack --format=custom --no-owner \
+      | age --encrypt --recipients-file "$recipient_file" > "$tmp"; then
+    rm -f "$tmp"
+    [ "$reason" = diario ] && hc_ping "${HC_BACKUP_URL:-}" /fail
+    die "pg_dump ou age falharam; nenhum backup gravado"
+  fi
+
+  # Conferências mínimas: tem o cabeçalho do age e não está vazio
+  if ! head -c 21 "$tmp" | grep -q "age-encryption.org/v1" || [ "$(stat -c %s "$tmp")" -lt 1024 ]; then
+    rm -f "$tmp"
+    [ "$reason" = diario ] && hc_ping "${HC_BACKUP_URL:-}" /fail
+    die "o arquivo gerado não parece um backup cifrado válido"
+  fi
+  mv "$tmp" "$file"
+  log "backup gravado: $(du -h "$file" | cut -f1)"
+
+  # Cópia fora de casa (se configurada). Um incêndio ou roubo leva o servidor e o backup local.
+  if [ -n "${RCLONE_REMOTE:-}" ]; then
+    log "copiando para $RCLONE_REMOTE"
+    if ! rclone copy --config "$FINTRACK_HOME/rclone.conf" "$file" "$RCLONE_REMOTE"; then
+      [ "$reason" = diario ] && hc_ping "${HC_BACKUP_URL:-}" /fail
+      die "backup local gravado, mas a cópia no Drive falhou"
+    fi
+    # Apaga do Drive o que passou do prazo (só arquivos do FinTrack: o rclone só vê esta pasta)
+    rclone delete --config "$FINTRACK_HOME/rclone.conf" --min-age "${REMOTE_RETENTION_DAYS:-30}d" \
+      --include "fintrack-*.dump.age" "$RCLONE_REMOTE" || warn "não consegui limpar backups antigos do Drive"
+  fi
+
+  # Retenção local: os N mais novos de cada tipo
+  prune "diario" "${KEEP_DAILY:-14}"
+  prune "pre-deploy" "${KEEP_PREDEPLOY:-5}"
+  prune "manual" 10
+
+  [ "$reason" = diario ] && hc_ping "${HC_BACKUP_URL:-}"
+  return 0
+}
+
+prune() {
+  local reason="$1" keep="$2"
+  # Os nomes têm a data em UTC no formato AAAAMMDDTHHMMSSZ: ordem alfabética = ordem de data
+  find "$BACKUP_DIR" -maxdepth 1 -name "fintrack-*-$reason.dump.age" -printf '%f\n' \
+    | sort -r | tail -n +"$((keep + 1))" | while read -r old; do
+      rm -f "$BACKUP_DIR/$old"
+    done
+}
+
+main "$@"

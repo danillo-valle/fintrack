@@ -1,0 +1,13 @@
+# Todo dia às 03:30 (horário de Brasília). Persistent: se o servidor estava desligado nessa hora,
+# o backup roda logo que ele ligar.
+# Ligar:  sudo systemctl enable --now fintrack-backup.timer
+[Unit]
+Description=FinTrack: backup diário às 03:30
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 America/Sao_Paulo
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

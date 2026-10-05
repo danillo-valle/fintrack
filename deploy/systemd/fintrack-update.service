@@ -1,0 +1,21 @@
+# Confere se há versão nova do FinTrack no GHCR e faz o deploy (deploy/bin/fintrack-update).
+# Disparado pelo fintrack-update.timer a cada minuto. Ver o histórico:
+#   journalctl -u fintrack-update --since today
+[Unit]
+Description=FinTrack: confere se há versão nova e faz o deploy
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=fintrack
+Group=fintrack
+Environment=FINTRACK_HOME=/srv/fintrack
+ExecStart=/srv/fintrack/repo/deploy/bin/fintrack-update
+# Um deploy inteiro (pull + backup + migração + saúde) cabe com folga em 15 minutos
+TimeoutStartSec=15min
+# Endurecimento: o script não ganha privilégios novos e só grava em /srv/fintrack e no /tmp dele
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full

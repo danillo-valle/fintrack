@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Resumo da produção numa tela: versão no ar, saúde, últimos deploys, backups e restaurações.
+#
+#   sudo -u fintrack fintrack-status
+#
+# Só lê; não altera nada. É o primeiro comando a rodar quando algo parecer estranho.
+# shellcheck source=deploy/bin/lib.sh
+source "$(dirname "$(readlink -f "$0")")/lib.sh"
+
+section() { printf '\n\033[1m%s\033[0m\n' "$1"; }
+
+main() {
+  local version body
+  version=$(current_version)
+  section "Versão no ar"
+  if [ -n "$version" ]; then
+    printf '  %s  (https://github.com/danillo-valle/fintrack/commit/%s)\n' "${version:0:7}" "$version"
+  else
+    printf '  nenhuma (o primeiro deploy ainda não aconteceu)\n'
+  fi
+  [ -s "$STATE_DIR/falhou" ] && printf '  \033[33mcommit que falhou e não será tentado de novo: %s\033[0m\n' "$(cut -c1-7 "$STATE_DIR/falhou")"
+
+  section "Containers"
+  compose ps --format 'table {{.Service}}\t{{.Status}}' 2>/dev/null || printf '  (compose não respondeu)\n'
+
+  section "Saúde (/api/health)"
+  if body=$(app_health); then printf '  %s\n' "$body"; else printf '  \033[31mFALHA\033[0m %s\n' "${body:-sem resposta}"; fi
+
+  section "Últimos deploys"
+  tail -n 5 "$STATE_DIR/deploys.log" 2>/dev/null | sed 's/^/  /' || printf '  nenhum\n'
+
+  section "Backups locais (mais novos)"
+  find "$BACKUP_DIR" -maxdepth 1 -name 'fintrack-*.dump.age' -printf '%TY-%Tm-%Td %TH:%TM  %s bytes  %f\n' 2>/dev/null \
+    | sort -r | head -n 3 | sed 's/^/  /'
+  local newest
+  newest=$(find "$BACKUP_DIR" -maxdepth 1 -name 'fintrack-*.dump.age' -printf '%T@\n' 2>/dev/null | sort -nr | head -n 1)
+  if [ -n "$newest" ]; then
+    printf '  o mais novo tem %s h\n' "$(( ($(date +%s) - ${newest%.*}) / 3600 ))"
+  else
+    printf '  \033[31mnenhum backup\033[0m\n'
+  fi
+
+  section "Testes de restauração"
+  tail -n 3 "$STATE_DIR/restauracoes.log" 2>/dev/null | sed 's/^/  /' || printf '  nenhum (rode fintrack-restore-test)\n'
+
+  section "Agendamentos (systemd)"
+  systemctl list-timers 'fintrack-*' --no-pager 2>/dev/null | sed 's/^/  /' | head -n 5 || true
+
+  section "Disco"
+  df -h "$FINTRACK_HOME" | sed 's/^/  /'
+  printf '\n'
+}
+
+main "$@"

@@ -13,7 +13,9 @@ Projeto de portfólio construído em módulos (M00 a M12); cada módulo é uma m
 - Banco: PostgreSQL 17 (container do `compose.yml`) com Prisma ORM 7 em `packages/db` (fixado no 7.x)
 - Regras puras de dinheiro, datas e cartão em `packages/core` (sem I/O; testes de propriedade com fast-check)
 - Autenticação: Better Auth (e-mail e senha, 2FA TOTP obrigatório, passkeys, Google opcional)
-- Próximos módulos: deploy (M05), lar e permissões (M06), serviço Python em `services/ml` (M09)
+- Produção (M05): servidor de casa com Docker Compose, Caddy e Cloudflare Tunnel; imagens no GHCR;
+  deploy puxado pelo servidor; backup cifrado com age (ADR-005, `docs/operacao/runbook.md`)
+- Próximos módulos: lar e permissões (M06), lançamentos (M07), serviço Python em `services/ml` (M09)
 
 Regras específicas do Next.js 16: @apps/web/AGENTS.md
 
@@ -30,6 +32,8 @@ Regras específicas do Next.js 16: @apps/web/AGENTS.md
 - `pnpm e2e` roda os testes de ponta a ponta (sobe o app sozinho, se não estiver rodando)
 - `bash scripts/lighthouse-a11y.sh` mede a acessibilidade com o Lighthouse (precisa do `pnpm dev`)
 - `pnpm format` formata tudo com Prettier
+- `docker build --target web .` constrói a imagem de produção; `bash deploy/bin/smoke-test <url>` confere uma instância
+- Produção (no servidor): `sudo -u fintrack fintrack-status` e o runbook (`docs/operacao/runbook.md`)
 
 Rode `pnpm check` antes de dizer que uma tarefa está pronta.
 
@@ -51,6 +55,8 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
 - `packages/config/` configuração compartilhada de TypeScript e ESLint (com a trava de dinheiro)
 - `docs/adr/` decisões de arquitetura
 - `samples/` única pasta com arquivos .ofx, .pdf, .csv ou planilhas (.xlsx, .xlsm...), e só sintéticos
+- `Dockerfile` imagens `web` e `migrate`; `deploy/` produção (compose, Caddyfile, scripts, systemd)
+- `docs/operacao/runbook.md` o que fazer em cada situação da produção
 
 ## Regras que não se negociam
 
@@ -60,7 +66,8 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
 - Mudança no banco: siga a skill `prisma-migration`. Nunca edite migração aplicada; nunca rode reset sem a pessoa pedir.
 - Acesso ao banco só dentro de `features/*/server/` ou `lib/`; o ESLint bloqueia o resto.
 - Toda página de `(app)` e toda Server Action começam com `await requireUser()`; siga a skill `auth-guard`.
-- Variáveis de ambiente novas: no `.env.example` (sem valor real), no `src/lib/env.ts` (validação) e no `globalPassThroughEnv` do `turbo.json`.
+- Variáveis de ambiente novas: no `.env.example` (sem valor real), no `src/lib/env.ts` (validação), no `globalPassThroughEnv` do `turbo.json` e no `deploy/env/app.env.example`; avise no PR que o valor de produção vai em `/srv/fintrack/app.env` antes do merge.
+- Log no servidor só pelo `logger` (`src/lib/logger.ts`), com `event`; migração para produção sempre aditiva. Siga a skill `deploy-e-operacao`.
 - Nenhum dado financeiro real, `.env` ou segredo em arquivo versionado.
 - Código e identificadores em inglês; textos da interface, commits, PRs e documentação em português.
 - Não use `any` nem `console.log`.

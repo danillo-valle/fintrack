@@ -1,0 +1,13 @@
+# A cada minuto, pergunta ao GHCR se a etiqueta :main mudou (deploy "puxado").
+# Ligar:     sudo systemctl enable --now fintrack-update.timer
+# Pausar:    sudo systemctl stop fintrack-update.timer   (nenhum deploy acontece até religar)
+[Unit]
+Description=FinTrack: procurar versão nova a cada minuto
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,174 @@
+# Produção do FinTrack, no seu servidor (M05). Não confundir com o compose.yml da raiz, que é
+# o de desenvolvimento (banco na porta 5432 e Mailpit). Os dois convivem na mesma máquina:
+# nomes de projeto, volumes e redes diferentes, e nenhuma porta em comum.
+#
+# Quem usa este arquivo: os scripts de deploy/bin (pelo atalho fintrack-compose, que já passa
+# o projeto, este arquivo e os arquivos de variáveis). Você usa o mesmo atalho:
+#   sudo -u fintrack fintrack-compose ps            o que está rodando e se está saudável
+#   sudo -u fintrack fintrack-compose logs -f web   os logs do app (JSON; veja o runbook)
+#
+# O caminho de uma visita:
+#
+#   celular → Cloudflare (HTTPS) → [cloudflared] → [caddy] → [web] → [db]
+#             na internet           └──────── rede "entrada" ────┘   └ rede "dados" ┘
+#
+#   - Nenhum serviço publica porta no servidor ("ports:" não aparece em lugar nenhum). O
+#     cloudflared faz uma conexão de SAÍDA até a Cloudflare e as visitas voltam por ela.
+#     Por isso o firewall (ufw) não precisa de regra nova e o roteador não abre nada.
+#   - A rede "dados" é interna (sem saída para a internet): o banco só fala com o app.
+#
+# Variáveis: /srv/fintrack/.env (POSTGRES_PASSWORD, TUNNEL_TOKEN), /srv/fintrack/app.env (as do
+# app) e /srv/fintrack/estado/versao.env (FINTRACK_VERSION, escrita pelo deploy). Modelos em
+# deploy/env/. Nenhum desses arquivos vai para o Git.
+
+name: fintrack-prod
+
+# Rotação dos logs do Docker: até 5 arquivos de 10 MB por serviço (sem isso, o disco enche)
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+# Endurecimento padrão de cada container:
+#   no-new-privileges: nenhum processo dentro do container ganha privilégio extra (nem com setuid)
+#   cap_drop ALL: tira todas as "capacidades" de root do Linux; quem precisa de alguma, pede de volta
+x-hardening: &hardening
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+
+services:
+  # ── Banco de dados ─────────────────────────────────────────────────────────────────────
+  db:
+    <<: *hardening
+    # Mesma versão maior do desenvolvimento (compose.yml da raiz) e do CI
+    image: postgres:17-alpine
+    restart: unless-stopped
+    # O entrypoint do Postgres troca de usuário (root → postgres) e ajusta donos da pasta
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+    environment:
+      POSTGRES_USER: fintrack
+      POSTGRES_DB: fintrack
+      # Gerada no passo de preparar o servidor (openssl rand -hex 32), guardada só no .env
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD em /srv/fintrack/.env}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks: [dados]
+    healthcheck:
+      # Pelo TCP (-h 127.0.0.1) e não pelo socket: no primeiro start, a imagem sobe um servidor
+      # temporário só no socket enquanto cria o banco, e ele responderia "pronto" cedo demais
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U fintrack -d fintrack"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # Teto de memória: um build seu no servidor não pode deixar o banco sem RAM (e vice-versa)
+    mem_limit: 768m
+    logging: *logging
+
+  # ── Migrações (roda e sai; não fica no ar) ─────────────────────────────────────────────
+  # O perfil "tarefas" faz o "up" ignorar este serviço; o deploy o chama com "run --rm".
+  migrate:
+    <<: *hardening
+    image: ghcr.io/danillo-valle/fintrack-migrate:${FINTRACK_VERSION:?o deploy define FINTRACK_VERSION}
+    profiles: [tarefas]
+    environment:
+      DATABASE_URL: postgresql://fintrack:${POSTGRES_PASSWORD}@db:5432/fintrack
+    networks: [dados]
+    depends_on:
+      db:
+        condition: service_healthy
+    logging: *logging
+
+  # ── O app ──────────────────────────────────────────────────────────────────────────────
+  web:
+    <<: *hardening
+    image: ghcr.io/danillo-valle/fintrack-web:${FINTRACK_VERSION:?o deploy define FINTRACK_VERSION}
+    restart: unless-stopped
+    env_file:
+      - /srv/fintrack/app.env
+    environment:
+      # Montada aqui para a senha do banco ficar num lugar só (.env)
+      DATABASE_URL: postgresql://fintrack:${POSTGRES_PASSWORD}@db:5432/fintrack
+    # Sistema de arquivos só de leitura: se alguém explorar uma falha do app, não consegue
+    # gravar nem trocar arquivos do próprio app. O Next.js só escreve no cache e no /tmp,
+    # que ficam em memória (tmpfs) e somem quando o container reinicia.
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /app/apps/web/.next/cache:uid=1000,gid=1000
+    # entrada: recebe as visitas do Caddy e sai para a internet (e-mail pelo Resend, consulta de
+    # senhas vazadas). dados: fala com o banco.
+    networks: [entrada, dados]
+    depends_on:
+      db:
+        condition: service_healthy
+    # O healthcheck vem da imagem (Dockerfile: GET /api/health a cada 30 s)
+    mem_limit: 1g
+    logging: *logging
+
+  # ── Caddy: a porta de entrada dentro do servidor ───────────────────────────────────────
+  # Repassa as visitas ao app, põe o HSTS, registra cada acesso em JSON e entrega ao app o IP
+  # real de quem fez a requisição (detalhes no Caddyfile).
+  caddy:
+    <<: *hardening
+    # Versão 2.11 fixada; as correções (2.11.x) chegam ao refazer o pull
+    image: caddy:2.11-alpine
+    restart: unless-stopped
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    read_only: true
+    tmpfs:
+      - /tmp
+    networks: [entrada]
+    depends_on:
+      web:
+        condition: service_healthy
+    mem_limit: 128m
+    logging: *logging
+
+  # ── cloudflared: o túnel até a Cloudflare ──────────────────────────────────────────────
+  cloudflared:
+    <<: *hardening
+    # Versão fixada (atualize de propósito, lendo as notas de versão)
+    image: cloudflare/cloudflared:2026.9.3
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      # O token do túnel (painel Zero Trust da Cloudflare). Quem tem este token publica sites
+      # no seu domínio: trate como senha.
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?defina TUNNEL_TOKEN em /srv/fintrack/.env}
+      # Endereço interno das métricas, usado só pelo healthcheck abaixo
+      TUNNEL_METRICS: 127.0.0.1:60123
+    networks:
+      entrada:
+        # Endereço fixo: é o único em quem o Caddy confia para dizer o IP do visitante
+        ipv4_address: 172.31.250.10
+    healthcheck:
+      test: ["CMD", "cloudflared", "tunnel", "ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    mem_limit: 128m
+    logging: *logging
+
+networks:
+  entrada:
+    ipam:
+      config:
+        # Faixa fixa e incomum, longe da rede de casa (192.168.1.x) e das faixas que o Docker
+        # usa sozinho; o Caddyfile cita o endereço do cloudflared dentro dela
+        - subnet: 172.31.250.0/24
+  dados:
+    # Sem rota para fora: nem o banco nem quem estiver nesta rede alcança a internet por ela
+    internal: true
+
+volumes:
+  # Os dados de produção. O nome completo é fintrack-prod_db-data (docker volume ls).
+  # "docker compose down" não apaga volumes; "down -v" apagaria: nunca use -v aqui.
+  db-data:
+  caddy-data:
+  caddy-config:

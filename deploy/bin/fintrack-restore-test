@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+# Teste de restauração: prova que um backup volta a ser um banco que funciona.
+#
+#   fintrack-restore-test                  usa o backup local mais novo
+#   fintrack-restore-test <arquivo>        usa um backup específico
+#   fintrack-restore-test --do-drive       baixa o mais novo do Google Drive (prova a cópia de fora)
+#
+# Backup que nunca foi restaurado é só esperança. O teste:
+#   1. pede a chave PRIVADA do age (você cola; ela vai para a memória, nunca para o disco)
+#   2. decifra o backup e restaura num Postgres TEMPORÁRIO, sem rede, que some no fim
+#   3. confere: todas as migrações estão lá, há usuários e lançamentos, e os 3 gatilhos do banco
+#   4. registra o resultado em estado/restauracoes.log
+#
+# A produção não é tocada em nenhum momento. Para restaurar a produção de verdade (desastre),
+# siga o runbook (docs/operacao/runbook.md, "Restaurar a produção").
+# shellcheck source=deploy/bin/lib.sh
+source "$(dirname "$(readlink -f "$0")")/lib.sh"
+
+CONTAINER="fintrack-restore-test"
+
+main() {
+  local source="${1:-}" file key_file workdir
+  # Pasta temporária em memória (/dev/shm): a chave e o backup decifrado não tocam o disco
+  workdir=$(mktemp -d /dev/shm/fintrack-restore.XXXXXX)
+  chmod 700 "$workdir"
+  # Limpeza no fim, aconteça o que acontecer. Aspas duplas: o caminho é gravado AGORA (a variável
+  # local "workdir" já não existe quando o script termina e o trap roda)
+  # shellcheck disable=SC2064
+  trap "docker rm -f '$CONTAINER' >/dev/null 2>&1; rm -rf '$workdir'" EXIT
+
+  # 1. Qual backup
+  if [ "$source" = "--do-drive" ]; then
+    [ -n "${RCLONE_REMOTE:-}" ] || die "RCLONE_REMOTE vazio em operacao.env"
+    local latest
+    latest=$(rclone lsf --config "$FINTRACK_HOME/rclone.conf" --include "fintrack-*.dump.age" "$RCLONE_REMOTE" | sort | tail -n 1)
+    [ -n "$latest" ] || die "nenhum backup no Drive"
+    log "baixando $latest do Drive"
+    rclone copyto --config "$FINTRACK_HOME/rclone.conf" "$RCLONE_REMOTE/$latest" "$workdir/$latest"
+    file="$workdir/$latest"
+  elif [ -n "$source" ]; then
+    file="$source"
+  else
+    file=$(find "$BACKUP_DIR" -maxdepth 1 -name 'fintrack-*.dump.age' | sort | tail -n 1)
+  fi
+  [ -s "${file:-}" ] || die "nenhum backup encontrado (${file:-pasta $BACKUP_DIR vazia})"
+  log "backup: $(basename "$file") ($(du -h "$file" | cut -f1))"
+
+  # 2. A chave privada: de AGE_KEY_FILE (testes automáticos) ou colada por você
+  key_file="$workdir/chave.txt"
+  if [ -n "${AGE_KEY_FILE:-}" ]; then
+    cp "$AGE_KEY_FILE" "$key_file"
+  else
+    printf 'Cole a chave privada do age (a linha AGE-SECRET-KEY-...) e tecle Enter. Ela não aparece na tela:\n' >&2
+    local key
+    read -rs key
+    printf '%s\n' "$key" > "$key_file"
+    unset key
+  fi
+  grep -q '^AGE-SECRET-KEY-' "$key_file" || die "isso não parece uma chave privada do age"
+
+  # 3. Postgres temporário, sem rede nenhuma (--network none)
+  log "subindo um Postgres temporário"
+  docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+  docker run -d --name "$CONTAINER" --network none \
+    -e POSTGRES_USER=fintrack -e POSTGRES_DB=fintrack \
+    -e POSTGRES_PASSWORD="$(head -c 24 /dev/urandom | base64)" \
+    postgres:17-alpine >/dev/null
+  # "Pronto" pelo TCP (-h 127.0.0.1): na inicialização, a imagem do Postgres sobe um servidor
+  # temporário só no socket local, que responde ao pg_isready ANTES de o banco existir.
+  local _
+  for _ in $(seq 1 60); do
+    docker exec "$CONTAINER" pg_isready -h 127.0.0.1 -U fintrack -d fintrack >/dev/null 2>&1 && break
+    sleep 1
+  done
+  docker exec "$CONTAINER" pg_isready -h 127.0.0.1 -U fintrack -d fintrack >/dev/null || die "o Postgres temporário não subiu"
+
+  # 4. Decifra e restaura (direto de um programa para o outro, sem arquivo intermediário)
+  log "decifrando e restaurando"
+  local started
+  started=$(date +%s)
+  age --decrypt --identity "$key_file" "$file" \
+    | docker exec -i "$CONTAINER" pg_restore -U fintrack -d fintrack --no-owner --exit-on-error \
+    || die "a restauração falhou: o backup ou a chave não servem"
+  local elapsed=$(( $(date +%s) - started ))
+
+  # 5. Conferências
+  q() { docker exec "$CONTAINER" psql -U fintrack -d fintrack -tAc "$1"; }
+  local migrations expected users transactions households trigger
+  migrations=$(q "SELECT count(*) FROM _prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL")
+  expected=$(find "$REPO_DIR/packages/db/prisma/migrations" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
+  users=$(q 'SELECT count(*) FROM "user"')
+  transactions=$(q 'SELECT count(*) FROM "transaction"')
+  households=$(q 'SELECT count(*) FROM household')
+  # Os gatilhos da migração do domínio (M04): forma de pagamento e auditoria só de acréscimo
+  trigger=$(q "SELECT count(*) FROM pg_trigger WHERE tgname IN ('transaction_method_matches_account', 'audit_log_no_update_delete', 'audit_log_no_truncate')")
+
+  printf '\n  Migrações aplicadas: %s%s\n' "$migrations" "$([ "$expected" -gt 0 ] && printf ' (o repositório tem %s)' "$expected")"
+  printf '  Usuários:            %s\n  Grupos:              %s\n  Lançamentos:         %s\n' "$users" "$households" "$transactions"
+  printf '  Gatilhos do banco:   %s de 3\n  Tempo de restauração: %s s\n\n' "$trigger" "$elapsed"
+
+  local ok=1
+  [ "$migrations" -ge 1 ] || ok=0
+  # O repositório (sparse, só deploy/) pode não ter a pasta de migrações; aí só confere > 0
+  { [ "$expected" -eq 0 ] || [ "$migrations" -eq "$expected" ]; } || ok=0
+  [ "$users" -ge 1 ] || ok=0
+  [ "$trigger" = 3 ] || ok=0
+
+  local result=FALHOU
+  [ "$ok" = 1 ] && result=OK
+  printf '%s %s %s migracoes=%s usuarios=%s lancamentos=%s tempo=%ss\n' "$(date -Is)" "$result" \
+    "$(basename "$file")" "$migrations" "$users" "$transactions" "$elapsed" >> "$STATE_DIR/restauracoes.log"
+  [ "$ok" = 1 ] || die "a restauração rodou, mas as conferências falharam (veja os números acima)"
+  log "restauração OK: o backup volta a ser um banco completo"
+}
+
+main "$@"

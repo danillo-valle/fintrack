@@ -1,0 +1,186 @@
+#!/usr/bin/env bash
+# Coloca no ar uma versão do FinTrack (um commit da main), com volta automática se der errado.
+#
+#   fintrack-deploy <commit>           normalmente chamado pelo fintrack-update (a cada minuto)
+#   fintrack-deploy <commit> --force   tenta de novo um commit que já falhou uma vez
+#
+# Passo a passo (cada um só começa se o anterior deu certo):
+#   1. baixa as duas imagens do commit (web e migrate) do GHCR
+#   2. traz os arquivos de deploy/ do mesmo commit (compose, Caddyfile, scripts)
+#   3. faz um backup do banco ("antes do deploy")
+#   4. aplica as migrações novas (prisma migrate deploy)
+#   5. troca o container do app pela versão nova
+#   6. espera o /api/health responder "ok" COM o commit novo
+#   7. deu certo: registra e limpa imagens velhas (e reinicia o Caddy se o Caddyfile mudou)
+#      deu errado: volta o app para a versão anterior e avisa (Healthchecks)
+#
+# Por que voltar só o app, e não o banco? Porque as migrações do FinTrack só ACRESCENTAM
+# (ADR-004 e skill prisma-migration: tabela nova, coluna opcional...). A versão anterior do app
+# funciona com o banco migrado. É esse combinado que torna a volta automática segura.
+#
+# O corpo fica dentro de main(): o bash lê a função inteira antes de executar, então trocar os
+# arquivos do repo no passo 2 não bagunça o script que está rodando.
+# shellcheck source=deploy/bin/lib.sh
+source "$(dirname "$(readlink -f "$0")")/lib.sh"
+
+# Cópia do script como estava ao começar (para saber, depois do passo 2, se ele mudou)
+SELF_COPY=$(mktemp)
+cp "$(readlink -f "$0")" "$SELF_COPY"
+trap 'rm -f "$SELF_COPY"' EXIT
+
+main() {
+  local target="${1:-}" force="${2:-}"
+  is_commit "$target" || die "uso: fintrack-deploy <commit de 40 caracteres> [--force]"
+
+  take_lock 600
+  local started previous
+  started=$(date +%s)
+  previous=$(current_version)
+
+  if [ "$target" = "$previous" ] && [ "$force" != "--force" ]; then
+    log "o commit ${target:0:7} já está no ar; nada a fazer"
+    return 0
+  fi
+  log "deploy de ${target:0:7} começou (no ar: ${previous:0:7})"
+
+  # 1. Imagens
+  log "baixando as imagens"
+  local image
+  for image in "$IMAGE_WEB:$target" "$IMAGE_MIGRATE:$target"; do
+    docker pull -q "$image" >/dev/null || fail "$target" "$previous" "não consegui baixar $image"
+  done
+  [ "$(image_revision "$IMAGE_WEB:$target")" = "$target" ] \
+    || fail "$target" "$previous" "a imagem $IMAGE_WEB:$target não diz ser do commit $target"
+
+  # 2. Arquivos de deploy do mesmo commit (o repositório é público: não precisa de chave).
+  #    --force: a pasta repo/ é do deploy; uma edição feita à mão nela é descartada (o lugar de
+  #    mudar um script é um PR, e o lugar de ajustes desta máquina é o compose.override.yml)
+  log "trazendo deploy/ do commit"
+  if ! git -C "$REPO_DIR" fetch -q --depth 1 origin "$target" \
+    || ! git -C "$REPO_DIR" -c advice.detachedHead=false checkout -q --force --detach FETCH_HEAD; then
+    fail "$target" "$previous" "não consegui trazer o commit do GitHub"
+  fi
+  # Este próprio script pode ter mudado no commit novo. Se mudou, recomeça com a versão nova
+  # (uma vez só), para a correção valer já neste deploy e não só no próximo.
+  if [ -z "${FINTRACK_DEPLOY_REEXEC:-}" ] && ! cmp -s "$SELF_COPY" "$REPO_DIR/deploy/bin/fintrack-deploy"; then
+    log "o script de deploy mudou neste commit: recomeçando com a versão nova"
+    rm -f "$SELF_COPY"
+    FINTRACK_DEPLOY_REEXEC=1 exec "$REPO_DIR/deploy/bin/fintrack-deploy" "$target" "$force"
+  fi
+
+  # Banco no ar antes de tudo (no primeiro deploy, é aqui que ele nasce)
+  write_version "$target" # o compose exige FINTRACK_VERSION até para subir só o banco
+  compose up -d --wait db || fail "$target" "$previous" "o banco não ficou saudável"
+
+  # 3. Backup antes de mexer no banco (no primeiro deploy não há o que guardar)
+  if [ -n "$previous" ]; then
+    log "backup antes do deploy"
+    "$REPO_DIR/deploy/bin/fintrack-backup" pre-deploy --sem-lock \
+      || fail "$target" "$previous" "o backup antes do deploy falhou; nada foi alterado"
+  fi
+
+  # 4. Migrações
+  log "aplicando as migrações"
+  compose run --rm migrate || fail "$target" "$previous" "as migrações falharam (veja acima)"
+
+  # 5 e 6. Troca o app e espera a saúde na versão nova
+  # --no-deps: troca SÓ o app agora. Sem isso, o compose esperaria o app ficar saudável por
+  # causa do depends_on do Caddy e daria um erro genérico; aqui quem decide é o /api/health.
+  log "trocando o app"
+  compose up -d --no-deps web \
+    || rollback "$target" "$previous" "o compose não conseguiu criar o container novo"
+  wait_healthy "$target" 120 \
+    || rollback "$target" "$previous" "a versão nova não respondeu ok no /api/health"
+  # Com o app novo saudável, o resto (sobe o que faltar; não mexe no que está igual). Sem citar
+  # serviços pelo nome: um serviço desligado por perfil (o cloudflared numa VPS) ficaria ligado.
+  compose up -d --remove-orphans \
+    || rollback "$target" "$previous" "o Caddy ou o cloudflared não subiram"
+  # O Caddyfile entra no container como arquivo montado, e o container continua vendo a versão
+  # de quando ele começou (o git grava um arquivo novo no lugar do antigo). Se o que o Caddy
+  # enxerga é diferente do arquivo deste commit, reinicia o Caddy (1 a 2 s de pausa).
+  if ! compose exec -T caddy cat /etc/caddy/Caddyfile | cmp -s - "$(caddyfile_source)"; then
+    log "o Caddyfile mudou: reiniciando o Caddy"
+    compose restart caddy || rollback "$target" "$previous" "o Caddy não reiniciou com o Caddyfile novo"
+  fi
+
+  # 7. Sucesso
+  [ -n "$previous" ] && printf '%s\n' "$previous" > "$STATE_DIR/versao-anterior"
+  rm -f "$STATE_DIR/falhou"
+  local commit_time now
+  now=$(date +%s)
+  commit_time=$(git -C "$REPO_DIR" show -s --format=%ct HEAD 2>/dev/null || echo "$now")
+  # Uma linha por deploy: data, commit, resultado, duração do deploy, tempo desde o merge
+  printf '%s %s ok deploy=%ss desde_o_merge=%ss\n' \
+    "$(date -Is)" "$target" "$((now - started))" "$((now - commit_time))" >> "$STATE_DIR/deploys.log"
+  log "deploy de ${target:0:7} concluído em $((now - started)) s ($((now - commit_time)) s desde o merge)"
+  hc_ping "${HC_DEPLOY_URL:-}"
+  prune_images
+}
+
+# Falhou ANTES de trocar o app: a versão anterior continua no ar, intacta
+fail() {
+  local target="$1" previous="$2" reason="$3"
+  if [ -n "$previous" ]; then
+    write_version "$previous"
+  else
+    rm -f "$STATE_DIR/versao.env" # primeiro deploy: não há versão no ar
+  fi
+  printf '%s\n' "$target" > "$STATE_DIR/falhou"
+  printf '%s %s falhou motivo="%s"\n' "$(date -Is)" "$target" "$reason" >> "$STATE_DIR/deploys.log"
+  hc_ping "${HC_DEPLOY_URL:-}" /fail
+  die "deploy de ${target:0:7} cancelado: $reason. Continua no ar: ${previous:0:7}"
+}
+
+# Falhou DEPOIS de trocar o app: volta o app para a versão anterior
+rollback() {
+  local target="$1" previous="$2" reason="$3"
+  printf '%s\n' "$target" > "$STATE_DIR/falhou"
+  if [ -z "$previous" ]; then
+    # Primeiro deploy: não há para onde voltar. Sem versao.env, o próximo deploy tenta do zero.
+    rm -f "$STATE_DIR/versao.env"
+    printf '%s %s falhou motivo="%s"\n' "$(date -Is)" "$target" "$reason" >> "$STATE_DIR/deploys.log"
+    hc_ping "${HC_DEPLOY_URL:-}" /fail
+    die "primeiro deploy falhou: $reason. Veja: fintrack-compose logs web"
+  fi
+  warn "$reason; voltando para ${previous:0:7}"
+  # Os arquivos de deploy/ voltam junto com a versão
+  if git -C "$REPO_DIR" fetch -q --depth 1 origin "$previous"; then
+    git -C "$REPO_DIR" -c advice.detachedHead=false checkout -q --force --detach FETCH_HEAD || true
+  fi
+  write_version "$previous"
+  compose up -d --remove-orphans || true
+  # O Caddyfile também voltou: reinicia o Caddy para ele ler a versão anterior
+  compose restart caddy >/dev/null 2>&1 || true
+  if wait_healthy "$previous" 120; then
+    printf '%s %s voltou-para=%s motivo="%s"\n' "$(date -Is)" "$target" "$previous" "$reason" >> "$STATE_DIR/deploys.log"
+    hc_ping "${HC_DEPLOY_URL:-}" /fail
+    die "deploy de ${target:0:7} desfeito: $reason. No ar de novo: ${previous:0:7}"
+  fi
+  printf '%s %s falhou-e-nao-voltou motivo="%s"\n' "$(date -Is)" "$target" "$reason" >> "$STATE_DIR/deploys.log"
+  hc_ping "${HC_DEPLOY_URL:-}" /fail
+  die "a versão anterior também não respondeu. Siga o runbook: 'O app não sobe'"
+}
+
+# Qual arquivo do servidor está montado como Caddyfile (o deploy/caddy/Caddyfile, ou o
+# Caddyfile.vps quando o compose.override.yml da VPS troca a montagem)
+caddyfile_source() {
+  local id
+  id=$(compose ps -q caddy)
+  docker inspect -f '{{range .Mounts}}{{if eq .Destination "/etc/caddy/Caddyfile"}}{{.Source}}{{end}}{{end}}' "$id"
+}
+
+# Guarda as imagens das últimas KEEP_IMAGES versões (para voltar sem baixar) e apaga o resto
+prune_images() {
+  local keep_n="${KEEP_IMAGES:-3}" keep tag image
+  keep=$( { current_version; cat "$STATE_DIR/versao-anterior" 2>/dev/null;
+            awk '$3 == "ok" {print $2}' "$STATE_DIR/deploys.log" | tail -n "$keep_n"; } | sort -u)
+  for image in "$IMAGE_WEB" "$IMAGE_MIGRATE"; do
+    docker image ls "$image" --format '{{.Tag}}' | while read -r tag; do
+      is_commit "$tag" || continue
+      grep -qx "$tag" <<<"$keep" || docker rmi -f "$image:$tag" >/dev/null 2>&1 || true
+    done
+  done
+  docker image prune -f >/dev/null 2>&1 || true
+}
+
+main "$@"
