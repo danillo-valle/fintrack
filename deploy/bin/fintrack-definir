@@ -56,6 +56,12 @@ main() {
   esac
   [ -n "$value" ] || die "valor vazio: nada foi alterado"
   [[ "$value" != *$'\n'* && "$value" != *'"'* ]] || die "o valor não pode ter quebra de linha nem aspas"
+  # O token do túnel é um texto longo em base64 que começa com "eyJ". Colar o comando inteiro do
+  # painel, ou só a palavra "docker", deixaria o cloudflared reiniciando ("token is not valid").
+  # "nenhum" é aceito para a VPS sem túnel (apêndice A do manual), onde o cloudflared fica desligado.
+  if [ "$name" = TUNNEL_TOKEN ] && [ "$value" != nenhum ] && ! [[ "$value" =~ ^eyJ[A-Za-z0-9+/=_-]{100,}$ ]]; then
+    die "isso não parece o token do túnel (${#value} caracteres). Cole só o texto depois de --token, que começa com eyJ"
+  fi
 
   # Troca a linha NOME=... (comentada ou não) ou acrescenta no fim. O arquivo novo nasce ao lado
   # e só substitui o antigo no final (mv), mantendo a permissão 600.

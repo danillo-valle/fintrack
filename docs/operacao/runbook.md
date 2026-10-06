@@ -111,6 +111,17 @@ df -h /                                                     # disco cheio derrub
 
 Se o banco não sobe por dados corrompidos, siga "Restaurar a produção".
 
+### O site mostra erro da Cloudflare (1033 ou 502)
+
+O app pode estar saudável e a frente parada. `sudo -u fintrack fintrack-compose ps` e veja
+`cloudflared` e `caddy`:
+
+| Sinal                                                                                | Causa                                                                                                                | O que fazer                                                                                                                                             |
+| ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1033; túnel _Inactive_ no painel; `cloudflared` reiniciando com `token is not valid` | Token do túnel errado                                                                                                | `sudo -u fintrack fintrack-definir .env TUNNEL_TOKEN` (só o texto `eyJ...` depois de `--token`) e `sudo -u fintrack fintrack-compose up -d cloudflared` |
+| 502; `caddy` reiniciando com `exec /usr/bin/caddy: operation not permitted`          | Falta `cap_add: [NET_BIND_SERVICE]` no serviço caddy do compose (a imagem oficial grava essa capacidade no programa) | Corrija `deploy/compose.prod.yml` por PR; o deploy seguinte recria o caddy                                                                              |
+| 502; `caddy` de pé                                                                   | O app não responde                                                                                                   | Siga "O app não sobe"                                                                                                                                   |
+
 ## Backup
 
 - **Automático** às 03:30 (`fintrack-backup.timer`) e antes de todo deploy.
