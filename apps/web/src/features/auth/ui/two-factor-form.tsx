@@ -2,12 +2,12 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { LogIn, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth-client";
+import { navigateAfterAuthChange } from "@/lib/navigation";
 import { authErrorMessage } from "@/lib/auth/messages";
 import { signInUrl } from "@/lib/auth/routes";
 import { useFieldErrors } from "@/lib/use-field-errors";
@@ -35,7 +35,6 @@ const MODES = {
 // Segundo passo do login: o código de 6 dígitos do app autenticador (ou um código de backup).
 // A sessão só é criada quando este código confere.
 export function TwoFactorForm({ next }: { next: string }) {
-  const router = useRouter();
   const [mode, setMode] = useState<Mode>("totp");
   const [error, setError] = useState<string | null>(null);
   // A senha foi digitada há mais de 10 minutos (ou em outra aba): outro código não resolve
@@ -75,8 +74,7 @@ export function TwoFactorForm({ next }: { next: string }) {
       inputRef.current?.focus();
       return;
     }
-    router.replace(next);
-    router.refresh();
+    navigateAfterAuthChange(next);
   }
 
   // No modo do app, só números e espaço entram no campo: "12ab" vira "12" enquanto se digita.

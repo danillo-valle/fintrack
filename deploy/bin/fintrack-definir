@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# Grava uma variável num arquivo de variáveis da produção (/srv/fintrack), sem abrir editor.
+#
+#   fintrack-definir <arquivo> <NOME> <valor>         valor visível (endereços, e-mails)
+#   fintrack-definir <arquivo> <NOME>                 pede o valor ESCONDIDO (tokens, chaves)
+#   fintrack-definir <arquivo> <NOME> --gerar-hex N   sorteia N bytes em hexadecimal
+#   fintrack-definir <arquivo> <NOME> --gerar-base64 N
+#   fintrack-definir --conferir                       lista o que ainda está com TROQUE
+#
+# <arquivo> é .env, app.env ou operacao.env (dentro de /srv/fintrack). Rode como o usuário
+# fintrack, dono dos arquivos:
+#
+#   sudo -u fintrack fintrack-definir .env POSTGRES_PASSWORD --gerar-hex 32
+#   sudo -u fintrack fintrack-definir .env TUNNEL_TOKEN
+#
+# Por que um script: o valor escondido não aparece na tela nem no histórico do bash (quem ler o
+# histórico vê só o comando). E a troca é feita com awk lendo o valor de uma variável de ambiente,
+# então caracteres como / & | = do token não quebram nada (com sed, quebrariam).
+# shellcheck source=deploy/bin/lib.sh
+source "$(dirname "$(readlink -f "$0")")/lib.sh"
+
+conferir() {
+  local found=0 f
+  for f in .env app.env operacao.env; do
+    [ -f "$FINTRACK_HOME/$f" ] || { printf '  %-14s não existe\n' "$f"; found=1; continue; }
+    # Só os nomes: o valor nunca é impresso
+    while IFS= read -r name; do
+      printf '  %-14s %s ainda está com TROQUE\n' "$f" "$name"
+      found=1
+    done < <(grep -E '^[A-Z_]+=.*TROQUE' "$FINTRACK_HOME/$f" | cut -d= -f1)
+  done
+  [ "$found" = 0 ] && printf '  Tudo preenchido.\n'
+  return "$found"
+}
+
+main() {
+  if [ "${1:-}" = "--conferir" ]; then conferir; return; fi
+  local file="${1:-}" name="${2:-}" mode="${3:-}" value
+  case "$file" in
+    .env | app.env | operacao.env) ;;
+    *) die "uso: fintrack-definir <.env|app.env|operacao.env> <NOME> [valor | --gerar-hex N | --gerar-base64 N]" ;;
+  esac
+  [[ "$name" =~ ^[A-Z][A-Z0-9_]*$ ]] || die "nome de variável inválido: '$name' (use MAIUSCULAS_COM_SUBLINHADO)"
+  local path="$FINTRACK_HOME/$file"
+  [ -w "$path" ] || die "não consigo gravar $path (rodou com sudo -u fintrack?)"
+
+  case "$mode" in
+    --gerar-hex) value=$(openssl rand -hex "${4:-32}") ;;
+    --gerar-base64) value=$(openssl rand -base64 "${4:-32}") ;;
+    "")
+      printf 'Valor de %s (não aparece na tela; cole e tecle Enter): ' "$name" >&2
+      IFS= read -rs value
+      printf '\n' >&2
+      ;;
+    *) value="$mode" ;;
+  esac
+  [ -n "$value" ] || die "valor vazio: nada foi alterado"
+  [[ "$value" != *$'\n'* && "$value" != *'"'* ]] || die "o valor não pode ter quebra de linha nem aspas"
+
+  # Troca a linha NOME=... (comentada ou não) ou acrescenta no fim. O arquivo novo nasce ao lado
+  # e só substitui o antigo no final (mv), mantendo a permissão 600.
+  local tmp
+  tmp=$(mktemp "$path.XXXXXX")
+  chmod 600 "$tmp"
+  NAME="$name" VALUE="$value" awk '
+    BEGIN { done = 0 }
+    $0 ~ "^#? ?" ENVIRON["NAME"] "=" && !done { print ENVIRON["NAME"] "=\"" ENVIRON["VALUE"] "\""; done = 1; next }
+    { print }
+    END { if (!done) print ENVIRON["NAME"] "=\"" ENVIRON["VALUE"] "\"" }
+  ' "$path" > "$tmp"
+  mv "$tmp" "$path"
+  unset value
+  log "$name gravado em $path"
+}
+
+main "$@"

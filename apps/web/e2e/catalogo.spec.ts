@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { openPage } from "./helpers";
+import { openCatalog } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
-  await openPage(page, "/dev/ui");
+  await openCatalog(page);
 });
 
 test("excluir com desfazer funciona só com o teclado", async ({ page }) => {

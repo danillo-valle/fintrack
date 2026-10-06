@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# Teste de fumaça: o FinTrack num endereço está de pé e com as proteções no lugar?
+#
+#   deploy/bin/smoke-test http://localhost:3000                 o que o CI faz com a imagem nova
+#   deploy/bin/smoke-test https://fintrack.seudominio.com.br    produção, de qualquer lugar
+#   deploy/bin/smoke-test <endereço> <commit>                   e confere se é aquela versão
+#
+# Só faz requisições GET; não precisa de login e não altera nada. Sai com erro no primeiro
+# item que falhar, dizendo qual.
+set -Eeuo pipefail
+
+BASE="${1:?uso: smoke-test <endereço> [commit esperado]}"
+EXPECTED="${2:-}"
+BASE="${BASE%/}"
+FAILS=0
+
+ok()  { printf '  \033[32mOK\033[0m     %s\n' "$1"; }
+bad() { printf '  \033[31mFALHA\033[0m  %s\n' "$1"; FAILS=$((FAILS + 1)); }
+# result "descrição" <comando de teste...>: roda o teste e imprime OK ou FALHA
+result() { local desc="$1"; shift; if "$@"; then ok "$desc"; else bad "$desc"; fi; }
+has()     { [[ "$1" == *"$2"* ]]; }   # o texto $1 contém $2?
+has_not() { [[ "$1" != *"$2"* ]]; }
+
+# Espera o app responder (até 60 s): no CI, o container acabou de subir
+for _ in $(seq 1 30); do
+  curl -fsS -m 5 -o /dev/null "$BASE/api/health" 2>/dev/null && break
+  sleep 2
+done
+
+health=$(curl -sS -m 10 "$BASE/api/health" || true)
+headers=$(curl -sS -m 10 -D - -o /tmp/smoke-entrar.html "$BASE/entrar" || true)
+# Cabeçalhos em minúsculas, para comparar sem se preocupar com maiúsculas
+lower=$(printf '%s' "$headers" | tr '[:upper:]' '[:lower:]')
+nonce=$(printf '%s' "$headers" | grep -i '^content-security-policy:' | grep -o "'nonce-[^']*'" | head -n 1 | sed "s/'nonce-//; s/'$//")
+
+echo "Teste de fumaça em $BASE"
+result "/api/health responde ok com o banco ok" has "$health" '"status":"ok","service"'
+result "o banco respondeu ao health check" has "$health" '"database":{"status":"ok"'
+if [ -n "$EXPECTED" ]; then
+  result "versão no ar é ${EXPECTED:0:7}" has "$health" "\"version\":\"$EXPECTED\""
+fi
+result "/entrar responde 200" grep -qE '^http/[0-9.]+ 200' <<<"$lower"
+result "CSP com nonce" test -n "$nonce"
+result "CSP sem unsafe-eval (build de produção)" has_not "$lower" "unsafe-eval"
+result "o mesmo nonce está nos <script> da página" grep -q "nonce=\"$nonce\"" /tmp/smoke-entrar.html
+result "X-Content-Type-Options: nosniff" has "$lower" "x-content-type-options: nosniff"
+result "X-Frame-Options: DENY" has "$lower" "x-frame-options: deny"
+result "não anuncia X-Powered-By" has_not "$lower" "x-powered-by"
+if [[ "$BASE" == https://* ]]; then
+  result "HSTS (Strict-Transport-Security)" has "$lower" "strict-transport-security: max-age="
+  result "CSP pede HTTPS para tudo (upgrade-insecure-requests)" has "$lower" "upgrade-insecure-requests"
+  redirect=$(curl -sS -m 10 -o /dev/null -w '%{http_code} %{redirect_url}' "http://${BASE#https://}/entrar" || true)
+  result "http:// redireciona para https://" grep -qE '^30[178] https://' <<<"$redirect"
+fi
+rm -f /tmp/smoke-entrar.html
+
+if [ "$FAILS" -gt 0 ]; then
+  echo "$FAILS item(ns) com falha."
+  exit 1
+fi
+echo "Tudo certo."

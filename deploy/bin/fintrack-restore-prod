@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# Restaura a PRODUÇÃO a partir de um backup. Só para desastre (banco corrompido, dado apagado
+# por engano, servidor novo). Para só PROVAR que um backup funciona, use fintrack-restore-test.
+#
+#   sudo -u fintrack fintrack-restore-prod /srv/fintrack/backups/fintrack-...-diario.dump.age
+#
+# O que acontece, nesta ordem:
+#   1. pede que você digite RESTAURAR (nada acontece antes disso)
+#   2. faz um backup "manual" do estado atual (se algo der errado, dá para voltar a ele)
+#   3. para o app (as visitas recebem erro por alguns segundos, em vez de ver dados pela metade)
+#   4. apaga o banco e cria de novo, vazio
+#   5. decifra o backup (chave privada colada por você, só na memória) e restaura
+#   6. aplica as migrações que o backup ainda não tinha (backup mais antigo que a versão no ar)
+#   7. liga o app e espera o /api/health responder ok
+#
+# Durante tudo isso ele segura o cadeado dos scripts: nenhum deploy ou backup começa no meio.
+# shellcheck source=deploy/bin/lib.sh
+source "$(dirname "$(readlink -f "$0")")/lib.sh"
+
+main() {
+  local file="${1:-}" version workdir key_file answer
+  [ -s "$file" ] || die "uso: fintrack-restore-prod <arquivo .dump.age> (veja os nomes em $BACKUP_DIR)"
+  version=$(current_version)
+  is_commit "$version" || die "não há versão no ar (o primeiro deploy já aconteceu?)"
+
+  printf '\nIsto APAGA o banco de produção e põe no lugar o conteúdo de:\n  %s\n' "$(basename "$file")"
+  printf 'Tudo o que foi gravado depois desse backup se perde (o estado atual vira um backup "manual").\n'
+  printf 'Digite RESTAURAR para continuar: '
+  read -r answer
+  [ "$answer" = RESTAURAR ] || die "cancelado: nada foi alterado"
+
+  take_lock 600
+  workdir=$(mktemp -d /dev/shm/fintrack-restore-prod.XXXXXX)
+  chmod 700 "$workdir"
+  # shellcheck disable=SC2064
+  trap "rm -rf '$workdir'" EXIT
+  key_file="$workdir/chave.txt"
+  if [ -n "${AGE_KEY_FILE:-}" ]; then
+    cp "$AGE_KEY_FILE" "$key_file"
+  else
+    printf 'Cole a chave privada do age (AGE-SECRET-KEY-...) e tecle Enter. Ela não aparece na tela:\n'
+    local key
+    read -rs key
+    printf '%s\n' "$key" > "$key_file"
+    unset key
+  fi
+  grep -q '^AGE-SECRET-KEY-' "$key_file" || die "isso não parece uma chave privada do age; nada foi alterado"
+  # Confere a chave ANTES de apagar qualquer coisa: decifrar os primeiros bytes já prova que serve
+  # (o head fecha o cano depois de 5 bytes e o age reclama; por isso vale o texto lido, não o código)
+  local magic
+  magic=$(age --decrypt --identity "$key_file" "$file" 2>/dev/null | head -c 5 || true)
+  [ "$magic" = PGDMP ] || die "a chave não abre este backup (ou ele não é um pg_dump); nada foi alterado"
+
+  log "1/6 backup do estado atual"
+  "$REPO_DIR/deploy/bin/fintrack-backup" manual --sem-lock
+
+  log "2/6 parando o app"
+  compose stop web
+
+  log "3/6 apagando e recriando o banco"
+  compose exec -T db psql -v ON_ERROR_STOP=1 -U fintrack -d postgres \
+    -c "DROP DATABASE fintrack WITH (FORCE)" -c "CREATE DATABASE fintrack OWNER fintrack"
+
+  log "4/6 restaurando $(basename "$file")"
+  age --decrypt --identity "$key_file" "$file" \
+    | compose exec -T db pg_restore -U fintrack -d fintrack --no-owner --exit-on-error \
+    || die "a restauração falhou no meio. O backup do passo 1 está em $BACKUP_DIR (o mais novo, 'manual')"
+
+  log "5/6 migrações que faltarem"
+  compose run --rm migrate
+
+  log "6/6 ligando o app"
+  compose up -d --no-deps web
+  wait_healthy "$version" 120 || die "o app não respondeu ok depois da restauração (fintrack-compose logs web)"
+
+  printf '%s PRODUCAO %s versao=%s\n' "$(date -Is)" "$(basename "$file")" "$version" >> "$STATE_DIR/restauracoes.log"
+  log "produção restaurada a partir de $(basename "$file")"
+}
+
+main "$@"

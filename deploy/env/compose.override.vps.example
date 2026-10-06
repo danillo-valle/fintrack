@@ -1,0 +1,21 @@
+# /srv/fintrack/compose.override.yml para uma VPS (apêndice do manual do M05).
+# Copie para /srv/fintrack/compose.override.yml, troque os dois valores e faça um deploy.
+# O fintrack-compose e o fintrack-deploy juntam este arquivo ao compose.prod.yml sozinhos.
+services:
+  caddy:
+    # Numa VPS, o Caddy recebe a internet direto: portas 80 e 443 (e 443/udp para HTTP/3)
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    # Escutar em porta abaixo de 1024 exige esta capacidade (o compose base tira todas)
+    cap_add: [NET_BIND_SERVICE]
+    volumes:
+      # Troca o Caddyfile do túnel pelo da VPS (mesmo destino dentro do container)
+      - ./caddy/Caddyfile.vps:/etc/caddy/Caddyfile:ro
+    environment:
+      FINTRACK_DOMAIN: fintrack.TROQUE-seudominio.com.br
+      ACME_EMAIL: TROQUE-seu-email@exemplo.com
+  # Sem túnel: o cloudflared fica desligado (um perfil que ninguém ativa)
+  cloudflared:
+    profiles: [desligado]

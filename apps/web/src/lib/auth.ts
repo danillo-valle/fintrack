@@ -21,6 +21,7 @@ import { isRecentlyAuthenticated, isSensitiveAuthPath } from "./auth/reauth";
 import { formatDateTime } from "./dates";
 import { passwordChangedEmail, resetPasswordEmail, verificationEmail } from "./email-templates";
 import { env, googleEnabled } from "./env";
+import { logger } from "./logger";
 import { sendEmail } from "./mailer";
 
 const ONE_HOUR = 60 * 60;
@@ -171,6 +172,27 @@ export const auth = betterAuth({
 
   advanced: {
     cookiePrefix: "fintrack",
+    // ── IP de quem fez a requisição (M05) ───────────────────────────────────────
+    // O limite de tentativas conta por IP. Em produção, o app não vê o visitante direto: o
+    // caminho é visitante → Cloudflare → cloudflared → Caddy → app. O X-Forwarded-For que chega
+    // da Cloudflare NÃO é confiável (o cloudflared acrescenta o IP ao que o visitante mandou,
+    // então dá para forjar o começo). O confiável é o CF-Connecting-IP, que a Cloudflare sempre
+    // sobrescreve. O Caddy lê esse e repassa ao app um X-Forwarded-For com UM endereço só
+    // (deploy/caddy/Caddyfile). O Better Auth só aceita X-Forwarded-For de um valor; com vários,
+    // ele cai num limite único para todo mundo (e avisa no log). Sem o cabeçalho (pnpm dev),
+    // usa 127.0.0.1.
+    ipAddress: {
+      ipAddressHeaders: ["x-forwarded-for"],
+    },
+  },
+
+  // Os avisos e erros internos do Better Auth saem no mesmo log JSON do app (src/lib/logger.ts)
+  logger: {
+    level: "warn",
+    log: (level, message, ...args) => {
+      const target = level === "debug" ? "debug" : level;
+      logger[target]({ event: "auth.internal", details: args.length ? args : undefined }, message);
+    },
   },
 
   plugins: [

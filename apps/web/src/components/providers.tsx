@@ -6,7 +6,7 @@ import { ToastKeyboard } from "@/components/feedback/toast-keyboard";
 import { Toaster } from "@/components/ui/sonner";
 
 // Tudo que precisa existir uma vez só, em volta do app inteiro
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({ children, nonce }: { children: React.ReactNode; nonce?: string }) {
   // Marca a página como pronta quando o React termina de carregar no navegador.
   // Os testes E2E esperam por esta marca antes de digitar ou clicar.
   useEffect(() => {
@@ -14,7 +14,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange
+      // O script do tema roda antes do React: com o nonce, a CSP do proxy.ts o deixa rodar
+      nonce={nonce}
+    >
       {children}
       <Toaster
         position="bottom-center"

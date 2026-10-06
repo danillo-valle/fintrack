@@ -21,6 +21,13 @@ export function formAlert(page: Page) {
 /** O Intl separa "R$" do número com um espaço não separável (U+00A0). */
 export const brl = (text: string) => text.replace(" ", " ");
 
+/**
+ * Os testes estão rodando contra o build de produção (a imagem Docker do M05) em vez do
+ * pnpm dev? Liga com PLAYWRIGHT_PRODUCTION=1 (passo do manual do M05). Nesse modo, o catálogo
+ * /dev/ui não existe (responde 404 de propósito) e os testes dele são pulados.
+ */
+export const PRODUCTION_BUILD = process.env.PLAYWRIGHT_PRODUCTION === "1";
+
 /** Páginas do app (exigem sessão). Os testes de acessibilidade, de foco e de proteção passam por cada uma. */
 export const PAGES = [
   "/",
@@ -30,8 +37,14 @@ export const PAGES = [
   "/carteiras",
   "/ajustes",
   "/ajustes/seguranca",
-  "/dev/ui",
+  ...(PRODUCTION_BUILD ? [] : ["/dev/ui"]),
 ];
+
+/** Abre o catálogo de componentes, ou pula o teste no build de produção (onde ele não existe). */
+export async function openCatalog(page: Page) {
+  base.skip(PRODUCTION_BUILD, "o catálogo /dev/ui só existe em desenvolvimento");
+  return openPage(page, "/dev/ui");
+}
 
 /**
  * Telas de entrada (abertas, sem sessão). Também passam pelos testes de acessibilidade e foco.

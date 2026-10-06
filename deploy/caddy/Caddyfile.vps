@@ -1,0 +1,31 @@
+# Caddy numa VPS (apêndice do manual do M05): sem Cloudflare Tunnel, o próprio Caddy recebe as
+# visitas da internet nas portas 80 e 443 e emite o certificado HTTPS (Let's Encrypt) sozinho.
+# Usado no lugar do Caddyfile pelo /srv/fintrack/compose.override.yml (modelo em
+# deploy/env/compose.override.vps.example). O resto da produção não muda.
+{
+	admin off
+	# E-mail que a Let's Encrypt usa para avisar de problemas com o certificado
+	email {$ACME_EMAIL}
+}
+
+# O domínio do app (variável do override). A porta 80 só redireciona para a 443.
+{$FINTRACK_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+		-Via
+		defer
+	}
+
+	# Sem proxy na frente: o IP do visitante é o da própria conexão ({client_ip}), e qualquer
+	# X-Forwarded-For que ele mande é descartado e trocado por esse valor.
+	reverse_proxy web:3000 {
+		header_up X-Forwarded-For {client_ip}
+		header_up X-Forwarded-Proto https
+		lb_try_duration 10s
+	}
+
+	log
+}

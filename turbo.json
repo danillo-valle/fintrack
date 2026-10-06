@@ -10,7 +10,8 @@
     "PASSKEY_RP_ID",
     "HIBP_CHECK",
     "GOOGLE_CLIENT_*",
-    "MAILPIT_URL"
+    "MAILPIT_URL",
+    "LOG_LEVEL"
   ],
   "tasks": {
     "build": {

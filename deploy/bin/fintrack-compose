@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Atalho para o docker compose de PRODUÇÃO, já com o projeto, o arquivo e as variáveis certas.
+# Instalado em /usr/local/bin/fintrack-compose pelo preparar-servidor.sh. Use como o usuário
+# fintrack (é ele quem lê os arquivos de variáveis):
+#
+#   sudo -u fintrack fintrack-compose ps
+#   sudo -u fintrack fintrack-compose logs --since 1h web
+#   sudo -u fintrack fintrack-compose exec db psql -U fintrack
+#
+# Tudo que vier depois do nome vai direto para o "docker compose".
+# Segue o link simbólico (/usr/local/bin → repo/deploy/bin) para achar o lib.sh ao lado
+# shellcheck source=deploy/bin/lib.sh
+source "$(dirname "$(readlink -f "$0")")/lib.sh"
+compose "$@"

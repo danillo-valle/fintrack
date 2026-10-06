@@ -1,0 +1,61 @@
+# Caddy em produção (M05): recebe as visitas que o cloudflared entrega e repassa ao app.
+#
+# Por que um Caddy, se a Cloudflare já faz HTTPS? Porque ele é o nosso ponto de controle, no
+# nosso servidor e no Git: cabeçalhos (HSTS), log de acesso em JSON, e a regra do IP do
+# visitante. E porque, se um dia o FinTrack for para uma VPS, é o Caddy que passa a cuidar do
+# certificado (apêndice do manual): troca-se esta porta de entrada, o resto fica igual.
+#
+# Mudou este arquivo? O fintrack-deploy reinicia o Caddy sozinho quando ele muda num commit.
+{
+	# Sem painel de administração (ele abriria a porta 2019 dentro do container)
+	admin off
+	# A Cloudflare já fornece o HTTPS; aqui dentro o tráfego é HTTP na rede "entrada"
+	auto_https off
+
+	servers {
+		# Quem pode dizer "o visitante é o IP X": SÓ o cloudflared (endereço fixo no compose).
+		# Uma requisição de qualquer outro lugar tem esses cabeçalhos ignorados.
+		trusted_proxies static 172.31.250.10/32
+		# E de qual cabeçalho ler: o CF-Connecting-IP, que a Cloudflare SEMPRE sobrescreve.
+		# O X-Forwarded-For não serve: o cloudflared acrescenta o IP ao final do que o visitante
+		# mandou, então o começo pode ser forjado.
+		client_ip_headers CF-Connecting-IP
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}
+
+# Porta 8080 (acima de 1024): o container roda sem nenhuma capacidade de root (cap_drop: ALL).
+# O túnel da Cloudflare aponta para http://caddy:8080.
+:8080 {
+	# Compressão das respostas (menos dados no 4G do celular)
+	encode zstd gzip
+
+	header {
+		# HSTS: depois da primeira visita, o navegador se recusa a abrir o FinTrack sem HTTPS por
+		# 1 ano. Sem "includeSubDomains": outros subdomínios seus não ficam presos a esta regra.
+		Strict-Transport-Security "max-age=31536000"
+		# Não anuncia qual servidor roda aqui (nem o Caddy, nem o "Via" que ele acrescenta)
+		-Server
+		-Via
+		# Aplica depois da resposta do app chegar (sem isso, o Via do proxy escaparia)
+		defer
+	}
+
+	reverse_proxy web:3000 {
+		# O app recebe UM endereço no X-Forwarded-For: o do visitante, lido acima.
+		# O Better Auth só confia em X-Forwarded-For com um valor (src/lib/auth.ts).
+		header_up X-Forwarded-For {client_ip}
+		header_up X-Forwarded-Proto https
+		# O app não precisa saber do CF-Connecting-IP; o Caddy já o traduziu
+		header_up -CF-Connecting-IP
+
+		# Se o app estiver reiniciando (deploy), espera até 10 s antes de devolver erro
+		lb_try_duration 10s
+	}
+
+	log
+}

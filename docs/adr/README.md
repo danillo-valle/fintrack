@@ -12,3 +12,4 @@ Modelo para um ADR novo: copie `0001-stack-e-monorepo.md` e troque o conteúdo.
 | 002 | [Design system, tokens e dinheiro em centavos](0002-design-system.md)  | aceita |
 | 003 | [Autenticação com Better Auth, Prisma 7 e 2FA](0003-autenticacao.md)   | aceita |
 | 004 | [Modelo de dados, dinheiro e regras no banco](0004-modelo-de-dados.md) | aceita |
+| 005 | [Hospedagem, deploy e operação](0005-hospedagem-e-deploy.md)           | aceita |

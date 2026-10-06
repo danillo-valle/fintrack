@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Confere se há versão nova do FinTrack e, se houver, faz o deploy. Roda a cada minuto pelo
+# timer do systemd (deploy/systemd/fintrack-update.timer), como o usuário fintrack.
+#
+# Este é o deploy "puxado" (pull): é o servidor que pergunta ao GHCR, e não o GitHub que entra
+# no servidor. Vantagens: nenhuma porta aberta, nenhuma chave SSH do servidor guardada no GitHub,
+# e funciona atrás do CGNAT da operadora. O CI só publica a imagem e aponta a etiqueta :main para
+# ela quando qualidade, seguranca e imagem passaram (job "publicar" do ci.yml).
+#
+# Ver o que ele anda fazendo:   journalctl -u fintrack-update --since today
+# shellcheck source=deploy/bin/lib.sh
+source "$(dirname "$(readlink -f "$0")")/lib.sh"
+
+main() {
+  # Se um deploy ou backup estiver rodando, sai sem esperar: daqui a um minuto tenta de novo
+  take_lock 0
+
+  # O pull de uma imagem que não mudou baixa só o "manifesto" (alguns KB)
+  docker pull -q "$IMAGE_WEB:main" >/dev/null 2>&1 || die "não consegui consultar o GHCR (internet?)"
+  local remote current
+  remote=$(image_revision "$IMAGE_WEB:main")
+  current=$(current_version)
+  is_commit "$remote" || die "a imagem :main não tem a etiqueta de revisão (veja o Dockerfile)"
+
+  [ "$remote" = "$current" ] && exit 0
+  if [ "$remote" = "$(cat "$STATE_DIR/falhou" 2>/dev/null)" ]; then
+    # Já falhou uma vez: não fica tentando a cada minuto. Espera um commit novo, ou um
+    # "fintrack-deploy <commit> --force" seu depois de entender o que houve.
+    exit 0
+  fi
+
+  # Solta o cadeado: o deploy pega o dele
+  exec 9>&-
+  exec "$REPO_DIR/deploy/bin/fintrack-deploy" "$remote"
+}
+
+main "$@"
