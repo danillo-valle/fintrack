@@ -116,6 +116,11 @@ services:
     # Versão 2.11 fixada; as correções (2.11.x) chegam ao refazer o pull
     image: caddy:2.11-alpine
     restart: unless-stopped
+    # A imagem oficial grava no próprio programa a capacidade de abrir portas baixas
+    # (setcap cap_net_bind_service). Com cap_drop ALL, o Linux se RECUSA a executar um programa
+    # que pede uma capacidade que o container não tem: "exec /usr/bin/caddy: operation not
+    # permitted". Devolvemos só essa (mesmo ouvindo na 8080, o programa exige tê-la).
+    cap_add: [NET_BIND_SERVICE]
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data

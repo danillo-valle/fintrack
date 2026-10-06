@@ -211,6 +211,11 @@ jobs:
           docker compose -f deploy/compose.prod.yml --env-file /tmp/compose.env --env-file /tmp/versao.env config --quiet
           docker run --rm -v "$PWD/deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2.11-alpine \
             caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+          # O Caddy precisa INICIAR com o endurecimento do compose (cap_drop ALL, read_only). A
+          # imagem oficial grava no programa a capacidade de abrir portas baixas; sem o cap_add
+          # NET_BIND_SERVICE no compose, o Linux recusa executar ("operation not permitted").
+          docker compose -f deploy/compose.prod.yml --env-file /tmp/compose.env --env-file /tmp/versao.env \
+            run --rm --no-deps caddy caddy version
 
       - name: Prepara o Buildx (cache das camadas entre execuções)
         uses: docker/setup-buildx-action@v4
