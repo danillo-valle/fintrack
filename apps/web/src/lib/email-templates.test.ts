@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { passwordChangedEmail, resetPasswordEmail, verificationEmail } from "./email-templates";
+import {
+  householdInviteEmail,
+  passwordChangedEmail,
+  resetPasswordEmail,
+  verificationEmail,
+} from "./email-templates";
 
 describe("e-mails", () => {
   it("o e-mail de verificação traz o link no texto e no HTML", () => {
@@ -26,5 +31,16 @@ describe("e-mails", () => {
     expect(mail.text).toContain("30/09/2026, 22:00");
     expect(mail.text).toContain("Se não foi você");
     expect(mail.html).toContain('href="http://localhost:3000/esqueci-a-senha"');
+  });
+
+  it("o convite do lar diz quem convidou, para qual lar, até quando, e escapa o nome", () => {
+    const url = "https://fintrack.example/convite/abc";
+    const email = householdInviteEmail("<b>Lia</b>", "Casa Exemplo", url, "09/10/2026 20:00");
+    expect(email.subject).toBe("<b>Lia</b> convidou você para o FinTrack");
+    expect(email.text).toContain("Casa Exemplo");
+    expect(email.text).toContain("09/10/2026 20:00");
+    expect(email.text).toContain(url);
+    expect(email.html).toContain("&lt;b&gt;Lia&lt;/b&gt;");
+    expect(email.html).not.toContain("<b>Lia</b>");
   });
 });

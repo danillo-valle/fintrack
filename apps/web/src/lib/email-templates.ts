@@ -75,3 +75,24 @@ export function passwordChangedEmail(name: string, when: string, resetUrl: strin
     }),
   };
 }
+
+// Convite para o lar (M06). O link leva o segredo de uso único: quem tem o link pode aceitar,
+// mas só se estiver logado com o e-mail convidado. Por isso o texto diz qual conta usar.
+export function householdInviteEmail(
+  inviterName: string,
+  householdName: string,
+  url: string,
+  expiresAt: string,
+): EmailMessage {
+  const lines = [
+    "Olá.",
+    `${inviterName} convidou você para o lar "${householdName}" no FinTrack, o controle financeiro da casa.`,
+    `Entre com a conta deste e-mail e aceite o convite. O link vale até ${expiresAt} e só pode ser usado uma vez.`,
+    "Se você não esperava este convite, ignore esta mensagem.",
+  ];
+  return {
+    subject: `${inviterName} convidou você para o FinTrack`,
+    text: `${lines.join("\n\n")}\n\nAceitar o convite: ${url}\n`,
+    html: layout("Convite para o FinTrack", lines, { label: "Ver o convite", url }),
+  };
+}
