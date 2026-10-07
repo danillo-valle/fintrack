@@ -35,6 +35,9 @@ model User {
   transactionsCreated  Transaction[]
   recurrencesCreated   Recurrence[]
   providerConnections  ProviderConnection[]
+  // Convites do lar (M06): os que a pessoa criou e os que ela aceitou
+  invitesCreated       HouseholdInvite[]    @relation("InviteCreator")
+  invitesAccepted      HouseholdInvite[]    @relation("InviteAcceptor")
 
   @@unique([email])
   @@map("user")
