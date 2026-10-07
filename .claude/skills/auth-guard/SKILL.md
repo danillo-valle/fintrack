@@ -25,7 +25,10 @@ acontece em `requireUser()` / `requireRecentAuth()`.
 3. **Toda rota de API** própria (`route.ts`) chama `auth.api.getSession({ headers })` e responde 401 sem sessão.
    As exceções são `/api/auth/*` (o próprio Better Auth) e `/api/health`.
 4. **Dados sempre filtrados pelo `user.id` da sessão**, nunca por um id vindo do formulário ou da URL.
-   Recurso de outra pessoa: não faça nada e não diga nada (a partir do M06, responde 404).
+   Carteira e lar (M06): **sempre** `requireWalletAccess(session, walletId, ação)` ou
+   `requireHouseholdAccess(session, ação)` (`src/lib/access.ts`); as operações do `@fintrack/db`
+   só aceitam o crachá que essas funções devolvem. Recurso de outra pessoa: página 404
+   (`notFoundOnDenied`), igual à de um id que não existe. Veja a skill `nova-feature`.
 5. **Ações sensíveis** (exportar, excluir carteira, conectar banco, mudar e-mail, desligar 2FA):
    `await requireRecentAuth("/caminho/da/tela")` na action. Endpoint sensível do próprio Better Auth:
    acrescente o caminho em `SENSITIVE_AUTH_PATHS` (`src/lib/auth/reauth.ts`).
@@ -47,9 +50,11 @@ Página:
 ```tsx
 import { requireUser } from "@/lib/auth/session";
 
-export default async function WalletsPage() {
-  const { user } = await requireUser();
-  // ...consultas sempre com where: { userId: user.id } (a partir do M06, requireWalletAccess)
+export default async function WalletPage({ params }: PageProps<"/carteiras/[walletId]">) {
+  const session = await requireUser();
+  const { walletId } = await params;
+  // id da URL: crachá primeiro; quem não participa vê o 404
+  const grant = await requireWalletAccess(session, walletId, "view").catch(notFoundOnDenied);
 }
 ```
 
@@ -73,6 +78,8 @@ mantenha-o ligado nas duas contas.
 
 ## Testes obrigatórios para tela ou action nova
 
+- Tela com id na URL: um E2E de IDOR (outra pessoa abre a URL → 404 sem dados; skill `teste-e2e`).
+- Action que muda carteira ou lar: teste de integração com pessoa de outro lar (NOT_FOUND).
 - Página nova do app: acrescente o caminho em `PAGES` (`apps/web/e2e/helpers.ts`). O teste
   "toda página do app manda para /entrar" passa a cobri-la, junto com axe e foco.
 - Tela nova de entrada (sem sessão): `PUBLIC_PAGES` e `AUTH_PAGES` (`src/lib/auth/routes.ts`).

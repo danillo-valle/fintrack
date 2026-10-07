@@ -15,7 +15,9 @@ MIN_SCORE="${MIN_SCORE:-95}"
 AUTH_FILE="apps/web/e2e/.auth/ana.json"
 # Telas de entrada (sem sessão) e páginas do app (com a sessão da conta de teste)
 PUBLIC_PAGES=(/entrar /cadastro /esqueci-a-senha)
-APP_PAGES=(/ /lancamentos /lancamentos/novo /orcamento /carteiras /ajustes /ajustes/seguranca /dev/ui)
+# Desde o M06: as telas do lar e de carteira (o id fixo é a "Casa da Ana", criada pelo auth.setup.ts)
+APP_PAGES=(/ /lancamentos /lancamentos/novo /orcamento /carteiras /carteiras/nova
+  /carteiras/e2e00000-0000-4000-8000-00000000a002 /ajustes /ajustes/lar /ajustes/seguranca /dev/ui)
 
 # Confere se o app está no ar antes de começar
 if ! curl -fsS "$BASE_URL/api/health" >/dev/null; then

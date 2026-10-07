@@ -41,6 +41,8 @@ erDiagram
     Household ||--o{ Category : tem
     Household ||--o{ CategoryRule : tem
     HouseholdMember ||--o{ WalletMember : "só membro do grupo"
+    Household ||--o{ HouseholdInvite : "convites (M06)"
+    User |o--o{ HouseholdInvite : "criou / aceitou"
 
     Wallet ||--o{ WalletMember : "com papel"
     Wallet ||--o{ FinancialAccount : "gere"
@@ -79,6 +81,16 @@ erDiagram
         uuid householdId PK, FK
         string userId PK, FK
         enum role "OWNER | MEMBER"
+    }
+    HouseholdInvite {
+        uuid id PK
+        uuid householdId FK
+        char64 tokenHash UK "SHA-256 do segredo do link"
+        string email "minúsculas"
+        enum role "OWNER | MEMBER"
+        datetime expiresAt "72 h"
+        datetime acceptedAt "uso único"
+        datetime revokedAt
     }
     Wallet {
         uuid id PK
@@ -216,9 +228,19 @@ registro sobreviver mesmo que a pessoa ou o grupo sejam apagados.
 | Cartão tem fechamento e vencimento; as outras contas, não                | CHECK `financial_account_card_days_check`                          |
 | Mês de orçamento e de fatura guardado como dia 1                         | CHECKs de `budget` e `card_statement`                              |
 | A auditoria só acrescenta                                                | gatilho `audit_log_append_only`                                    |
+| Convite guarda só o hash do segredo; e-mail em minúsculas (M06)          | CHECKs `household_invite_token_hash_check` e `_email_check`        |
+| Convite não é aceito e cancelado ao mesmo tempo; prazo depois da criação | CHECKs `household_invite_state_check` e `_expiry_check`            |
+| Nome de lar e de carteira com 1 a 60 caracteres (M06)                    | CHECKs `household_name_length_check` e `wallet_name_length_check`  |
 
 Cada regra tem um teste em `packages/db/src/integration/`, que tenta quebrá-la contra o
 PostgreSQL de verdade (`pnpm test:integration`).
+
+## Quem vê o quê (M06)
+
+O banco garante a fronteira do grupo (nada aponta para outro lar). **Quem dentro do lar pode
+fazer o quê** é decidido no código, num ponto só: `authorizeWallet` e `authorizeHousehold`
+(`packages/db/src/access.ts`), que leem o vínculo da pessoa e consultam a matriz de papéis
+(`packages/core/src/access.ts`). A tabela completa está em [`permissoes.md`](permissoes.md).
 
 ## Como ler o dinheiro
 

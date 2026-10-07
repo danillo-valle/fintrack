@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test as base, type APIRequestContext, type Page } from "@playwright/test";
 import { hashPassword } from "better-auth/crypto";
 import { generateSync } from "otplib";
@@ -28,6 +29,22 @@ export const brl = (text: string) => text.replace(" ", " ");
  */
 export const PRODUCTION_BUILD = process.env.PLAYWRIGHT_PRODUCTION === "1";
 
+/**
+ * O lar da Ana nos testes (M06), criado pelo auth.setup.ts com ids FIXOS: assim as páginas de
+ * carteira entram na lista PAGES abaixo e ganham, de graça, os testes de acessibilidade (axe),
+ * de foco e de proteção. Ana é dona do lar e da "Casa da Ana"; a parceira (Pat) é membro do
+ * lar e editora da Casa. "Viagem antiga" fica arquivada: a lista de carteiras sempre tem um item
+ * arquivado para o axe conferir o contraste (achado do M06). Os testes de permissão que mudam
+ * papéis criam lares próprios.
+ */
+export const ANA_HOUSEHOLD = {
+  id: "e2e00000-0000-4000-8000-00000000a000",
+  personalWalletId: "e2e00000-0000-4000-8000-00000000a001",
+  sharedWalletId: "e2e00000-0000-4000-8000-00000000a002",
+  partnerWalletId: "e2e00000-0000-4000-8000-00000000a003",
+  partner: { name: "Pat Parceira", email: "parceira-ana@fintrack.test" },
+} as const;
+
 /** Páginas do app (exigem sessão). Os testes de acessibilidade, de foco e de proteção passam por cada uma. */
 export const PAGES = [
   "/",
@@ -35,7 +52,13 @@ export const PAGES = [
   "/lancamentos/novo",
   "/orcamento",
   "/carteiras",
+  "/carteiras/nova",
+  `/carteiras/${ANA_HOUSEHOLD.sharedWalletId}`,
+  `/carteiras/${ANA_HOUSEHOLD.personalWalletId}`,
+  // Convite com segredo no formato certo, mas que não existe: a tela explica e não quebra
+  `/convite/${"A".repeat(43)}`,
   "/ajustes",
+  "/ajustes/lar",
   "/ajustes/seguranca",
   ...(PRODUCTION_BUILD ? [] : ["/dev/ui"]),
 ];
@@ -257,3 +280,111 @@ export const test = base.extend({
     await provide(context);
   },
 });
+
+// ── Lar e carteiras (M06) ─────────────────────────────────────────────────────
+
+/** O id (texto do Better Auth) de uma conta pelo e-mail. */
+export async function userIdByEmail(email: string): Promise<string> {
+  const [row] = await sql<{ id: string }>('SELECT id FROM "user" WHERE email = $1', [email]);
+  if (!row) throw new Error(`conta ${email} não existe`);
+  return row.id;
+}
+
+type Role = "OWNER" | "EDITOR" | "VIEWER";
+
+/**
+ * Cria um lar direto no banco, sem passar pelas telas: para os testes que começam com o lar
+ * pronto. (O fluxo pelas telas, com convite, tem o próprio teste em permissoes.spec.ts.)
+ * Ids opcionais: o lar da Ana usa ids fixos; os outros testes deixam o banco sortear.
+ * Devolve os ids das carteiras: personal[email] e shared[nome].
+ */
+export async function createHouseholdDirect(input: {
+  id?: string;
+  name: string;
+  people: { email: string; role: "OWNER" | "MEMBER"; personalWalletId?: string }[];
+  shared?: {
+    id?: string;
+    name: string;
+    members: { email: string; role: Role }[];
+    archived?: boolean;
+  }[];
+}) {
+  if (input.id) await sql("DELETE FROM household WHERE id = $1", [input.id]);
+  const ids = new Map<string, string>();
+  for (const p of input.people) ids.set(p.email, await userIdByEmail(p.email));
+
+  const [household] = await sql<{ id: string }>(
+    `INSERT INTO household (id, name, "updatedAt") VALUES (COALESCE($1::uuid, gen_random_uuid()), $2, now())
+     RETURNING id`,
+    [input.id ?? null, input.name],
+  );
+  const householdId = household!.id;
+
+  const personal: Record<string, string> = {};
+  for (const p of input.people) {
+    const userId = ids.get(p.email)!;
+    await sql(`INSERT INTO household_member ("householdId", "userId", role) VALUES ($1, $2, $3)`, [
+      householdId,
+      userId,
+      p.role,
+    ]);
+    personal[p.email] = await insertWallet(
+      householdId,
+      p.personalWalletId,
+      p.email.split("@")[0]!,
+      "PERSONAL",
+      userId,
+      [{ userId, role: "OWNER" }],
+    );
+  }
+  const shared: Record<string, string> = {};
+  for (const w of input.shared ?? []) {
+    const members = w.members.map((m) => ({ userId: ids.get(m.email)!, role: m.role }));
+    shared[w.name] = await insertWallet(
+      householdId,
+      w.id,
+      w.name,
+      "SHARED",
+      members[0]!.userId,
+      members,
+    );
+  }
+  return { householdId, personal, shared };
+}
+
+async function insertWallet(
+  householdId: string,
+  id: string | undefined,
+  name: string,
+  kind: "PERSONAL" | "SHARED",
+  createdById: string,
+  members: { userId: string; role: Role }[],
+) {
+  const [wallet] = await sql<{ id: string }>(
+    `INSERT INTO wallet (id, "householdId", name, kind, "createdById", "updatedAt")
+     VALUES (COALESCE($1::uuid, gen_random_uuid()), $2, $3, $4, $5, now()) RETURNING id`,
+    [id ?? null, householdId, name, kind, createdById],
+  );
+  for (const m of members) {
+    await sql(
+      `INSERT INTO wallet_member ("householdId", "walletId", "userId", role) VALUES ($1, $2, $3, $4)`,
+      [householdId, wallet!.id, m.userId, m.role],
+    );
+  }
+  return wallet!.id;
+}
+
+/** Apaga lares de teste (carteiras, membros e convites vão junto, em cascata). */
+export async function deleteHouseholds(ids: string[]) {
+  await sql("DELETE FROM household WHERE id = ANY($1::uuid[])", [ids]);
+}
+
+/** Regras da WCAG até a 2.2, níveis A e AA (as mesmas do acessibilidade.spec.ts). */
+export async function expectNoA11yViolations(page: Page) {
+  const results = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+    .analyze();
+  expect(
+    results.violations.map((v) => ({ regra: v.id, onde: v.nodes.map((n) => n.target) })),
+  ).toEqual([]);
+}

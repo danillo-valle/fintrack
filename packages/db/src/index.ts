@@ -41,6 +41,7 @@ export type {
   CategoryRule,
   FinancialAccount,
   Household,
+  HouseholdInvite,
   HouseholdMember,
   InstallmentGroup,
   ProviderConnection,
@@ -53,3 +54,10 @@ export type {
 
 // Dinheiro: a ponte entre Prisma.Decimal (banco) e bigint em centavos (@fintrack/core)
 export { fromDbDecimal, fromDbDecimalOrNull, toDbDecimal } from "./money";
+
+// Autorização por recurso e operações do lar e das carteiras (M06). Toda operação que muda
+// dados exige o "crachá" devolvido por authorizeWallet/authorizeHousehold (veja access.ts).
+export * from "./access";
+export { maskEmail, type AuditAction, type RequestContext } from "./audit";
+export * from "./households";
+export * from "./wallets";

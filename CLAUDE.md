@@ -15,7 +15,8 @@ Projeto de portfólio construído em módulos (M00 a M12); cada módulo é uma m
 - Autenticação: Better Auth (e-mail e senha, 2FA TOTP obrigatório, passkeys, Google opcional)
 - Produção (M05): servidor de casa com Docker Compose, Caddy e Cloudflare Tunnel; imagens no GHCR;
   deploy puxado pelo servidor; backup cifrado com age (ADR-005, `docs/operacao/runbook.md`)
-- Próximos módulos: lar e permissões (M06), lançamentos (M07), serviço Python em `services/ml` (M09)
+- Lar, carteiras e permissões (M06): matriz de papéis pura, crachá tipado e auditoria (ADR-006, `docs/permissoes.md`)
+- Próximos módulos: lançamentos (M07), orçamento e dashboards (M08), serviço Python em `services/ml` (M09)
 
 Regras específicas do Next.js 16: @apps/web/AGENTS.md
 
@@ -46,9 +47,13 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
 - `apps/web/src/lib/` utilitários compartilhados (`money.ts`, `dates.ts`, `auth.ts`, `auth-client.ts`, `env.ts`)
 - `apps/web/src/lib/auth/` regras de acesso: `session.ts` (requireUser), `routes.ts`, `reauth.ts`
 - `apps/web/src/features/auth/` telas e actions de login, 2FA, passkeys e sessões
+- `apps/web/src/lib/access.ts` ponto único de autorização: `requireWalletAccess`, `requireHouseholdAccess`, `runAction`
+- `apps/web/src/features/{households,wallets}/` lar, convites e carteiras (M06)
 - `apps/web/src/proxy.ts` redireciona quem não tem sessão (conveniência, não barreira)
-- `packages/core/` regras puras: `money.ts` (centavos, rateio, parcelas), `dates.ts`, `card.ts`
-- `packages/db/` schema em pasta (`prisma/schema/`), migrações, seed, cliente e `money.ts` (Decimal ⇄ centavos)
+- `packages/core/` regras puras: `money.ts` (centavos, rateio, parcelas), `dates.ts`, `card.ts`, `access.ts` (matriz de papéis)
+- `packages/db/` schema em pasta (`prisma/schema/`), migrações, seed, cliente, `money.ts` (Decimal ⇄ centavos),
+  `access.ts` (crachás), `households.ts`, `wallets.ts` e `audit.ts` (operações com auditoria)
+- `docs/permissoes.md` quem pode fazer o quê (conferido por teste)
 - `docs/modelo-de-dados.md` diagrama das tabelas (conferido por teste)
 - `apps/web/e2e/` testes Playwright
 - `/dev/ui` catálogo de componentes (só em desenvolvimento)
@@ -66,6 +71,8 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
 - Mudança no banco: siga a skill `prisma-migration`. Nunca edite migração aplicada; nunca rode reset sem a pessoa pedir.
 - Acesso ao banco só dentro de `features/*/server/` ou `lib/`; o ESLint bloqueia o resto.
 - Toda página de `(app)` e toda Server Action começam com `await requireUser()`; siga a skill `auth-guard`.
+- Tudo que toca uma carteira ou o lar passa pelo crachá (`requireWalletAccess`/`requireHouseholdAccess`);
+  recurso de outra pessoa responde 404. Funcionalidade nova: siga a skill `nova-feature` (e `teste-e2e`).
 - Variáveis de ambiente novas: no `.env.example` (sem valor real), no `src/lib/env.ts` (validação), no `globalPassThroughEnv` do `turbo.json` e no `deploy/env/app.env.example`; avise no PR que o valor de produção vai em `/srv/fintrack/app.env` antes do merge.
 - Log no servidor só pelo `logger` (`src/lib/logger.ts`), com `event`; migração para produção sempre aditiva. Siga a skill `deploy-e-operacao`.
 - Nenhum dado financeiro real, `.env` ou segredo em arquivo versionado.

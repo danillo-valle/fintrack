@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Grupo, ambientes e quem participa de cada um (M04; as regras de acesso chegam no M06)
+// Grupo, ambientes e quem participa de cada um (M04) + convites (M06)
 //
 //   Household (o grupo: a família, a casa)         qualquer número de pessoas
 //     ├── HouseholdMember   quem faz parte            uma pessoa pode estar em mais de um grupo
@@ -59,6 +59,7 @@ model Household {
   transactions      Transaction[]
   installmentGroups InstallmentGroup[]
   recurrences       Recurrence[]
+  invites           HouseholdInvite[]
 
   @@map("household")
 }
@@ -131,4 +132,39 @@ model WalletMember {
   @@id([walletId, userId])
   @@index([userId])
   @@map("wallet_member")
+}
+
+/// Convite para entrar no lar (M06). O link leva um segredo aleatório de 32 bytes; o banco guarda
+/// só o SHA-256 dele (tokenHash), como se faz com senha: quem lê o banco (um backup vazado, por
+/// exemplo) não consegue usar um convite pendente. Uso único e prazo de 72 h, conferidos na
+/// aceitação dentro de uma transação. Ninguém apaga convite: aceito ou cancelado fica de histórico.
+model HouseholdInvite {
+  id           String        @id @default(uuid(7)) @db.Uuid
+  householdId  String        @db.Uuid
+  /// SHA-256 do segredo do link, em hexadecimal (64 caracteres). CHECK no banco
+  tokenHash    String        @unique @db.Char(64)
+  /// E-mail de quem foi convidado, em minúsculas (CHECK). Só a conta com este e-mail aceita
+  email        String
+  /// Papel que a pessoa terá no lar ao aceitar
+  role         HouseholdRole @default(MEMBER)
+  createdById  String?
+  createdAt    DateTime      @default(now())
+  /// CHECK: depois da criação
+  expiresAt    DateTime
+  /// Preenchido uma vez só, na aceitação (uso único)
+  acceptedAt   DateTime?
+  acceptedById String?
+  /// Cancelado pelo dono do lar (ou substituído por um convite novo para o mesmo e-mail)
+  revokedAt    DateTime?
+
+  household  Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  createdBy  User?     @relation("InviteCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  acceptedBy User?     @relation("InviteAcceptor", fields: [acceptedById], references: [id], onDelete: SetNull)
+
+  // A tela do lar lista os convites do grupo, mais novos primeiro
+  @@index([householdId, createdAt(sort: Desc)])
+  // Índices das chaves estrangeiras (o Postgres não cria sozinho)
+  @@index([createdById])
+  @@index([acceptedById])
+  @@map("household_invite")
 }

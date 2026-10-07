@@ -153,3 +153,32 @@ export async function withPgClient<T>(fn: (client: pg.Client) => Promise<T>): Pr
     await client.end();
   }
 }
+
+// ── Peças do M06 (permissões) ─────────────────────────────────────────────────
+
+/** Contexto de requisição falso: a auditoria grava IP e navegador. */
+export const TEST_CTX = { ip: "203.0.113.7", userAgent: "vitest" };
+
+/** Uma pessoa avulsa, sem lar (para testar convite e "gente de fora"). */
+export async function createLoosePerson(label: string) {
+  const tag = randomUUID().slice(0, 8);
+  return prisma.user.create({
+    data: { id: randomUUID(), name: `${label} ${tag}`, email: `it-${label}-${tag}@fintrack.test` },
+  });
+}
+
+/** Apaga pessoas avulsas (e, em cascata, os lares em que só elas estavam não somem: limpe antes). */
+export async function deletePeople(ids: string[]) {
+  await prisma.householdMember.deleteMany({ where: { userId: { in: ids } } });
+  await prisma.user.deleteMany({ where: { id: { in: ids } } });
+}
+
+/** Eventos de auditoria de um lar, do mais antigo para o mais novo. */
+export async function auditActions(householdId: string): Promise<string[]> {
+  const rows = await prisma.auditLog.findMany({
+    where: { householdId },
+    orderBy: { id: "asc" },
+    select: { action: true },
+  });
+  return rows.map((r) => r.action);
+}
