@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronRight, ShieldCheck } from "lucide-react";
+import { ChevronRight, House, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { requireUser } from "@/lib/auth/session";
@@ -23,6 +23,16 @@ export default async function SettingsPage() {
             {user.name} · {user.email}
           </p>
           <div className="flex flex-col gap-3">
+            <Link
+              href="/ajustes/lar"
+              className="hover:bg-muted focus-visible:ring-ring flex items-center justify-between gap-2 rounded-lg border px-4 py-3 text-sm font-medium outline-none focus-visible:ring-3"
+            >
+              <span className="flex items-center gap-2">
+                <House aria-hidden className="size-4" />
+                Lar: pessoas, convites e atividade
+              </span>
+              <ChevronRight aria-hidden className="size-4" />
+            </Link>
             <Link
               href="/ajustes/seguranca"
               className="hover:bg-muted focus-visible:ring-ring flex items-center justify-between gap-2 rounded-lg border px-4 py-3 text-sm font-medium outline-none focus-visible:ring-3"
