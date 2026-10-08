@@ -73,6 +73,19 @@ enum StatementStatus {
   @@map("statement_status")
 }
 
+/// Quem decidiu a categoria de um lançamento (M07). A pessoa (MANUAL) ou a camada da cascata
+/// cuja sugestão a pessoa aceitou sem mudar. Valores novos chegam por acréscimo: a categoria da
+/// Pluggy no M09, o classificador e o LLM no M10 (ADR-007).
+enum CategorizationSource {
+  MANUAL
+  /// Uma regra texto → categoria (CategoryRule)
+  RULE
+  /// A categoria mais usada pelo lar para o mesmo comerciante
+  HISTORY
+
+  @@map("categorization_source")
+}
+
 /// Tipo de recorrência: as antigas abas "Despesas Fixas" e "Despesas Recorrentes".
 enum RecurrenceKind {
   /// Conta fixa: aluguel, condomínio, internet, consórcio, seguro
@@ -87,59 +100,63 @@ enum RecurrenceKind {
 
 /// Um lançamento: dinheiro que entrou ou saiu de uma conta, atribuído a um ambiente.
 model Transaction {
-  id                 String            @id @default(uuid(7)) @db.Uuid
-  householdId        String            @db.Uuid
+  id                 String                @id @default(uuid(7)) @db.Uuid
+  householdId        String                @db.Uuid
   /// DE QUEM é: o ambiente onde o lançamento conta ("Casa", "Danillo")
-  walletId           String            @db.Uuid
+  walletId           String                @db.Uuid
   /// QUEM PAGA: a conta (corrente, fatura do cartão, vale...)
-  accountId          String            @db.Uuid
+  accountId          String                @db.Uuid
   /// Com qual cartão daquela conta (opcional: PIX e transferência não têm cartão)
-  cardId             String?           @db.Uuid
+  cardId             String?               @db.Uuid
   method             PaymentMethod
-  categoryId         String?           @db.Uuid
+  categoryId         String?               @db.Uuid
+  /// Quem decidiu a categoria (M07). Opcional: os lançamentos antigos e os sem categoria ficam
+  /// nulos. CHECK: só existe junto com categoryId
+  categorizedBy      CategorizationSource?
   /// Valor com sinal, em reais com 2 casas (NUMERIC(14,2)). CHECK: diferente de zero
-  amount             Decimal           @db.Decimal(14, 2)
+  amount             Decimal               @db.Decimal(14, 2)
   /// Dia do lançamento (coluna DATE)
-  occurredOn         DateTime          @db.Date
+  occurredOn         DateTime              @db.Date
   /// CHECK: de 1 a 200 caracteres
   description        String
   notes              String?
-  status             TransactionStatus @default(CONFIRMED)
-  source             TransactionSource @default(MANUAL)
+  status             TransactionStatus     @default(CONFIRMED)
+  source             TransactionSource     @default(MANUAL)
   /// Id do lançamento na origem (FITID do OFX, id da Pluggy, ocorrência da recorrência).
   /// CHECK: obrigatório fora do MANUAL
   externalId         String?
   /// Fatura em que a compra entrou (só cartão de crédito)
-  statementId        String?           @db.Uuid
-  installmentGroupId String?           @db.Uuid
+  statementId        String?               @db.Uuid
+  installmentGroupId String?               @db.Uuid
   /// 1, 2, 3... CHECK: preenchido junto com installmentGroupId, nunca sozinho
-  installmentNumber  Int?              @db.SmallInt
+  installmentNumber  Int?                  @db.SmallInt
   /// Recorrência que gerou este lançamento (conta fixa, assinatura, salário)
-  recurrenceId       String?           @db.Uuid
-  transferId         String?           @db.Uuid
+  recurrenceId       String?               @db.Uuid
+  transferId         String?               @db.Uuid
   /// Estorno: aponta para a compra estornada
-  reversalOfId       String?           @db.Uuid
+  reversalOfId       String?               @db.Uuid
   /// Quem lançou (nulo para o que veio de importação ou recorrência)
   createdById        String?
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
   deletedAt          DateTime?
 
-  household        Household         @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  household              Household               @relation(fields: [householdId], references: [id], onDelete: Cascade)
   // Chaves COMPOSTAS: cada par precisa existir junto na outra tabela. Um lançamento com o
   // ambiente de um grupo e a conta de outro é recusado pelo próprio banco.
-  wallet           Wallet            @relation(fields: [walletId, householdId], references: [id, householdId], onDelete: Cascade)
-  account          FinancialAccount  @relation(fields: [accountId, householdId], references: [id, householdId], onDelete: Cascade)
+  wallet                 Wallet                  @relation(fields: [walletId, householdId], references: [id, householdId], onDelete: Cascade)
+  account                FinancialAccount        @relation(fields: [accountId, householdId], references: [id, householdId], onDelete: Cascade)
   // NoAction nas opcionais compostas: SetNull zeraria também o accountId/householdId
   // (obrigatórios). Cartão e categoria em uso são arquivados, não apagados.
-  card             PaymentCard?      @relation(fields: [cardId, accountId], references: [id, accountId], onDelete: NoAction)
-  category         Category?         @relation(fields: [categoryId, householdId], references: [id, householdId], onDelete: NoAction)
-  statement        CardStatement?    @relation(fields: [statementId, accountId], references: [id, accountId], onDelete: NoAction)
-  installmentGroup InstallmentGroup? @relation(fields: [installmentGroupId, accountId], references: [id, accountId], onDelete: Cascade)
-  recurrence       Recurrence?       @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
-  reversalOf       Transaction?      @relation("Reversal", fields: [reversalOfId], references: [id], onDelete: SetNull)
-  reversals        Transaction[]     @relation("Reversal")
-  createdBy        User?             @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  card                   PaymentCard?            @relation(fields: [cardId, accountId], references: [id, accountId], onDelete: NoAction)
+  category               Category?               @relation(fields: [categoryId, householdId], references: [id, householdId], onDelete: NoAction)
+  statement              CardStatement?          @relation(fields: [statementId, accountId], references: [id, accountId], onDelete: NoAction)
+  installmentGroup       InstallmentGroup?       @relation(fields: [installmentGroupId, accountId], references: [id, accountId], onDelete: Cascade)
+  recurrence             Recurrence?             @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
+  reversalOf             Transaction?            @relation("Reversal", fields: [reversalOfId], references: [id], onDelete: SetNull)
+  reversals              Transaction[]           @relation("Reversal")
+  createdBy              User?                   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  categorizationExamples CategorizationExample[]
 
   // Idempotência da importação: o mesmo lançamento da mesma origem na mesma conta, uma vez só.
   // Lançamentos manuais têm externalId nulo, e no Postgres nulos não colidem entre si.

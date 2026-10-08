@@ -27,17 +27,18 @@ model User {
   // Relações com o domínio (M04). São listas de relação, não colunas: a tabela "user" não muda.
   // O CLI do Better Auth preserva estes campos (testado na 1.7.7), mas avisa, por engano,
   // que eles "rejeitam inserts". O scripts/gerar-schema-auth.sh explica e confere o resultado.
-  householdMemberships HouseholdMember[]
-  walletMemberships    WalletMember[]
-  walletsCreated       Wallet[]             @relation("WalletCreator")
-  accountsHeld         FinancialAccount[]   @relation("AccountHolder")
-  cardsHeld            PaymentCard[]        @relation("CardHolder")
-  transactionsCreated  Transaction[]
-  recurrencesCreated   Recurrence[]
-  providerConnections  ProviderConnection[]
+  householdMemberships   HouseholdMember[]
+  walletMemberships      WalletMember[]
+  walletsCreated         Wallet[]                @relation("WalletCreator")
+  accountsHeld           FinancialAccount[]      @relation("AccountHolder")
+  cardsHeld              PaymentCard[]           @relation("CardHolder")
+  transactionsCreated    Transaction[]
+  recurrencesCreated     Recurrence[]
+  providerConnections    ProviderConnection[]
   // Convites do lar (M06): os que a pessoa criou e os que ela aceitou
-  invitesCreated       HouseholdInvite[]    @relation("InviteCreator")
-  invitesAccepted      HouseholdInvite[]    @relation("InviteAcceptor")
+  invitesCreated         HouseholdInvite[]       @relation("InviteCreator")
+  invitesAccepted        HouseholdInvite[]       @relation("InviteAcceptor")
+  categorizationExamples CategorizationExample[]
 
   @@unique([email])
   @@map("user")
