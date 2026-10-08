@@ -16,7 +16,9 @@ Projeto de portfólio construído em módulos (M00 a M12); cada módulo é uma m
 - Produção (M05): servidor de casa com Docker Compose, Caddy e Cloudflare Tunnel; imagens no GHCR;
   deploy puxado pelo servidor; backup cifrado com age (ADR-005, `docs/operacao/runbook.md`)
 - Lar, carteiras e permissões (M06): matriz de papéis pura, crachá tipado e auditoria (ADR-006, `docs/permissoes.md`)
-- Próximos módulos: lançamentos (M07), orçamento e dashboards (M08), serviço Python em `services/ml` (M09)
+- Lançamentos, contas e categorias (M07): lançamento rápido, lista com filtros na URL e cursor, transferência,
+  recorrências, CSV com reautenticação, cascata de categorização pronta para IA (ADR-007)
+- Próximos módulos: orçamento e dashboards (M08), Open Finance com Meu Pluggy e serviço Python (M09), IA (M10)
 
 Regras específicas do Next.js 16: @apps/web/AGENTS.md
 
@@ -49,10 +51,15 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
 - `apps/web/src/features/auth/` telas e actions de login, 2FA, passkeys e sessões
 - `apps/web/src/lib/access.ts` ponto único de autorização: `requireWalletAccess`, `requireHouseholdAccess`, `runAction`
 - `apps/web/src/features/{households,wallets}/` lar, convites e carteiras (M06)
+- `apps/web/src/features/transactions/` lançar, listar (filtros na URL, cursor, totais), transferir, recorrências,
+  exportar (M07); `features/{accounts,categories}/` contas, cartões, categorias e regras
+- `apps/web/src/lib/labels.ts` nomes em português de formas de pagamento, tipos de conta etc.
 - `apps/web/src/proxy.ts` redireciona quem não tem sessão (conveniência, não barreira)
-- `packages/core/` regras puras: `money.ts` (centavos, rateio, parcelas), `dates.ts`, `card.ts`, `access.ts` (matriz de papéis)
+- `packages/core/` regras puras: `money.ts` (centavos, rateio, parcelas), `dates.ts`, `card.ts`, `access.ts` (matriz de papéis),
+  `transactions.ts` (sinal, forma × conta, cursor, recorrência), `categorization.ts` (cascata), `csv.ts`
 - `packages/db/` schema em pasta (`prisma/schema/`), migrações, seed, cliente, `money.ts` (Decimal ⇄ centavos),
-  `access.ts` (crachás), `households.ts`, `wallets.ts` e `audit.ts` (operações com auditoria)
+  `access.ts` (crachás), `households.ts`, `wallets.ts` e `audit.ts` (operações com auditoria),
+  `transactions.ts`, `accounts.ts`, `categories.ts` (camadas da cascata) e `recurrences.ts` (M07)
 - `docs/permissoes.md` quem pode fazer o quê (conferido por teste)
 - `docs/modelo-de-dados.md` diagrama das tabelas (conferido por teste)
 - `apps/web/e2e/` testes Playwright
@@ -73,6 +80,8 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
 - Toda página de `(app)` e toda Server Action começam com `await requireUser()`; siga a skill `auth-guard`.
 - Tudo que toca uma carteira ou o lar passa pelo crachá (`requireWalletAccess`/`requireHouseholdAccess`);
   recurso de outra pessoa responde 404. Funcionalidade nova: siga a skill `nova-feature` (e `teste-e2e`).
+- Categorização (sugestão, regras, camadas de IA): siga a skill `categorizacao`. A sugestão só lê as carteiras
+  que quem pede consegue ver; LLM nunca no caminho do lançamento.
 - Variáveis de ambiente novas: no `.env.example` (sem valor real), no `src/lib/env.ts` (validação), no `globalPassThroughEnv` do `turbo.json` e no `deploy/env/app.env.example`; avise no PR que o valor de produção vai em `/srv/fintrack/app.env` antes do merge.
 - Log no servidor só pelo `logger` (`src/lib/logger.ts`), com `event`; migração para produção sempre aditiva. Siga a skill `deploy-e-operacao`.
 - Nenhum dado financeiro real, `.env` ou segredo em arquivo versionado.

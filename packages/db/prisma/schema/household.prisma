@@ -51,15 +51,16 @@ model Household {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  members           HouseholdMember[]
-  wallets           Wallet[]
-  accounts          FinancialAccount[]
-  categories        Category[]
-  rules             CategoryRule[]
-  transactions      Transaction[]
-  installmentGroups InstallmentGroup[]
-  recurrences       Recurrence[]
-  invites           HouseholdInvite[]
+  members                HouseholdMember[]
+  wallets                Wallet[]
+  accounts               FinancialAccount[]
+  categories             Category[]
+  rules                  CategoryRule[]
+  transactions           Transaction[]
+  installmentGroups      InstallmentGroup[]
+  recurrences            Recurrence[]
+  invites                HouseholdInvite[]
+  categorizationExamples CategorizationExample[]
 
   @@map("household")
 }

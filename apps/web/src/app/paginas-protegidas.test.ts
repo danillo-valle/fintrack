@@ -1,5 +1,7 @@
 // Garante a regra da skill auth-guard: toda página do grupo (app) chama requireUser().
 // Se alguém criar uma página nova e esquecer, este teste falha antes do PR.
+// requireRecentAuth (M07, exportar) também vale: ela chama requireUser por dentro e ainda
+// exige uma prova de identidade recente (lib/auth/session.ts).
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -23,6 +25,6 @@ describe("páginas do app", () => {
 
   it.each(pages.map((p) => [path.relative(APP_DIR, p)]))("%s chama requireUser()", (rel) => {
     const source = readFileSync(path.join(APP_DIR, rel), "utf8");
-    expect(source).toMatch(/await requireUser\(\)/);
+    expect(source).toMatch(/await (requireUser\(\)|requireRecentAuth\()/);
   });
 });

@@ -17,7 +17,9 @@ AUTH_FILE="apps/web/e2e/.auth/ana.json"
 PUBLIC_PAGES=(/entrar /cadastro /esqueci-a-senha)
 # Desde o M06: as telas do lar e de carteira (o id fixo é a "Casa da Ana", criada pelo auth.setup.ts)
 APP_PAGES=(/ /lancamentos /lancamentos/novo /orcamento /carteiras /carteiras/nova
-  /carteiras/e2e00000-0000-4000-8000-00000000a002 /ajustes /ajustes/lar /ajustes/seguranca /dev/ui)
+  /carteiras/e2e00000-0000-4000-8000-00000000a002 /ajustes /ajustes/lar /ajustes/seguranca /dev/ui
+  /lancamentos/e2e00000-0000-4000-8000-00000000a030 /lancamentos/transferencia
+  /lancamentos/recorrencias /ajustes/contas /ajustes/categorias)
 
 # Confere se o app está no ar antes de começar
 if ! curl -fsS "$BASE_URL/api/health" >/dev/null; then

@@ -66,6 +66,18 @@ const DOMAIN_ERROR_MESSAGE: Record<DomainErrorCode, string> = {
   INVITE_WRONG_ACCOUNT:
     "Este convite foi enviado para outro e-mail. Entre com a conta que recebeu o convite.",
   STALE_GRANT: "Seu papel mudou enquanto você estava nesta tela. Recarregue a página.",
+  ACCOUNT_ARCHIVED: "Esta conta está arquivada. Escolha outra ou desarquive em Ajustes > Contas.",
+  METHOD_NOT_ALLOWED: "Essa forma de pagamento não combina com a conta escolhida.",
+  CARD_NOT_ALLOWED: "Esse cartão não pode ser usado nesta conta.",
+  CATEGORY_INVALID:
+    "Essa categoria não serve aqui: está arquivada ou é de outro tipo (despesa × receita).",
+  CATEGORY_EXISTS: "Já existe uma categoria com esse nome.",
+  CATEGORY_IN_USE_AS_PARENT: "Arquive antes as subcategorias desta categoria.",
+  RULE_PATTERN_INVALID: "O texto da regra precisa ter de 2 a 100 caracteres.",
+  TRANSFER_READONLY:
+    "Transferência não se edita: exclua (dá para desfazer) e lance de novo com os dados certos.",
+  SAME_ACCOUNT: "Escolha duas contas diferentes.",
+  CARD_HOLDER_OUTSIDE_HOUSEHOLD: "O portador do cartão precisa ser uma pessoa do seu lar.",
   NOT_FOUND: "Não encontramos o que você pediu.",
 };
 
@@ -93,6 +105,20 @@ export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
   "wallet.role_changed": "mudou o papel de alguém numa carteira",
   "wallet.member_removed": "tirou alguém de uma carteira",
   "wallet.member_left": "saiu de uma carteira",
+  "transaction.deleted": "excluiu um lançamento",
+  "transaction.restored": "desfez a exclusão de um lançamento",
+  "transactions.exported": "exportou lançamentos em CSV",
+  "recurrences.generated": "lançou as recorrências do mês",
+  "recurrence.created": "criou uma recorrência",
+  "recurrence.archived": "encerrou uma recorrência",
+  "account.created": "criou uma conta",
+  "account.archived": "arquivou ou desarquivou uma conta",
+  "card.created": "cadastrou um cartão",
+  "card.archived": "arquivou ou desarquivou um cartão",
+  "category.created": "criou uma categoria",
+  "category.archived": "arquivou ou restaurou uma categoria",
+  "category_rule.created": "criou uma regra de categoria",
+  "category_rule.deleted": "apagou uma regra de categoria",
 };
 
 export function auditActionLabel(action: string): string {

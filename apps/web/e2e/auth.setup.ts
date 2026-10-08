@@ -6,12 +6,15 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { test as setup } from "@playwright/test";
 import {
+  ANA_FINANCE,
   ANA_HOUSEHOLD,
   AUTH_FILE,
+  createFinanceDirect,
   createHouseholdDirect,
   createTestUser,
   TEST_USER,
   TOTP_FILE,
+  todaySaoPaulo,
 } from "./helpers";
 
 setup("cria a conta de teste com 2FA e guarda a sessão", async ({ request }) => {
@@ -49,6 +52,61 @@ setup("cria a conta de teste com 2FA e guarda a sessão", async ({ request }) =>
         name: "Viagem antiga",
         members: [{ email: TEST_USER.email, role: "OWNER" }],
         archived: true,
+      },
+    ],
+  });
+  // O dinheiro da Ana (M07): contas, cartão, categorias, uma regra e um lançamento de hoje
+  await createFinanceDirect({
+    householdId: ANA_HOUSEHOLD.id,
+    accounts: [
+      {
+        id: ANA_FINANCE.checkingId,
+        walletId: ANA_HOUSEHOLD.personalWalletId,
+        name: "Conta da Ana",
+        kind: "CHECKING",
+        holderEmail: TEST_USER.email,
+      },
+      {
+        id: ANA_FINANCE.cardAccountId,
+        walletId: ANA_HOUSEHOLD.personalWalletId,
+        name: "Cartão da Ana",
+        kind: "CREDIT_CARD",
+        holderEmail: TEST_USER.email,
+        closingDay: 3,
+        dueDay: 10,
+        cards: [
+          {
+            id: ANA_FINANCE.cardId,
+            nickname: "Master",
+            lastFour: "1001",
+            holderEmail: TEST_USER.email,
+          },
+        ],
+      },
+      {
+        id: ANA_FINANCE.homeAccountId,
+        walletId: ANA_HOUSEHOLD.sharedWalletId,
+        name: "Conta da Casa",
+        kind: "CHECKING",
+        holderEmail: TEST_USER.email,
+      },
+    ],
+    categories: [
+      { id: ANA_FINANCE.mercadoId, name: "Mercado", kind: "EXPENSE" },
+      { id: ANA_FINANCE.restauranteId, name: "Restaurante", kind: "EXPENSE" },
+      { id: ANA_FINANCE.moradiaId, name: "Moradia", kind: "EXPENSE" },
+      { id: ANA_FINANCE.salarioId, name: "Salário", kind: "INCOME" },
+    ],
+    rules: [{ pattern: "supermercado", category: "Mercado" }],
+    transactions: [
+      {
+        id: ANA_FINANCE.transactionId,
+        walletId: ANA_HOUSEHOLD.sharedWalletId,
+        account: "Conta da Casa",
+        amount: "-12.50",
+        occurredOn: todaySaoPaulo(),
+        description: "Padaria do Bairro",
+        category: "Mercado",
       },
     ],
   });

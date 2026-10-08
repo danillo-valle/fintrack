@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronRight, House, ShieldCheck } from "lucide-react";
+import { ChevronRight, House, Landmark, ShieldCheck, Tags } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { requireUser } from "@/lib/auth/session";
@@ -23,6 +23,26 @@ export default async function SettingsPage() {
             {user.name} · {user.email}
           </p>
           <div className="flex flex-col gap-3">
+            <Link
+              href="/ajustes/contas"
+              className="hover:bg-muted focus-visible:ring-ring flex items-center justify-between gap-2 rounded-lg border px-4 py-3 text-sm font-medium outline-none focus-visible:ring-3"
+            >
+              <span className="flex items-center gap-2">
+                <Landmark aria-hidden className="size-4" />
+                Contas e cartões
+              </span>
+              <ChevronRight aria-hidden className="size-4" />
+            </Link>
+            <Link
+              href="/ajustes/categorias"
+              className="hover:bg-muted focus-visible:ring-ring flex items-center justify-between gap-2 rounded-lg border px-4 py-3 text-sm font-medium outline-none focus-visible:ring-3"
+            >
+              <span className="flex items-center gap-2">
+                <Tags aria-hidden className="size-4" />
+                Categorias e regras
+              </span>
+              <ChevronRight aria-hidden className="size-4" />
+            </Link>
             <Link
               href="/ajustes/lar"
               className="hover:bg-muted focus-visible:ring-ring flex items-center justify-between gap-2 rounded-lg border px-4 py-3 text-sm font-medium outline-none focus-visible:ring-3"

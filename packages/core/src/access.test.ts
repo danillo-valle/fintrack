@@ -53,6 +53,11 @@ const EXPECTED: Record<WalletAction, Record<WalletKind, Record<WalletRole, Cell>
     PERSONAL: { OWNER: "PERSONAL_WALLET", EDITOR: "PERSONAL_WALLET", VIEWER: "PERSONAL_WALLET" },
     SHARED: { OWNER: "✓", EDITOR: "✓", VIEWER: "✓" },
   },
+  // M07: contas e cartões; o dono da pessoal também gerencia (não é só da compartilhada)
+  manage_accounts: {
+    PERSONAL: { OWNER: "✓", EDITOR: "ROLE", VIEWER: "ROLE" },
+    SHARED: { OWNER: "✓", EDITOR: "ROLE", VIEWER: "ROLE" },
+  },
 };
 
 const rows = WALLET_ACTIONS.flatMap((action) =>
@@ -62,8 +67,8 @@ const rows = WALLET_ACTIONS.flatMap((action) =>
 );
 
 describe("matriz de papéis da carteira (ativa)", () => {
-  it("cobre todas as combinações: 7 ações × 2 tipos × 3 papéis", () => {
-    expect(rows).toHaveLength(42);
+  it("cobre todas as combinações: 8 ações × 2 tipos × 3 papéis", () => {
+    expect(rows).toHaveLength(48);
   });
 
   it.each(rows)("$role · $action · $kind → $cell", ({ action, kind, role, cell }) => {
@@ -79,7 +84,7 @@ describe("carteira arquivada", () => {
     expect(canInWallet("OWNER", "archive", { kind: "SHARED", archived: true }).allowed).toBe(true);
   });
 
-  it.each(["edit", "export", "rename", "manage_members", "leave"] as const)(
+  it.each(["edit", "export", "rename", "manage_members", "leave", "manage_accounts"] as const)(
     "o dono não pode %s enquanto estiver arquivada",
     (action) => {
       expect(canInWallet("OWNER", action, { kind: "SHARED", archived: true })).toEqual({
@@ -103,6 +108,7 @@ const HOUSEHOLD_EXPECTED: Record<HouseholdAction, Record<HouseholdRole, boolean>
   remove_member: { OWNER: true, MEMBER: false },
   create_wallet: { OWNER: true, MEMBER: true },
   view_activity: { OWNER: true, MEMBER: false },
+  manage_categories: { OWNER: true, MEMBER: true },
 };
 
 describe("matriz de papéis do lar", () => {
@@ -110,8 +116,8 @@ describe("matriz de papéis do lar", () => {
     HOUSEHOLD_ROLES.map((role) => ({ action, role, allowed: HOUSEHOLD_EXPECTED[action][role] })),
   );
 
-  it("cobre 5 ações × 2 papéis", () => {
-    expect(householdRows).toHaveLength(10);
+  it("cobre 6 ações × 2 papéis", () => {
+    expect(householdRows).toHaveLength(12);
   });
 
   it.each(householdRows)("$role · $action → $allowed", ({ action, role, allowed }) => {

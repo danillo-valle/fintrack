@@ -163,15 +163,17 @@ model Category {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
-  household    Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  household    Household               @relation(fields: [householdId], references: [id], onDelete: Cascade)
   // NoAction (e não Restrict): o banco confere no FIM do comando. Assim, apagar o grupo apaga
   // pais e filhas juntos; apagar só uma categoria que tem filhas continua proibido.
-  parent       Category?      @relation("CategoryTree", fields: [parentId], references: [id], onDelete: NoAction)
-  children     Category[]     @relation("CategoryTree")
+  parent       Category?               @relation("CategoryTree", fields: [parentId], references: [id], onDelete: NoAction)
+  children     Category[]              @relation("CategoryTree")
   transactions Transaction[]
   rules        CategoryRule[]
   budgets      Budget[]
   recurrences  Recurrence[]
+  examplesTo   CategorizationExample[] @relation("ExampleTo")
+  examplesFrom CategorizationExample[] @relation("ExampleFrom")
 
   // Alvo das chaves compostas (categoryId, householdId): ninguém usa categoria de outro grupo
   @@unique([id, householdId])
@@ -197,6 +199,41 @@ model CategoryRule {
 
   @@index([householdId, priority])
   @@map("category_rule")
+}
+
+/// Exemplo de treino da categorização (M07): cada vez que a pessoa CORRIGE uma categoria (troca
+/// a sugestão da cascata ou a categoria que já estava gravada), a correção fica registrada aqui.
+/// É o conjunto rotulado que o classificador e o eval do M10 usam (ADR-007).
+model CategorizationExample {
+  id             String                @id @default(uuid(7)) @db.Uuid
+  householdId    String                @db.Uuid
+  /// O lançamento corrigido. Nulo se ele for apagado de verdade; o exemplo continua valendo
+  transactionId  String?               @db.Uuid
+  /// A descrição como estava no momento da correção. CHECK: de 1 a 200 caracteres
+  description    String
+  /// Sinal do lançamento: despesa ou receita mudam as categorias possíveis
+  isExpense      Boolean
+  /// O que estava (a sugestão ou a categoria anterior) e quem tinha decidido
+  fromCategoryId String?               @db.Uuid
+  fromSource     CategorizationSource?
+  /// O que a pessoa escolheu. CHECK: diferente de fromCategoryId
+  toCategoryId   String                @db.Uuid
+  createdById    String?
+  createdAt      DateTime              @default(now())
+
+  household    Household    @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  transaction  Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  // Compostas com o householdId: o exemplo só aponta para categorias do mesmo lar
+  toCategory   Category     @relation("ExampleTo", fields: [toCategoryId, householdId], references: [id, householdId], onDelete: Cascade)
+  fromCategory Category?    @relation("ExampleFrom", fields: [fromCategoryId, householdId], references: [id, householdId], onDelete: NoAction)
+  createdBy    User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([householdId, createdAt(sort: Desc)])
+  @@index([transactionId])
+  @@index([toCategoryId])
+  @@index([fromCategoryId])
+  @@index([createdById])
+  @@map("categorization_example")
 }
 
 /// Orçamento: quanto um ambiente planeja gastar numa categoria num mês.

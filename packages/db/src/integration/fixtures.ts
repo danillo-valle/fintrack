@@ -182,3 +182,49 @@ export async function auditActions(householdId: string): Promise<string[]> {
   });
   return rows.map((r) => r.action);
 }
+
+// ── Peças do M07 (lançamentos e categorização) ────────────────────────────────
+
+/** Categorias de teste no lar: três de despesa e uma de receita. */
+export async function createTestCategories(householdId: string) {
+  const make = (name: string, kind: "EXPENSE" | "INCOME") =>
+    prisma.category.create({ data: { householdId, name, kind } });
+  const [mercado, restaurante, padaria, salario] = await Promise.all([
+    make("Mercado", "EXPENSE"),
+    make("Restaurante", "EXPENSE"),
+    make("Padaria", "EXPENSE"),
+    make("Salário", "INCOME"),
+  ]);
+  return { mercado: mercado!, restaurante: restaurante!, padaria: padaria!, salario: salario! };
+}
+
+/** Lançamento direto no banco (sem as regras do app), para montar histórico e listas. */
+export async function insertTransaction(
+  h: TestHousehold,
+  data: {
+    walletId?: string;
+    accountId?: string;
+    amount: string;
+    occurredOn: string;
+    description: string;
+    categoryId?: string | null;
+    method?: "PIX" | "CREDIT" | "DEBIT" | "TRANSFER";
+    transferId?: string | null;
+    deletedAt?: Date | null;
+  },
+) {
+  return prisma.transaction.create({
+    data: {
+      householdId: h.householdId,
+      walletId: data.walletId ?? h.home.id,
+      accountId: data.accountId ?? h.checking.id,
+      method: data.method ?? "PIX",
+      amount: data.amount,
+      occurredOn: new Date(`${data.occurredOn}T00:00:00Z`),
+      description: data.description,
+      categoryId: data.categoryId ?? null,
+      transferId: data.transferId ?? null,
+      deletedAt: data.deletedAt ?? null,
+    },
+  });
+}

@@ -17,13 +17,19 @@
 import "server-only";
 import type { HouseholdAction, WalletAction } from "@fintrack/core";
 import {
+  authorizeAccountUse,
   authorizeHousehold,
+  authorizeScope,
+  authorizeTransaction,
   authorizeWallet,
   DomainError,
   prisma,
+  type AccountGrant,
   type HouseholdGrant,
   type RequestContext,
+  type TransactionGrant,
   type WalletGrant,
+  type WalletScope,
 } from "@fintrack/db";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
@@ -91,6 +97,74 @@ export async function requireHouseholdAccess<A extends HouseholdAction>(
     );
   }
   throw new AccessError(access.reason);
+}
+
+// ── M07: conta, lançamento e escopo ────────────────────────────────────────────
+
+/**
+ * Exige que a pessoa possa lançar na conta (pela carteira da conta ou pelo cartão adicional).
+ * Conta arquivada vira mensagem de regra (ACCOUNT_ARCHIVED); fora das duas portas, 404.
+ */
+export async function requireAccountUse(
+  session: Session,
+  accountId: string,
+): Promise<AccountGrant> {
+  const access = await authorizeAccountUse(prisma, session.user.id, accountId);
+  if (access.ok) return access.grant;
+  if (access.reason === "ARCHIVED") throw new DomainError("ACCOUNT_ARCHIVED");
+  logger.warn(
+    {
+      event: "access.denied",
+      resource: "account",
+      accountId,
+      reason: access.reason,
+      userId: session.user.id,
+    },
+    "acesso negado a uma conta",
+  );
+  throw new AccessError(access.reason);
+}
+
+/** Exige `action` no lançamento (o id vem da URL: a mesma porta de IDOR das carteiras). */
+export async function requireTransactionAccess<A extends "view" | "edit">(
+  session: Session,
+  transactionId: string,
+  action: A,
+  options: { includeDeleted?: boolean } = {},
+): Promise<TransactionGrant<A>> {
+  const access = await authorizeTransaction(
+    prisma,
+    session.user.id,
+    transactionId,
+    action,
+    options,
+  );
+  if (access.ok) return access.grant;
+  logger.warn(
+    {
+      event: "access.denied",
+      resource: "transaction",
+      transactionId,
+      action,
+      reason: access.reason,
+      userId: session.user.id,
+    },
+    "acesso negado a um lançamento",
+  );
+  throw new AccessError(access.reason);
+}
+
+/**
+ * As carteiras em que a pessoa pode fazer `action` (para a lista que junta várias). Com
+ * `walletId` (filtro da URL), só aquela, se ela puder; senão o escopo vem vazio (lista vazia,
+ * sem dizer se a carteira existe).
+ */
+export async function requireScope<A extends "view" | "edit">(
+  session: Session,
+  action: A,
+  walletId?: string | null,
+): Promise<WalletScope<A>> {
+  return authorizeScope(prisma, session.user.id, action, walletId);
 }
 
 /**

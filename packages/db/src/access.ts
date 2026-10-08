@@ -160,4 +160,181 @@ export type DomainErrorCode =
   | "INVITE_INVALID" // convite inexistente, expirado, cancelado ou já usado
   | "INVITE_WRONG_ACCOUNT" // convite de outro e-mail
   | "STALE_GRANT" // o papel mudou entre a checagem e a gravação
+  // ── Lançamentos, contas e categorias (M07) ──
+  | "ACCOUNT_ARCHIVED" // conta arquivada não recebe lançamento novo
+  | "METHOD_NOT_ALLOWED" // forma de pagamento que a conta não aceita (mesma regra do gatilho)
+  | "CARD_NOT_ALLOWED" // cartão de outra conta, arquivado ou que não é da pessoa
+  | "CATEGORY_INVALID" // categoria de outro lar, arquivada ou do tipo errado (despesa × receita)
+  | "CATEGORY_EXISTS" // já há uma categoria com esse nome no lar
+  | "CATEGORY_IN_USE_AS_PARENT" // categoria com subcategorias ativas não é arquivada
+  | "RULE_PATTERN_INVALID" // padrão da regra curto ou longo demais
+  | "TRANSFER_READONLY" // transferência não se edita: exclua e lance de novo
+  | "SAME_ACCOUNT" // transferência da conta para ela mesma
+  | "CARD_HOLDER_OUTSIDE_HOUSEHOLD" // portador do cartão precisa ser do lar
   | "NOT_FOUND";
+
+// ── M07: contas, lançamentos e listas que juntam várias carteiras ───────────────
+
+/**
+ * Prova de que `userId` pode LANÇAR na conta `account`. Duas portas:
+ *   WALLET  a pessoa pode editar ("edit") a carteira que gere a conta; usa qualquer cartão dela
+ *   CARD    a pessoa é PORTADORA de um cartão ativo da conta (o adicional do cônjuge): lança
+ *           só com os próprios cartões (`cardIds`), sem ver o resto da fatura
+ * Só authorizeAccountUse cria.
+ */
+export type AccountGrant = {
+  readonly [grantBrand]: "use_account";
+  readonly userId: string;
+  readonly via: "WALLET" | "CARD";
+  readonly account: {
+    readonly id: string;
+    readonly householdId: string;
+    readonly walletId: string;
+    readonly name: string;
+    readonly kind: "CHECKING" | "SAVINGS" | "CREDIT_CARD" | "MEAL_VOUCHER" | "CASH";
+  };
+  /** Cartões ativos que esta pessoa pode usar nesta conta */
+  readonly cardIds: readonly string[];
+};
+
+export type AccountAccess =
+  { ok: true; grant: AccountGrant } | { ok: false; reason: "NOT_FOUND" | "ARCHIVED" };
+
+/**
+ * Pode `userId` lançar na conta `accountId`? Conta que a pessoa não alcança por nenhuma das
+ * duas portas responde NOT_FOUND, igual a uma conta que não existe (sem confirmar que existe).
+ */
+export async function authorizeAccountUse(
+  db: PrismaClient,
+  userId: string,
+  accountId: string,
+): Promise<AccountAccess> {
+  if (!isUuid(accountId)) return { ok: false, reason: "NOT_FOUND" };
+  const account = await db.financialAccount.findUnique({
+    where: { id: accountId },
+    select: {
+      id: true,
+      householdId: true,
+      walletId: true,
+      name: true,
+      kind: true,
+      archivedAt: true,
+      cards: { where: { archivedAt: null }, select: { id: true, holderId: true } },
+    },
+  });
+  if (!account) return { ok: false, reason: "NOT_FOUND" };
+
+  const viaWallet = await authorizeWallet(db, userId, account.walletId, "edit");
+  const ownCards = account.cards.filter((c) => c.holderId === userId).map((c) => c.id);
+  if (!viaWallet.ok && ownCards.length === 0) return { ok: false, reason: "NOT_FOUND" };
+  if (account.archivedAt) return { ok: false, reason: "ARCHIVED" };
+
+  const { id, householdId, walletId, name, kind } = account;
+  return {
+    ok: true,
+    grant: {
+      userId,
+      via: viaWallet.ok ? "WALLET" : "CARD",
+      account: { id, householdId, walletId, name, kind },
+      cardIds: (viaWallet.ok ? account.cards.map((c) => c.id) : ownCards) as readonly string[],
+    } as AccountGrant,
+  };
+}
+
+/** Prova de que `userId` pode fazer `action` no lançamento. Só authorizeTransaction cria. */
+export type TransactionGrant<A extends "view" | "edit" = "view" | "edit"> = {
+  readonly [grantBrand]: A;
+  readonly action: A;
+  readonly userId: string;
+  readonly transaction: {
+    readonly id: string;
+    readonly householdId: string;
+    readonly walletId: string;
+    readonly transferId: string | null;
+    readonly deletedAt: Date | null;
+  };
+  /** O crachá da carteira do lançamento, com a mesma ação */
+  readonly wallet: WalletGrant<A>;
+};
+
+export type TransactionAccess<A extends "view" | "edit"> =
+  | { ok: true; grant: TransactionGrant<A> }
+  | { ok: false; reason: "NOT_FOUND" | WalletDenialReason };
+
+/**
+ * Pode `userId` fazer `action` no lançamento `transactionId`? O id vem da URL
+ * (/lancamentos/0199…): é a mesma porta de IDOR das carteiras. O lançamento é procurado pelo
+ * id e a decisão é a da CARTEIRA dele (authorizeWallet). Lançamento excluído só aparece com
+ * `includeDeleted` (o "desfazer" da exclusão).
+ */
+export async function authorizeTransaction<A extends "view" | "edit">(
+  db: PrismaClient,
+  userId: string,
+  transactionId: string,
+  action: A,
+  options: { includeDeleted?: boolean } = {},
+): Promise<TransactionAccess<A>> {
+  if (!isUuid(transactionId)) return { ok: false, reason: "NOT_FOUND" };
+  const transaction = await db.transaction.findUnique({
+    where: { id: transactionId },
+    select: { id: true, householdId: true, walletId: true, transferId: true, deletedAt: true },
+  });
+  if (!transaction || (transaction.deletedAt && !options.includeDeleted)) {
+    return { ok: false, reason: "NOT_FOUND" };
+  }
+  const access = await authorizeWallet(db, userId, transaction.walletId, action);
+  if (!access.ok) return { ok: false, reason: access.reason };
+  return {
+    ok: true,
+    grant: { action, userId, transaction, wallet: access.grant } as TransactionGrant<A>,
+  };
+}
+
+/**
+ * Um conjunto de carteiras em que `userId` pode fazer `action`: a lista "todos os lançamentos
+ * que vejo" junta várias carteiras, e nenhum crachá de uma carteira só serve para isso.
+ * As consultas de lista e de exportação só aceitam um escopo (nunca uma lista de ids solta).
+ */
+export type WalletScope<A extends "view" | "edit" = "view" | "edit"> = {
+  readonly [grantBrand]: A;
+  readonly action: A;
+  readonly userId: string;
+  /** O lar da pessoa (null se ainda não tem lar: o escopo fica vazio) */
+  readonly householdId: string | null;
+  readonly walletIds: readonly string[];
+};
+
+/**
+ * As carteiras da pessoa em que a ação é permitida. Com `walletId`, só aquela (se ela puder);
+ * sem, todas as que ela participa (arquivadas incluídas na leitura: o histórico continua).
+ */
+export async function authorizeScope<A extends "view" | "edit">(
+  db: PrismaClient,
+  userId: string,
+  action: A,
+  walletId?: string | null,
+): Promise<WalletScope<A>> {
+  const memberships = await db.walletMember.findMany({
+    where: {
+      userId,
+      ...(walletId
+        ? { walletId: isUuid(walletId) ? walletId : "00000000-0000-0000-0000-000000000000" }
+        : {}),
+    },
+    select: {
+      role: true,
+      householdId: true,
+      wallet: { select: { id: true, kind: true, archivedAt: true } },
+    },
+  });
+  const allowed = memberships.filter(
+    (m) =>
+      canInWallet(m.role, action, { kind: m.wallet.kind, archived: !!m.wallet.archivedAt }).allowed,
+  );
+  return {
+    action,
+    userId,
+    householdId: memberships[0]?.householdId ?? null,
+    walletIds: allowed.map((m) => m.wallet.id) as readonly string[],
+  } as WalletScope<A>;
+}

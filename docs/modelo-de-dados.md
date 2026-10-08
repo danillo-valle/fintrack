@@ -73,6 +73,10 @@ erDiagram
     Recurrence |o--o{ Transaction : "gera (todo mês)"
     Transaction |o--o{ Transaction : "estorno de"
 
+    Household ||--o{ CategorizationExample : "exemplos de treino (M07)"
+    Category ||--o{ CategorizationExample : "corrigido para"
+    Transaction |o--o{ CategorizationExample : "corrigido em"
+
     Household {
         uuid id PK
         string name
@@ -164,7 +168,17 @@ erDiagram
         enum source "MANUAL | OFX | PDF | OPEN_FINANCE | BOT | RECURRENCE"
         string externalId "único por conta e origem"
         uuid transferId "dois lados"
+        enum categorizedBy "MANUAL | RULE | HISTORY (M07)"
         timestamp deletedAt "exclusão lógica"
+    }
+    CategorizationExample {
+        uuid id PK
+        uuid householdId FK
+        uuid transactionId FK
+        string description
+        uuid fromCategoryId FK "o que estava"
+        enum fromSource "quem tinha decidido"
+        uuid toCategoryId FK "o que a pessoa escolheu"
     }
     CardStatement {
         uuid id PK
@@ -231,6 +245,9 @@ registro sobreviver mesmo que a pessoa ou o grupo sejam apagados.
 | Convite guarda só o hash do segredo; e-mail em minúsculas (M06)          | CHECKs `household_invite_token_hash_check` e `_email_check`        |
 | Convite não é aceito e cancelado ao mesmo tempo; prazo depois da criação | CHECKs `household_invite_state_check` e `_expiry_check`            |
 | Nome de lar e de carteira com 1 a 60 caracteres (M06)                    | CHECKs `household_name_length_check` e `wallet_name_length_check`  |
+| "Quem categorizou" só existe com categoria (M07)                         | CHECK `transaction_categorized_by_check`                           |
+| Transferência não tem categoria (M07)                                    | CHECK `transaction_transfer_category_check`                        |
+| Exemplo de treino é uma correção de verdade (M07)                        | CHECKs `categorization_example_change_check` e `_source_check`     |
 
 Cada regra tem um teste em `packages/db/src/integration/`, que tenta quebrá-la contra o
 PostgreSQL de verdade (`pnpm test:integration`).
@@ -241,6 +258,18 @@ O banco garante a fronteira do grupo (nada aponta para outro lar). **Quem dentro
 fazer o quê** é decidido no código, num ponto só: `authorizeWallet` e `authorizeHousehold`
 (`packages/db/src/access.ts`), que leem o vínculo da pessoa e consultam a matriz de papéis
 (`packages/core/src/access.ts`). A tabela completa está em [`permissoes.md`](permissoes.md).
+
+## Lançamentos e categorização (M07)
+
+- **Lançar** pede dois crachás: `edit` na carteira (de quem é) e o de **uso da conta** (quem
+  paga), que vem de `edit` na carteira da conta ou de ser **portador** de um cartão dela (o
+  adicional do cônjuge lança na fatura do titular, só com o próprio cartão).
+- **`categorizedBy`** diz quem decidiu a categoria: a pessoa (`MANUAL`) ou a camada da cascata
+  cuja sugestão ela aceitou (`RULE`, `HISTORY`). É de onde sai, no M10, o "percentual
+  resolvido sem LLM". Lançamentos anteriores ao M07 ficam com nulo.
+- **`categorization_example`** guarda cada **correção** (a sugestão ou a categoria gravada
+  trocada por outra): o conjunto rotulado do classificador e do eval do M10.
+- A cascata e o encaixe para IA estão no [ADR-007](adr/0007-lancamentos-e-categorizacao.md).
 
 ## Como ler o dinheiro
 
