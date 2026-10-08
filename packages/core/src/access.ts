@@ -32,9 +32,17 @@ export const HOUSEHOLD_ROLES: readonly HouseholdRole[] = ["OWNER", "MEMBER"];
  *   manage_members  adicionar, remover e mudar o papel de outras pessoas
  *   archive         arquivar ou restaurar (esconde sem apagar o histórico)
  *   leave           sair da carteira (só compartilhada; o último dono não sai)
+ *   manage_accounts criar e arquivar as contas e os cartões geridos na carteira (M07)
  */
 export type WalletAction =
-  "view" | "edit" | "export" | "rename" | "manage_members" | "archive" | "leave";
+  | "view"
+  | "edit"
+  | "export"
+  | "rename"
+  | "manage_members"
+  | "archive"
+  | "leave"
+  | "manage_accounts";
 
 export const WALLET_ACTIONS: readonly WalletAction[] = [
   "view",
@@ -44,6 +52,7 @@ export const WALLET_ACTIONS: readonly WalletAction[] = [
   "manage_members",
   "archive",
   "leave",
+  "manage_accounts",
 ];
 
 /**
@@ -63,6 +72,8 @@ export const WALLET_MATRIX: Readonly<
   // A pessoal vive enquanto a pessoa estiver no lar; arquivar só a compartilhada
   archive: { OWNER: true, EDITOR: false, VIEWER: false, sharedOnly: true },
   leave: { OWNER: true, EDITOR: true, VIEWER: true, sharedOnly: true },
+  // Conta e cartão mudam onde o dinheiro é lançado: só quem administra a carteira (M07)
+  manage_accounts: { OWNER: true, EDITOR: false, VIEWER: false, sharedOnly: false },
 };
 
 /** O que uma carteira ARQUIVADA ainda permite: olhar e desarquivar. */
@@ -105,9 +116,10 @@ export function canInWallet(
  *   remove_member  tirar alguém do lar
  *   create_wallet  criar uma carteira compartilhada
  *   view_activity  ver a trilha de auditoria do lar
+ *   manage_categories  criar e arquivar categorias e regras de categorização do lar (M07)
  */
 export type HouseholdAction =
-  "view" | "invite" | "remove_member" | "create_wallet" | "view_activity";
+  "view" | "invite" | "remove_member" | "create_wallet" | "view_activity" | "manage_categories";
 
 export const HOUSEHOLD_ACTIONS: readonly HouseholdAction[] = [
   "view",
@@ -115,6 +127,7 @@ export const HOUSEHOLD_ACTIONS: readonly HouseholdAction[] = [
   "remove_member",
   "create_wallet",
   "view_activity",
+  "manage_categories",
 ];
 
 export const HOUSEHOLD_MATRIX: Readonly<
@@ -125,6 +138,8 @@ export const HOUSEHOLD_MATRIX: Readonly<
   remove_member: { OWNER: true, MEMBER: false },
   create_wallet: { OWNER: true, MEMBER: true },
   view_activity: { OWNER: true, MEMBER: false },
+  // As categorias são do lar inteiro: as duas pessoas organizam (M07)
+  manage_categories: { OWNER: true, MEMBER: true },
 };
 
 export function canInHousehold(role: HouseholdRole, action: HouseholdAction): boolean {
