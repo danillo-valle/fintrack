@@ -1,5 +1,11 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test as base, type APIRequestContext, type Page } from "@playwright/test";
+import {
+  expect,
+  test as base,
+  type APIRequestContext,
+  type Browser,
+  type Page,
+} from "@playwright/test";
 import { hashPassword } from "better-auth/crypto";
 import { generateSync } from "otplib";
 import pg from "pg";
@@ -45,11 +51,32 @@ export const ANA_HOUSEHOLD = {
   partner: { name: "Pat Parceira", email: "parceira-ana@fintrack.test" },
 } as const;
 
+/**
+ * O dinheiro do lar da Ana (M07), também com ids FIXOS: contas, cartão, categorias, uma regra
+ * e um lançamento. Assim as telas de lançamento entram em PAGES (axe, foco, proteção) já com
+ * conteúdo. Os testes que conferem somas ao centavo criam lares próprios (a Ana é compartilhada
+ * pelos testes que rodam ao mesmo tempo).
+ */
+export const ANA_FINANCE = {
+  checkingId: "e2e00000-0000-4000-8000-00000000a010",
+  cardAccountId: "e2e00000-0000-4000-8000-00000000a011",
+  cardId: "e2e00000-0000-4000-8000-00000000a012",
+  homeAccountId: "e2e00000-0000-4000-8000-00000000a013",
+  mercadoId: "e2e00000-0000-4000-8000-00000000a020",
+  restauranteId: "e2e00000-0000-4000-8000-00000000a021",
+  moradiaId: "e2e00000-0000-4000-8000-00000000a022",
+  salarioId: "e2e00000-0000-4000-8000-00000000a023",
+  transactionId: "e2e00000-0000-4000-8000-00000000a030",
+} as const;
+
 /** Páginas do app (exigem sessão). Os testes de acessibilidade, de foco e de proteção passam por cada uma. */
 export const PAGES = [
   "/",
   "/lancamentos",
   "/lancamentos/novo",
+  `/lancamentos/${ANA_FINANCE.transactionId}`,
+  "/lancamentos/transferencia",
+  "/lancamentos/recorrencias",
   "/orcamento",
   "/carteiras",
   "/carteiras/nova",
@@ -59,6 +86,8 @@ export const PAGES = [
   `/convite/${"A".repeat(43)}`,
   "/ajustes",
   "/ajustes/lar",
+  "/ajustes/contas",
+  "/ajustes/categorias",
   "/ajustes/seguranca",
   ...(PRODUCTION_BUILD ? [] : ["/dev/ui"]),
 ];
@@ -387,4 +416,150 @@ export async function expectNoA11yViolations(page: Page) {
   expect(
     results.violations.map((v) => ({ regra: v.id, onde: v.nodes.map((n) => n.target) })),
   ).toEqual([]);
+}
+
+// ── Lançamentos, contas e categorias (M07) ───────────────────────────────────
+
+/** Data de hoje em São Paulo (AAAA-MM-DD), como o app calcula. */
+export function todaySaoPaulo(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+}
+
+type AccountKind = "CHECKING" | "SAVINGS" | "CREDIT_CARD" | "MEAL_VOUCHER" | "CASH";
+
+/**
+ * Contas, cartões, categorias, regras e lançamentos direto no banco, para um lar já criado
+ * (createHouseholdDirect). Ids opcionais: o lar da Ana usa ids fixos. Devolve os ids pelo nome.
+ */
+export async function createFinanceDirect(input: {
+  householdId: string;
+  accounts?: {
+    id?: string;
+    walletId: string;
+    name: string;
+    kind: AccountKind;
+    holderEmail?: string;
+    closingDay?: number;
+    dueDay?: number;
+    cards?: {
+      id?: string;
+      nickname: string;
+      lastFour: string;
+      holderEmail: string;
+      isAdditional?: boolean;
+    }[];
+  }[];
+  categories?: { id?: string; name: string; kind: "EXPENSE" | "INCOME" }[];
+  rules?: { pattern: string; category: string }[];
+  transactions?: {
+    id?: string;
+    walletId: string;
+    account: string;
+    amount: string;
+    occurredOn: string;
+    description: string;
+    category?: string;
+    transferId?: string;
+  }[];
+}) {
+  const accounts: Record<string, { id: string; kind: AccountKind }> = {};
+  for (const a of input.accounts ?? []) {
+    const holderId = a.holderEmail ? await userIdByEmail(a.holderEmail) : null;
+    const [row] = await sql<{ id: string }>(
+      `INSERT INTO financial_account (id, "householdId", "walletId", "holderId", name, kind, "closingDay", "dueDay", "updatedAt")
+       VALUES (COALESCE($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, now()) RETURNING id`,
+      [
+        a.id ?? null,
+        input.householdId,
+        a.walletId,
+        holderId,
+        a.name,
+        a.kind,
+        a.closingDay ?? null,
+        a.dueDay ?? null,
+      ],
+    );
+    accounts[a.name] = { id: row!.id, kind: a.kind };
+    for (const c of a.cards ?? []) {
+      await sql(
+        `INSERT INTO payment_card (id, "accountId", "holderId", nickname, brand, "lastFour", form, "isAdditional", "updatedAt")
+         VALUES (COALESCE($1::uuid, gen_random_uuid()), $2, $3, $4, 'Mastercard', $5, 'PHYSICAL', $6, now())`,
+        [
+          c.id ?? null,
+          row!.id,
+          await userIdByEmail(c.holderEmail),
+          c.nickname,
+          c.lastFour,
+          c.isAdditional ?? false,
+        ],
+      );
+    }
+  }
+  const categories: Record<string, string> = {};
+  for (const c of input.categories ?? []) {
+    const [row] = await sql<{ id: string }>(
+      `INSERT INTO category (id, "householdId", name, kind, "updatedAt")
+       VALUES (COALESCE($1::uuid, gen_random_uuid()), $2, $3, $4, now()) RETURNING id`,
+      [c.id ?? null, input.householdId, c.name, c.kind],
+    );
+    categories[c.name] = row!.id;
+  }
+  for (const r of input.rules ?? []) {
+    await sql(
+      `INSERT INTO category_rule (id, "householdId", "categoryId", pattern) VALUES (gen_random_uuid(), $1, $2, $3)`,
+      [input.householdId, categories[r.category], r.pattern],
+    );
+  }
+  for (const t of input.transactions ?? []) {
+    const account = accounts[t.account]!;
+    const method = t.transferId ? "TRANSFER" : account.kind === "CREDIT_CARD" ? "CREDIT" : "PIX";
+    await sql(
+      `INSERT INTO "transaction" (id, "householdId", "walletId", "accountId", method, "categoryId", amount, "occurredOn", description, "transferId", "updatedAt")
+       VALUES (COALESCE($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10, now())`,
+      [
+        t.id ?? null,
+        input.householdId,
+        t.walletId,
+        account.id,
+        method,
+        t.category ? categories[t.category] : null,
+        t.amount,
+        t.occurredOn,
+        t.description,
+        t.transferId ?? null,
+      ],
+    );
+  }
+  return { accounts, categories };
+}
+
+/**
+ * Uma pessoa nova, com 2FA, já logada num contexto próprio do navegador (cookies separados,
+ * como outro celular), com o aparelho do teste (desktop ou celular).
+ */
+export async function personInNewTab(
+  browser: Browser,
+  email: string,
+  name: string,
+  options: {
+    password?: string;
+    viewport?: { width: number; height: number } | null;
+    isMobile?: boolean;
+  } = {},
+) {
+  const context = await browser.newContext({
+    locale: "pt-BR",
+    timezoneId: "America/Sao_Paulo",
+    ...(options.viewport ? { viewport: options.viewport } : {}),
+    ...(options.isMobile ? { isMobile: true, hasTouch: true } : {}),
+  });
+  await context.setExtraHTTPHeaders({ "X-Forwarded-For": fakeIp() });
+  const page = await context.newPage();
+  const created = await createTestUser(page.request, {
+    email,
+    password: options.password ?? "frase longa para testar lancamentos",
+    name,
+    twoFactor: true,
+  });
+  return { page, context, secret: created.secret, close: () => context.close() };
 }
