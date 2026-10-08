@@ -19,6 +19,8 @@ acontece em `requireUser()` / `requireRecentAuth()`.
 ## Regras
 
 1. **Toda página em `src/app/(app)/`** começa com `await requireUser()` (ou `const { user } = await requireUser()`).
+   Página de ação sensível (exportar, M07) começa com `await requireRecentAuth("/caminho")`, que chama
+   `requireUser` por dentro; o `paginas-protegidas.test.ts` aceita as duas.
    O teste `src/app/paginas-protegidas.test.ts` reprova a página que esquecer.
 2. **Toda Server Action** (`"use server"`) começa com `await requireUser()`. Uma action é um endpoint
    público: qualquer um pode chamá-la com um POST, com ou sem tela.

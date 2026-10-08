@@ -5,9 +5,25 @@ description: A fatia vertical padrão do FinTrack com checagem de acesso embutid
 
 # Nova funcionalidade (fatia vertical)
 
-Referência viva: `apps/web/src/features/wallets/` e `packages/db/src/wallets.ts` (M06).
-Leia antes de escrever. Decisões: `docs/adr/0006-autorizacao-por-recurso.md`; matriz:
-`docs/permissoes.md`.
+Referências vivas: `apps/web/src/features/transactions/` e `packages/db/src/transactions.ts` (M07,
+a fatia mais completa: lista com filtros e cursor, formulário, exclusão com desfazer, exportação) e
+`apps/web/src/features/wallets/` (M06). Leia antes de escrever. Decisões: `docs/adr/0006-…` e
+`docs/adr/0007-lancamentos-e-categorizacao.md`; matriz: `docs/permissoes.md`.
+
+## Qual crachá pedir
+
+| A operação…                                 | Crachá                                         |
+| ------------------------------------------- | ---------------------------------------------- |
+| mexe numa carteira (id do formulário)       | `requireWalletAccess(session, walletId, ação)` |
+| mexe num recurso com id na URL (lançamento) | `requireTransactionAccess(session, id, ação)`  |
+| lança numa conta                            | `requireAccountUse(session, accountId)`        |
+| lista ou soma várias carteiras              | `requireScope(session, "view")`                |
+| mexe no lar (convite, categorias)           | `requireHouseholdAccess(session, ação)`        |
+| é sensível (exportar)                       | `requireRecentAuth("/tela")` antes de tudo     |
+
+Recurso novo com id na URL que não é uma carteira? Crie um `authorizeX` em
+`packages/db/src/access.ts` que acha o recurso e devolve a decisão **da carteira dele** (modelo:
+`authorizeTransaction`). Lista nova: receba um `WalletScope`, nunca um array de ids.
 
 ## A ordem (cada passo com o seu teste)
 
@@ -54,6 +70,7 @@ Leia antes de escrever. Decisões: `docs/adr/0006-autorizacao-por-recurso.md`; m
    carregando e erro (skill `ui-componentes`).
 9. **E2E** (skill `teste-e2e`): a página entra em `PAGES` (axe, foco, proteção); um teste de
    IDOR (URL de outra pessoa → página 404 sem dados) e o fluxo principal no celular.
+   Lista com totais: um teste em lar próprio confere a soma da tela contra o SQL, ao centavo.
 10. `pnpm check`, `pnpm test:integration` e `pnpm e2e` inteiros antes do PR.
 
 ## Proibido
@@ -62,4 +79,7 @@ Leia antes de escrever. Decisões: `docs/adr/0006-autorizacao-por-recurso.md`; m
 - Montar um crachá na mão (`{ action, userId, ... } as WalletGrant`): o crachá só nasce em
   `authorizeWallet`/`authorizeHousehold`.
 - Responder "sem permissão" para quem não participa (confirma que existe): use 404.
-- Auditoria fora da transação, ou com segredo, token, senha ou número de cartão.
+- Auditoria fora da transação, ou com segredo, token, senha, número de cartão (nem os 4 finais),
+  descrição ou valor de lançamento.
+- Lista, totais e exportação com WHEREs diferentes: um builder só (`whereOf` em `transactions.ts`).
+- Confiar no que a tela calculou (sugestão de categoria, total, sinal do valor): o servidor refaz.

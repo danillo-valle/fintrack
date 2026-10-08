@@ -23,8 +23,12 @@ Referência: `apps/web/e2e/permissoes.spec.ts` (M06) e `apps/web/e2e/helpers.ts`
 - **Dados próprios por teste**: e-mails com `testEmail(slug, testInfo.project.name)` (desktop e
   celular rodam juntos); lares com `createHouseholdDirect` e apagados no `afterEach`
   (`deleteHouseholds`). Nunca mude o lar da Ana (`ANA_HOUSEHOLD`): ele alimenta `PAGES`.
-- **Várias pessoas**: `browser.newContext()` por pessoa (cookies separados) e
-  `createTestUser(page.request, ...)` nesse contexto (a conta já sai logada nele).
+- **Várias pessoas**: `personInNewTab(browser, email, nome, aparelho)` (`helpers.ts`): contexto
+  próprio (cookies separados, como outro celular) com a conta já logada e com 2FA.
+- **Dinheiro (M07)**: a Ana tem contas, categorias, uma regra e um lançamento fixos
+  (`ANA_FINANCE`), para as telas entrarem em `PAGES`. Mas ela é usada por testes que rodam ao mesmo
+  tempo: teste que confere SOMA ou CONTAGEM cria um lar próprio (`createHouseholdDirect` +
+  `createFinanceDirect`) e compara a tela com um `SELECT` do banco.
 - **Deslogado**: `test.use({ storageState: NO_SESSION })`.
 - **E-mail**: `clearEmails(destino)` antes, `linkFromEmail(destino, /assunto/)` depois.
 - **Acessibilidade**: tela nova entra em `PAGES` (axe claro/escuro, foco, proteção); estados que
