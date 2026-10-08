@@ -25,7 +25,7 @@ export function SessionList({
 
   return (
     <div className="flex flex-col gap-4">
-      <ul className="divide-y rounded-lg border">
+      <ul className="bg-card divide-y rounded-lg border">
         {sessions.map((item) => {
           const device = describeDevice(item.userAgent);
           const current = item.id === currentId;

@@ -8,8 +8,16 @@ import { NAV_ITEMS } from "./nav-items";
 import { ThemeToggle } from "./theme-toggle";
 
 // A casca do app: menu lateral no desktop, barra inferior e botão flutuante no celular.
+// Visual C (ADR-008): o vidro fica só na moldura (cabeçalho e barra inferior do celular);
+// o menu lateral e o conteúdo ficam sólidos.
 // "md:" = telas a partir de 768px. Abaixo disso, vale o layout de celular.
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  modal,
+}: {
+  children: React.ReactNode;
+  modal?: React.ReactNode;
+}) {
   return (
     <div className="min-h-dvh md:grid md:grid-cols-[15rem_minmax(0,1fr)]">
       {/* Primeiro item do Tab: permite pular o menu e ir direto ao conteúdo */}
@@ -50,7 +58,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-col">
-        <header className="bg-background/95 sticky top-0 z-30 flex h-14 items-center justify-between border-b px-4 backdrop-blur md:hidden">
+        <header className="glass sticky top-0 z-30 flex h-14 items-center justify-between border-b px-4 md:hidden">
           <Brand />
           <ThemeToggle />
         </header>
@@ -65,9 +73,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <NewTransactionFab />
 
+      {/* Modal aberto por rota interceptada (o novo lançamento na web e no celular) */}
+      {modal}
+
       <nav
         aria-label="Principal"
-        className="bg-background fixed inset-x-0 bottom-0 z-30 border-t pb-[env(safe-area-inset-bottom)] md:hidden"
+        className="glass fixed inset-x-0 bottom-0 z-30 border-t pb-[env(safe-area-inset-bottom)] md:hidden"
       >
         <ul className="grid grid-cols-5">
           {NAV_ITEMS.map((item) => (

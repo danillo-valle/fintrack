@@ -10,7 +10,7 @@ import { requireUser } from "@/lib/auth/session";
 
 export const metadata: Metadata = { title: "Categorias e regras" };
 
-const SECTION = "rounded-xl border p-5";
+const SECTION = "bg-card rounded-xl border p-5";
 const MATCH = { CONTAINS: "contém", STARTS_WITH: "começa com", EQUALS: "é igual a" } as const;
 
 // Categorias e regras do lar (M07). As regras são a primeira camada da cascata de sugestão:

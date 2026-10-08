@@ -79,7 +79,7 @@ export function TransactionList({ items }: { items: ListItem[] }) {
       {days.map((day) => (
         <section key={day.date} aria-label={dayTitle(day.date)}>
           <h2 className="text-muted-foreground mb-2 text-sm font-medium">{dayTitle(day.date)}</h2>
-          <ul className="divide-y rounded-xl border">
+          <ul className="bg-card divide-y rounded-xl border">
             {day.items.map((item) => (
               <li key={item.id} className="flex items-center gap-3 px-4 py-3">
                 <div className="min-w-0 flex-1">

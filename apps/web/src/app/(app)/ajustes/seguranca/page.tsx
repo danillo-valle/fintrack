@@ -22,7 +22,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section aria-labelledby={id} className="rounded-xl border p-5">
+    <section aria-labelledby={id} className="bg-card rounded-xl border p-5">
       <h2 id={id} className="font-semibold">
         {title}
       </h2>

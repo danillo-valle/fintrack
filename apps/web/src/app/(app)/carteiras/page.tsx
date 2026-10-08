@@ -62,7 +62,7 @@ export default async function WalletsPage() {
             <li key={w.id}>
               <Link
                 href={`/carteiras/${w.id}`}
-                className="hover:bg-muted focus-visible:ring-ring flex items-center justify-between gap-3 rounded-xl border p-4 outline-none focus-visible:ring-3 data-[archived=true]:border-dashed"
+                className="hover:bg-muted focus-visible:ring-ring bg-card flex items-center justify-between gap-3 rounded-xl border p-4 outline-none focus-visible:ring-3 data-[archived=true]:border-dashed"
                 data-archived={w.archived}
               >
                 <span className="min-w-0">

@@ -15,7 +15,7 @@ import { requireUser } from "@/lib/auth/session";
 
 export const metadata: Metadata = { title: "Carteira" };
 
-const SECTION = "rounded-xl border p-5";
+const SECTION = "bg-card rounded-xl border p-5";
 
 // Detalhe de uma carteira (M06). O id vem da URL e é a porta clássica do IDOR: por isso a
 // primeira coisa depois da sessão é o crachá de "view". Quem não participa recebe a página 404,
