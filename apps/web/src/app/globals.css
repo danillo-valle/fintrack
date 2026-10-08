@@ -12,96 +12,123 @@
 /* O tema escuro é ligado pela classe .dark no <html> (next-themes cuida disso) */
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Visual C "Elétrico" (M07.1, ADR-008): azul elétrico com toque de lima.
+ * O vidro fica só na moldura (cabeçalho, barra inferior, modal e painel do celular);
+ * cartões, listas e números ficam em superfícies sólidas. Cores em hexadecimal para que
+ * o teste theme-contrast.test.ts confira o contraste de cada par de texto e fundo.
+ */
 :root {
-  --radius: 0.625rem;
+  --radius: 0.75rem;
 
   /* Superfícies e texto */
-  --background: oklch(0.985 0.004 250);
-  --foreground: oklch(0.22 0.025 255);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.22 0.025 255);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.22 0.025 255);
-  --muted: oklch(0.955 0.008 250);
-  --muted-foreground: oklch(0.48 0.025 255);
+  --background: #f3f5fc;
+  --foreground: #0e1325;
+  --card: #ffffff;
+  --card-foreground: #0e1325;
+  --popover: #ffffff;
+  --popover-foreground: #0e1325;
+  --muted: #eef1fb;
+  --muted-foreground: #535c78;
 
-  /* Ação principal: azul-tinta */
-  --primary: oklch(0.44 0.13 258);
-  --primary-foreground: oklch(0.985 0.004 250);
-  --secondary: oklch(0.94 0.012 250);
-  --secondary-foreground: oklch(0.26 0.03 255);
-  --accent: oklch(0.94 0.012 250);
-  --accent-foreground: oklch(0.26 0.03 255);
+  /* Ação principal: azul elétrico */
+  --primary: #2f5bff;
+  --primary-foreground: #ffffff;
+  --secondary: #e8ecf8;
+  --secondary-foreground: #0e1325;
+  --accent: #e8ecf8;
+  --accent-foreground: #0e1325;
 
   /* Bordas e foco */
-  --border: oklch(0.9 0.01 250);
-  --input: oklch(0.86 0.012 250);
-  --ring: oklch(0.44 0.13 258);
+  --border: #dde2f0;
+  --input: #c9d0e3;
+  --ring: #2f5bff;
 
   /* Semântica financeira: nunca use estas cores sem ícone ou texto junto */
-  --income: oklch(0.49 0.12 155);
-  --expense: oklch(0.52 0.19 27);
-  --warning: oklch(0.52 0.12 70);
-  --destructive: oklch(0.52 0.19 27);
+  --income: #0f7a3d;
+  --expense: #d0193a;
+  --warning: #8a5a00;
+  --destructive: #b3122e; /* mais escuro que a saída: o botão usa fundo com 10 % dela */
 
-  /* Gráficos (M08) */
-  --chart-1: oklch(0.44 0.13 258);
-  --chart-2: oklch(0.49 0.12 155);
-  --chart-3: oklch(0.52 0.19 27);
-  --chart-4: oklch(0.62 0.12 70);
-  --chart-5: oklch(0.55 0.1 300);
+  /* Destaques do Visual C */
+  --highlight: #c6ff3d; /* lima: só como FUNDO, com texto escuro; nunca como texto no claro */
+  --highlight-foreground: #0a0d18;
+  --hero: #2f5bff; /* cartão do saldo */
+  --hero-foreground: #ffffff;
 
-  /* Menu lateral */
-  --sidebar: oklch(0.97 0.006 250);
-  --sidebar-foreground: oklch(0.22 0.025 255);
-  --sidebar-primary: oklch(0.44 0.13 258);
-  --sidebar-primary-foreground: oklch(0.985 0.004 250);
-  --sidebar-accent: oklch(0.93 0.015 250);
-  --sidebar-accent-foreground: oklch(0.22 0.025 255);
-  --sidebar-border: oklch(0.9 0.01 250);
-  --sidebar-ring: oklch(0.44 0.13 258);
+  /* Vidro da moldura e véu atrás do modal */
+  --glass: rgb(243 245 252 / 0.85);
+  --glass-border: rgb(221 226 240 / 0.9);
+  --scrim: rgb(14 19 37 / 0.3);
+
+  /* Gráficos (M08): todas com contraste mínimo de 3:1 sobre o cartão */
+  --chart-1: #2f5bff;
+  --chart-2: #4f7d00;
+  --chart-3: #d6336c;
+  --chart-4: #b35c00;
+  --chart-5: #00809e;
+
+  /* Menu lateral (sólido) */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0e1325;
+  --sidebar-primary: #2f5bff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e6ecff;
+  --sidebar-accent-foreground: #2443d6;
+  --sidebar-border: #dde2f0;
+  --sidebar-ring: #2f5bff;
 }
 
 .dark {
-  --background: oklch(0.17 0.015 255);
-  --foreground: oklch(0.96 0.006 250);
-  --card: oklch(0.21 0.018 255);
-  --card-foreground: oklch(0.96 0.006 250);
-  --popover: oklch(0.21 0.018 255);
-  --popover-foreground: oklch(0.96 0.006 250);
-  --muted: oklch(0.25 0.018 255);
-  --muted-foreground: oklch(0.72 0.02 255);
+  --background: #0a0d18;
+  --foreground: #eef2ff;
+  --card: #141a2c;
+  --card-foreground: #eef2ff;
+  --popover: #141a2c;
+  --popover-foreground: #eef2ff;
+  --muted: #1c2337;
+  --muted-foreground: #a3adc8;
 
-  --primary: oklch(0.76 0.11 258);
-  --primary-foreground: oklch(0.17 0.015 255);
-  --secondary: oklch(0.27 0.02 255);
-  --secondary-foreground: oklch(0.96 0.006 250);
-  --accent: oklch(0.27 0.02 255);
-  --accent-foreground: oklch(0.96 0.006 250);
+  /* No escuro, a ação principal é a lima, com texto escuro */
+  --primary: #c6ff3d;
+  --primary-foreground: #0a0d18;
+  --secondary: #1c2337;
+  --secondary-foreground: #eef2ff;
+  --accent: #1c2337;
+  --accent-foreground: #eef2ff;
 
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 16%);
-  --ring: oklch(0.76 0.11 258);
+  --border: rgb(255 255 255 / 0.1);
+  --input: rgb(255 255 255 / 0.16);
+  --ring: #c6ff3d;
 
-  --income: oklch(0.78 0.14 155);
-  --expense: oklch(0.74 0.15 25);
-  --warning: oklch(0.82 0.13 80);
-  --destructive: oklch(0.7 0.17 25);
+  --income: #4be38a;
+  --expense: #ff7088;
+  --warning: #ffc266;
+  --destructive: #ff7088;
 
-  --chart-1: oklch(0.76 0.11 258);
-  --chart-2: oklch(0.78 0.14 155);
-  --chart-3: oklch(0.74 0.15 25);
-  --chart-4: oklch(0.82 0.13 80);
-  --chart-5: oklch(0.72 0.12 300);
+  --highlight: #c6ff3d;
+  --highlight-foreground: #0a0d18;
+  --hero: #2f5bff;
+  --hero-foreground: #ffffff;
 
-  --sidebar: oklch(0.19 0.016 255);
-  --sidebar-foreground: oklch(0.96 0.006 250);
-  --sidebar-primary: oklch(0.76 0.11 258);
-  --sidebar-primary-foreground: oklch(0.17 0.015 255);
-  --sidebar-accent: oklch(0.27 0.02 255);
-  --sidebar-accent-foreground: oklch(0.96 0.006 250);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.76 0.11 258);
+  --glass: rgb(10 13 24 / 0.8);
+  --glass-border: rgb(255 255 255 / 0.1);
+  --scrim: rgb(5 7 14 / 0.55);
+
+  --chart-1: #7b96ff;
+  --chart-2: #c6ff3d;
+  --chart-3: #ff7088;
+  --chart-4: #ffb648;
+  --chart-5: #3dd6f5;
+
+  --sidebar: #0e1322;
+  --sidebar-foreground: #eef2ff;
+  --sidebar-primary: #c6ff3d;
+  --sidebar-primary-foreground: #0a0d18;
+  --sidebar-accent: #263220;
+  --sidebar-accent-foreground: #c6ff3d;
+  --sidebar-border: rgb(255 255 255 / 0.08);
+  --sidebar-ring: #c6ff3d;
 }
 
 /* Liga cada variável a um nome de utilitário do Tailwind: bg-income, text-expense... */
@@ -130,6 +157,13 @@
   --color-income: var(--income);
   --color-expense: var(--expense);
   --color-warning: var(--warning);
+  --color-highlight: var(--highlight);
+  --color-highlight-foreground: var(--highlight-foreground);
+  --color-hero: var(--hero);
+  --color-hero-foreground: var(--hero-foreground);
+  --color-glass: var(--glass);
+  --color-glass-border: var(--glass-border);
+  --color-scrim: var(--scrim);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -161,6 +195,58 @@
   .tabular {
     font-variant-numeric: tabular-nums;
   }
+}
+
+/* Vidro da moldura (ADR-008): desfoque + saturação sobre o que passa por baixo.
+   Sem suporte a backdrop-filter, ou para quem pediu menos transparência ao sistema,
+   a moldura vira sólida: o texto continua com o mesmo contraste. */
+@utility glass {
+  background-color: var(--glass);
+  border-color: var(--glass-border);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass {
+    background-color: var(--background);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass {
+    background-color: var(--background);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* Painel de vidro do modal: mais opaco que a moldura, porque tem formulário dentro */
+@utility glass-panel {
+  background-color: color-mix(in srgb, var(--card) 90%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(160%);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass-panel {
+    background-color: var(--card);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+/* Véu atrás do modal: escurece e desfoca a página */
+.route-modal::backdrop {
+  background-color: var(--scrim, rgb(14 19 37 / 0.3));
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+/* Com o modal aberto, a página atrás não rola */
+html:has(dialog.route-modal[open]) {
+  overflow: hidden;
+}
+
+/* Placeholder com desfoque (carregando): formas suaves no lugar do conteúdo que vai chegar */
+@utility blur-placeholder {
+  background-color: color-mix(in srgb, var(--foreground) 12%, transparent);
+  filter: blur(3px);
 }
 
 /* Foco nunca escondido atrás do que fica fixo na tela (WCAG 2.2, critério 2.4.11).

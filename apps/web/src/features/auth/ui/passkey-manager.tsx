@@ -61,7 +61,7 @@ export function PasskeyManager({ passkeys }: { passkeys: PasskeyItem[] }) {
           e um site falso não consegue usá-la.
         </p>
       ) : (
-        <ul className="divide-y rounded-lg border">
+        <ul className="bg-card divide-y rounded-lg border">
           {passkeys.map((item) => (
             <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-3">
               <span className="flex min-w-0 items-center gap-2">

@@ -81,11 +81,15 @@ const INITIAL_ENTRY: EntryState = { ...INITIAL_ACTION_STATE, created: null, vers
 export function TransactionForm({
   options,
   existing,
+  idPrefix = "",
 }: {
   options: EntryOptions;
   existing?: ExistingTransaction;
+  /** Prefixo dos ids dos campos: o modal usa "modal-" para não repetir os ids da página atrás. */
+  idPrefix?: string;
 }) {
   const editing = existing !== undefined;
+  const fid = (name: string) => `${idPrefix}${name}`;
   const [kind, setKind] = useState<Kind>(existing?.kind ?? "expense");
   const [cents, setCents] = useState<bigint>(existing?.cents ?? 0n);
   const [description, setDescription] = useState(existing?.description ?? "");
@@ -255,10 +259,10 @@ export function TransactionForm({
         </FieldSet>
 
         <Field data-invalid={errors.amount ? true : undefined}>
-          <FieldLabel htmlFor="amount">Valor</FieldLabel>
+          <FieldLabel htmlFor={fid("amount")}>Valor</FieldLabel>
           <MoneyInput
             ref={amountRef}
-            id="amount"
+            id={fid("amount")}
             name="amount"
             value={cents}
             autoFocus={!editing}
@@ -267,23 +271,23 @@ export function TransactionForm({
               if (value > 0n) setErrors((e) => ({ ...e, amount: undefined }));
             }}
             aria-invalid={errors.amount ? true : undefined}
-            aria-describedby={errors.amount ? "amount-error" : "amount-help"}
+            aria-describedby={errors.amount ? fid("amount-error") : fid("amount-help")}
             className="h-12 text-lg"
           />
           {errors.amount ? (
-            <FieldError id="amount-error">{errors.amount}</FieldError>
+            <FieldError id={fid("amount-error")}>{errors.amount}</FieldError>
           ) : (
-            <FieldDescription id="amount-help">
+            <FieldDescription id={fid("amount-help")}>
               Digite só os números. 1234 vira R$ 12,34.
             </FieldDescription>
           )}
         </Field>
 
         <Field data-invalid={errors.description ? true : undefined}>
-          <FieldLabel htmlFor="description">Descrição</FieldLabel>
+          <FieldLabel htmlFor={fid("description")}>Descrição</FieldLabel>
           <Input
             ref={descriptionRef}
-            id="description"
+            id={fid("description")}
             name="description"
             value={description}
             maxLength={200}
@@ -295,25 +299,25 @@ export function TransactionForm({
             autoComplete="off"
             enterKeyHint="done"
             aria-invalid={errors.description ? true : undefined}
-            aria-describedby={errors.description ? "description-error" : undefined}
+            aria-describedby={errors.description ? fid("description-error") : undefined}
             className="h-10"
           />
           {errors.description ? (
-            <FieldError id="description-error">{errors.description}</FieldError>
+            <FieldError id={fid("description-error")}>{errors.description}</FieldError>
           ) : null}
         </Field>
 
         <Field>
-          <FieldLabel htmlFor="categoryId">Categoria</FieldLabel>
+          <FieldLabel htmlFor={fid("categoryId")}>Categoria</FieldLabel>
           <NativeSelect
-            id="categoryId"
+            id={fid("categoryId")}
             name="categoryId"
             value={categoryId}
             onChange={(event) => {
               setCategoryId(event.target.value);
               setCategoryTouched(true);
             }}
-            aria-describedby="category-help"
+            aria-describedby={fid("category-help")}
             className="h-10"
           >
             <option value="">Sem categoria</option>
@@ -324,7 +328,7 @@ export function TransactionForm({
             ))}
           </NativeSelect>
           {/* aria-live: quem usa leitor de tela ouve a sugestão chegar */}
-          <FieldDescription id="category-help" aria-live="polite">
+          <FieldDescription id={fid("category-help")} aria-live="polite">
             {shown && suggestedName ? (
               <span className="inline-flex items-center gap-1">
                 <Sparkles aria-hidden className="size-3.5" />
@@ -350,10 +354,10 @@ export function TransactionForm({
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field data-invalid={errors.accountId ? true : undefined}>
-            <FieldLabel htmlFor="accountId">Conta</FieldLabel>
+            <FieldLabel htmlFor={fid("accountId")}>Conta</FieldLabel>
             <NativeSelect
               ref={accountRef}
-              id="accountId"
+              id={fid("accountId")}
               name="accountId"
               value={accountId}
               onChange={(event) => {
@@ -362,7 +366,7 @@ export function TransactionForm({
                 setErrors((e) => ({ ...e, accountId: undefined }));
               }}
               aria-invalid={errors.accountId ? true : undefined}
-              aria-describedby={errors.accountId ? "account-error" : undefined}
+              aria-describedby={errors.accountId ? fid("account-error") : undefined}
               className="h-10"
             >
               {options.accounts.length === 0 ? <option value="">Nenhuma conta</option> : null}
@@ -373,18 +377,18 @@ export function TransactionForm({
               ))}
             </NativeSelect>
             {errors.accountId ? (
-              <FieldError id="account-error">{errors.accountId}</FieldError>
+              <FieldError id={fid("account-error")}>{errors.accountId}</FieldError>
             ) : null}
           </Field>
           <Field data-invalid={errors.walletId ? true : undefined}>
-            <FieldLabel htmlFor="walletId">Carteira</FieldLabel>
+            <FieldLabel htmlFor={fid("walletId")}>Carteira</FieldLabel>
             <NativeSelect
-              id="walletId"
+              id={fid("walletId")}
               name="walletId"
               value={walletId}
               onChange={(event) => setWalletId(event.target.value)}
               aria-invalid={errors.walletId ? true : undefined}
-              aria-describedby={errors.walletId ? "wallet-error" : "wallet-help"}
+              aria-describedby={errors.walletId ? fid("wallet-error") : fid("wallet-help")}
               className="h-10"
             >
               {options.wallets.length === 0 ? <option value="">Nenhuma carteira</option> : null}
@@ -395,22 +399,22 @@ export function TransactionForm({
               ))}
             </NativeSelect>
             {errors.walletId ? (
-              <FieldError id="wallet-error">{errors.walletId}</FieldError>
+              <FieldError id={fid("wallet-error")}>{errors.walletId}</FieldError>
             ) : (
-              <FieldDescription id="wallet-help">De quem é o gasto</FieldDescription>
+              <FieldDescription id={fid("wallet-help")}>De quem é o gasto</FieldDescription>
             )}
           </Field>
         </div>
 
-        <details className="rounded-lg border px-4 py-2" open={editing}>
+        <details className="bg-card rounded-lg border px-4 py-2" open={editing}>
           <summary className="focus-visible:ring-ring cursor-pointer rounded text-sm font-medium outline-none focus-visible:ring-3">
             Mais opções: data, forma de pagamento, cartão, observação
           </summary>
           <div className="mt-3 flex flex-col gap-4 pb-2">
             <Field>
-              <FieldLabel htmlFor="occurredOn">Data</FieldLabel>
+              <FieldLabel htmlFor={fid("occurredOn")}>Data</FieldLabel>
               <Input
-                id="occurredOn"
+                id={fid("occurredOn")}
                 name="occurredOn"
                 type="date"
                 defaultValue={existing?.occurredOn ?? options.defaults.occurredOn}
@@ -418,9 +422,9 @@ export function TransactionForm({
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="method">Forma de pagamento</FieldLabel>
+              <FieldLabel htmlFor={fid("method")}>Forma de pagamento</FieldLabel>
               <NativeSelect
-                id="method"
+                id={fid("method")}
                 name="method"
                 value={method}
                 onChange={(event) => setMethod(event.target.value)}
@@ -438,9 +442,9 @@ export function TransactionForm({
             </Field>
             {account && account.cards.length > 0 ? (
               <Field>
-                <FieldLabel htmlFor="cardId">Cartão</FieldLabel>
+                <FieldLabel htmlFor={fid("cardId")}>Cartão</FieldLabel>
                 <NativeSelect
-                  id="cardId"
+                  id={fid("cardId")}
                   name="cardId"
                   defaultValue={existing?.cardId ?? ""}
                   key={account.id}
@@ -456,9 +460,9 @@ export function TransactionForm({
               </Field>
             ) : null}
             <Field>
-              <FieldLabel htmlFor="notes">Observação</FieldLabel>
+              <FieldLabel htmlFor={fid("notes")}>Observação</FieldLabel>
               <Input
-                id="notes"
+                id={fid("notes")}
                 name="notes"
                 maxLength={500}
                 defaultValue={existing?.notes ?? ""}

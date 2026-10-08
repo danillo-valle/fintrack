@@ -88,7 +88,8 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
 - Código e identificadores em inglês; textos da interface, commits, PRs e documentação em português.
 - Não use `any` nem `console.log`.
 - Cores só por token do tema (`text-income`, `bg-muted`); nunca cor fixa.
-- Para qualquer trabalho de interface, siga a skill `ui-componentes`.
+- Para qualquer trabalho de interface, siga a skill `ui-componentes` (visual "Elétrico", ADR-008: vidro só
+  na moldura, contraste conferido pelo `theme-contrast.test.ts`, novo lançamento em modal de rota).
 
 ## Como trabalhar
 

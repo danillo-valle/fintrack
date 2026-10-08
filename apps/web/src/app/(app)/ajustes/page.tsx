@@ -15,7 +15,7 @@ export default async function SettingsPage() {
     <>
       <PageHeader title="Ajustes" />
       <div className="flex max-w-md flex-col gap-6">
-        <section aria-labelledby="conta" className="rounded-xl border p-5">
+        <section aria-labelledby="conta" className="bg-card rounded-xl border p-5">
           <h2 id="conta" className="font-semibold">
             Conta
           </h2>
@@ -25,7 +25,7 @@ export default async function SettingsPage() {
           <div className="flex flex-col gap-3">
             <Link
               href="/ajustes/contas"
-              className="hover:bg-muted focus-visible:ring-ring flex items-center justify-between gap-2 rounded-lg border px-4 py-3 text-sm font-medium outline-none focus-visible:ring-3"
+              className="hover:bg-muted focus-visible:ring-ring bg-card flex items-center justify-between gap-2 rounded-lg border px-4 py-3 text-sm font-medium outline-none focus-visible:ring-3"
             >
               <span className="flex items-center gap-2">
                 <Landmark aria-hidden className="size-4" />
@@ -35,7 +35,7 @@ export default async function SettingsPage() {
             </Link>
             <Link
               href="/ajustes/categorias"
-              className="hover:bg-muted focus-visible:ring-ring flex items-center justify-between gap-2 rounded-lg border px-4 py-3 text-sm font-medium outline-none focus-visible:ring-3"
+              className="hover:bg-muted focus-visible:ring-ring bg-card flex items-center justify-between gap-2 rounded-lg border px-4 py-3 text-sm font-medium outline-none focus-visible:ring-3"
             >
               <span className="flex items-center gap-2">
                 <Tags aria-hidden className="size-4" />
@@ -45,7 +45,7 @@ export default async function SettingsPage() {
             </Link>
             <Link
               href="/ajustes/lar"
-              className="hover:bg-muted focus-visible:ring-ring flex items-center justify-between gap-2 rounded-lg border px-4 py-3 text-sm font-medium outline-none focus-visible:ring-3"
+              className="hover:bg-muted focus-visible:ring-ring bg-card flex items-center justify-between gap-2 rounded-lg border px-4 py-3 text-sm font-medium outline-none focus-visible:ring-3"
             >
               <span className="flex items-center gap-2">
                 <House aria-hidden className="size-4" />
@@ -55,7 +55,7 @@ export default async function SettingsPage() {
             </Link>
             <Link
               href="/ajustes/seguranca"
-              className="hover:bg-muted focus-visible:ring-ring flex items-center justify-between gap-2 rounded-lg border px-4 py-3 text-sm font-medium outline-none focus-visible:ring-3"
+              className="hover:bg-muted focus-visible:ring-ring bg-card flex items-center justify-between gap-2 rounded-lg border px-4 py-3 text-sm font-medium outline-none focus-visible:ring-3"
             >
               <span className="flex items-center gap-2">
                 <ShieldCheck aria-hidden className="size-4" />
@@ -69,7 +69,7 @@ export default async function SettingsPage() {
           </div>
         </section>
 
-        <section aria-labelledby="aparencia" className="rounded-xl border p-5">
+        <section aria-labelledby="aparencia" className="bg-card rounded-xl border p-5">
           <h2 id="aparencia" className="font-semibold">
             Aparência
           </h2>

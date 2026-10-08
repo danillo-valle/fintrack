@@ -55,7 +55,7 @@ export default async function InvitePage({ params }: PageProps<"/convite/[token]
   return (
     <>
       <PageHeader title="Convite para um lar" />
-      <section aria-labelledby="convite" className="max-w-md rounded-xl border p-5">
+      <section aria-labelledby="convite" className="bg-card max-w-md rounded-xl border p-5">
         <h2 id="convite" className="mb-2 text-lg font-semibold break-words">
           {invite.householdName}
         </h2>

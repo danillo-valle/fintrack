@@ -27,7 +27,7 @@ export function TransactionFilters({
   ).length;
 
   return (
-    <details className="mb-6 rounded-xl border px-4 py-3" open={active > 0}>
+    <details className="bg-card mb-6 rounded-xl border px-4 py-3" open={active > 0}>
       <summary className="focus-visible:ring-ring flex cursor-pointer items-center gap-2 rounded text-sm font-medium outline-none focus-visible:ring-3">
         <SlidersHorizontal aria-hidden className="size-4" />
         Filtros{active > 0 ? ` (${active} ${active === 1 ? "ativo" : "ativos"})` : ""}

@@ -24,7 +24,7 @@ function layout(title: string, paragraphs: string[], action: { label: string; ur
 <body style="font-family: system-ui, sans-serif; line-height: 1.5; color: #1d2433">
 <h1 style="font-size: 20px">${escapeHtml(title)}</h1>
 ${body}
-<p><a href="${escapeHtml(action.url)}" style="display: inline-block; padding: 10px 16px; background: #1e5099; color: #ffffff; border-radius: 8px; text-decoration: none">${escapeHtml(action.label)}</a></p>
+<p><a href="${escapeHtml(action.url)}" style="display: inline-block; padding: 10px 16px; background: #2f5bff; color: #ffffff; border-radius: 8px; text-decoration: none">${escapeHtml(action.label)}</a></p>
 <p style="font-size: 13px; color: #5a6475">Se o botão não funcionar, copie este endereço no navegador:<br>${escapeHtml(action.url)}</p>
 </body>
 </html>`;

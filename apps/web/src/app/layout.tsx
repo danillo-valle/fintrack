@@ -26,8 +26,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   // Cor da barra do navegador no celular, acompanhando o tema
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f8fafd" },
-    { media: "(prefers-color-scheme: dark)", color: "#0b1016" },
+    { media: "(prefers-color-scheme: light)", color: "#f3f5fc" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0d18" },
   ],
   viewportFit: "cover",
 };

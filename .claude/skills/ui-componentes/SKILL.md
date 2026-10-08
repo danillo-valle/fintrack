@@ -13,7 +13,8 @@ description: Como construir telas e componentes no FinTrack com shadcn/ui, Tailw
 | Mostrar um valor em reais              | `<AmountText cents={...} />`                                    | `src/components/money/amount-text.tsx`                                  |
 | Digitar um valor em reais              | `<MoneyInput value onValueChange />`                            | `src/components/money/money-input.tsx`                                  |
 | Tela sem dados                         | `<EmptyState icon title description action />`                  | `src/components/feedback/empty-state.tsx`                               |
-| Carregando                             | `<ListSkeleton />` ou `loading.tsx` da rota                     | `src/components/feedback/list-skeleton.tsx`                             |
+| Carregando                             | `<ListSkeleton />` ou `loading.tsx` da rota (formas desfocadas) | `src/components/feedback/list-skeleton.tsx`                             |
+| Formulário por cima da página          | `<RouteModal title>` numa rota interceptada `@modal/(.)rota`    | `src/components/ui/route-modal.tsx` (exemplo: novo lançamento)          |
 | Erro                                   | `<ErrorState onRetry />` ou `error.tsx` da rota                 | `src/components/feedback/error-state.tsx`                               |
 | Título da página                       | `<PageHeader title description actions />`                      | `src/components/layout/page-header.tsx`                                 |
 | Excluir                                | Sem "tem certeza?": exclua e ofereça "Desfazer" com `undoToast` | `src/components/feedback/undo-toast.ts` (exemplo em `dev/ui/demos.tsx`) |
@@ -27,7 +28,18 @@ Antes de criar um componente próprio, veja se ele já existe no catálogo: `/de
 - Sempre por token: `bg-background`, `text-muted-foreground`, `text-income`, `text-expense`, `text-warning`, `border`.
 - Nunca cor fixa (`text-green-600`, `#1e5099`). O tema escuro depende dos tokens.
 - Receita e despesa nunca só pela cor: use `AmountText`, que já traz sinal, seta e texto para leitor de tela.
-- Token novo: acrescente em `:root` E em `.dark` no `globals.css`, confira contraste ≥ 4,5:1 e ligue em `@theme inline`.
+- Token novo: acrescente em `:root` E em `.dark` no `globals.css`, em hexadecimal, ligue em `@theme inline` e
+  ponha o par no `src/app/theme-contrast.test.ts` (texto ≥ 4,5:1; anel e gráfico ≥ 3:1).
+
+## Visual "Elétrico" (ADR-008)
+
+- **Vidro só na moldura**: `glass` no cabeçalho e na barra do celular, `glass-panel` no modal. Cartões, listas
+  e números sempre sólidos (`bg-card`). Nunca texto pequeno direto sobre vidro em cima de conteúdo colorido.
+- **Lima** (`bg-highlight text-highlight-foreground`) só como fundo com texto escuro; no escuro ela é a primária.
+- **Saldo em destaque**: `bg-hero text-hero-foreground` com `<AmountText tone="inherit">` (a cor de
+  receita/despesa não passa no contraste sobre o azul; o sinal e a seta continuam).
+- **Modal**: `RouteModal` (`<dialog>` nativo). Formulário que pode aparecer duas vezes na tela (página atrás +
+  modal) recebe `idPrefix`, senão os rótulos apontam para o campo errado.
 
 ## Dinheiro e datas na tela
 
@@ -66,4 +78,4 @@ Antes de criar um componente próprio, veja se ele já existe no catálogo: `/de
 
 - `pnpm check` e `pnpm e2e` passam.
 - A tela nova entrou na lista `PAGES` (app, com sessão) ou `PUBLIC_PAGES` (telas de entrada) de `e2e/helpers.ts`, usadas pelos testes de acessibilidade, de foco e de proteção.
-- Conferiu no catálogo, nos dois temas, em largura de celular (390px) e de desktop.
+- Conferiu no catálogo, nos dois temas, em largura de celular (390px) e de desktop, e com o modal aberto.

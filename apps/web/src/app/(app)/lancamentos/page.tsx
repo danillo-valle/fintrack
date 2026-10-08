@@ -65,23 +65,31 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/lan
 
       <TransactionFilters parsed={parsed} options={page.options} />
 
-      <section aria-labelledby="totais" className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <section aria-labelledby="totais" className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <h2 id="totais" className="sr-only">
           Totais do filtro
         </h2>
-        <div className="rounded-xl border p-4" data-testid="total-entradas">
+        {/* Visual C: o saldo é o cartão azul; entradas e saídas ficam em cartões sólidos */}
+        <div
+          className="bg-hero text-hero-foreground rounded-2xl p-5 sm:col-span-2"
+          data-testid="total-saldo"
+        >
+          <p className="text-sm opacity-90">Saldo do período</p>
+          <AmountText
+            cents={totals.net}
+            tone="inherit"
+            className="text-2xl font-semibold sm:text-3xl"
+          />
+        </div>
+        <div className="bg-card rounded-2xl border p-4" data-testid="total-entradas">
           <p className="text-muted-foreground text-sm">Entradas</p>
           <AmountText cents={totals.income} className="text-lg" />
         </div>
-        <div className="rounded-xl border p-4" data-testid="total-saidas">
+        <div className="bg-card rounded-2xl border p-4" data-testid="total-saidas">
           <p className="text-muted-foreground text-sm">Saídas</p>
           <AmountText cents={totals.expense} className="text-lg" />
         </div>
-        <div className="rounded-xl border p-4" data-testid="total-saldo">
-          <p className="text-muted-foreground text-sm">Saldo do período</p>
-          <AmountText cents={totals.net} className="text-lg" />
-        </div>
-        <p className="text-muted-foreground text-sm sm:col-span-3">
+        <p className="text-muted-foreground text-sm sm:col-span-2">
           {totals.count} {totals.count === 1 ? "lançamento" : "lançamentos"} no filtro.
           Transferências aparecem na lista, mas não entram nas entradas e saídas.
         </p>

@@ -211,7 +211,8 @@ test("o campo Data mostra o anel do app também no botão do calendário", async
     await expect(data).toBeFocused();
     // O anel é uma sombra de 3px com cor (as demais sombras são transparentes)
     const shadow = await data.evaluate((el) => getComputedStyle(el).boxShadow);
-    expect(shadow).toMatch(/(lab|oklch|oklab)\([^)]*\) 0px 0px 0px 3px/);
+    // (rgb desde o M07.1, quando os tokens passaram a hexadecimal; antes, oklch)
+    expect(shadow).toMatch(/(rgb|lab|oklch|oklab)\([^)]*\) 0px 0px 0px 3px/);
   }
 });
 

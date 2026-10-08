@@ -21,7 +21,7 @@ export function CopyLink({ link }: { link: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border p-3">
+    <div className="bg-card flex flex-col gap-2 rounded-lg border p-3">
       <label htmlFor="invite-link" className="text-sm font-medium">
         Link do convite (mostrado só agora)
       </label>

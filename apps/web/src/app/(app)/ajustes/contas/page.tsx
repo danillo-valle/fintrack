@@ -15,7 +15,7 @@ import { ACCOUNT_KIND_LABEL, CARD_FORM_LABEL } from "@/lib/labels";
 
 export const metadata: Metadata = { title: "Contas e cartões" };
 
-const SECTION = "rounded-xl border p-5";
+const SECTION = "bg-card rounded-xl border p-5";
 
 // Contas e cartões (M07), por carteira. Quem é dono da carteira cria e arquiva; os outros veem.
 export default async function AccountsPage() {

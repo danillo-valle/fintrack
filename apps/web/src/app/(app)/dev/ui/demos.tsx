@@ -67,7 +67,7 @@ export function UndoDeleteDemo() {
 
   return (
     <div>
-      <ul ref={listRef} className="divide-y rounded-xl border empty:hidden">
+      <ul ref={listRef} className="bg-card divide-y rounded-xl border empty:hidden">
         {items.map((item) => (
           <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-3">
             <span className="min-w-0 truncate">{item.description}</span>
