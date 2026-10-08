@@ -5,7 +5,8 @@
 // A tabela só aceita INSERT: o gatilho audit_log_append_only (M04) recusa UPDATE, DELETE e
 // TRUNCATE. Nem o próprio app consegue apagar o que aconteceu.
 //
-// Nunca vai para a auditoria: senha, token do convite, segredo, número de cartão. E-mail
+// Nunca vai para a auditoria: senha, token do convite, segredo, número de cartão (nem os 4
+// finais), descrição ou valor de lançamento (M07: só contagens e ids). E-mail
 // aparece mascarado (***@exemplo.com).
 import type { Prisma } from "./generated/prisma/client";
 
@@ -13,7 +14,7 @@ import type { Prisma } from "./generated/prisma/client";
 export type RequestContext = { ip?: string | null; userAgent?: string | null };
 
 /**
- * Os eventos que o M06 registra, no formato entidade.verbo. Lista fechada (union) de
+ * Os eventos registrados (M06 e M07), no formato entidade.verbo. Lista fechada (union) de
  * propósito: um erro de digitação ("wallet.renmed") vira erro de compilação.
  */
 export type AuditAction =
@@ -29,13 +30,40 @@ export type AuditAction =
   | "wallet.member_added"
   | "wallet.role_changed"
   | "wallet.member_removed"
-  | "wallet.member_left";
+  | "wallet.member_left"
+  // M07: o que muda dinheiro de lugar ou tira dado do sistema. Lançar e editar NÃO vão para a
+  // auditoria (seriam milhares de linhas); o lançamento guarda quem criou e quando mudou.
+  | "transaction.deleted"
+  | "transaction.restored"
+  | "transactions.exported"
+  | "recurrences.generated"
+  | "recurrence.created"
+  | "recurrence.archived"
+  | "account.created"
+  | "account.archived"
+  | "card.created"
+  | "card.archived"
+  | "category.created"
+  | "category.archived"
+  | "category_rule.created"
+  | "category_rule.deleted";
 
 export type AuditEntry = {
   actorId: string | null;
   householdId: string;
   action: AuditAction;
-  entity: "household" | "household_invite" | "household_member" | "wallet" | "wallet_member";
+  entity:
+    | "household"
+    | "household_invite"
+    | "household_member"
+    | "wallet"
+    | "wallet_member"
+    | "transaction"
+    | "recurrence"
+    | "financial_account"
+    | "payment_card"
+    | "category"
+    | "category_rule";
   entityId: string;
   metadata?: Prisma.InputJsonObject;
 };

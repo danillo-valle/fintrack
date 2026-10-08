@@ -39,12 +39,15 @@ export type {
   CardStatement,
   Category,
   CategoryRule,
+  CategorizationExample,
   FinancialAccount,
   Household,
   HouseholdInvite,
   HouseholdMember,
   InstallmentGroup,
+  PaymentCard,
   ProviderConnection,
+  Recurrence,
   SyncRun,
   Transaction,
   User,
@@ -61,3 +64,9 @@ export * from "./access";
 export { maskEmail, type AuditAction, type RequestContext } from "./audit";
 export * from "./households";
 export * from "./wallets";
+
+// Lançamentos, contas, categorias e recorrências (M07). Mesma regra: crachá antes de tudo.
+export * from "./accounts";
+export * from "./categories";
+export * from "./recurrences";
+export * from "./transactions";
