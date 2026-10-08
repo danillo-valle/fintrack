@@ -37,7 +37,11 @@ test("Novo lançamento está sempre a um toque", async ({ page }) => {
   await openPage(page, "/orcamento");
   await page.getByRole("link", { name: "Novo lançamento" }).first().click();
   await expect(page).toHaveURL("/lancamentos/novo");
-  await expect(page.getByRole("heading", { level: 1, name: "Novo lançamento" })).toBeVisible();
+  // M07.1: dentro do app, o formulário abre em modal por cima da página (que continua atrás)
+  const modal = page.getByRole("dialog", { name: "Novo lançamento" });
+  await expect(modal).toBeVisible();
+  await expect(modal.getByLabel("Valor")).toBeFocused();
+  await expect(page.getByRole("heading", { level: 1, name: "Orçamento" })).toBeAttached();
 });
 
 test("endereço inexistente mostra a página 404 em português", async ({ page }) => {
