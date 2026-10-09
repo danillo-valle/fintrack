@@ -49,3 +49,18 @@ Três restrições pesaram na escolha:
 - Elemento fixo novo com vidro exige rever o `scroll-padding` e o `e2e/foco-visivel.spec.ts` (ADR-002).
 - Alternativas descartadas: A (contraste instável sobre luzes coloridas; muito vidro para celular barato) e
   B (pílulas e teclado próprio mudariam o comportamento das telas, não só o visual).
+
+## Adendo (M07.2): o padrão em todas as telas
+
+O M07.1 trocou cores, moldura e o modal, mas manteve a composição antiga das telas. No M07.2 o padrão
+do exemplo C passou a valer para o site inteiro: um painel elétrico por página (Início, Lançamentos,
+Carteiras, Ajustes e o lado esquerdo das telas de entrada), listas agrupadas com ícone colorido por
+categoria ou tipo, chips de período e atalhos, a lista de lançamentos em colunas no desktop (o mesmo
+HTML, com `display: contents`) e o Início com o resumo do mês e os últimos lançamentos. Os
+componentes ficam em `src/components/visual/` e a skill `ui-componentes` descreve a anatomia de uma tela.
+
+O menu lateral do desktop também passou a ser moldura de vidro (`glass-sidebar`, 72 % da cor do menu),
+com um brilho azul atrás dele para o vidro ter o que mostrar. O contraste do texto é conferido sobre o
+fundo e sobre cada brilho no `theme-contrast.test.ts`. O menu recolhe até ficarem só os ícones; o texto
+vira dica e continua sendo o nome acessível de cada link. A escolha fica num cookie para o servidor
+desenhar a página já no estado certo.
