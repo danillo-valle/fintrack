@@ -19,6 +19,7 @@ import {
   encodeCursor,
   isCorrection,
   methodAllowsCard,
+  resolvePayer,
   signedAmount,
   suggestRulePattern,
   toCsv,
@@ -27,6 +28,7 @@ import {
   type Cents,
   type CivilDate,
   type PaymentMethod,
+  type PayerFilter,
   type Totals,
   type TransactionKind,
 } from "@fintrack/core";
@@ -68,7 +70,10 @@ export type CategorizationOptions = {
 };
 
 /** Forma de pagamento e cartão conferidos contra a conta (a mesma regra do gatilho do banco). */
-function resolvePayment(account: AccountGrant, input: TransactionInput) {
+export function resolvePayment(
+  account: AccountGrant,
+  input: Pick<TransactionInput, "kind" | "method" | "cardId">,
+) {
   const method = input.method ?? defaultMethod(account.account.kind, input.kind);
   if (!allowedMethods(account.account.kind).includes(method)) {
     throw new DomainError("METHOD_NOT_ALLOWED");
@@ -81,13 +86,13 @@ function resolvePayment(account: AccountGrant, input: TransactionInput) {
   return { method, cardId };
 }
 
-function sameHousehold(wallet: WalletGrant<"edit">, account: AccountGrant) {
+export function sameHousehold(wallet: WalletGrant<"edit">, account: AccountGrant) {
   // Um lar por pessoa: na prática nunca falha. A chave composta do banco garante de novo.
   if (wallet.wallet.householdId !== account.account.householdId) throw new DomainError("NOT_FOUND");
 }
 
 /** Registra a correção como exemplo de treino e, se pedido, cria a regra. */
-async function recordCorrection(
+export async function recordCorrection(
   tx: Prisma.TransactionClient,
   input: {
     householdId: string;
@@ -457,7 +462,24 @@ export type TransactionFilters = {
   categoryId?: string | null;
   text?: string | null;
   type?: TransactionType | null;
+  /** "Pago por" (M07.4): Compartilhado ou uma pessoa */
+  payer?: PayerFilter | null;
 };
+
+/**
+ * O WHERE de "Pago por": a mesma regra do resolvePayer (packages/core/payer.ts), escrita para o
+ * banco. Cartão de compras conjuntas → Compartilhado; cartão → o portador; sem cartão → o
+ * titular da conta. O teste de integração confere que os dois lados concordam.
+ */
+function payerWhere(payer: PayerFilter): Prisma.TransactionWhereInput {
+  if (payer.kind === "shared") return { card: { is: { sharedPurchases: true } } };
+  return {
+    OR: [
+      { card: { is: { sharedPurchases: false, holderId: payer.userId } } },
+      { cardId: null, account: { is: { holderId: payer.userId } } },
+    ],
+  };
+}
 
 /**
  * O WHERE de lista, totais e exportação: UM só, para os três nunca discordarem. As carteiras
@@ -485,6 +507,7 @@ function whereOf(
   if (f.type === "transfer") and.push({ transferId: { not: null } });
   if (f.type === "expense") and.push({ transferId: null, amount: { lt: 0 } });
   if (f.type === "income") and.push({ transferId: null, amount: { gt: 0 } });
+  if (f.payer) and.push(payerWhere(f.payer));
   return { AND: and };
 }
 
@@ -499,16 +522,30 @@ const LIST_SELECT = {
   transferId: true,
   recurrenceId: true,
   categorizedBy: true,
+  installmentNumber: true,
+  installmentGroup: { select: { installmentCount: true } },
   wallet: { select: { id: true, name: true, kind: true } },
-  account: { select: { id: true, name: true, kind: true } },
+  account: { select: { id: true, name: true, kind: true, holderId: true } },
   category: { select: { id: true, name: true } },
-  card: { select: { nickname: true, lastFour: true } },
+  card: { select: { nickname: true, lastFour: true, holderId: true, sharedPurchases: true } },
 } satisfies Prisma.TransactionSelect;
 
 type ListRow = Prisma.TransactionGetPayload<{ select: typeof LIST_SELECT }>;
 
 function toItem(row: ListRow) {
-  return { ...row, amount: fromDbDecimal(row.amount), occurredOn: civilFromDbDate(row.occurredOn) };
+  const { installmentNumber, installmentGroup, ...rest } = row;
+  return {
+    ...rest,
+    amount: fromDbDecimal(row.amount),
+    occurredOn: civilFromDbDate(row.occurredOn),
+    // "Pago por" (M07.4): calculado do cartão e da conta, pela mesma regra do filtro
+    payer: resolvePayer({ card: row.card, account: row.account }),
+    /** "Parcela 2 de 10"; nulo fora de compra parcelada */
+    installment:
+      installmentNumber !== null && installmentGroup
+        ? { number: installmentNumber, count: installmentGroup.installmentCount }
+        : null,
+  };
 }
 
 export const PAGE_SIZE = 50;

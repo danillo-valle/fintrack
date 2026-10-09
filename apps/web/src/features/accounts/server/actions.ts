@@ -8,11 +8,18 @@ import {
   prisma,
   setAccountArchived,
   setCardArchived,
+  setCardSharedPurchases,
 } from "@fintrack/db";
 import { revalidatePath } from "next/cache";
 import { requestContext, requireWalletAccess, runAction, type ActionState } from "@/lib/access";
 import { requireUser } from "@/lib/auth/session";
-import { accountSchema, archiveAccountSchema, archiveCardSchema, cardSchema } from "../schemas";
+import {
+  accountSchema,
+  archiveAccountSchema,
+  archiveCardSchema,
+  cardSchema,
+  cardSharedSchema,
+} from "../schemas";
 
 const PAGE = "/ajustes/contas";
 
@@ -97,5 +104,26 @@ export async function setCardArchivedAction(
     return archived ? "Cartão arquivado." : "Cartão desarquivado.";
   });
   revalidatePath(PAGE);
+  return result;
+}
+
+/** Marca ou desmarca um cartão como de compras conjuntas (M07.4). Só quem gere as contas. */
+export async function setCardSharedPurchasesAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await requireUser();
+  const parsed = cardSharedSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return invalid(parsed.error);
+  const shared = parsed.data.sharedPurchases === "true";
+  const result = await runAction(async () => {
+    const grant = await requireWalletAccess(session, parsed.data.walletId, "manage_accounts");
+    await setCardSharedPurchases(prisma, grant, parsed.data.cardId, shared, await requestContext());
+    return shared
+      ? "Cartão marcado como de compras conjuntas: as compras dele aparecem como Compartilhado."
+      : "Cartão desmarcado: as compras dele voltam a aparecer como do portador.";
+  });
+  revalidatePath(PAGE);
+  revalidatePath("/lancamentos");
   return result;
 }

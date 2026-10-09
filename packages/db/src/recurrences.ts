@@ -7,12 +7,15 @@
 import {
   allowedMethods,
   civilFromDbDate,
+  compareCivil,
   dbDateFromCivil,
   defaultMethod,
   methodAllowsCard,
+  monthOf,
   occurrenceIn,
   recurrenceExternalId,
   signedAmount,
+  todayCivil,
   type Cents,
   type CivilDate,
   type MonthKey,
@@ -21,7 +24,7 @@ import {
 import { DomainError, type AccountGrant, type WalletGrant, type WalletScope } from "./access";
 import { writeAudit, type RequestContext } from "./audit";
 import { assertUsableCategory } from "./categories";
-import type { PrismaClient } from "./generated/prisma/client";
+import type { Prisma, PrismaClient } from "./generated/prisma/client";
 import { fromDbDecimal, toDbDecimal } from "./money";
 
 export type RecurrenceKindInput = "FIXED_BILL" | "SUBSCRIPTION" | "INCOME";
@@ -39,14 +42,8 @@ export type RecurrenceInput = {
   cardId?: string | null;
 };
 
-export async function createRecurrence(
-  db: PrismaClient,
-  wallet: WalletGrant<"edit">,
-  account: AccountGrant,
-  input: RecurrenceInput,
-  ctx: RequestContext,
-) {
-  if (wallet.wallet.householdId !== account.account.householdId) throw new DomainError("NOT_FOUND");
+/** Forma de pagamento e cartão da recorrência, conferidos contra a conta (como no lançamento). */
+function resolveRecurrencePayment(account: AccountGrant, input: RecurrenceInput) {
   const kind = input.kind === "INCOME" ? "income" : "expense";
   const method = input.method ?? defaultMethod(account.account.kind, kind);
   if (!allowedMethods(account.account.kind).includes(method)) {
@@ -56,44 +53,116 @@ export async function createRecurrence(
   if (cardId && (!account.cardIds.includes(cardId) || !methodAllowsCard(method))) {
     throw new DomainError("CARD_NOT_ALLOWED");
   }
+  return { kind, method, cardId } as const;
+}
 
+/** Grava a recorrência e a auditoria, dentro de uma transação que já está aberta. */
+async function insertRecurrence(
+  tx: Prisma.TransactionClient,
+  wallet: WalletGrant<"edit">,
+  account: AccountGrant,
+  input: RecurrenceInput,
+  ctx: RequestContext,
+) {
+  const { kind, method, cardId } = resolveRecurrencePayment(account, input);
+  const categoryId = await assertUsableCategory(
+    tx,
+    wallet.wallet.householdId,
+    input.categoryId ?? null,
+    kind,
+  );
+  const recurrence = await tx.recurrence.create({
+    data: {
+      householdId: wallet.wallet.householdId,
+      walletId: wallet.wallet.id,
+      accountId: account.account.id,
+      cardId,
+      categoryId,
+      kind: input.kind,
+      method,
+      description: input.description,
+      amount: toDbDecimal(signedAmount(kind, input.cents)),
+      dayOfMonth: input.dayOfMonth,
+      startsOn: dbDateFromCivil(input.startsOn),
+      endsOn: input.endsOn ? dbDateFromCivil(input.endsOn) : null,
+      createdById: wallet.userId,
+    },
+  });
+  await writeAudit(
+    tx,
+    {
+      actorId: wallet.userId,
+      householdId: wallet.wallet.householdId,
+      action: "recurrence.created",
+      entity: "recurrence",
+      entityId: recurrence.id,
+      metadata: { kind: input.kind, walletId: wallet.wallet.id },
+    },
+    ctx,
+  );
+  return recurrence;
+}
+
+export async function createRecurrence(
+  db: PrismaClient,
+  wallet: WalletGrant<"edit">,
+  account: AccountGrant,
+  input: RecurrenceInput,
+  ctx: RequestContext,
+) {
+  if (wallet.wallet.householdId !== account.account.householdId) throw new DomainError("NOT_FOUND");
+  resolveRecurrencePayment(account, input); // recusa antes de abrir a transação
+  return db.$transaction((tx) => insertRecurrence(tx, wallet, account, input, ctx));
+}
+
+export type FixedExpenseInput = Omit<RecurrenceInput, "kind" | "startsOn"> & {
+  kind: "FIXED_BILL" | "SUBSCRIPTION";
+  /** O dia do lançamento deste mês (a recorrência começa nele) */
+  occurredOn: CivilDate;
+  notes?: string | null;
+};
+
+/**
+ * "Fixa" no novo lançamento (M07.4): cria a recorrência E o lançamento deste mês, numa transação
+ * só. O lançamento já leva o externalId do mês ("<recorrência>:<AAAA-MM>"), então "Lançar as
+ * deste mês" (e, no M09, a fila do dia 1º) não duplica: a chave única do M04 descarta a cópia.
+ * Os meses seguintes saem da recorrência; nada é gravado adiantado.
+ */
+export async function createFixedExpense(
+  db: PrismaClient,
+  wallet: WalletGrant<"edit">,
+  account: AccountGrant,
+  input: FixedExpenseInput,
+  ctx: RequestContext,
+  today: CivilDate = todayCivil(),
+) {
+  if (wallet.wallet.householdId !== account.account.householdId) throw new DomainError("NOT_FOUND");
+  const recurrenceInput: RecurrenceInput = { ...input, startsOn: input.occurredOn };
+  resolveRecurrencePayment(account, recurrenceInput);
   return db.$transaction(async (tx) => {
-    const categoryId = await assertUsableCategory(
-      tx,
-      wallet.wallet.householdId,
-      input.categoryId ?? null,
-      kind,
-    );
-    const recurrence = await tx.recurrence.create({
+    const recurrence = await insertRecurrence(tx, wallet, account, recurrenceInput, ctx);
+    const transaction = await tx.transaction.create({
       data: {
-        householdId: wallet.wallet.householdId,
-        walletId: wallet.wallet.id,
-        accountId: account.account.id,
-        cardId,
-        categoryId,
-        kind: input.kind,
-        method,
+        householdId: recurrence.householdId,
+        walletId: recurrence.walletId,
+        accountId: recurrence.accountId,
+        cardId: recurrence.cardId,
+        categoryId: recurrence.categoryId,
+        categorizedBy: recurrence.categoryId ? "MANUAL" : null,
+        method: recurrence.method,
+        amount: recurrence.amount,
+        occurredOn: dbDateFromCivil(input.occurredOn),
         description: input.description,
-        amount: toDbDecimal(signedAmount(kind, input.cents)),
-        dayOfMonth: input.dayOfMonth,
-        startsOn: dbDateFromCivil(input.startsOn),
-        endsOn: input.endsOn ? dbDateFromCivil(input.endsOn) : null,
+        notes: input.notes ?? null,
+        status: compareCivil(input.occurredOn, today) <= 0 ? "CONFIRMED" : "SCHEDULED",
+        source: "RECURRENCE",
+        externalId: recurrenceExternalId(recurrence.id, monthOf(input.occurredOn)),
+        recurrenceId: recurrence.id,
         createdById: wallet.userId,
       },
+      select: { id: true },
     });
-    await writeAudit(
-      tx,
-      {
-        actorId: wallet.userId,
-        householdId: wallet.wallet.householdId,
-        action: "recurrence.created",
-        entity: "recurrence",
-        entityId: recurrence.id,
-        metadata: { kind: input.kind, walletId: wallet.wallet.id },
-      },
-      ctx,
-    );
-    return recurrence;
+    return { recurrenceId: recurrence.id, transactionId: transaction.id };
   });
 }
 

@@ -6,6 +6,7 @@ import {
   filtersToQuery,
   parseFilters,
   recurrenceSchema,
+  newEntrySchema,
   transactionSchema,
   transferSchema,
 } from "./schemas";
@@ -116,6 +117,7 @@ describe("filtros na URL", () => {
         categoryId: null,
         text: null,
         type: null,
+        payer: null,
       },
       walletId: null,
       cursor: null,
@@ -132,6 +134,7 @@ describe("filtros na URL", () => {
         categoria: "sem",
         q: " mercado ",
         tipo: "despesa",
+        pago: "compartilhado",
       },
       today,
     );
@@ -142,6 +145,7 @@ describe("filtros na URL", () => {
       categoryId: "none",
       text: "mercado",
       type: "expense",
+      payer: { kind: "shared" },
     });
     expect(parsed.walletId).toBe(ID);
   });
@@ -172,6 +176,7 @@ describe("filtros na URL", () => {
         categoria: ID2,
         q: "pão",
         tipo: "transferencia",
+        pago: "user_abc-1",
       },
       today,
     );
@@ -196,6 +201,55 @@ describe("exportSchema", () => {
     ).toBe(true);
     expect(
       exportSchema.safeParse({ walletId: "", from: "2026-10-01", to: "2026-10-31" }).success,
+    ).toBe(false);
+  });
+});
+
+describe("newEntrySchema (M07.4: tipo da despesa)", () => {
+  const entry = {
+    kind: "expense",
+    amount: "42.35",
+    description: "Notebook",
+    occurredOn: "2026-10-08",
+    walletId: ID,
+    accountId: ID2,
+  };
+
+  it("sem tipo: variável, como sempre", () => {
+    expect(newEntrySchema.parse(entry).expenseType).toBe("variable");
+  });
+
+  it("parcelada pede de 2 a 24 parcelas", () => {
+    expect(
+      newEntrySchema.parse({ ...entry, expenseType: "installment", installments: "3" })
+        .installments,
+    ).toBe(3);
+    expect(newEntrySchema.safeParse({ ...entry, expenseType: "installment" }).success).toBe(false);
+    expect(
+      newEntrySchema.safeParse({ ...entry, expenseType: "installment", installments: "25" })
+        .success,
+    ).toBe(false);
+  });
+
+  it("fixa pede o dia do vencimento; o fim, se houver, vem depois do lançamento", () => {
+    const fixed = { ...entry, expenseType: "fixed", dueDay: "12", fixedKind: "SUBSCRIPTION" };
+    expect(newEntrySchema.parse(fixed)).toMatchObject({
+      dueDay: 12,
+      fixedKind: "SUBSCRIPTION",
+      endsOn: null,
+    });
+    expect(newEntrySchema.safeParse({ ...entry, expenseType: "fixed" }).success).toBe(false);
+    expect(newEntrySchema.safeParse({ ...fixed, endsOn: "2026-09-01" }).success).toBe(false);
+  });
+
+  it("receita nunca é parcelada nem fixa por aqui", () => {
+    expect(
+      newEntrySchema.safeParse({
+        ...entry,
+        kind: "income",
+        expenseType: "installment",
+        installments: "3",
+      }).success,
     ).toBe(false);
   });
 });

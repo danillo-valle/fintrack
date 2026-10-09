@@ -32,11 +32,14 @@ export async function listUsableAccounts(db: PrismaClient, userId: string) {
       name: true,
       kind: true,
       walletId: true,
+      holderId: true,
+      closingDay: true,
+      dueDay: true,
       wallet: { select: { name: true } },
       cards: {
         where: { archivedAt: null },
         orderBy: { nickname: "asc" },
-        select: { id: true, nickname: true, lastFour: true, holderId: true },
+        select: { id: true, nickname: true, lastFour: true, holderId: true, sharedPurchases: true },
       },
     },
   });
@@ -47,6 +50,13 @@ export async function listUsableAccounts(db: PrismaClient, userId: string) {
     kind: a.kind as AccountKind,
     walletId: a.walletId,
     walletName: a.wallet.name,
+    /** Titular: quem aparece em "Pago por" quando não há cartão (M07.4) */
+    holderId: a.holderId,
+    /** Ciclo do cartão de crédito, para o plano de parcelas (nulo nas outras contas) */
+    cycle:
+      a.closingDay !== null && a.dueDay !== null
+        ? { closingDay: a.closingDay, dueDay: a.dueDay }
+        : null,
     /** WALLET: a pessoa edita a carteira da conta; CARD: só usa o próprio cartão adicional */
     via: canEdit.has(a.walletId) ? ("WALLET" as const) : ("CARD" as const),
     // Pela porta do cartão, a pessoa só vê (e usa) os próprios cartões
@@ -78,6 +88,7 @@ export async function listWalletAccounts(db: PrismaClient, grant: WalletGrant<"v
           lastFour: true,
           form: true,
           isAdditional: true,
+          sharedPurchases: true,
           archivedAt: true,
           holder: { select: { name: true } },
         },
@@ -173,6 +184,8 @@ export type NewCardInput = {
   /** Portador: quem usa o cartão. Precisa ser do lar. Padrão: quem cadastra */
   holderId?: string | null;
   isAdditional: boolean;
+  /** Cartão de compras conjuntas: o que se compra com ele é "Compartilhado" (M07.4) */
+  sharedPurchases?: boolean;
 };
 
 /** Cadastra um cartão numa conta de cartão de crédito (ou de vale) da carteira. */
@@ -204,6 +217,7 @@ export async function createCard(
         lastFour: input.lastFour,
         form: input.form,
         isAdditional: input.isAdditional,
+        sharedPurchases: input.sharedPurchases ?? false,
       },
     });
     await writeAudit(
@@ -215,7 +229,12 @@ export async function createCard(
         entity: "payment_card",
         entityId: card.id,
         // Sem os 4 finais: a auditoria nunca guarda número de cartão
-        metadata: { accountId: account.id, form: input.form, isAdditional: input.isAdditional },
+        metadata: {
+          accountId: account.id,
+          form: input.form,
+          isAdditional: input.isAdditional,
+          sharedPurchases: input.sharedPurchases ?? false,
+        },
       },
       ctx,
     );
@@ -246,6 +265,38 @@ export async function setCardArchived(
         entity: "payment_card",
         entityId: cardId,
         metadata: { archived },
+      },
+      ctx,
+    );
+  });
+}
+
+/**
+ * Marca (ou desmarca) um cartão como de compras conjuntas (M07.4). Muda só quem aparece em
+ * "Pago por" nos lançamentos dele, inclusive os antigos (é calculado, não guardado).
+ */
+export async function setCardSharedPurchases(
+  db: PrismaClient,
+  grant: WalletGrant<"manage_accounts">,
+  cardId: string,
+  sharedPurchases: boolean,
+  ctx: RequestContext,
+) {
+  await db.$transaction(async (tx) => {
+    const { count } = await tx.paymentCard.updateMany({
+      where: { id: cardId, account: { walletId: grant.wallet.id } },
+      data: { sharedPurchases },
+    });
+    if (count === 0) throw new DomainError("NOT_FOUND");
+    await writeAudit(
+      tx,
+      {
+        actorId: grant.userId,
+        householdId: grant.wallet.householdId,
+        action: "card.shared_purchases_changed",
+        entity: "payment_card",
+        entityId: cardId,
+        metadata: { sharedPurchases },
       },
       ctx,
     );

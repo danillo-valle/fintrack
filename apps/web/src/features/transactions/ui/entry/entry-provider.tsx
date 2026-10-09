@@ -20,11 +20,20 @@ import {
   useTransition,
 } from "react";
 import { toast } from "sonner";
-import { allowedMethods, defaultMethod, type AccountKind, type CivilDate } from "@fintrack/core";
+import {
+  allowedMethods,
+  defaultMethod,
+  installmentEntries,
+  resolvePayer,
+  type AccountKind,
+  type CardCycle,
+  type CivilDate,
+} from "@fintrack/core";
 import { undoToast } from "@/components/feedback/undo-toast";
 import { INITIAL_ACTION_STATE, type ActionState } from "@/lib/action-state";
 import { focusAfterToast } from "@/lib/focus";
 import { decimalToCents, formatBRL } from "@/lib/money";
+import { payerOptionFor, type PayerOption } from "../../payers";
 import {
   createTransactionAction,
   deleteTransactionAction,
@@ -34,6 +43,8 @@ import {
 } from "../../server/actions";
 
 export type Kind = "expense" | "income";
+/** Tipo da despesa (M07.4): variável (o de sempre), parcelada no cartão ou fixa todo mês. */
+export type ExpenseType = "variable" | "installment" | "fixed";
 
 export type EntryOptions = {
   wallets: { id: string; name: string }[];
@@ -42,11 +53,23 @@ export type EntryOptions = {
     name: string;
     kind: AccountKind;
     walletName: string;
-    cards: { id: string; nickname: string; lastFour: string }[];
+    /** Titular: "Pago por" quando não há cartão */
+    holderId: string | null;
+    /** Fechamento e vencimento, para o plano de parcelas (só cartão de crédito) */
+    cycle: CardCycle | null;
+    cards: {
+      id: string;
+      nickname: string;
+      lastFour: string;
+      holderId: string | null;
+      sharedPurchases: boolean;
+    }[];
   }[];
   categories: { id: string; name: string; kind: "EXPENSE" | "INCOME"; parentName: string | null }[];
   canManageCategories: boolean;
   defaults: { walletId: string | null; accountId: string | null; occurredOn: CivilDate };
+  /** As pessoas do lar e o Compartilhado, para mostrar quem paga */
+  payers: PayerOption[];
 };
 
 /** Valores de um lançamento que já existe (edição). */
@@ -69,8 +92,12 @@ export type EntryErrors = {
   description?: string;
   payment?: string;
   walletId?: string;
+  dueDay?: string;
 };
 type Suggestion = { categoryId: string; reason: string } | null;
+
+/** O dia do mês de uma data AAAA-MM-DD ("08" de "2026-10-08"). */
+const occurredOnDay = (date: string) => date.slice(8, 10);
 
 const INITIAL_ENTRY: EntryState = { ...INITIAL_ACTION_STATE, created: null, version: 0 };
 
@@ -102,6 +129,9 @@ function useEntryValue({
   const [cardId, setCardId] = useState(existing?.cardId ?? "");
   const [walletId, setWalletId] = useState(existing?.walletId ?? options.defaults.walletId ?? "");
   const [method, setMethod] = useState(existing?.method ?? "");
+  const [expenseType, setExpenseType] = useState<ExpenseType>("variable");
+  const [installments, setInstallments] = useState(3);
+  const [dueDay, setDueDay] = useState(() => Number(occurredOnDay(options.defaults.occurredOn)));
   const [errors, setErrors] = useState<EntryErrors>({});
   const amountRef = useRef<HTMLInputElement>(null);
   const descriptionRef = useRef<HTMLInputElement>(null);
@@ -118,6 +148,26 @@ function useEntryValue({
   );
 
   const account = options.accounts.find((a) => a.id === accountId) ?? null;
+  const card = account?.cards.find((c) => c.id === cardId) ?? null;
+  // "Pago por": a mesma regra do core que a lista e o filtro usam
+  const payer = account
+    ? payerOptionFor(
+        resolvePayer({ card, account: { holderId: account.holderId } }),
+        options.payers,
+      )
+    : null;
+  // Parcelar: só despesa nova, num cartão de crédito com fechamento e vencimento
+  const canInstall = account?.kind === "CREDIT_CARD" && account.cycle !== null;
+  const plan =
+    expenseType === "installment" && canInstall && account?.cycle && cents > 0n
+      ? installmentEntries({
+          total: -cents,
+          count: installments,
+          purchasedOn: occurredOn,
+          cycle: account.cycle,
+          today: options.defaults.occurredOn,
+        })
+      : null;
   const wallet = options.wallets.find((w) => w.id === walletId) ?? null;
   const categoryKind = kind === "expense" ? "EXPENSE" : "INCOME";
   const categories = useMemo(
@@ -154,9 +204,18 @@ function useEntryValue({
     setCategoryIdState("");
     setCategoryTouched(false);
     setSuggestion(null);
+    setExpenseType("variable");
     amountRef.current?.focus();
     const label = created.kind === "expense" ? "Despesa" : "Receita";
-    undoToast(`${label} de ${formatBRL(decimalToCents(created.amount))} registrada`, {
+    const message = `${label} de ${formatBRL(decimalToCents(created.amount))} registrada${
+      created.detail ? ` ${created.detail}` : ""
+    }`;
+    // Parcelas e despesas fixas criam mais de uma coisa: "Desfazer" fica para a lista
+    if (!created.undoable) {
+      toast.success(message, { description: created.description });
+      return;
+    }
+    undoToast(message, {
       variant: "success",
       description: created.description,
       onUndo: () => {
@@ -186,6 +245,7 @@ function useEntryValue({
 
   function setKind(next: Kind) {
     setKindState(next);
+    if (next === "income") setExpenseType("variable");
     // Categoria de despesa não serve numa receita: limpa e deixa a cascata sugerir de novo
     setCategoryIdState("");
     setCategoryTouched(false);
@@ -212,6 +272,12 @@ function useEntryValue({
       found.description = "Descreva o lançamento, por exemplo: Mercado.";
     if (!accountId) found.payment = "Escolha com o que foi pago.";
     if (!walletId) found.walletId = "Escolha o ambiente.";
+    if (expenseType === "installment" && !canInstall) {
+      found.payment = 'Parcelada só no cartão de crédito: escolha um cartão em "Pago com".';
+    }
+    if (expenseType === "fixed" && !(dueDay >= 1 && dueDay <= 31)) {
+      found.dueDay = "Dia de 1 a 31.";
+    }
     setErrors(found);
     if (found.amount) amountRef.current?.focus();
     else if (found.description) descriptionRef.current?.focus();
@@ -255,6 +321,15 @@ function useEntryValue({
     errors,
     setErrors,
     validate,
+    expenseType,
+    setExpenseType,
+    installments,
+    setInstallments,
+    dueDay,
+    setDueDay,
+    payer,
+    canInstall,
+    plan,
     // Fora do valor do contexto (o compilador do React não deixa ler refs durante a renderização)
     refs: { amountRef, descriptionRef, paymentRef },
   };

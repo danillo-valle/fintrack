@@ -20,6 +20,16 @@
     }
   }
 }
+/* Modal em tela baixa (M07.4): no computador com até 840 px de altura, os blocos do modal ficam
+   mais juntos para o formulário caber sem barra de rolagem. Só dentro do .route-modal: a página
+   inteira e as telas mais altas ficam com as medidas do canvas C.2. */
+@custom-variant compact {
+  @media (width >= 48rem) and (height <= 52.5rem) {
+    &:where(.route-modal *) {
+      @slot;
+    }
+  }
+}
 
 /*
  * Visual C "Elétrico" (M07.1, ADR-008): azul elétrico com toque de lima.
@@ -76,6 +86,13 @@
   --chart-3: #d6336c;
   --chart-4: #b35c00;
   --chart-5: #00809e;
+  /* Texto na cor do tom sobre o próprio tom a 16 % (o quadrado "Pago por", M07.4): um degrau
+     mais escuro que a cor de gráfico, para chegar a 4,5:1 sobre o cartão e sobre o muted */
+  --chart-1-ink: #284dd9;
+  --chart-2-ink: #426800;
+  --chart-3-ink: #a92855;
+  --chart-4-ink: #914b00;
+  --chart-5-ink: #00667e;
 
   /* Saldo em destaque suave (M07.3): azul-claro com texto azul; substitui o painel azul cheio */
   --hero-soft: #dce5ff;
@@ -137,6 +154,11 @@
   --chart-3: #ff7088;
   --chart-4: #ffb648;
   --chart-5: #3dd6f5;
+  --chart-1-ink: #849dff;
+  --chart-2-ink: #c6ff3d;
+  --chart-3-ink: #ff738a;
+  --chart-4-ink: #ffb648;
+  --chart-5-ink: #3dd6f5;
 
   --hero-soft: #273154;
   --hero-soft-2: #181d34;

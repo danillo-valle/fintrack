@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { IconTile, type Tone } from "@/components/visual/icon-tile";
 import { getTransactionsPage } from "@/features/transactions/server/queries";
+import { EnvironmentSwitcher } from "@/features/transactions/ui/environment-switcher";
 import { NewTransactionButton } from "@/features/transactions/ui/new-transaction-button";
 import { TotalsSummary } from "@/features/transactions/ui/totals-summary";
 import { TransactionList } from "@/features/transactions/ui/transaction-list";
@@ -23,15 +24,18 @@ const SHORTCUTS: { href: string; label: string; icon: typeof Plus; tone: Tone }[
   { href: "/carteiras", label: "Carteiras", icon: Wallet, tone: 3 },
 ];
 
-// Início (M07.2): o resumo do mês no painel elétrico, atalhos e os últimos lançamentos.
+// Início (M07.2; resumo do M07.3 e seletor de ambiente do M07.4): o resumo do mês, atalhos e os
+// últimos lançamentos.
 // Os números saem da MESMA consulta da lista (com o crachá de escopo do M07): só as carteiras
 // que a pessoa vê. O painel completo, com orçamento e gráficos, chega no M08.
-export default async function HomePage() {
+export default async function HomePage({ searchParams }: PageProps<"/">) {
   // Toda página do app começa conferindo a sessão (skill auth-guard)
   const session = await requireUser();
   const firstName = session.user.name.split(" ")[0] ?? session.user.name;
   const today = todayISO();
-  const page = await getTransactionsPage(session, {});
+  // Só o ambiente vem da URL (?carteira=): o Início é sempre o mês de hoje
+  const { carteira } = await searchParams;
+  const page = await getTransactionsPage(session, { carteira });
   const month = formatMonth(new Date(`${today}T12:00:00Z`));
   const recent = page.items.slice(0, 5);
 
@@ -40,7 +44,18 @@ export default async function HomePage() {
       <PageHeader
         title="Início"
         description={`Olá, ${firstName}. Este é o resumo do mês.`}
-        actions={page.hasWallets ? <NewTransactionButton /> : undefined}
+        actions={
+          page.hasWallets ? (
+            <>
+              <EnvironmentSwitcher
+                environments={page.environments}
+                current={page.parsed.walletId}
+                hrefFor={(walletId) => (walletId ? `/?carteira=${walletId}` : "/")}
+              />
+              <NewTransactionButton />
+            </>
+          ) : undefined
+        }
       />
 
       {page.hasWallets ? (
@@ -89,7 +104,13 @@ export default async function HomePage() {
                 }
               />
             ) : (
-              <TransactionList items={recent} today={today} readOnly dayHeading="h3" />
+              <TransactionList
+                items={recent}
+                payers={page.payers}
+                today={today}
+                readOnly
+                dayHeading="h3"
+              />
             )}
           </section>
         </div>

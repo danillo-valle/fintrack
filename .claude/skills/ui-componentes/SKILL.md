@@ -23,6 +23,10 @@ description: Como construir telas e componentes no FinTrack com shadcn/ui, Tailw
 | Lista de coisas (linhas agrupadas)     | `<SurfaceList>` + `<SurfaceRow leading title meta trailing />`     | `src/components/visual/surface-list.tsx`                                |
 | Ícone colorido de categoria/tipo       | `<IconTile tone={toneFor(id)} letter / icon />`                    | `src/components/visual/icon-tile.tsx` e `tone.ts`                       |
 | Atalho ou filtro rápido                | `<ChipLink href active>`                                           | `src/components/visual/chip.tsx`                                        |
+| Escolher uma entre poucas (na URL)     | `<SegmentedNav label items />` (links com `aria-current`)          | `src/components/visual/segmented-nav.tsx`                               |
+| Seletor de ambiente (carteira)         | `<EnvironmentSwitcher environments current hrefFor />`             | `src/features/transactions/ui/environment-switcher.tsx`                 |
+| Quem pagou (DV, NV, CP)                | `<PayerTile payer />` (texto na tinta `--chart-N-ink`)             | `src/features/transactions/ui/payer-tile.tsx`                           |
+| Filtro "Pago por"                      | `<PayerChips payers current hrefFor />` no `extra` da ListToolbar  | `src/features/transactions/ui/payer-chips.tsx`                          |
 | Bloco de uma página com título         | `<Section id title description>`                                   | `src/components/visual/section.tsx`                                     |
 | Formulário por cima da página          | `<RouteModal title description footer>` numa rota `@modal/(.)rota` | `src/components/ui/route-modal.tsx` (exemplo: novo lançamento)          |
 | Formulário de lançamento               | `EntryProvider` + `EntryForm` + `EntrySubmit`/`EntryModalActions`  | `src/features/transactions/ui/entry/`                                   |
@@ -140,3 +144,23 @@ Regras do padrão:
 - `pnpm check` e `pnpm e2e` passam.
 - A tela nova entrou na lista `PAGES` (app, com sessão) ou `PUBLIC_PAGES` (telas de entrada) de `e2e/helpers.ts`, usadas pelos testes de acessibilidade, de foco e de proteção.
 - Conferiu no catálogo, nos dois temas, em largura de celular (390px) e de desktop, e com o modal aberto.
+
+## Cor de tom como texto (M07.4)
+
+`--chart-N` é cor de gráfico e de ícone (3:1). Quando a cor do tom vira **texto** que carrega
+informação (as iniciais do `PayerTile`), use a tinta `--chart-N-ink`, conferida a 4,5:1 sobre o
+próprio tom a 16 % no `theme-contrast.test.ts`. O `IconTile` pode usar `--chart-N` porque é
+decorativo (`aria-hidden`, o nome está escrito ao lado).
+
+## Modal sem barra de rolagem em tela baixa (M07.4)
+
+O modal de rota mantém as medidas do canvas a partir de 840 px de altura. Abaixo disso, no
+computador, a variante `compact:` (só vale dentro do `.route-modal`) aperta espaços e alturas:
+`compact:gap-2`, `compact:h-10`, `compact:hidden` para textos de apoio. Bloco novo no formulário
+do modal entra com as suas classes `compact:`, e o teste "o modal do novo lançamento cabe na tela"
+(`e2e/resumo-e-barra.spec.ts`) confere 1280 × 720 em cada tipo de despesa. Nunca altura fixa nem
+`overflow: hidden` para esconder a sobra.
+
+A parte que rola num painel de altura automática usa `flex-auto` (base = conteúdo), nunca `flex-1`
+(base 0 %): no Safari, a base 0 % faz o meio do modal sumir. O teste do modal confere
+`flex-basis: auto` no estilo calculado, porque o Chromium dos testes não mostra o problema.

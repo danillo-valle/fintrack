@@ -9,6 +9,8 @@
 import {
   archiveRecurrence,
   confirmTransaction,
+  createFixedExpense,
+  createInstallmentPurchase,
   createRecurrence,
   createTransaction,
   createTransfer,
@@ -38,6 +40,7 @@ import type { Session } from "@/lib/auth";
 import {
   exportSchema,
   generateSchema,
+  newEntrySchema,
   recurrenceIdSchema,
   recurrenceSchema,
   suggestSchema,
@@ -84,17 +87,31 @@ export async function suggestCategoryAction(input: {
 
 /** Estado do lançamento rápido: além do aviso, o lançamento criado (para o "desfazer"). */
 export type EntryState = ActionState & {
-  created: { id: string; amount: string; kind: "expense" | "income"; description: string } | null;
+  created: {
+    id: string;
+    amount: string;
+    kind: "expense" | "income";
+    description: string;
+    /** "Desfazer" só vale para o lançamento simples; parcelas e fixas se desfazem na lista */
+    undoable: boolean;
+    /** Para o aviso: "em 3 parcelas", "todo mês" */
+    detail: string | null;
+  } | null;
   /** Muda a cada envio que deu certo: o formulário usa para se limpar */
   version: number;
 };
 
+/**
+ * O novo lançamento (M07; tipo da despesa no M07.4). Variável é o lançamento de sempre; parcelada
+ * vira N lançamentos, um por fatura (createInstallmentPurchase); fixa cria a recorrência e o
+ * lançamento deste mês (createFixedExpense). As três passam pelos mesmos crachás.
+ */
 export async function createTransactionAction(
   prev: EntryState,
   formData: FormData,
 ): Promise<EntryState> {
   const session = await requireUser();
-  const parsed = transactionSchema.safeParse(Object.fromEntries(formData));
+  const parsed = newEntrySchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ...invalid(parsed.error), created: null, version: prev.version };
   const data = parsed.data;
 
@@ -102,23 +119,51 @@ export async function createTransactionAction(
   const result = await runAction(async () => {
     const wallet = await requireWalletAccess(session, data.walletId, "edit");
     const account = await requireAccountUse(session, data.accountId);
-    const { id } = await createTransaction(
-      prisma,
-      wallet,
-      account,
-      { ...data, cents: data.amount },
-      {
-        scope: await requireScope(session, "view"),
-        rememberRule: await ruleGrantIfAsked(session, data.rememberRule),
-      },
-      await requestContext(),
-    );
-    created = {
-      id,
+    const ctx = await requestContext();
+    const options = {
+      scope: await requireScope(session, "view"),
+      rememberRule: await ruleGrantIfAsked(session, data.rememberRule),
+    };
+    const base = {
       amount: centsToDecimal(data.amount),
       kind: data.kind,
       description: data.description,
     };
+    if (data.expenseType === "installment" && data.installments !== undefined) {
+      const { transactionIds } = await createInstallmentPurchase(
+        prisma,
+        wallet,
+        account,
+        { ...data, cents: data.amount, count: data.installments, purchasedOn: data.occurredOn },
+        options,
+        ctx,
+      );
+      created = {
+        ...base,
+        id: transactionIds[0]!,
+        undoable: false,
+        detail: `em ${data.installments} parcelas`,
+      };
+    } else if (data.expenseType === "fixed" && data.dueDay !== undefined) {
+      const { transactionId } = await createFixedExpense(
+        prisma,
+        wallet,
+        account,
+        { ...data, kind: data.fixedKind, cents: data.amount, dayOfMonth: data.dueDay },
+        ctx,
+      );
+      created = { ...base, id: transactionId, undoable: false, detail: "todo mês" };
+    } else {
+      const { id } = await createTransaction(
+        prisma,
+        wallet,
+        account,
+        { ...data, cents: data.amount },
+        options,
+        ctx,
+      );
+      created = { ...base, id, undoable: true, detail: null };
+    }
   });
   revalidatePath(LIST);
   return result.error

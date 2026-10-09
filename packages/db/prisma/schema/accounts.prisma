@@ -119,23 +119,27 @@ model FinancialAccount {
 /// Guardar o número inteiro (PAN) traria as obrigações do padrão PCI DSS, e o app não precisa
 /// dele: o Open Finance (M09) também só devolve o número mascarado.
 model PaymentCard {
-  id           String    @id @default(uuid(7)) @db.Uuid
-  accountId    String    @db.Uuid
+  id              String    @id @default(uuid(7)) @db.Uuid
+  accountId       String    @db.Uuid
   /// Portador: quem usa este cartão (no adicional, outra pessoa que não o titular da conta)
-  holderId     String?
+  holderId        String?
   /// Nome para reconhecer na tela ("Master 1001", "Virtual assinaturas")
-  nickname     String
+  nickname        String
   /// Bandeira: Mastercard, Visa, Elo, Amex, Pluxee... Texto, e não enum, para uma bandeira
   /// nova não exigir migração. CHECK: de 2 a 30 caracteres
-  brand        String
+  brand           String
   /// CHECK: exatamente 4 dígitos
-  lastFour     String    @db.Char(4)
-  form         CardForm
-  isAdditional Boolean   @default(false)
+  lastFour        String    @db.Char(4)
+  form            CardForm
+  isAdditional    Boolean   @default(false)
+  /// Cartão de compras conjuntas (M07.4): o que se compra com ele aparece como "Compartilhado"
+  /// em "Pago por", e não como do portador. Só muda quem aparece como pagador; quem paga a
+  /// fatura continua sendo a conta (ADR-009).
+  sharedPurchases Boolean   @default(false)
   /// Arquivar em vez de apagar: o cartão some das listas, os lançamentos antigos continuam
-  archivedAt   DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  archivedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   account      FinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
   holder       User?            @relation("CardHolder", fields: [holderId], references: [id], onDelete: SetNull)

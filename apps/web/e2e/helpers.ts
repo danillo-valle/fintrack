@@ -447,6 +447,8 @@ export async function createFinanceDirect(input: {
       lastFour: string;
       holderEmail: string;
       isAdditional?: boolean;
+      /** Cartão de compras conjuntas (M07.4) */
+      sharedPurchases?: boolean;
     }[];
   }[];
   categories?: { id?: string; name: string; kind: "EXPENSE" | "INCOME" }[];
@@ -460,9 +462,12 @@ export async function createFinanceDirect(input: {
     description: string;
     category?: string;
     transferId?: string;
+    /** O apelido de um cartão da conta (M07.4: "Pago por" segue o cartão) */
+    card?: string;
   }[];
 }) {
   const accounts: Record<string, { id: string; kind: AccountKind }> = {};
+  const cards: Record<string, string> = {};
   for (const a of input.accounts ?? []) {
     const holderId = a.holderEmail ? await userIdByEmail(a.holderEmail) : null;
     const [row] = await sql<{ id: string }>(
@@ -481,9 +486,10 @@ export async function createFinanceDirect(input: {
     );
     accounts[a.name] = { id: row!.id, kind: a.kind };
     for (const c of a.cards ?? []) {
-      await sql(
-        `INSERT INTO payment_card (id, "accountId", "holderId", nickname, brand, "lastFour", form, "isAdditional", "updatedAt")
-         VALUES (COALESCE($1::uuid, gen_random_uuid()), $2, $3, $4, 'Mastercard', $5, 'PHYSICAL', $6, now())`,
+      const [card] = await sql<{ id: string }>(
+        `INSERT INTO payment_card (id, "accountId", "holderId", nickname, brand, "lastFour", form, "isAdditional", "sharedPurchases", "updatedAt")
+         VALUES (COALESCE($1::uuid, gen_random_uuid()), $2, $3, $4, 'Mastercard', $5, 'PHYSICAL', $6, $7, now())
+         RETURNING id`,
         [
           c.id ?? null,
           row!.id,
@@ -491,8 +497,10 @@ export async function createFinanceDirect(input: {
           c.nickname,
           c.lastFour,
           c.isAdditional ?? false,
+          c.sharedPurchases ?? false,
         ],
       );
+      cards[c.nickname] = card!.id;
     }
   }
   const categories: Record<string, string> = {};
@@ -514,8 +522,8 @@ export async function createFinanceDirect(input: {
     const account = accounts[t.account]!;
     const method = t.transferId ? "TRANSFER" : account.kind === "CREDIT_CARD" ? "CREDIT" : "PIX";
     await sql(
-      `INSERT INTO "transaction" (id, "householdId", "walletId", "accountId", method, "categoryId", amount, "occurredOn", description, "transferId", "updatedAt")
-       VALUES (COALESCE($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10, now())`,
+      `INSERT INTO "transaction" (id, "householdId", "walletId", "accountId", method, "categoryId", amount, "occurredOn", description, "transferId", "cardId", "updatedAt")
+       VALUES (COALESCE($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())`,
       [
         t.id ?? null,
         input.householdId,
@@ -527,10 +535,11 @@ export async function createFinanceDirect(input: {
         t.occurredOn,
         t.description,
         t.transferId ?? null,
+        t.card ? cards[t.card] : null,
       ],
     );
   }
-  return { accounts, categories };
+  return { accounts, categories, cards };
 }
 
 /**

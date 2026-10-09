@@ -118,6 +118,17 @@ describe.each([
     expect(contrast(theme["primary-foreground"]!, hover)).toBeGreaterThanOrEqual(4.5);
   });
 
+  // O quadrado "Pago por" (M07.4): as iniciais na tinta do tom, sobre o tom a 16 % em cima do
+  // cartão (a lista) e do muted (o bloco do pagamento no modal)
+  it.each([1, 2, 3, 4, 5])("tinta do tom %s sobre o próprio tom a 16 % ≥ 4,5:1", (tone) => {
+    const ink = theme[`chart-${tone}-ink`];
+    expect(ink, `--chart-${tone}-ink`).toBeDefined();
+    for (const surface of [theme.card!, theme.muted!, theme.background!]) {
+      const tile = mix(theme[`chart-${tone}`]!, 0.16, surface);
+      expect(contrast(ink!, tile)).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
   it.each(NON_TEXT)("%s sobre o cartão ≥ 3:1", (name) => {
     expect(contrast(theme[name]!, theme.card!)).toBeGreaterThanOrEqual(3);
   });
