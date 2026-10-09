@@ -70,3 +70,4 @@ export * from "./accounts";
 export * from "./categories";
 export * from "./recurrences";
 export * from "./transactions";
+export * from "./installments";

@@ -171,6 +171,10 @@ export type DomainErrorCode =
   | "TRANSFER_READONLY" // transferência não se edita: exclua e lance de novo
   | "SAME_ACCOUNT" // transferência da conta para ela mesma
   | "CARD_HOLDER_OUTSIDE_HOUSEHOLD" // portador do cartão precisa ser do lar
+  // ── Parcelas e despesas fixas (M07.4) ──
+  | "INSTALLMENTS_NEED_CREDIT_CARD" // só compra no cartão de crédito é parcelada
+  | "CARD_CYCLE_MISSING" // o cartão não tem dia de fechamento e vencimento cadastrados
+  | "INSTALLMENT_COUNT_INVALID" // de 2 a 24 parcelas
   | "NOT_FOUND";
 
 // ── M07: contas, lançamentos e listas que juntam várias carteiras ───────────────
