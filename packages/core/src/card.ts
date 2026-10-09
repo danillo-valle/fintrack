@@ -19,6 +19,7 @@ import {
   compareCivil,
   dayOfMonth,
   monthOf,
+  parseCivilDate,
   parseMonthKey,
   type CivilDate,
   type MonthKey,
@@ -105,4 +106,41 @@ export function installmentPlan(input: {
     amount,
     ...statementOfMonth(addMonthsToKey(first.referenceMonth, index), input.cycle),
   }));
+}
+
+/** Uma parcela pronta para virar lançamento: o plano, o dia em que ela aparece e a situação. */
+export type InstallmentEntry = Installment & {
+  /** O mesmo dia da compra, mês a mês (31 vira o último dia nos meses mais curtos) */
+  occurredOn: CivilDate;
+  /** Parcela que já chegou (até hoje) é CONFIRMED; as futuras ficam SCHEDULED (agendadas) */
+  status: "CONFIRMED" | "SCHEDULED";
+};
+
+/**
+ * As parcelas de uma compra no cartão como lançamentos (M07.4): o valor e a fatura de cada uma
+ * (installmentPlan) e o dia em que ela aparece na lista. A parcela 1 aparece no dia da compra; a
+ * 2 no mesmo dia do mês seguinte, e assim por diante. Assim, a lista de cada mês mostra a parcela
+ * daquele mês, e as futuras aparecem como agendadas.
+ *
+ *   installmentEntries({ total: -4235n, count: 3, purchasedOn: "2026-10-08",
+ *                        cycle: { closingDay: 25, dueDay: 5 }, today: "2026-10-08" })
+ *   → 08/10 −14,13 (confirmada), 08/11 −14,11 e 08/12 −14,11 (agendadas)
+ */
+export function installmentEntries(input: {
+  total: Cents;
+  count: number;
+  purchasedOn: CivilDate;
+  cycle: CardCycle;
+  today: CivilDate;
+}): InstallmentEntry[] {
+  const { day } = parseCivilDate(input.purchasedOn);
+  const month = monthOf(input.purchasedOn);
+  return installmentPlan(input).map((installment) => {
+    const occurredOn = dayOfMonth(addMonthsToKey(month, installment.number - 1), day);
+    return {
+      ...installment,
+      occurredOn,
+      status: compareCivil(occurredOn, input.today) <= 0 ? "CONFIRMED" : "SCHEDULED",
+    };
+  });
 }

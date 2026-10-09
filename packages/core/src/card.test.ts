@@ -1,6 +1,12 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { installmentPlan, statementFor, statementOfMonth, type CardCycle } from "./card";
+import {
+  installmentEntries,
+  installmentPlan,
+  statementFor,
+  statementOfMonth,
+  type CardCycle,
+} from "./card";
 import { addDays, addMonthsToKey, civilDate, compareCivil, daysBetween, monthOf } from "./dates";
 import { sumCents } from "./money";
 
@@ -149,5 +155,60 @@ describe("fatura do cartão: propriedades", () => {
         },
       ),
     );
+  });
+});
+
+describe("installmentEntries", () => {
+  const cycle = { closingDay: 25, dueDay: 5 };
+
+  it("uma parcela por mês, no dia da compra; a sobra de centavos vai na 1ª", () => {
+    const entries = installmentEntries({
+      total: -4235n,
+      count: 3,
+      purchasedOn: "2026-10-08",
+      cycle,
+      today: "2026-10-08",
+    });
+    expect(entries.map((e) => [e.occurredOn, e.amount, e.referenceMonth, e.status])).toEqual([
+      ["2026-10-08", -1413n, "2026-10", "CONFIRMED"],
+      ["2026-11-08", -1411n, "2026-11", "SCHEDULED"],
+      ["2026-12-08", -1411n, "2026-12", "SCHEDULED"],
+    ]);
+    expect(entries.reduce((sum, e) => sum + e.amount, 0n)).toBe(-4235n);
+  });
+
+  it("dia 31 vira o último dia dos meses curtos, e a virada do ano funciona", () => {
+    const entries = installmentEntries({
+      total: -30000n,
+      count: 3,
+      purchasedOn: "2026-12-31",
+      cycle,
+      today: "2026-12-31",
+    });
+    expect(entries.map((e) => e.occurredOn)).toEqual(["2026-12-31", "2027-01-31", "2027-02-28"]);
+  });
+
+  it("compra lançada depois: as parcelas que já passaram entram confirmadas", () => {
+    const entries = installmentEntries({
+      total: -90000n,
+      count: 3,
+      purchasedOn: "2026-08-10",
+      cycle,
+      today: "2026-10-09",
+    });
+    // 10/08 e 10/09 já passaram; 10/10 ainda não chegou (hoje é 09/10)
+    expect(entries.map((e) => e.status)).toEqual(["CONFIRMED", "CONFIRMED", "SCHEDULED"]);
+  });
+
+  it("compra depois do fechamento: a 1ª parcela já cai na fatura seguinte", () => {
+    const [first] = installmentEntries({
+      total: -10000n,
+      count: 2,
+      purchasedOn: "2026-10-26",
+      cycle,
+      today: "2026-10-26",
+    });
+    expect(first!.referenceMonth).toBe("2026-11");
+    expect(first!.occurredOn).toBe("2026-10-26");
   });
 });
