@@ -8,7 +8,10 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/80",
+        // M07.2: o hover escurece (claro) ou clareia (escuro) em vez de ficar transparente. O primary/80
+        // do shadcn deixava o azul claro demais para o texto branco (3,65:1) e o axe reprovou.
+        default:
+          "bg-primary text-primary-foreground hover:bg-[color-mix(in_srgb,var(--primary),var(--foreground)_12%)]",
         outline:
           "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:
@@ -16,7 +19,8 @@ const buttonVariants = cva(
         ghost:
           "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
         destructive:
-          "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive dark:bg-destructive/20 dark:hover:bg-destructive/30",
+          // hover em 15 % (claro) e 25 % (escuro): 20 % e 30 % ficavam abaixo de 4,5:1
+          "bg-destructive/10 text-destructive hover:bg-destructive/15 focus-visible:border-destructive/40 focus-visible:ring-destructive dark:bg-destructive/20 dark:hover:bg-destructive/25",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
