@@ -66,14 +66,46 @@ test("o modal do novo lançamento cabe na tela, e o subtítulo segue o ambiente"
   const salvar = modal.getByRole("button", { name: "Salvar despesa" });
   await expect(salvar).toBeInViewport();
   if (!isMobile) {
-    // No computador, nada de barra de rolagem dentro do modal
-    const sobra = await modal.evaluate((dialog) => {
-      const meio = dialog.children[1] as HTMLElement;
-      return meio.scrollHeight - meio.clientHeight;
-    });
-    expect(sobra).toBeLessThanOrEqual(0);
+    // No computador (1280 × 720), nada de barra de rolagem dentro do modal, em nenhum tipo de
+    // despesa (M07.4): parcelada e fixa têm uma linha a mais, e a variante "compact" aperta os
+    // blocos em tela baixa para elas caberem também
+    for (const tipo of ["Variável", "Parcelada", "Fixa"]) {
+      await modal.getByText(tipo, { exact: true }).click();
+      const sobra = await modal.evaluate((dialog) => {
+        const meio = dialog.children[1] as HTMLElement;
+        return meio.scrollHeight - meio.clientHeight;
+      });
+      expect(sobra, tipo).toBeLessThanOrEqual(0);
+    }
+    await modal.getByText("Variável", { exact: true }).click();
+    // O meio cresce a partir do conteúdo (flex-basis auto). Com base 0 % (flex-1), o Safari
+    // calculava o meio a partir de zero e o formulário sumia; o Chromium dos testes não mostra isso,
+    // então a regra é conferida no estilo calculado.
+    const base = await modal.evaluate(
+      (dialog) => getComputedStyle(dialog.children[1] as HTMLElement).flexBasis,
+    );
+    expect(base).toBe("auto");
   }
   const ambiente = modal.getByLabel("Ambiente");
   const nome = await ambiente.evaluate((s: HTMLSelectElement) => s.selectedOptions[0]!.text);
   await expect(modal.getByText(`No ambiente ${nome}`)).toBeVisible();
+});
+
+test("em tela bem baixa, só o meio do modal rola, e o Salvar continua à vista", async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, "no celular o painel ocupa a tela toda");
+  await page.setViewportSize({ width: 1280, height: 560 });
+  await openPage(page, "/lancamentos");
+  await page.getByRole("link", { name: "Novo lançamento" }).first().click();
+  const modal = page.getByRole("dialog", { name: "Novo lançamento" });
+  await expect(modal).toBeVisible();
+  const meio = await modal.evaluate((dialog) => {
+    const m = dialog.children[1] as HTMLElement;
+    return { altura: m.clientHeight, sobra: m.scrollHeight - m.clientHeight };
+  });
+  expect(meio.altura).toBeGreaterThan(200); // o formulário aparece, não some
+  expect(meio.sobra).toBeGreaterThan(0); // e rola, porque não cabe
+  await expect(modal.getByRole("button", { name: "Salvar despesa" })).toBeInViewport();
 });
