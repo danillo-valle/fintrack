@@ -1,7 +1,8 @@
 import Link from "next/link";
 
-// Marca do app: o mesmo desenho do ícone instalado no celular
-export function Brand() {
+// Marca do app: o mesmo desenho do ícone instalado no celular.
+// collapsible: no menu lateral recolhido, fica só o desenho (o nome segue para o leitor de tela).
+export function Brand({ collapsible = false }: { collapsible?: boolean }) {
   return (
     <Link
       href="/"
@@ -12,7 +13,7 @@ export function Brand() {
         <path d="M10 8h13v4H14v3h7v4h-7v5h-4z" className="fill-hero-foreground" />
         <circle cx="23" cy="22" r="2.5" className="fill-highlight" />
       </svg>
-      <span>FinTrack</span>
+      <span className={collapsible ? "collapsed:sr-only" : undefined}>FinTrack</span>
     </Link>
   );
 }

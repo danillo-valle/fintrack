@@ -12,9 +12,11 @@ type Props = {
 export function AuthCard({ title, description, children, footer }: Props) {
   return (
     <div className="flex w-full max-w-sm flex-col gap-6">
-      <Brand />
-      <div className="bg-card rounded-2xl border p-6 shadow-sm">
-        <h1 className="text-xl font-semibold tracking-tight text-balance">{title}</h1>
+      <div className="lg:hidden">
+        <Brand />
+      </div>
+      <div className="bg-card rounded-3xl border p-6 shadow-[0_18px_40px_-24px_rgb(14_19_37/0.35)] md:p-8">
+        <h1 className="text-2xl font-bold tracking-tight text-balance">{title}</h1>
         {description ? (
           <div className="text-muted-foreground mt-1 mb-6 text-sm">{description}</div>
         ) : (
