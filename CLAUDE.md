@@ -45,7 +45,8 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
 - `apps/web/src/app/` rotas (páginas e rotas de API)
 - `apps/web/src/features/<nome>/` uma pasta por funcionalidade, com `server/`, `ui/` e `schemas.ts`
 - `apps/web/src/components/ui/` componentes do shadcn/ui
-- `apps/web/src/components/{layout,money,feedback}/` componentes próprios do FinTrack
+- `apps/web/src/components/{layout,money,feedback,visual}/` componentes próprios do FinTrack;
+  `components/layout/sidebar/` o menu lateral (estado, alça, itens)
 - `apps/web/src/lib/` utilitários compartilhados (`money.ts`, `dates.ts`, `auth.ts`, `auth-client.ts`, `env.ts`)
 - `apps/web/src/lib/auth/` regras de acesso: `session.ts` (requireUser), `routes.ts`, `reauth.ts`
 - `apps/web/src/features/auth/` telas e actions de login, 2FA, passkeys e sessões
@@ -90,6 +91,10 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
 - Cores só por token do tema (`text-income`, `bg-muted`); nunca cor fixa.
 - Para qualquer trabalho de interface, siga a skill `ui-componentes` (visual "Elétrico", ADR-008: vidro só
   na moldura, contraste conferido pelo `theme-contrast.test.ts`, novo lançamento em modal de rota).
+  A referência visual é o canvas "FinTrack Visual" (linha C.2): tela nova é desenhada lá antes do código.
+- Mudança nova entra como estrutura, não como remendo: peça visual repetida vira componente em
+  `components/visual/`, peça de domínio fica em `features/<nome>/ui/`, regra de negócio vai para
+  `packages/core` (com teste). Se a peça nova muda quem a chama, atualize toda a cadeia de chamadas.
 
 ## Como trabalhar
 

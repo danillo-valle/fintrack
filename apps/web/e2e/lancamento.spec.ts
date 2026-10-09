@@ -26,7 +26,7 @@ test("colar um valor formatado substitui o campo", async ({ page, context, brows
 });
 
 test("mostra os erros e só salva com valor e descrição", async ({ page }) => {
-  await page.getByRole("button", { name: "Salvar lançamento" }).click();
+  await page.getByRole("button", { name: "Salvar despesa" }).click();
   await expect(page.getByText("Informe um valor maior que zero.")).toBeVisible();
   await expect(page.getByText("Descreva o lançamento")).toBeVisible();
   await expect(page.getByLabel("Valor")).toHaveAttribute("aria-invalid", "true");
@@ -35,7 +35,7 @@ test("mostra os erros e só salva com valor e descrição", async ({ page }) => 
 
   await page.getByLabel("Valor").pressSequentially("4235");
   await page.getByLabel("Descrição").fill("Mercado");
-  await page.getByRole("button", { name: "Salvar lançamento" }).click();
+  await page.getByRole("button", { name: "Salvar despesa" }).click();
 
   await expect(page.getByText(brl("Despesa de R$ 42,35 registrada"))).toBeVisible();
   await expect(page.getByLabel("Valor")).toHaveValue(brl("R$ 0,00"));
@@ -45,7 +45,7 @@ test("Desfazer devolve o que foi apagado do formulário", async ({ page }) => {
   await page.getByText("Receita", { exact: true }).click(); // clica no rótulo, como uma pessoa
   await page.getByLabel("Valor").pressSequentially("850000");
   await page.getByLabel("Descrição").fill("Salário");
-  await page.getByRole("button", { name: "Salvar lançamento" }).click();
+  await page.getByRole("button", { name: "Salvar receita" }).click();
 
   await page.getByRole("button", { name: "Desfazer" }).click();
   await expect(page.getByLabel("Valor")).toBeFocused(); // o foco volta ao formulário
@@ -61,7 +61,7 @@ test("o tipo do lançamento se escolhe com as setas do teclado", async ({ page }
 });
 
 test("o erro de cada campo some quando ele fica válido", async ({ page }) => {
-  await page.getByRole("button", { name: "Salvar lançamento" }).click();
+  await page.getByRole("button", { name: "Salvar despesa" }).click();
   await page.getByLabel("Valor").pressSequentially("4235");
   await expect(page.getByText("Informe um valor maior que zero.")).toHaveCount(0);
   await expect(page.getByText("Descreva o lançamento")).toBeVisible();
@@ -73,7 +73,7 @@ test("o erro de cada campo some quando ele fica válido", async ({ page }) => {
 test("descrição só com espaços é recusada e recebe o foco", async ({ page }) => {
   await page.getByLabel("Valor").pressSequentially("100");
   await page.getByLabel("Descrição").fill("   ");
-  await page.getByRole("button", { name: "Salvar lançamento" }).click();
+  await page.getByRole("button", { name: "Salvar despesa" }).click();
   await expect(page.getByText("Descreva o lançamento")).toBeVisible();
   await expect(page.getByLabel("Descrição")).toBeFocused();
 });

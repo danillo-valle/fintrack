@@ -49,3 +49,36 @@ Três restrições pesaram na escolha:
 - Elemento fixo novo com vidro exige rever o `scroll-padding` e o `e2e/foco-visivel.spec.ts` (ADR-002).
 - Alternativas descartadas: A (contraste instável sobre luzes coloridas; muito vidro para celular barato) e
   B (pílulas e teclado próprio mudariam o comportamento das telas, não só o visual).
+
+## Adendo (M07.2): o padrão em todas as telas
+
+O M07.1 trocou cores, moldura e o modal, mas manteve a composição antiga das telas. No M07.2 o padrão
+do exemplo C passou a valer para o site inteiro: um painel elétrico por página (Início, Lançamentos,
+Carteiras, Ajustes e o lado esquerdo das telas de entrada), listas agrupadas com ícone colorido por
+categoria ou tipo, chips de período e atalhos, a lista de lançamentos em colunas no desktop (o mesmo
+HTML, com `display: contents`) e o Início com o resumo do mês e os últimos lançamentos. Os
+componentes ficam em `src/components/visual/` e a skill `ui-componentes` descreve a anatomia de uma tela.
+
+O menu lateral do desktop também passou a ser moldura de vidro (`glass-sidebar`, 72 % da cor do menu),
+com um brilho azul atrás dele para o vidro ter o que mostrar. O contraste do texto é conferido sobre o
+fundo e sobre cada brilho no `theme-contrast.test.ts`. O menu recolhe até ficarem só os ícones; o texto
+vira dica e continua sendo o nome acessível de cada link. A escolha fica num cookie para o servidor
+desenhar a página já no estado certo.
+
+## Adendo (M07.3): o desenho C.2
+
+Depois do M07.2 em produção, o painel azul ficou grande demais e o menu lateral claro demais. O
+canvas ganhou a linha C.2, aprovada antes do código, e o M07.3 a implementa:
+
+- O resumo virou uma faixa baixa (`SummaryGrid`): o saldo num `HighlightCard` azul-claro
+  (tokens `hero-soft*`) e entradas e saídas em `StatCard` brancos, em verde e vermelho. Verde e
+  vermelho não vão sobre o azul: não passam no contraste.
+- O menu lateral é marinho de vidro nos dois temas, só com navegação; "Novo lançamento" foi para o
+  cabeçalho das páginas principais. Ele recolhe por uma alça na borda. As luzes que o vidro mostra
+  (`ShellBackdrop`) ficam atrás dele, só no computador.
+- As ações secundárias viraram uma `ActionBar` e os filtros um painel aberto por botão
+  (`ListToolbar`); no celular, as ações entram no mesmo painel.
+- O modal do novo lançamento tem cabeçalho, meio e rodapé; só o meio rola, e no computador a partir
+  de 720 px de altura não rola. O formulário foi reorganizado em blocos (`features/transactions/ui/entry/`).
+- O hover do botão principal (`primary/80` do shadcn) dava 3,65:1 com texto branco; agora escurece
+  a cor em vez de clarear, e o teste de contraste mede os estados de hover.

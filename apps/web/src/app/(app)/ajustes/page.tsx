@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronRight, House, Landmark, ShieldCheck, Tags, type LucideIcon } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
+import { NewTransactionButton } from "@/features/transactions/ui/new-transaction-button";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
-import { HeroPanel } from "@/components/visual/hero-panel";
+import { SoftPanel } from "@/components/visual/summary";
 import { IconTile, type Tone } from "@/components/visual/icon-tile";
 import { Section } from "@/components/visual/section";
 import { SurfaceList } from "@/components/visual/surface-list";
@@ -55,24 +56,25 @@ export default async function SettingsPage() {
 
   return (
     <>
-      <PageHeader title="Ajustes" />
+      <PageHeader title="Ajustes" actions={<NewTransactionButton />} />
       <div className="flex max-w-2xl flex-col gap-6">
-        <HeroPanel labelledBy="conta">
-          <div className="flex items-center gap-4">
-            <span
-              aria-hidden
-              className="bg-highlight text-highlight-foreground flex size-14 shrink-0 items-center justify-center rounded-2xl text-xl font-bold"
+        <SoftPanel labelledBy="conta" className="flex items-center gap-4 p-5">
+          <span
+            aria-hidden
+            className="bg-highlight text-highlight-foreground flex size-14 shrink-0 items-center justify-center rounded-2xl text-xl font-bold"
+          >
+            {initials}
+          </span>
+          <div className="min-w-0">
+            <h2
+              id="conta"
+              className="text-hero-soft-strong text-xl font-bold tracking-tight break-words"
             >
-              {initials}
-            </span>
-            <div className="min-w-0">
-              <h2 id="conta" className="text-xl font-semibold tracking-tight break-words">
-                {user.name}
-              </h2>
-              <p className="text-sm break-all opacity-90">{user.email}</p>
-            </div>
+              {user.name}
+            </h2>
+            <p className="text-sm break-all">{user.email}</p>
           </div>
-        </HeroPanel>
+        </SoftPanel>
 
         <nav aria-label="Ajustes">
           <SurfaceList>

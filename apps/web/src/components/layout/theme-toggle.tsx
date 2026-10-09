@@ -4,7 +4,7 @@ import { Monitor, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
-import { SidebarLabel } from "./sidebar-label";
+import { SidebarLabel } from "./sidebar/sidebar-label";
 
 const ORDER = ["system", "light", "dark"] as const;
 type Theme = (typeof ORDER)[number];
@@ -46,7 +46,7 @@ export function ThemeToggle({ placement = "header" }: { placement?: "header" | "
       aria-label={`Tema: ${LABELS[current]}. Mudar para ${LABELS[next]}`}
       className={
         placement === "sidebar"
-          ? "group/item collapsed:justify-center collapsed:px-0 relative w-full justify-start"
+          ? "group/item text-sidebar-muted-foreground hover:text-sidebar-foreground focus-visible:ring-sidebar-ring collapsed:mx-auto collapsed:size-11 collapsed:justify-center collapsed:px-0 relative h-[2.625rem] w-full justify-start gap-3 rounded-xl px-3 font-medium hover:bg-white/6"
           : undefined
       }
     >

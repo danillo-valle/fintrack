@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { PiggyBank } from "lucide-react";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
+import { NewTransactionButton } from "@/features/transactions/ui/new-transaction-button";
 import { requireUser } from "@/lib/auth/session";
 
 export const metadata: Metadata = { title: "Orçamento" };
@@ -11,7 +12,11 @@ export default async function BudgetPage() {
 
   return (
     <>
-      <PageHeader title="Orçamento" description="Quanto a casa planeja gastar por categoria" />
+      <PageHeader
+        title="Orçamento"
+        description="Quanto a casa planeja gastar por categoria"
+        actions={<NewTransactionButton />}
+      />
       <EmptyState
         icon={PiggyBank}
         title="Nenhum orçamento definido"

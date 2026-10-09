@@ -62,7 +62,16 @@ const TEXT_PAIRS: [string, string][] = [
   ["highlight-foreground", "highlight"],
   ["hero-foreground", "hero"],
   ["sidebar-foreground", "sidebar"],
+  ["sidebar-muted-foreground", "sidebar"],
+  ["sidebar-accent-foreground", "sidebar-accent"],
   ["sidebar-primary-foreground", "sidebar-primary"],
+  // O destaque suave do resumo (M07.3): o rótulo e o valor sobre as duas pontas do degradê
+  ["hero-soft-foreground", "hero-soft"],
+  ["hero-soft-foreground", "hero-soft-2"],
+  ["hero-soft-strong", "hero-soft"],
+  ["hero-soft-strong", "hero-soft-2"],
+  // A pílula do ambiente compartilhado usa a cor de gráfico 5 como TEXTO
+  ["chart-5", "card"],
 ];
 
 // Links e botões de texto usam a cor primária como texto (TEXT_LINK)
@@ -122,42 +131,24 @@ describe("regras do Visual C", () => {
     expect(light.primary).not.toBe(light.highlight);
   });
 
-  it("número dentro do painel (HeroStat): branco sobre o azul escurecido 24 % ≥ 4,5:1", () => {
-    const t = tokens(":root");
-    // o mesmo rgb(10 13 40 / 0.24) do hero-panel.tsx; branco translúcido reprovou no axe
-    expect(contrast(t["hero-foreground"]!, mix("#0a0d28", 0.24, t.hero!))).toBeGreaterThanOrEqual(
-      4.5,
-    );
-    expect(contrast(t["hero-foreground"]!, mix("#ffffff", 0.14, t.hero!))).toBeLessThan(4.5);
-  });
-
   it.each([
     ["claro", ":root"],
     ["escuro", ".dark"],
   ])(
-    "menu lateral de vidro (%s): o texto passa sobre o fundo e sobre os dois brilhos",
+    "menu lateral de vidro (%s): o texto passa sobre o fundo e sobre as luzes atrás dele",
     (_name, selector) => {
       const t = { ...tokens(":root"), ...tokens(selector) };
-      // o que pode estar atrás do vidro: o fundo puro ou os brilhos do app-glow (16 % e 18 %)
-      const behind = [
-        t.background!,
-        mix(t.hero!, 0.16, t.background!),
-        mix(t.highlight!, 0.18, t.background!),
-      ];
+      // O que pode estar atrás do vidro: o fundo da página ou, no pior caso, uma das luzes
+      // (ShellBackdrop) pura, sem desfoque: o azul do destaque e a lima.
+      const behind = [t.background!, t.hero!, t.highlight!];
       for (const backdrop of behind) {
-        // o mesmo color-mix(var(--sidebar) 72%, transparent) do glass-sidebar
-        const glass = mix(t.sidebar!, 0.72, backdrop);
+        // o mesmo color-mix(var(--sidebar) 80%, transparent) do glass-sidebar
+        const glass = mix(t.sidebar!, 0.8, backdrop);
         expect(contrast(t["sidebar-foreground"]!, glass)).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(t["sidebar-muted-foreground"]!, glass)).toBeGreaterThanOrEqual(4.5);
       }
     },
   );
-
-  it("o hover antigo do shadcn (primary/80 sobre o fundo) reprovava no claro", () => {
-    const t = tokens(":root");
-    expect(contrast(t["primary-foreground"]!, mix(t.primary!, 0.8, t.background!))).toBeLessThan(
-      4.5,
-    );
-  });
 
   it("a fórmula confere com a referência da WCAG (preto sobre branco = 21:1)", () => {
     expect(contrast("#000000", "#ffffff")).toBeCloseTo(21, 5);

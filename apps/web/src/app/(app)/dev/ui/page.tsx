@@ -1,11 +1,22 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Inbox } from "lucide-react";
+import {
+  ArrowDownRight,
+  ArrowLeftRight,
+  ArrowUpRight,
+  Download,
+  Inbox,
+  Repeat,
+} from "lucide-react";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ListSkeleton } from "@/components/feedback/list-skeleton";
 import { PageHeader } from "@/components/layout/page-header";
 import { AmountText } from "@/components/money/amount-text";
 import { Button } from "@/components/ui/button";
+import { ActionBar, ActionBarLink } from "@/components/visual/action-bar";
+import { ChipLink } from "@/components/visual/chip";
+import { ListToolbar } from "@/components/visual/list-toolbar";
+import { HighlightCard, StatCard, SummaryGrid } from "@/components/visual/summary";
 import { formatDateLong } from "@/lib/dates";
 import { ErrorDemo, MoneyInputDemo, UndoDeleteDemo } from "./demos";
 import { requireUser } from "@/lib/auth/session";
@@ -97,6 +108,48 @@ export default async function UiCatalogPage() {
         <p className="text-muted-foreground mt-3 text-sm">
           Data de exemplo: {formatDateLong(new Date("2026-10-15T15:00:00Z"))}
         </p>
+      </Section>
+
+      <Section id="resumo" title="Resumo do topo (M07.3)">
+        <SummaryGrid label="Resumo de exemplo">
+          <HighlightCard label="Saldo do período">
+            <AmountText cents={828665n} tone="inherit" arrow={false} className="font-bold" />
+          </HighlightCard>
+          <StatCard label="Entradas" tone="income" icon={<ArrowUpRight />}>
+            <AmountText cents={845000n} arrow={false} className="font-bold" />
+          </StatCard>
+          <StatCard label="Saídas" tone="expense" icon={<ArrowDownRight />}>
+            <AmountText cents={-16335n} arrow={false} className="font-bold" />
+          </StatCard>
+        </SummaryGrid>
+      </Section>
+
+      <Section id="barra" title="Barra da lista: chips, ações e filtros (M07.3)">
+        <ListToolbar
+          chipsLabel="Período de exemplo"
+          chips={
+            <>
+              <ChipLink href="#barra" active>
+                Este mês
+              </ChipLink>
+              <ChipLink href="#barra">Mês passado</ChipLink>
+            </>
+          }
+          actions={
+            <ActionBar label="Ações de exemplo">
+              <ActionBarLink href="#barra" icon={ArrowLeftRight} tone={1}>
+                Transferência
+              </ActionBarLink>
+              <ActionBarLink href="#barra" icon={Repeat} tone={4}>
+                Recorrências
+              </ActionBarLink>
+              <ActionBarLink href="#barra" icon={Download} tone={5}>
+                CSV
+              </ActionBarLink>
+            </ActionBar>
+          }
+          panel={<p className="text-sm">Aqui entra o formulário de filtros.</p>}
+        />
       </Section>
 
       <Section id="campo-valor" title="Campo de valor">
