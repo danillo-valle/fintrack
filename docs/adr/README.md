@@ -16,3 +16,4 @@ Modelo para um ADR novo: copie `0001-stack-e-monorepo.md` e troque o conteúdo.
 | 006 | [Lar, carteiras e autorização por recurso](0006-autorizacao-por-recurso.md)                  | aceita |
 | 007 | [Lançamentos, contas e categorização preparada para IA](0007-lancamentos-e-categorizacao.md) | aceita |
 | 008 | [Visual "Elétrico" com vidro só na moldura](0008-visual-eletrico.md)                         | aceita |
+| 009 | ["Pago por", ambientes, parcelas e despesas fixas](0009-pago-por-parcelas-e-fixas.md)        | aceita |

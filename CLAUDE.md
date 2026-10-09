@@ -57,10 +57,12 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
 - `apps/web/src/lib/labels.ts` nomes em português de formas de pagamento, tipos de conta etc.
 - `apps/web/src/proxy.ts` redireciona quem não tem sessão (conveniência, não barreira)
 - `packages/core/` regras puras: `money.ts` (centavos, rateio, parcelas), `dates.ts`, `card.ts`, `access.ts` (matriz de papéis),
-  `transactions.ts` (sinal, forma × conta, cursor, recorrência), `categorization.ts` (cascata), `csv.ts`
+  `transactions.ts` (sinal, forma × conta, cursor, recorrência), `categorization.ts` (cascata), `csv.ts`,
+  `payer.ts` ("Pago por", M07.4)
 - `packages/db/` schema em pasta (`prisma/schema/`), migrações, seed, cliente, `money.ts` (Decimal ⇄ centavos),
   `access.ts` (crachás), `households.ts`, `wallets.ts` e `audit.ts` (operações com auditoria),
-  `transactions.ts`, `accounts.ts`, `categories.ts` (camadas da cascata) e `recurrences.ts` (M07)
+  `transactions.ts`, `accounts.ts`, `categories.ts` (camadas da cascata) e `recurrences.ts` (M07),
+  `installments.ts` (compra parcelada, M07.4)
 - `docs/permissoes.md` quem pode fazer o quê (conferido por teste)
 - `docs/modelo-de-dados.md` diagrama das tabelas (conferido por teste)
 - `apps/web/e2e/` testes Playwright

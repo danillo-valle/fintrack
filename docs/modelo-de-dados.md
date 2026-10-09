@@ -125,6 +125,7 @@ erDiagram
         char4 lastFour "só 4 dígitos"
         enum form "PHYSICAL | VIRTUAL | VIRTUAL_TEMPORARY"
         bool isAdditional
+        bool sharedPurchases "compras conjuntas (M07.4)"
     }
     Category {
         uuid id PK
@@ -227,6 +228,7 @@ registro sobreviver mesmo que a pessoa ou o grupo sejam apagados.
 | Integrante "CASAL"                    | ambiente compartilhado ("Casa")                                  |
 | "Cartão Principal" e "Cartão"         | conta da fatura (`accountId`) e cartão usado (`cardId`)          |
 | "Mês Referência" de compra no cartão  | `CardStatement.referenceMonth` da fatura da compra               |
+| "Quem pagou" (M07.4)                  | `resolvePayer`: cartão conjunto, portador do cartão ou titular   |
 
 ## As travas que moram no banco
 
@@ -270,6 +272,17 @@ fazer o quê** é decidido no código, num ponto só: `authorizeWallet` e `autho
 - **`categorization_example`** guarda cada **correção** (a sugestão ou a categoria gravada
   trocada por outra): o conjunto rotulado do classificador e do eval do M10.
 - A cascata e o encaixe para IA estão no [ADR-007](adr/0007-lancamentos-e-categorizacao.md).
+
+## Pago por, parcelas e despesas fixas (M07.4)
+
+- **Pago por** não é coluna: sai do cartão (portador, ou Compartilhado quando
+  `sharedPurchases` é verdadeiro) ou, sem cartão, do titular da conta. A regra está no core
+  (`resolvePayer`) e no `WHERE` do filtro, conferidos juntos por um teste de integração.
+- **Parcelada** vira um `InstallmentGroup` com N lançamentos, um por fatura (`CardStatement`
+  único por conta e mês); a sobra de centavos vai na 1ª, as futuras nascem `SCHEDULED`.
+- **Fixa** cria a `Recurrence` e o lançamento do mês com o mesmo `externalId` que a geração
+  mensal usaria, então gerar o mês de novo não duplica.
+- As decisões e o porquê estão no [ADR-009](adr/0009-pago-por-parcelas-e-fixas.md).
 
 ## Como ler o dinheiro
 
