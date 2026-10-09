@@ -100,7 +100,10 @@ export function RouteModal({ title, description, initialFocus, footer, children 
             </Button>
           </div>
         </div>
-        <div className="compact:pt-3 compact:pb-3 min-h-0 flex-1 overflow-y-auto px-4 pt-3 pb-4 md:px-[1.625rem] md:pt-4">
+        {/* O meio cresce com o conteúdo e só rola quando falta tela. flex-auto (base = conteúdo), e não
+            flex-1 (base 0 %): com o modal de altura automática, o Safari calculava o meio a partir de
+            0 e ele sumia (M07.4). */}
+        <div className="compact:pt-3 compact:pb-3 min-h-0 flex-auto overflow-y-auto px-4 pt-3 pb-4 md:px-[1.625rem] md:pt-4">
           {children}
         </div>
         {footer ? (
