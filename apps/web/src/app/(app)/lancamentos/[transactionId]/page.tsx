@@ -14,7 +14,7 @@ import { TEXT_LINK } from "@/lib/styles";
 
 export const metadata: Metadata = { title: "Lançamento" };
 
-const SECTION = "bg-card rounded-xl border p-5";
+const SECTION = "bg-card rounded-2xl border p-5 md:p-6";
 
 // Detalhe de um lançamento (M07). O id vem da URL: a primeira coisa depois da sessão é o
 // crachá do lançamento (a decisão é a da carteira dele). Lançamento de outra pessoa, que não

@@ -16,7 +16,7 @@ import { formatMonth } from "@/lib/dates";
 
 export const metadata: Metadata = { title: "Recorrências" };
 
-const SECTION = "bg-card rounded-xl border p-5";
+const SECTION = "bg-card rounded-2xl border p-5 md:p-6";
 
 // Recorrências (M07): contas fixas, assinaturas e receitas que se repetem. "Lançar as deste mês"
 // gera os lançamentos agendados (idempotente: apertar duas vezes não duplica). No M09 a fila

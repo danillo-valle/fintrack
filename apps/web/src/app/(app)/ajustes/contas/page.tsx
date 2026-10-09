@@ -1,8 +1,16 @@
 import type { Metadata } from "next";
-import { Landmark } from "lucide-react";
+import {
+  Banknote,
+  CreditCard,
+  Landmark,
+  PiggyBank,
+  UtensilsCrossed,
+  type LucideIcon,
+} from "lucide-react";
 import { ActionButton } from "@/components/feedback/action-button";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
+import { IconTile, type Tone } from "@/components/visual/icon-tile";
 import {
   setAccountArchivedAction,
   setCardArchivedAction,
@@ -15,7 +23,16 @@ import { ACCOUNT_KIND_LABEL, CARD_FORM_LABEL } from "@/lib/labels";
 
 export const metadata: Metadata = { title: "Contas e cartões" };
 
-const SECTION = "bg-card rounded-xl border p-5";
+const SECTION = "bg-card rounded-2xl border p-5 md:p-6";
+
+// Ícone e cor de cada tipo de conta (M07.2): o tipo também está escrito na linha
+const KIND_ICON: Record<string, { icon: LucideIcon; tone: Tone }> = {
+  CHECKING: { icon: Landmark, tone: 1 },
+  SAVINGS: { icon: PiggyBank, tone: 2 },
+  CREDIT_CARD: { icon: CreditCard, tone: 3 },
+  MEAL_VOUCHER: { icon: UtensilsCrossed, tone: 4 },
+  CASH: { icon: Banknote, tone: 5 },
+};
 
 // Contas e cartões (M07), por carteira. Quem é dono da carteira cria e arquiva; os outros veem.
 export default async function AccountsPage() {
@@ -46,20 +63,27 @@ export default async function AccountsPage() {
                 {s.accounts.map((a) => (
                   <li key={a.id} className="py-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="font-medium break-words">
-                          {a.name}
-                          {a.archivedAt ? (
-                            <span className="text-muted-foreground"> (arquivada)</span>
-                          ) : null}
-                        </p>
-                        <p className="text-muted-foreground text-sm">
-                          {ACCOUNT_KIND_LABEL[a.kind]}
-                          {a.closingDay
-                            ? ` · fecha dia ${a.closingDay}, vence dia ${a.dueDay}`
-                            : ""}
-                          {a.institution ? ` · ${a.institution}` : ""}
-                        </p>
+                      <div className="flex min-w-0 items-center gap-3">
+                        <IconTile
+                          tone={a.archivedAt ? "neutral" : (KIND_ICON[a.kind]?.tone ?? 1)}
+                          icon={KIND_ICON[a.kind]?.icon ?? Landmark}
+                          size="sm"
+                        />
+                        <div className="min-w-0">
+                          <p className="font-medium break-words">
+                            {a.name}
+                            {a.archivedAt ? (
+                              <span className="text-muted-foreground"> (arquivada)</span>
+                            ) : null}
+                          </p>
+                          <p className="text-muted-foreground text-sm">
+                            {ACCOUNT_KIND_LABEL[a.kind]}
+                            {a.closingDay
+                              ? ` · fecha dia ${a.closingDay}, vence dia ${a.dueDay}`
+                              : ""}
+                            {a.institution ? ` · ${a.institution}` : ""}
+                          </p>
+                        </div>
                       </div>
                       {s.canManage ? (
                         <ActionButton
