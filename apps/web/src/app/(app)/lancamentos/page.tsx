@@ -4,13 +4,16 @@ import { ArrowLeftRight, Download, Plus, ReceiptText, Repeat } from "lucide-reac
 import { EmptyState } from "@/components/feedback/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { AmountText } from "@/components/money/amount-text";
+import { ChipLink } from "@/components/visual/chip";
+import { HeroPanel, HeroStat } from "@/components/visual/hero-panel";
 import { Button } from "@/components/ui/button";
 import { getTransactionsPage } from "@/features/transactions/server/queries";
 import { filtersToQuery } from "@/features/transactions/schemas";
+import { periodPresets } from "@/features/transactions/presentation";
 import { TransactionFilters } from "@/features/transactions/ui/filters";
 import { TransactionList } from "@/features/transactions/ui/transaction-list";
 import { requireUser } from "@/lib/auth/session";
-import { formatDate } from "@/lib/dates";
+import { formatDate, todayISO } from "@/lib/dates";
 import { TEXT_LINK } from "@/lib/styles";
 
 export const metadata: Metadata = { title: "Lançamentos" };
@@ -24,6 +27,8 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/lan
   const page = await getTransactionsPage(session, await searchParams);
   const { parsed, totals } = page;
   const period = `${day(parsed.filters.from)} a ${day(parsed.filters.to)}`;
+  const today = todayISO();
+  const presets = periodPresets(today);
 
   return (
     <>
@@ -31,7 +36,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/lan
         title="Lançamentos"
         description={period}
         actions={
-          <Button asChild variant="outline" className="hidden md:inline-flex">
+          <Button asChild className="hidden md:inline-flex">
             <Link href="/lancamentos/novo">
               <Plus aria-hidden />
               Novo lançamento
@@ -40,60 +45,70 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/lan
         }
       />
 
-      <nav aria-label="Mais ações de lançamento" className="mb-4 flex flex-wrap gap-2">
-        <Button asChild variant="outline" size="sm">
-          <Link href="/lancamentos/transferencia">
-            <ArrowLeftRight aria-hidden />
-            Transferência
-          </Link>
-        </Button>
-        <Button asChild variant="outline" size="sm">
-          <Link href="/lancamentos/recorrencias">
-            <Repeat aria-hidden />
-            Recorrências
-          </Link>
-        </Button>
-        {page.canExport ? (
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/lancamentos/exportar?${filtersToQuery(parsed)}`}>
-              <Download aria-hidden />
-              Exportar CSV
-            </Link>
-          </Button>
-        ) : null}
-      </nav>
-
-      <TransactionFilters parsed={parsed} options={page.options} />
-
-      <section aria-labelledby="totais" className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {/* O painel elétrico: o único destaque da página (ADR-008). Totais calculados no banco,
+          com o MESMO filtro da lista. */}
+      <HeroPanel labelledBy="totais" className="mb-5">
         <h2 id="totais" className="sr-only">
           Totais do filtro
         </h2>
-        {/* Visual C: o saldo é o cartão azul; entradas e saídas ficam em cartões sólidos */}
-        <div
-          className="bg-hero text-hero-foreground rounded-2xl p-5 sm:col-span-2"
-          data-testid="total-saldo"
-        >
+        <div data-testid="total-saldo">
           <p className="text-sm opacity-90">Saldo do período</p>
           <AmountText
             cents={totals.net}
             tone="inherit"
-            className="text-2xl font-semibold sm:text-3xl"
+            className="text-3xl font-semibold tracking-tight md:text-4xl"
           />
         </div>
-        <div className="bg-card rounded-2xl border p-4" data-testid="total-entradas">
-          <p className="text-muted-foreground text-sm">Entradas</p>
-          <AmountText cents={totals.income} className="text-lg" />
+        <div className="mt-4 grid grid-cols-2 gap-2.5">
+          <HeroStat label="Entradas" data-testid="total-entradas">
+            <AmountText cents={totals.income} tone="inherit" />
+          </HeroStat>
+          <HeroStat label="Saídas" data-testid="total-saidas">
+            <AmountText cents={totals.expense} tone="inherit" />
+          </HeroStat>
         </div>
-        <div className="bg-card rounded-2xl border p-4" data-testid="total-saidas">
-          <p className="text-muted-foreground text-sm">Saídas</p>
-          <AmountText cents={totals.expense} className="text-lg" />
-        </div>
-        <p className="text-muted-foreground text-sm sm:col-span-2">
-          {totals.count} {totals.count === 1 ? "lançamento" : "lançamentos"} no filtro.
-          Transferências aparecem na lista, mas não entram nas entradas e saídas.
-        </p>
-      </section>
+      </HeroPanel>
+      <p className="text-muted-foreground mb-5 px-1 text-sm">
+        {totals.count} {totals.count === 1 ? "lançamento" : "lançamentos"} no filtro. Transferências
+        aparecem na lista, mas não entram nas entradas e saídas.
+      </p>
+
+      {/* Atalhos de período: mudam só as datas e mantêm os outros filtros */}
+      <nav
+        aria-label="Período"
+        className="-mx-4 mb-2 flex gap-2 overflow-x-auto px-4 py-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
+      >
+        {presets.map((p) => (
+          <ChipLink
+            key={p.label}
+            href={`/lancamentos?${filtersToQuery(parsed, { de: p.from, ate: p.to, cursor: null })}`}
+            active={parsed.filters.from === p.from && parsed.filters.to === p.to}
+          >
+            {p.label}
+          </ChipLink>
+        ))}
+      </nav>
+      <nav
+        aria-label="Mais ações de lançamento"
+        className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 py-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
+      >
+        <ChipLink href="/lancamentos/transferencia">
+          <ArrowLeftRight aria-hidden />
+          Transferência
+        </ChipLink>
+        <ChipLink href="/lancamentos/recorrencias">
+          <Repeat aria-hidden />
+          Recorrências
+        </ChipLink>
+        {page.canExport ? (
+          <ChipLink href={`/lancamentos/exportar?${filtersToQuery(parsed)}`}>
+            <Download aria-hidden />
+            Exportar CSV
+          </ChipLink>
+        ) : null}
+      </nav>
+
+      <TransactionFilters parsed={parsed} options={page.options} />
 
       {page.items.length === 0 ? (
         <EmptyState
@@ -113,7 +128,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/lan
           }
         />
       ) : (
-        <TransactionList items={page.items} />
+        <TransactionList items={page.items} today={today} />
       )}
 
       <nav aria-label="Páginas" className="mt-6 flex flex-wrap gap-4 text-sm">

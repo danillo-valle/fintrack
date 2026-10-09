@@ -1,25 +1,33 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Brand } from "./brand";
 import { NavLink } from "./nav-link";
 import { NewTransactionFab } from "./new-transaction-fab";
 import { NAV_ITEMS } from "./nav-items";
+import { ShellFrame } from "./shell-frame";
+import { SidebarLabel } from "./sidebar-label";
+import { parseSidebarState, SIDEBAR_COOKIE } from "./sidebar-state";
+import { SidebarToggle } from "./sidebar-toggle";
 import { ThemeToggle } from "./theme-toggle";
 
 // A casca do app: menu lateral no desktop, barra inferior e botão flutuante no celular.
-// Visual C (ADR-008): o vidro fica só na moldura (cabeçalho e barra inferior do celular);
-// o menu lateral e o conteúdo ficam sólidos.
+// Visual C (ADR-008): o vidro fica só na moldura (cabeçalho e barra inferior do celular e, desde o
+// M07.2, o menu lateral); o conteúdo fica sólido. O brilho suave (app-glow) é o que aparece através
+// do vidro. O menu lateral recolhe até ficarem só os ícones; a escolha fica num cookie.
 // "md:" = telas a partir de 768px. Abaixo disso, vale o layout de celular.
-export function AppShell({
+export async function AppShell({
   children,
   modal,
 }: {
   children: React.ReactNode;
   modal?: React.ReactNode;
 }) {
+  const sidebar = parseSidebarState((await cookies()).get(SIDEBAR_COOKIE)?.value);
+
   return (
-    <div className="min-h-dvh md:grid md:grid-cols-[15rem_minmax(0,1fr)]">
+    <ShellFrame initial={sidebar}>
       {/* Primeiro item do Tab: permite pular o menu e ir direto ao conteúdo */}
       <a
         href="#conteudo"
@@ -28,14 +36,22 @@ export function AppShell({
         Pular para o conteúdo
       </a>
 
-      <aside className="bg-sidebar border-sidebar-border sticky top-0 hidden h-dvh flex-col gap-6 border-r px-3 py-5 md:flex">
-        <div className="px-2">
-          <Brand />
+      <aside
+        id="menu-lateral"
+        aria-label="Menu lateral"
+        className="glass-sidebar sticky top-0 z-40 hidden h-dvh flex-col gap-6 border-r px-3 py-5 md:flex"
+      >
+        <div className="collapsed:px-1.5 px-2">
+          <Brand collapsible />
         </div>
-        <Button asChild size="lg" className="h-10 justify-start px-3">
+        <Button
+          asChild
+          size="lg"
+          className="group/item collapsed:justify-center collapsed:px-0 relative h-10 justify-start px-3"
+        >
           <Link href="/lancamentos/novo">
             <Plus aria-hidden />
-            Novo lançamento
+            <SidebarLabel>Novo lançamento</SidebarLabel>
           </Link>
         </Button>
         <nav aria-label="Principal">
@@ -52,8 +68,9 @@ export function AppShell({
             ))}
           </ul>
         </nav>
-        <div className="mt-auto">
-          <ThemeToggle />
+        <div className="mt-auto flex flex-col gap-1">
+          <ThemeToggle placement="sidebar" />
+          <SidebarToggle />
         </div>
       </aside>
 
@@ -93,6 +110,6 @@ export function AppShell({
           ))}
         </ul>
       </nav>
-    </div>
+    </ShellFrame>
   );
 }

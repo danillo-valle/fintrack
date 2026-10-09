@@ -73,7 +73,11 @@ const PRIMARY_AS_TEXT: [string, string][] = [
 
 // Botão "destructive" do shadcn: texto na cor cheia sobre um fundo com 10 % (claro) ou 20 %
 // (escuro) da mesma cor, em cima do fundo da página. O axe reprovou isso no laboratório.
-const TINTED: [string, number, number, string][] = [["destructive", 0.1, 0.2, "background"]];
+// O mesmo, com o mouse em cima (hover: 15 % no claro, 25 % no escuro; 20 % e 30 % reprovavam).
+const TINTED: [string, number, number, string][] = [
+  ["destructive", 0.1, 0.2, "background"],
+  ["destructive", 0.15, 0.25, "background"],
+];
 
 const NON_TEXT = ["ring", "chart-1", "chart-2", "chart-3", "chart-4", "chart-5"];
 
@@ -99,6 +103,12 @@ describe.each([
     },
   );
 
+  it("botão principal com o mouse em cima (primária com 12 % do texto) ≥ 4,5:1", () => {
+    // o mesmo color-mix(in srgb, var(--primary), var(--foreground) 12%) do button.tsx
+    const hover = mix(theme.foreground!, 0.12, theme.primary!);
+    expect(contrast(theme["primary-foreground"]!, hover)).toBeGreaterThanOrEqual(4.5);
+  });
+
   it.each(NON_TEXT)("%s sobre o cartão ≥ 3:1", (name) => {
     expect(contrast(theme[name]!, theme.card!)).toBeGreaterThanOrEqual(3);
   });
@@ -110,6 +120,43 @@ describe("regras do Visual C", () => {
     expect(contrast(light.highlight!, light.card!)).toBeLessThan(3);
     // por isso a primária do claro é o azul, não a lima
     expect(light.primary).not.toBe(light.highlight);
+  });
+
+  it("número dentro do painel (HeroStat): branco sobre o azul escurecido 24 % ≥ 4,5:1", () => {
+    const t = tokens(":root");
+    // o mesmo rgb(10 13 40 / 0.24) do hero-panel.tsx; branco translúcido reprovou no axe
+    expect(contrast(t["hero-foreground"]!, mix("#0a0d28", 0.24, t.hero!))).toBeGreaterThanOrEqual(
+      4.5,
+    );
+    expect(contrast(t["hero-foreground"]!, mix("#ffffff", 0.14, t.hero!))).toBeLessThan(4.5);
+  });
+
+  it.each([
+    ["claro", ":root"],
+    ["escuro", ".dark"],
+  ])(
+    "menu lateral de vidro (%s): o texto passa sobre o fundo e sobre os dois brilhos",
+    (_name, selector) => {
+      const t = { ...tokens(":root"), ...tokens(selector) };
+      // o que pode estar atrás do vidro: o fundo puro ou os brilhos do app-glow (16 % e 18 %)
+      const behind = [
+        t.background!,
+        mix(t.hero!, 0.16, t.background!),
+        mix(t.highlight!, 0.18, t.background!),
+      ];
+      for (const backdrop of behind) {
+        // o mesmo color-mix(var(--sidebar) 72%, transparent) do glass-sidebar
+        const glass = mix(t.sidebar!, 0.72, backdrop);
+        expect(contrast(t["sidebar-foreground"]!, glass)).toBeGreaterThanOrEqual(4.5);
+      }
+    },
+  );
+
+  it("o hover antigo do shadcn (primary/80 sobre o fundo) reprovava no claro", () => {
+    const t = tokens(":root");
+    expect(contrast(t["primary-foreground"]!, mix(t.primary!, 0.8, t.background!))).toBeLessThan(
+      4.5,
+    );
   });
 
   it("a fórmula confere com a referência da WCAG (preto sobre branco = 21:1)", () => {

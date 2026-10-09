@@ -11,6 +11,15 @@
 
 /* O tema escuro é ligado pela classe .dark no <html> (next-themes cuida disso) */
 @custom-variant dark (&:is(.dark *));
+/* Menu lateral recolhido (M07.2): vale só a partir de 768 px, dentro da casca com
+   data-sidebar="collapsed". No celular o menu lateral nem aparece, então nada muda lá. */
+@custom-variant collapsed {
+  @media (width >= 48rem) {
+    &:where([data-sidebar="collapsed"] *) {
+      @slot;
+    }
+  }
+}
 
 /*
  * Visual C "Elétrico" (M07.1, ADR-008): azul elétrico com toque de lima.
@@ -216,6 +225,59 @@
     background-color: var(--background);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
+  }
+}
+
+/* Menu lateral de vidro (M07.2, adendo do ADR-008): faz parte da moldura, como o cabeçalho do
+   celular. 72 % da cor do menu deixa passar o brilho do fundo sem mexer no contraste do texto
+   (theme-contrast.test.ts confere sobre o fundo e sobre os dois brilhos). Sem suporte ou com
+   "reduzir transparência", fica sólido. */
+@utility glass-sidebar {
+  background-color: color-mix(in srgb, var(--sidebar) 72%, transparent);
+  border-color: var(--glass-border);
+  -webkit-backdrop-filter: blur(20px) saturate(170%);
+  backdrop-filter: blur(20px) saturate(170%);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-sidebar {
+    background-color: var(--sidebar);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass-sidebar {
+    background-color: var(--sidebar);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* Brilho suave das páginas do app (M07.2): azul à esquerda e lima à direita no topo, e um azul no
+   canto de baixo, atrás do menu lateral, que é o que dá cor ao vidro dele. Fica no fundo da casca;
+   o conteúdo e os cartões são sólidos por cima. Nenhum brilho passa de 18 % (ver o teste de contraste). */
+.app-glow {
+  background-image:
+    radial-gradient(
+      48rem 22rem at 25% -6rem,
+      color-mix(in srgb, var(--hero) 16%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      36rem 18rem at 100% -4rem,
+      color-mix(in srgb, var(--highlight) 18%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      20rem 32rem at 0 92%,
+      color-mix(in srgb, var(--hero) 16%, transparent),
+      transparent 70%
+    );
+  background-repeat: no-repeat;
+}
+/* No computador o brilho fica parado enquanto a página rola, sempre atrás do menu lateral.
+   No celular não: "fixed" custa repintura na rolagem e o iOS ignora. */
+@media (width >= 48rem) {
+  .app-glow {
+    background-attachment: fixed;
   }
 }
 

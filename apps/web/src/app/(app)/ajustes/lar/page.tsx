@@ -11,7 +11,7 @@ import { formatDateTime } from "@/lib/dates";
 
 export const metadata: Metadata = { title: "Lar" };
 
-const SECTION = "bg-card rounded-xl border p-5";
+const SECTION = "bg-card rounded-2xl border p-5 md:p-6";
 
 // Ajustes > Lar (M06): criar o lar, ver quem participa, convidar e acompanhar a atividade.
 // Cada bloco só chega ao HTML se o papel permitir (a consulta nem é feita para quem não pode).

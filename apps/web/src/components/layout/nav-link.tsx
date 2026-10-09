@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { isActive } from "./nav-items";
+import { SidebarLabel } from "./sidebar-label";
 
 type Props = {
   href: string;
@@ -26,7 +27,7 @@ export function NavLink({ href, label, variant, icon }: Props) {
       className={cn(
         "focus-visible:ring-ring outline-none focus-visible:ring-3",
         variant === "sidebar" &&
-          "text-sidebar-foreground hover:bg-sidebar-accent flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium",
+          "group/item text-sidebar-foreground hover:bg-sidebar-accent collapsed:justify-center collapsed:px-0 relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium",
         variant === "sidebar" && active && "bg-sidebar-accent text-sidebar-accent-foreground",
         variant === "bottom" &&
           "text-muted-foreground flex min-h-14 flex-col items-center justify-center gap-1 text-[0.7rem] font-medium",
@@ -34,7 +35,7 @@ export function NavLink({ href, label, variant, icon }: Props) {
       )}
     >
       {icon}
-      <span>{label}</span>
+      {variant === "sidebar" ? <SidebarLabel>{label}</SidebarLabel> : <span>{label}</span>}
     </Link>
   );
 }

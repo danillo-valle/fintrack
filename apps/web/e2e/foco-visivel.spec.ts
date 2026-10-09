@@ -106,6 +106,9 @@ test.describe("com um aviso na tela", () => {
     const toast = page.locator("[data-sonner-toast]").first();
     await expect(toast).toBeVisible();
     await toast.hover();
+    // O aviso entra deslizando de baixo (~0,4 s). Um Tab antes de ele parar mede a posição no meio
+    // da animação ("fora da tela"), o que um usuário não vê. Espera as transições terminarem.
+    await expect.poll(() => toast.evaluate((el) => el.getAnimations().length)).toBe(0);
   }
 
   test("o foco que vai sozinho para a próxima lixeira fica acima do aviso", async ({ page }) => {
