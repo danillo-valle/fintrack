@@ -1,10 +1,15 @@
 "use client";
 
-// A lista de lançamentos (M07; visual do M07.2), agrupada por dia: no celular, ícone colorido +
-// descrição + valor; a partir de 1024 px, as mesmas linhas viram colunas (categoria, carteira,
-// conta), sem duplicar o HTML. Excluir é OTIMISTA: a linha some na hora
-// (useOptimistic) e o aviso oferece "Desfazer" por 10 s. Se o servidor recusar, a linha volta
-// sozinha (o estado otimista dura só até a resposta) e o erro aparece num aviso.
+// A lista de lançamentos (M07; visual do M07.3, opção B do canvas), agrupada por dia.
+//
+//   computador  [ícone] Descrição ........ [Categoria] (Ambiente) Conta/cartão .... valor [lixeira]
+//   celular     [ícone] Descrição ......................................... valor
+//                       [Categoria] (Ambiente)
+//
+// Uma linha só no HTML: no computador, "display: contents" solta os detalhes no grid e eles viram
+// colunas; nenhum texto aparece duas vezes. Categoria e ambiente têm largura fixa, para as colunas
+// ficarem alinhadas linha a linha. Excluir é OTIMISTA (useOptimistic) com "Desfazer" por 10 s.
+// No celular, excluir fica na página do lançamento (a linha é curta demais para a lixeira).
 import Link from "next/link";
 import { useOptimistic, useTransition } from "react";
 import { toast } from "sonner";
@@ -16,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/visual/icon-tile";
 import { toneFor } from "@/components/visual/tone";
 import { INITIAL_ACTION_STATE } from "@/lib/action-state";
+import { cn } from "@/lib/utils";
 import { dayLabel } from "../presentation";
 import { deleteTransactionAction, restoreTransactionAction } from "../server/actions";
 
@@ -27,10 +33,10 @@ export type ListItem = {
   status: "PENDING" | "SCHEDULED" | "CONFIRMED";
   transferId: string | null;
   canEdit: boolean;
-  wallet: { name: string };
+  wallet: { name: string; kind: "PERSONAL" | "SHARED" };
   account: { name: string };
   category: { id: string; name: string } | null;
-  card: { nickname: string } | null;
+  card: { nickname: string; lastFour: string } | null;
 };
 
 function formData(id: string) {
@@ -39,14 +45,13 @@ function formData(id: string) {
   return data;
 }
 
-// As colunas do desktop (lg): ícone, descrição, categoria, carteira, conta, valor, excluir
+// As colunas do computador (lg): ícone, descrição, categoria, ambiente, conta, valor, excluir
 const ROW =
-  "grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-x-3 px-4 py-3 lg:grid-cols-[auto_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto_auto]";
+  "grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-x-3 px-3.5 py-3 lg:grid-cols-[2.5rem_minmax(0,2fr)_8rem_6rem_minmax(0,1.2fr)_8.25rem_2.25rem] lg:gap-x-3.5 lg:px-[1.125rem]";
 
-function Leading({ item }: { item: ListItem }) {
-  if (item.transferId) return <IconTile tone={1} icon={ArrowLeftRight} size="sm" />;
-  if (!item.category) return <IconTile tone="neutral" icon={CircleDashed} size="sm" />;
-  return <IconTile tone={toneFor(item.category.id)} letter={item.category.name} size="sm" />;
+/** Quem paga: o cartão (apelido e final) ou, sem cartão, a conta. Só os 4 últimos dígitos. */
+export function payingWith(item: Pick<ListItem, "account" | "card">): string {
+  return item.card ? `${item.card.nickname} final ${item.card.lastFour}` : item.account.name;
 }
 
 function categoryName(item: ListItem) {
@@ -57,7 +62,7 @@ export function TransactionList({
   items,
   today,
   readOnly = false,
-  dayHeading: DayHeading = "h2",
+  dayHeading = "h2",
 }: {
   items: ListItem[];
   /** Hoje em São Paulo (do servidor), para os títulos "Hoje" e "Ontem" */
@@ -92,84 +97,154 @@ export function TransactionList({
     });
   }
 
-  // Agrupa por dia, mantendo a ordem (do mais recente para o mais antigo)
+  return (
+    <div className="flex flex-col gap-5">
+      {groupByDay(visible).map((day) => (
+        <DayGroup
+          key={day.date}
+          title={dayLabel(day.date, today)}
+          heading={dayHeading}
+          items={day.items}
+          onRemove={readOnly ? null : remove}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** Agrupa por dia, mantendo a ordem (do mais recente para o mais antigo). */
+function groupByDay(items: ListItem[]) {
   const days: { date: CivilDate; items: ListItem[] }[] = [];
-  for (const item of visible) {
+  for (const item of items) {
     const last = days.at(-1);
     if (last && last.date === item.occurredOn) last.items.push(item);
     else days.push({ date: item.occurredOn, items: [item] });
   }
+  return days;
+}
 
+function DayGroup({
+  title,
+  heading: Heading,
+  items,
+  onRemove,
+}: {
+  title: string;
+  heading: "h2" | "h3";
+  items: ListItem[];
+  onRemove: ((item: ListItem) => void) | null;
+}) {
   return (
-    <div className="flex flex-col gap-5">
-      {days.map((day) => {
-        const title = dayLabel(day.date, today);
-        return (
-          <section key={day.date} aria-label={title}>
-            <DayHeading className="text-muted-foreground mb-2 px-1 text-sm font-semibold">
-              {title}
-            </DayHeading>
-            <ul className="bg-card divide-y overflow-hidden rounded-2xl border">
-              {day.items.map((item) => (
-                <li key={item.id} className={ROW}>
-                  <Leading item={item} />
-                  {/* No celular: descrição e, embaixo, uma linha de detalhes. No desktop, o
-                      "display: contents" solta os mesmos elementos no grid e eles viram colunas:
-                      nenhum texto aparece duas vezes no HTML. */}
-                  <div className="min-w-0 lg:contents">
-                    <Link
-                      href={`/lancamentos/${item.id}`}
-                      className="focus-visible:ring-ring block min-w-0 rounded font-medium break-words outline-none hover:underline focus-visible:ring-3"
-                    >
-                      {item.description}
-                    </Link>
-                    <p className="text-muted-foreground flex flex-wrap items-center gap-x-2 text-sm lg:contents">
-                      <span className="lg:bg-muted lg:text-foreground min-w-0 lg:w-fit lg:max-w-full lg:truncate lg:rounded-md lg:px-2 lg:py-0.5">
-                        {categoryName(item)}
-                        {item.status === "SCHEDULED" ? <Scheduled /> : null}
-                      </span>
-                      <span aria-hidden className="lg:hidden">
-                        ·
-                      </span>
-                      <span className="lg:text-foreground min-w-0 break-words lg:truncate">
-                        {item.wallet.name}
-                      </span>
-                      <span aria-hidden className="lg:hidden">
-                        ·
-                      </span>
-                      <span className="min-w-0 break-words lg:truncate">
-                        {item.account.name}
-                        {item.card ? ` (${item.card.nickname})` : ""}
-                      </span>
-                    </p>
-                  </div>
-                  <AmountText cents={item.amount} className="justify-self-end" />
-                  {item.canEdit && !readOnly ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-lg"
-                      aria-label={`Excluir ${item.description}`}
-                      onClick={() => remove(item)}
-                    >
-                      <Trash2 aria-hidden />
-                    </Button>
-                  ) : (
-                    <span className="size-9" />
-                  )}
-                </li>
-              ))}
-            </ul>
-          </section>
-        );
-      })}
-    </div>
+    <section aria-label={title} className="flex flex-col gap-2">
+      <Heading className="text-muted-foreground px-1 text-sm font-bold">{title}</Heading>
+      <ul className="bg-card divide-y overflow-hidden rounded-[1.125rem] border">
+        {items.map((item) => (
+          <TransactionRow key={item.id} item={item} onRemove={onRemove} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function TransactionRow({
+  item,
+  onRemove,
+}: {
+  item: ListItem;
+  onRemove: ((item: ListItem) => void) | null;
+}) {
+  return (
+    <li className={ROW}>
+      <Leading item={item} />
+      {/* No celular: descrição e, embaixo, categoria e ambiente. No computador, o
+          "display: contents" solta os mesmos elementos no grid e eles viram colunas. */}
+      <div className="flex min-w-0 flex-col gap-1.5 lg:contents">
+        <span className="flex min-w-0 items-center gap-2">
+          <Link
+            href={`/lancamentos/${item.id}`}
+            className="focus-visible:ring-ring min-w-0 truncate rounded text-[0.9375rem] font-semibold outline-none hover:underline focus-visible:ring-3 lg:text-base"
+          >
+            {item.description}
+          </Link>
+          {item.status === "SCHEDULED" ? <Scheduled /> : null}
+        </span>
+        <span className="flex gap-1.5 lg:contents">
+          <CategoryTag name={categoryName(item)} />
+          <WalletTag wallet={item.wallet} />
+          <span className="text-muted-foreground hidden min-w-0 truncate text-sm lg:block">
+            {payingWith(item)}
+          </span>
+        </span>
+      </div>
+      <AmountText
+        cents={item.amount}
+        className="justify-self-end text-[0.9375rem] font-bold lg:text-base"
+      />
+      {onRemove && item.canEdit ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-lg"
+          aria-label={`Excluir ${item.description}`}
+          onClick={() => onRemove(item)}
+          className="text-muted-foreground hidden lg:inline-flex"
+        >
+          <Trash2 aria-hidden />
+        </Button>
+      ) : (
+        <span aria-hidden className="hidden lg:block" />
+      )}
+    </li>
+  );
+}
+
+function Leading({ item }: { item: ListItem }) {
+  const size = "size-10";
+  if (item.transferId)
+    return <IconTile tone={1} icon={ArrowLeftRight} size="sm" className={size} />;
+  if (!item.category) {
+    return <IconTile tone="neutral" icon={CircleDashed} size="sm" className={size} />;
+  }
+  return (
+    <IconTile
+      tone={toneFor(item.category.id)}
+      letter={item.category.name}
+      size="sm"
+      className={size}
+    />
+  );
+}
+
+/** A categoria numa etiqueta de largura fixa (92 px no celular, 128 px no computador). */
+function CategoryTag({ name }: { name: string }) {
+  return (
+    <span
+      title={name}
+      className="bg-muted w-[5.75rem] shrink-0 truncate rounded-[0.4375rem] px-2 py-0.5 text-center text-xs font-medium lg:w-32 lg:rounded-lg lg:px-2.5 lg:py-1 lg:text-[0.8125rem]"
+    >
+      {name}
+    </span>
+  );
+}
+
+/** O ambiente (carteira) numa pílula: compartilhado em verde-azulado, pessoal em cinza. */
+function WalletTag({ wallet }: { wallet: ListItem["wallet"] }) {
+  return (
+    <span
+      title={`Ambiente ${wallet.name}`}
+      className={cn(
+        "w-[4.5rem] shrink-0 truncate rounded-full border px-2 py-px text-center text-xs font-semibold lg:w-24 lg:py-0.5 lg:text-[0.8125rem]",
+        wallet.kind === "SHARED" ? "border-chart-5 text-chart-5" : "text-muted-foreground",
+      )}
+    >
+      {wallet.name}
+    </span>
   );
 }
 
 function Scheduled() {
   return (
-    <span className="border-border ml-1 inline-flex items-center gap-1 rounded border px-1.5 text-xs">
+    <span className="text-muted-foreground inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 text-xs">
       <CalendarClock aria-hidden className="size-3" />
       Agendado
     </span>

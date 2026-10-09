@@ -499,10 +499,10 @@ const LIST_SELECT = {
   transferId: true,
   recurrenceId: true,
   categorizedBy: true,
-  wallet: { select: { id: true, name: true } },
+  wallet: { select: { id: true, name: true, kind: true } },
   account: { select: { id: true, name: true, kind: true } },
   category: { select: { id: true, name: true } },
-  card: { select: { nickname: true } },
+  card: { select: { nickname: true, lastFour: true } },
 } satisfies Prisma.TransactionSelect;
 
 type ListRow = Prisma.TransactionGetPayload<{ select: typeof LIST_SELECT }>;

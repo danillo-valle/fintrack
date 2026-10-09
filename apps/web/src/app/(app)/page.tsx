@@ -3,11 +3,11 @@ import Link from "next/link";
 import { ArrowLeftRight, Plus, ReceiptText, Repeat, Wallet } from "lucide-react";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
-import { AmountText } from "@/components/money/amount-text";
 import { Button } from "@/components/ui/button";
-import { HeroPanel, HeroStat } from "@/components/visual/hero-panel";
 import { IconTile, type Tone } from "@/components/visual/icon-tile";
 import { getTransactionsPage } from "@/features/transactions/server/queries";
+import { NewTransactionButton } from "@/features/transactions/ui/new-transaction-button";
+import { TotalsSummary } from "@/features/transactions/ui/totals-summary";
 import { TransactionList } from "@/features/transactions/ui/transaction-list";
 import { requireUser } from "@/lib/auth/session";
 import { formatMonth, todayISO } from "@/lib/dates";
@@ -37,30 +37,20 @@ export default async function HomePage() {
 
   return (
     <>
-      <PageHeader title="Início" description={`Olá, ${firstName}. Este é o resumo do mês.`} />
+      <PageHeader
+        title="Início"
+        description={`Olá, ${firstName}. Este é o resumo do mês.`}
+        actions={page.hasWallets ? <NewTransactionButton /> : undefined}
+      />
 
       {page.hasWallets ? (
         <div className="flex flex-col gap-6">
-          <HeroPanel labelledBy="resumo">
-            <h2 id="resumo" className="text-sm font-medium opacity-90">
-              Saldo de {month}
-            </h2>
-            <div data-testid="inicio-saldo">
-              <AmountText
-                cents={page.totals.net}
-                tone="inherit"
-                className="text-3xl font-semibold tracking-tight md:text-4xl"
-              />
-            </div>
-            <div className="mt-4 grid grid-cols-2 gap-2.5">
-              <HeroStat label="Entradas">
-                <AmountText cents={page.totals.income} tone="inherit" />
-              </HeroStat>
-              <HeroStat label="Saídas">
-                <AmountText cents={page.totals.expense} tone="inherit" />
-              </HeroStat>
-            </div>
-          </HeroPanel>
+          <TotalsSummary
+            totals={page.totals}
+            label="Resumo do mês"
+            balanceLabel={`Saldo de ${month}`}
+            testIdPrefix="inicio"
+          />
 
           <nav aria-label="Atalhos" className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {SHORTCUTS.map((s) => (

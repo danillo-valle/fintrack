@@ -4,7 +4,8 @@ import { Archive, ChevronRight, House, Plus, Users, Wallet } from "lucide-react"
 import { EmptyState } from "@/components/feedback/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
-import { HeroPanel, HeroStat } from "@/components/visual/hero-panel";
+import { HighlightCard, StatCard, SummaryGrid } from "@/components/visual/summary";
+import { NewTransactionButton } from "@/features/transactions/ui/new-transaction-button";
 import { IconTile } from "@/components/visual/icon-tile";
 import { SurfaceList } from "@/components/visual/surface-list";
 import { getWalletsPage } from "@/features/wallets/server/queries";
@@ -44,14 +45,17 @@ export default async function WalletsPage() {
         title="Carteiras"
         description="Cada carteira junta os gastos de quem participa dela"
         actions={
-          canCreate ? (
-            <Button asChild>
-              <Link href="/carteiras/nova">
-                <Plus aria-hidden />
-                Nova carteira
-              </Link>
-            </Button>
-          ) : null
+          <>
+            {canCreate ? (
+              <Button asChild variant="outline" size="lg" className="h-11 rounded-xl">
+                <Link href="/carteiras/nova">
+                  <Plus aria-hidden />
+                  Nova carteira
+                </Link>
+              </Button>
+            ) : null}
+            <NewTransactionButton />
+          </>
         }
       />
       {wallets.length === 0 ? (
@@ -62,22 +66,17 @@ export default async function WalletsPage() {
         />
       ) : (
         <div className="flex flex-col gap-6">
-          <HeroPanel labelledBy="resumo-carteiras">
-            <h2 id="resumo-carteiras" className="text-sm font-medium opacity-90">
-              Você participa de
-            </h2>
-            <p className="text-3xl font-semibold tracking-tight md:text-4xl">
+          <SummaryGrid label="Resumo das carteiras">
+            <HighlightCard label="Você participa de">
               {active.length} {active.length === 1 ? "carteira" : "carteiras"}
-            </p>
-            <div className="mt-4 grid grid-cols-2 gap-2.5">
-              <HeroStat label="Compartilhadas">
-                {active.filter((w) => w.kind === "SHARED").length}
-              </HeroStat>
-              <HeroStat label="Pessoal">
-                {active.filter((w) => w.kind !== "SHARED").length}
-              </HeroStat>
-            </div>
-          </HeroPanel>
+            </HighlightCard>
+            <StatCard label="Compartilhadas" icon={<Users />}>
+              {active.filter((w) => w.kind === "SHARED").length}
+            </StatCard>
+            <StatCard label="Pessoal" icon={<Wallet />}>
+              {active.filter((w) => w.kind !== "SHARED").length}
+            </StatCard>
+          </SummaryGrid>
 
           <SurfaceList aria-label="Suas carteiras">
             {wallets.map((w) => (
