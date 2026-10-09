@@ -75,6 +75,17 @@ export const cardSchema = z.object({
     .literal("on")
     .optional()
     .transform((v) => v === "on"),
+  /** Cartão de compras conjuntas (M07.4): "Pago por" mostra Compartilhado */
+  sharedPurchases: z
+    .literal("on")
+    .optional()
+    .transform((v) => v === "on"),
+});
+
+export const cardSharedSchema = z.object({
+  walletId: z.uuid(),
+  cardId: z.uuid(),
+  sharedPurchases: z.enum(["true", "false"]),
 });
 
 export const archiveAccountSchema = z.object({

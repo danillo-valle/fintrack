@@ -14,6 +14,7 @@ import { IconTile, type Tone } from "@/components/visual/icon-tile";
 import {
   setAccountArchivedAction,
   setCardArchivedAction,
+  setCardSharedPurchasesAction,
 } from "@/features/accounts/server/actions";
 import { getAccountsPage } from "@/features/accounts/server/queries";
 import { AccountForm } from "@/features/accounts/ui/account-form";
@@ -112,9 +113,24 @@ export default async function AccountsPage() {
                               {c.nickname} · {c.brand} final {c.lastFour} ·{" "}
                               {CARD_FORM_LABEL[c.form]}
                               {c.isAdditional ? " · adicional" : ""}
+                              {c.sharedPurchases ? " · compras conjuntas" : ""}
                               {c.holder ? ` · ${c.holder.name}` : ""}
                               {c.archivedAt ? " (arquivado)" : ""}
                             </span>
+                            {s.canManage && !c.archivedAt ? (
+                              <ActionButton
+                                action={setCardSharedPurchasesAction}
+                                fields={{
+                                  walletId: s.wallet.id,
+                                  cardId: c.id,
+                                  sharedPurchases: c.sharedPurchases ? "false" : "true",
+                                }}
+                                label={`${c.sharedPurchases ? "Desmarcar" : "Marcar"} o cartão ${c.nickname} como de compras conjuntas`}
+                                variant="ghost"
+                              >
+                                {c.sharedPurchases ? "Não é conjunto" : "Compras conjuntas"}
+                              </ActionButton>
+                            ) : null}
                             {s.canManage ? (
                               <ActionButton
                                 action={setCardArchivedAction}

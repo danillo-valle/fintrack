@@ -6,9 +6,12 @@ import {
   isCivilDate,
   MAX_ABS_CENTS,
   monthRange,
+  parsePayerParam,
+  payerParam,
   PAYMENT_METHODS,
   TRANSFER_METHODS,
   type CivilDate,
+  type PayerFilter,
   type PaymentMethod,
 } from "@fintrack/core";
 import { z } from "zod";
@@ -71,6 +74,53 @@ export const transactionSchema = z.object({
   /** "Sempre categorizar assim" (só faz algo quando a categoria corrige a sugestão) */
   rememberRule: checkbox,
 });
+
+/** O máximo da tela para parcelas (o mesmo MAX_INSTALLMENTS do @fintrack/db). */
+export const MAX_INSTALLMENTS_UI = 24;
+
+const dayOfMonthField = z.coerce
+  .number({ error: "Dia de 1 a 31." })
+  .int("Dia de 1 a 31.")
+  .min(1, "Dia de 1 a 31.")
+  .max(31, "Dia de 1 a 31.");
+
+/**
+ * O novo lançamento (M07.4): o lançamento de sempre e o "Tipo da despesa". Variável é o de
+ * sempre; parcelada pede o número de parcelas; fixa pede o tipo (conta fixa ou assinatura), o
+ * dia do vencimento e, se houver, até quando. Os campos de um tipo são ignorados nos outros.
+ */
+export const newEntrySchema = transactionSchema
+  .extend({
+    expenseType: z.enum(["variable", "installment", "fixed"]).default("variable"),
+    installments: z.coerce
+      .number({ error: `De 2 a ${MAX_INSTALLMENTS_UI} parcelas.` })
+      .int(`De 2 a ${MAX_INSTALLMENTS_UI} parcelas.`)
+      .min(2, `De 2 a ${MAX_INSTALLMENTS_UI} parcelas.`)
+      .max(MAX_INSTALLMENTS_UI, `De 2 a ${MAX_INSTALLMENTS_UI} parcelas.`)
+      .optional(),
+    fixedKind: z.enum(["FIXED_BILL", "SUBSCRIPTION"]).default("FIXED_BILL"),
+    dueDay: dayOfMonthField.optional(),
+    endsOn: z
+      .union([z.literal(""), civilDate()])
+      .default("")
+      .transform((v) => v || null),
+  })
+  .refine((e) => e.kind === "expense" || e.expenseType === "variable", {
+    message: "Só despesa é parcelada ou fixa.",
+    path: ["expenseType"],
+  })
+  .refine((e) => e.expenseType !== "installment" || e.installments !== undefined, {
+    message: `Escolha de 2 a ${MAX_INSTALLMENTS_UI} parcelas.`,
+    path: ["installments"],
+  })
+  .refine((e) => e.expenseType !== "fixed" || e.dueDay !== undefined, {
+    message: "Informe o dia do vencimento.",
+    path: ["dueDay"],
+  })
+  .refine((e) => !e.endsOn || e.endsOn >= e.occurredOn, {
+    message: "O fim precisa ser depois do lançamento.",
+    path: ["endsOn"],
+  });
 
 export const transactionIdSchema = z.object({ transactionId: z.uuid() });
 
@@ -143,6 +193,8 @@ export type ListFilters = {
   categoryId: string | null;
   text: string | null;
   type: TransactionTypeFilter | null;
+  /** "Pago por" (M07.4): Compartilhado ou uma pessoa */
+  payer: PayerFilter | null;
 };
 
 export type ParsedFilters = {
@@ -171,7 +223,7 @@ const idOrNull = (value: string | null) => (value && UUID.test(value) ? value.to
 
 /**
  * Lê os filtros da URL. Os nomes são em português porque aparecem na barra de endereço:
- *   /lancamentos?de=2026-10-01&ate=2026-10-31&carteira=<id>&conta=<id>&categoria=<id|sem>&q=mercado&tipo=despesa
+ *   /lancamentos?de=2026-10-01&ate=2026-10-31&carteira=<id>&conta=<id>&categoria=<id|sem>&q=mercado&tipo=despesa&pago=<id|compartilhado>
  * Nada aqui é confiável: valor fora do formato é ignorado (cai no padrão), nunca vira erro.
  * O id de carteira passa depois pelo escopo do servidor: carteira alheia = lista vazia.
  */
@@ -193,6 +245,8 @@ export function parseFilters(params: SearchParams, today: CivilDate): ParsedFilt
       categoryId: category === "sem" ? "none" : idOrNull(category),
       text: text ? text.slice(0, 100) : null,
       type: TYPES[one(params.tipo) ?? ""] ?? null,
+      // A pessoa passa depois pelo escopo: filtrar por quem não está no lar só esvazia a lista
+      payer: parsePayerParam(one(params.pago)),
     },
     walletId: idOrNull(one(params.carteira)),
     cursor: one(params.cursor),
@@ -213,6 +267,7 @@ export function filtersToQuery(
   if (f.categoryId) query.set("categoria", f.categoryId === "none" ? "sem" : f.categoryId);
   if (f.text) query.set("q", f.text);
   if (f.type) query.set("tipo", TYPE_PARAM[f.type]);
+  if (f.payer) query.set("pago", payerParam(f.payer));
   for (const [key, value] of Object.entries(extra)) {
     if (value === null) query.delete(key);
     else query.set(key, value);

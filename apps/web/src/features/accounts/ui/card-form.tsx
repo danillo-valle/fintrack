@@ -121,6 +121,15 @@ export function CardForm({
               />
               Cartão adicional (o portador lança com ele sem ver o resto da fatura)
             </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="sharedPurchases"
+                className="accent-primary focus-visible:ring-ring size-4 rounded outline-none focus-visible:ring-3"
+              />
+              Cartão de compras conjuntas (em &quot;Pago por&quot;, as compras dele aparecem como
+              Compartilhado)
+            </label>
             <Button type="submit" variant="outline" className="self-start" disabled={pending}>
               {pending ? "Salvando…" : "Cadastrar cartão"}
             </Button>

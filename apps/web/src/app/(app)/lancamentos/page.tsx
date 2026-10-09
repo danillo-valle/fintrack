@@ -11,6 +11,9 @@ import { getTransactionsPage } from "@/features/transactions/server/queries";
 import { filtersToQuery } from "@/features/transactions/schemas";
 import { periodPresets } from "@/features/transactions/presentation";
 import { activeFilterCount, TransactionFiltersForm } from "@/features/transactions/ui/filters";
+import { environmentsSentence } from "@/features/transactions/environments";
+import { EnvironmentSwitcher } from "@/features/transactions/ui/environment-switcher";
+import { PayerChips } from "@/features/transactions/ui/payer-chips";
 import { NewTransactionButton } from "@/features/transactions/ui/new-transaction-button";
 import { TotalsSummary } from "@/features/transactions/ui/totals-summary";
 import { TransactionList } from "@/features/transactions/ui/transaction-list";
@@ -36,7 +39,22 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/lan
 
   return (
     <>
-      <PageHeader title="Lançamentos" description={period} actions={<NewTransactionButton />} />
+      <PageHeader
+        title="Lançamentos"
+        description={period}
+        actions={
+          <>
+            <EnvironmentSwitcher
+              environments={page.environments}
+              current={parsed.walletId}
+              hrefFor={(walletId) =>
+                `/lancamentos?${filtersToQuery({ ...parsed, walletId }, { cursor: null })}`
+              }
+            />
+            <NewTransactionButton />
+          </>
+        }
+      />
 
       <TotalsSummary
         totals={totals}
@@ -45,7 +63,8 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/lan
         testIdPrefix="total"
       />
       <p className="text-muted-foreground mt-2 mb-5 px-1 text-[0.8125rem]">
-        {totals.count} {totals.count === 1 ? "lançamento" : "lançamentos"} no filtro. Transferências
+        {totals.count} {totals.count === 1 ? "lançamento" : "lançamentos"} no filtro.{" "}
+        {environmentsSentence(page.environments, parsed.walletId, page.otherMembers)} Transferências
         aparecem na lista, mas não entram nas entradas e saídas.
       </p>
 
@@ -84,6 +103,17 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/lan
             ) : null}
           </ActionBar>
         }
+        extraLabel="Pago por"
+        extra={
+          // Sem lar não há quem pagou: sem a linha extra, a barra fica como no M07.3
+          page.payers.length > 0 ? (
+            <PayerChips
+              payers={page.payers}
+              current={parsed.filters.payer}
+              hrefFor={(pago) => `/lancamentos?${filtersToQuery(parsed, { pago, cursor: null })}`}
+            />
+          ) : undefined
+        }
         panel={<TransactionFiltersForm parsed={parsed} options={page.options} />}
       />
 
@@ -105,7 +135,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/lan
           }
         />
       ) : (
-        <TransactionList items={page.items} today={today} />
+        <TransactionList items={page.items} payers={page.payers} today={today} />
       )}
 
       <nav aria-label="Páginas" className="mt-6 flex flex-wrap gap-4 text-sm">

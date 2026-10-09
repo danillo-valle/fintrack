@@ -1,11 +1,21 @@
 // Leituras das telas de lançamento (M07). Tudo parte de um crachá: escopo de carteiras para a
 // lista, crachá do lançamento para o detalhe. Nenhuma consulta recebe um id solto da URL.
 import "server-only";
-import { canInHousehold, todayCivil, type CivilDate } from "@fintrack/core";
+import {
+  canInHousehold,
+  initialsOf,
+  payerTones,
+  SHARED_INITIALS,
+  SHARED_PAYER_PARAM,
+  SHARED_TONE,
+  todayCivil,
+  type CivilDate,
+} from "@fintrack/core";
 import {
   getTransaction,
   lastUsedChoice,
   listCategories,
+  listHouseholdMembers,
   listMyWallets,
   listRecurrences,
   listTransactions,
@@ -21,6 +31,8 @@ import {
   requireTransactionAccess,
 } from "@/lib/access";
 import type { Session } from "@/lib/auth";
+import { environmentsOf } from "../environments";
+import type { PayerOption } from "../payers";
 import { parseFilters } from "../schemas";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -39,6 +51,37 @@ async function categoriesOf(session: Session) {
   }
 }
 
+/**
+ * As pessoas do lar para "Pago por", pela ordem em que entraram (é ela que decide a cor), e o
+ * Compartilhado no fim. Sem lar, lista vazia.
+ */
+async function payersOf(session: Session): Promise<PayerOption[]> {
+  try {
+    const grant = await requireHouseholdAccess(session, "view");
+    const members = (await listHouseholdMembers(prisma, grant)).toSorted(
+      (a, b) => a.joinedAt.getTime() - b.joinedAt.getTime(),
+    );
+    const tones = payerTones(members.map((m) => m.userId));
+    return [
+      ...members.map((m) => ({
+        param: m.userId,
+        name: m.user.name.split(" ")[0] ?? m.user.name,
+        initials: initialsOf(m.user.name),
+        tone: tones.get(m.userId) ?? 1,
+      })),
+      {
+        param: SHARED_PAYER_PARAM,
+        name: "Compartilhado",
+        initials: SHARED_INITIALS,
+        tone: SHARED_TONE,
+      },
+    ];
+  } catch (error) {
+    if (error instanceof AccessError) return [];
+    throw error;
+  }
+}
+
 /** As carteiras em que a pessoa pode lançar (dona ou editora, não arquivadas). */
 async function editableWallets(session: Session) {
   const wallets = await listMyWallets(prisma, session.user.id);
@@ -52,11 +95,12 @@ async function editableWallets(session: Session) {
  * padrão (a carteira e a conta do último lançamento, se ainda valem).
  */
 export async function getQuickEntryPage(session: Session) {
-  const [wallets, accounts, cats, last] = await Promise.all([
+  const [wallets, accounts, cats, last, payers] = await Promise.all([
     editableWallets(session),
     listUsableAccounts(prisma, session.user.id),
     categoriesOf(session),
     lastUsedChoice(prisma, session.user.id),
+    payersOf(session),
   ]);
   const walletId = wallets.find((w) => w.id === last?.walletId)?.id ?? wallets[0]?.id ?? null;
   const accountId = accounts.find((a) => a.id === last?.accountId)?.id ?? accounts[0]?.id ?? null;
@@ -66,6 +110,7 @@ export async function getQuickEntryPage(session: Session) {
     categories: cats.categories,
     canManageCategories: cats.canManageCategories,
     defaults: { walletId, accountId, occurredOn: todayCivil() },
+    payers,
   };
 }
 
@@ -77,12 +122,13 @@ export async function getTransactionsPage(
 ) {
   const parsed = parseFilters(params, today ?? todayCivil());
   const scope = await requireScope(session, "view", parsed.walletId);
-  const [page, totals, wallets, accounts, cats] = await Promise.all([
+  const [page, totals, wallets, accounts, cats, payers] = await Promise.all([
     listTransactions(prisma, scope, parsed.filters, parsed.cursor),
     sumTransactions(prisma, scope, parsed.filters),
     listMyWallets(prisma, session.user.id),
     listUsableAccounts(prisma, session.user.id),
     categoriesOf(session),
+    payersOf(session),
   ]);
   const canEdit = new Set(
     wallets.filter((w) => w.role !== "VIEWER" && !w.archived).map((w) => w.id),
@@ -99,6 +145,13 @@ export async function getTransactionsPage(
     },
     hasWallets: wallets.length > 0,
     canExport: wallets.some((w) => w.role === "OWNER" && !w.archived),
+    /** O seletor de ambiente: os que a pessoa vê, compartilhados primeiro */
+    environments: environmentsOf(wallets),
+    payers,
+    /** As outras pessoas do lar (primeiro nome): o pessoal delas fica de fora da soma */
+    otherMembers: payers
+      .filter((p) => p.param !== SHARED_PAYER_PARAM && p.param !== session.user.id)
+      .map((p) => p.name),
   };
 }
 

@@ -1,10 +1,13 @@
 "use client";
 
-// A lista de lançamentos (M07; visual do M07.3, opção B do canvas), agrupada por dia.
+// A lista de lançamentos (M07; visual do M07.3 e M07.4, canvas C.2), agrupada por dia.
 //
-//   computador  [ícone] Descrição ........ [Categoria] (Ambiente) Conta/cartão .... valor [lixeira]
-//   celular     [ícone] Descrição ......................................... valor
-//                       [Categoria] (Ambiente)
+//   computador  [DV] Descrição ........ [Categoria] (Ambiente) Conta/cartão .... valor [lixeira]
+//   celular     [DV] Descrição ......................................... valor
+//                    [Categoria] (Ambiente)
+//
+// O quadrado da frente é QUEM PAGOU (DV, NV, CP: M07.4); a categoria está na etiqueta. Quando não
+// dá para saber quem pagou (conta sem titular), o quadrado volta a ser a letra da categoria.
 //
 // Uma linha só no HTML: no computador, "display: contents" solta os detalhes no grid e eles viram
 // colunas; nenhum texto aparece duas vezes. Categoria e ambiente têm largura fixa, para as colunas
@@ -14,7 +17,7 @@ import Link from "next/link";
 import { useOptimistic, useTransition } from "react";
 import { toast } from "sonner";
 import { ArrowLeftRight, CalendarClock, CircleDashed, Trash2 } from "lucide-react";
-import type { CivilDate } from "@fintrack/core";
+import type { CivilDate, Payer } from "@fintrack/core";
 import { undoToast } from "@/components/feedback/undo-toast";
 import { AmountText } from "@/components/money/amount-text";
 import { Button } from "@/components/ui/button";
@@ -22,7 +25,9 @@ import { IconTile } from "@/components/visual/icon-tile";
 import { toneFor } from "@/components/visual/tone";
 import { INITIAL_ACTION_STATE } from "@/lib/action-state";
 import { cn } from "@/lib/utils";
+import { payerOptionFor, type PayerOption } from "../payers";
 import { dayLabel } from "../presentation";
+import { PayerTile } from "./payer-tile";
 import { deleteTransactionAction, restoreTransactionAction } from "../server/actions";
 
 export type ListItem = {
@@ -37,6 +42,10 @@ export type ListItem = {
   account: { name: string };
   category: { id: string; name: string } | null;
   card: { nickname: string; lastFour: string } | null;
+  /** Quem pagou (M07.4), pela regra do core */
+  payer: Payer;
+  /** "Parcela 2 de 10" (M07.4); nulo fora de compra parcelada */
+  installment: { number: number; count: number } | null;
 };
 
 function formData(id: string) {
@@ -49,22 +58,20 @@ function formData(id: string) {
 const ROW =
   "grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-x-3 px-3.5 py-3 lg:grid-cols-[2.5rem_minmax(0,2fr)_8rem_6rem_minmax(0,1.2fr)_8.25rem_2.25rem] lg:gap-x-3.5 lg:px-[1.125rem]";
 
-/** Quem paga: o cartão (apelido e final) ou, sem cartão, a conta. Só os 4 últimos dígitos. */
-export function payingWith(item: Pick<ListItem, "account" | "card">): string {
-  return item.card ? `${item.card.nickname} final ${item.card.lastFour}` : item.account.name;
-}
-
 function categoryName(item: ListItem) {
   return item.transferId ? "Transferência" : (item.category?.name ?? "Sem categoria");
 }
 
 export function TransactionList({
   items,
+  payers,
   today,
   readOnly = false,
   dayHeading = "h2",
 }: {
   items: ListItem[];
+  /** As pessoas do lar e o Compartilhado, com iniciais e cor (getTransactionsPage) */
+  payers: readonly PayerOption[];
   /** Hoje em São Paulo (do servidor), para os títulos "Hoje" e "Ontem" */
   today: CivilDate;
   /** Sem o botão de excluir (o resumo do Início) */
@@ -105,6 +112,7 @@ export function TransactionList({
           title={dayLabel(day.date, today)}
           heading={dayHeading}
           items={day.items}
+          payers={payers}
           onRemove={readOnly ? null : remove}
         />
       ))}
@@ -127,11 +135,13 @@ function DayGroup({
   title,
   heading: Heading,
   items,
+  payers,
   onRemove,
 }: {
   title: string;
   heading: "h2" | "h3";
   items: ListItem[];
+  payers: readonly PayerOption[];
   onRemove: ((item: ListItem) => void) | null;
 }) {
   return (
@@ -139,7 +149,12 @@ function DayGroup({
       <Heading className="text-muted-foreground px-1 text-sm font-bold">{title}</Heading>
       <ul className="bg-card divide-y overflow-hidden rounded-[1.125rem] border">
         {items.map((item) => (
-          <TransactionRow key={item.id} item={item} onRemove={onRemove} />
+          <TransactionRow
+            key={item.id}
+            item={item}
+            payer={payerOptionFor(item.payer, payers)}
+            onRemove={onRemove}
+          />
         ))}
       </ul>
     </section>
@@ -148,14 +163,16 @@ function DayGroup({
 
 function TransactionRow({
   item,
+  payer,
   onRemove,
 }: {
   item: ListItem;
+  payer: PayerOption | null;
   onRemove: ((item: ListItem) => void) | null;
 }) {
   return (
     <li className={ROW}>
-      <Leading item={item} />
+      {payer ? <PayerTile payer={payer} /> : <Leading item={item} />}
       {/* No celular: descrição e, embaixo, categoria e ambiente. No computador, o
           "display: contents" solta os mesmos elementos no grid e eles viram colunas. */}
       <div className="flex min-w-0 flex-col gap-1.5 lg:contents">
@@ -166,14 +183,13 @@ function TransactionRow({
           >
             {item.description}
           </Link>
+          {item.installment ? <InstallmentBadge {...item.installment} /> : null}
           {item.status === "SCHEDULED" ? <Scheduled /> : null}
         </span>
         <span className="flex gap-1.5 lg:contents">
           <CategoryTag name={categoryName(item)} />
           <WalletTag wallet={item.wallet} />
-          <span className="text-muted-foreground hidden min-w-0 truncate text-sm lg:block">
-            {payingWith(item)}
-          </span>
+          <PayingWith account={item.account} card={item.card} />
         </span>
       </div>
       <AmountText
@@ -238,6 +254,36 @@ function WalletTag({ wallet }: { wallet: ListItem["wallet"] }) {
       )}
     >
       {wallet.name}
+    </span>
+  );
+}
+
+/**
+ * Com o que foi pago: o cartão (apelido e final) ou, sem cartão, a conta. Só os 4 últimos dígitos.
+ * Sem espaço, quem encurta é o apelido: o "final 0003" é o que diferencia um cartão do outro.
+ */
+function PayingWith({ account, card }: Pick<ListItem, "account" | "card">) {
+  const full = card ? `${card.nickname} final ${card.lastFour}` : account.name;
+  return (
+    <span title={full} className="text-muted-foreground hidden min-w-0 text-sm lg:flex">
+      <span className="truncate">{card ? card.nickname : account.name}</span>
+      {card ? <span className="shrink-0 whitespace-pre"> final {card.lastFour}</span> : null}
+    </span>
+  );
+}
+
+/** "3/10": a parcela desta linha e o total (o nome completo para o leitor de tela e o mouse). */
+function InstallmentBadge({ number, count }: { number: number; count: number }) {
+  return (
+    <span
+      title={`Parcela ${number} de ${count}`}
+      className="text-muted-foreground shrink-0 rounded-md border px-1.5 text-xs font-semibold tabular-nums"
+    >
+      <span className="sr-only">parcela </span>
+      {number}
+      <span aria-hidden>/</span>
+      <span className="sr-only"> de </span>
+      {count}
     </span>
   );
 }
