@@ -97,7 +97,7 @@ test.describe("o uso diário", () => {
     await page.getByLabel("Descrição").fill("Supermercado Bom Preço");
     await expect(page.getByText(/Sugerida: Mercado/)).toBeVisible();
     await expect(page.getByLabel("Categoria")).toHaveValue(p.categories["Mercado"]!);
-    await page.getByRole("button", { name: "Salvar lançamento" }).click();
+    await page.getByRole("button", { name: "Salvar despesa" }).click();
     await expect(page.getByText(brl("Despesa de R$ 42,35 registrada"))).toBeVisible();
     expect(Date.now() - started).toBeLessThan(10_000); // critério de pronto do roteiro
     await expect(page.getByLabel("Valor")).toHaveValue(brl("R$ 0,00"));
@@ -134,9 +134,17 @@ test.describe("o uso diário", () => {
     await page.getByLabel("Descrição").fill("SUPERMERCADO BOM PRECO 02/10");
     await expect(page.getByText(/Sugerida: Restaurante/)).toBeVisible();
 
-    // 4. Excluir pela lista, com desfazer
+    // 4. Excluir com desfazer: pela lista no computador; no celular (M07.3), a linha é curta
+    //    demais para a lixeira e o excluir fica na página do lançamento
     await openPage(page, "/lancamentos");
-    await page.getByRole("button", { name: "Excluir Supermercado Bom Preço" }).click();
+    if (testInfo.project.name === "celular") {
+      await page.getByRole("link", { name: "Supermercado Bom Preço" }).click();
+      await page.getByRole("button", { name: "Excluir lançamento" }).click();
+      await page.getByRole("button", { name: "Sim, excluir" }).click();
+      await expect(page).toHaveURL(/\/lancamentos$/);
+    } else {
+      await page.getByRole("button", { name: "Excluir Supermercado Bom Preço" }).click();
+    }
     await expect(page.getByRole("link", { name: "Supermercado Bom Preço" })).toHaveCount(0);
     await page.getByRole("button", { name: "Desfazer" }).click();
     await expect(page.getByText("Lançamento de volta")).toBeVisible();
@@ -188,7 +196,10 @@ test.describe("números que batem", () => {
     await expect(page.getByTestId("total-saldo")).toContainText(brl("R$ 998.734,86"));
     await expect(page.getByTestId("total-saldo")).toContainText("Despesa de");
     await expect(page.getByText("8 lançamentos no filtro.")).toBeVisible();
-    await expect(page.getByText("Transferência", { exact: true }).first()).toBeVisible();
+    // a etiqueta de categoria da linha (as ações também se chamam "Transferência")
+    await expect(
+      page.getByRole("listitem").getByText("Transferência", { exact: true }).first(),
+    ).toBeVisible();
     await p.close();
   });
 });

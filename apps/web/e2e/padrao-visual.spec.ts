@@ -6,12 +6,16 @@ import { NO_SESSION, openPage } from "./helpers";
 
 test("o Início mostra o mesmo saldo do mês que a lista de lançamentos", async ({ page }) => {
   await openPage(page, "/lancamentos");
-  const saldoLista = (await page.getByTestId("total-saldo").innerText()).replace(/\s+/g, " ");
+  // Os rótulos mudam ("Saldo do período", "Saldo de outubro de 2026"); o valor tem de ser o mesmo
+  const valor = async (testId: string) =>
+    (await page.getByTestId(testId).innerText())
+      .replace(/\s+/g, " ")
+      .match(/[−-]?\s?R\$ ?[\d.,]+/)?.[0];
+  const saldoLista = await valor("total-saldo");
   await openPage(page, "/");
-  await expect(page.getByRole("region", { name: /Saldo de/ })).toBeVisible();
-  const saldoInicio = (await page.getByTestId("inicio-saldo").innerText()).replace(/\s+/g, " ");
-  // O texto da lista inclui o rótulo "Saldo do período"; o valor tem de ser o mesmo
-  expect(saldoLista).toContain(saldoInicio.trim());
+  await expect(page.getByRole("region", { name: "Resumo do mês" })).toBeVisible();
+  expect(saldoLista).toBeTruthy();
+  expect(await valor("inicio-saldo")).toBe(saldoLista);
   await expect(page.getByRole("navigation", { name: "Atalhos" }).getByRole("link")).toHaveCount(4);
 });
 
@@ -44,7 +48,7 @@ test("a linha do lançamento não repete texto: no desktop os detalhes viram col
   const colunas = await linha.evaluate(
     (el) => getComputedStyle(el).gridTemplateColumns.split(" ").length,
   );
-  expect(colunas).toBe(isMobile ? 4 : 7);
+  expect(colunas).toBe(isMobile ? 3 : 7);
 });
 
 test.describe("telas de entrada", () => {

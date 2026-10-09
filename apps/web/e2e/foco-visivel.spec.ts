@@ -203,10 +203,8 @@ test.describe("saindo do aviso pelo teclado", () => {
 
 test("o campo Data mostra o anel do app também no botão do calendário", async ({ page }) => {
   await openPage(page, "/lancamentos/novo");
-  // Desde o M07 a data mora em "Mais opções" (o lançamento rápido já vem com a data de hoje)
-  const more = page.locator("summary").filter({ hasText: "Mais opções" });
-  await more.click();
-  await more.focus();
+  // Desde o M07.3 a data fica ao lado do valor, à vista: o Tab sai do valor e entra nela
+  await page.getByLabel("Valor").focus();
   const data = page.getByLabel("Data");
   // dia, mês, ano e o botão do calendário: o anel aparece em todas as paradas
   for (let i = 0; i < 4; i++) {
