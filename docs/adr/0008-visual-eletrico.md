@@ -64,3 +64,21 @@ com um brilho azul atrás dele para o vidro ter o que mostrar. O contraste do te
 fundo e sobre cada brilho no `theme-contrast.test.ts`. O menu recolhe até ficarem só os ícones; o texto
 vira dica e continua sendo o nome acessível de cada link. A escolha fica num cookie para o servidor
 desenhar a página já no estado certo.
+
+## Adendo (M07.3): o desenho C.2
+
+Depois do M07.2 em produção, o painel azul ficou grande demais e o menu lateral claro demais. O
+canvas ganhou a linha C.2, aprovada antes do código, e o M07.3 a implementa:
+
+- O resumo virou uma faixa baixa (`SummaryGrid`): o saldo num `HighlightCard` azul-claro
+  (tokens `hero-soft*`) e entradas e saídas em `StatCard` brancos, em verde e vermelho. Verde e
+  vermelho não vão sobre o azul: não passam no contraste.
+- O menu lateral é marinho de vidro nos dois temas, só com navegação; "Novo lançamento" foi para o
+  cabeçalho das páginas principais. Ele recolhe por uma alça na borda. As luzes que o vidro mostra
+  (`ShellBackdrop`) ficam atrás dele, só no computador.
+- As ações secundárias viraram uma `ActionBar` e os filtros um painel aberto por botão
+  (`ListToolbar`); no celular, as ações entram no mesmo painel.
+- O modal do novo lançamento tem cabeçalho, meio e rodapé; só o meio rola, e no computador a partir
+  de 720 px de altura não rola. O formulário foi reorganizado em blocos (`features/transactions/ui/entry/`).
+- O hover do botão principal (`primary/80` do shadcn) dava 3,65:1 com texto branco; agora escurece
+  a cor em vez de clarear, e o teste de contraste mede os estados de hover.
