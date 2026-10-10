@@ -20,6 +20,20 @@ import { Prisma, type PrismaClient } from "./generated/prisma/client";
 
 // ── Categorias ──────────────────────────────────────────────────────────────────
 
+/**
+ * As categorias do lar como árvore mínima (id e pai), arquivadas incluídas: um lançamento antigo
+ * numa categoria arquivada continua dentro do grupo dela. Base de subtreeOf e categoryGroupOf.
+ */
+export async function categoryNodes(
+  db: PrismaClient | Prisma.TransactionClient,
+  householdId: string,
+): Promise<{ id: string; parentId: string | null }[]> {
+  return db.category.findMany({
+    where: { householdId },
+    select: { id: true, parentId: true },
+  });
+}
+
 /** Categorias do lar (ativas primeiro), com o nome do pai, para os seletores e a tela. */
 export async function listCategories(
   db: PrismaClient,

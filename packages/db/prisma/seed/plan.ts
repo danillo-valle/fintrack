@@ -106,6 +106,8 @@ export type SeedBudget = {
   categoryId: string;
   month: MonthKey;
   amount: Cents;
+  /** Divisão por pessoa (M08): soma o amount; userId null = Compartilhado */
+  shares: { id: string; userId: string | null; amount: Cents }[];
 };
 export type SeedRecurrence = {
   id: string;
@@ -1230,17 +1232,31 @@ export function buildSeedPlan(options: SeedOptions): SeedPlan {
     [caio, "Combustível", "750.00"],
     [caio, "Almoço", "900.00"],
   ];
+  // O Mercado da Casa é dividido por pessoa (M08): Lia, Caio e o Compartilhado (cartão conjunto)
+  const marketShares: [string | null, string][] = [
+    [liaId, "650.00"],
+    [caioId, "450.00"],
+    [null, "600.00"],
+  ];
   const budgets: SeedBudget[] = [];
   for (let index = 0; index < months; index += 1) {
     const month = addMonthsToKey(firstMonth, index);
+    const raise = (cents: Cents) => (index < 12 ? cents : (cents * 105n) / 100n);
     for (const [wallet, name, value] of budgetPlan) {
-      const amount = brl(value);
+      const split = wallet === home && name === "Mercado";
       budgets.push({
         id: newId(),
         walletId: wallet.id,
         categoryId: categoryId(name),
         month,
-        amount: index < 12 ? amount : (amount * 105n) / 100n,
+        amount: raise(brl(value)),
+        shares: split
+          ? marketShares.map(([userId, part]) => ({
+              id: newId(),
+              userId,
+              amount: raise(brl(part)),
+            }))
+          : [],
       });
     }
   }

@@ -36,6 +36,7 @@ export * from "./generated/prisma/enums";
 export type {
   AuditLog,
   Budget,
+  BudgetShare,
   CardStatement,
   Category,
   CategoryRule,
@@ -71,3 +72,7 @@ export * from "./categories";
 export * from "./recurrences";
 export * from "./transactions";
 export * from "./installments";
+
+// Orçamento, painel e fluxo de caixa (M08): o banco soma, o @fintrack/core interpreta.
+export * from "./budgets";
+export * from "./dashboard";

@@ -202,6 +202,14 @@ describe("plano do seed: datas, faturas e parcelas", () => {
     for (const r of plan.rules) expect(r.pattern).toMatch(/^[a-z0-9 ]{2,100}$/);
     const budgetKeys = plan.budgets.map((b) => `${b.walletId}:${b.categoryId}:${b.month}`);
     expect(new Set(budgetKeys).size).toBe(budgetKeys.length);
+    // A divisão por pessoa (M08) soma o orçado, sem valor negativo e uma vez por pessoa
+    const split = plan.budgets.filter((b) => b.shares.length > 0);
+    expect(split).toHaveLength(24);
+    for (const b of split) {
+      expect(sumCents(b.shares.map((s) => s.amount))).toBe(b.amount);
+      expect(b.shares.every((s) => s.amount >= 0n)).toBe(true);
+      expect(new Set(b.shares.map((s) => s.userId)).size).toBe(b.shares.length);
+    }
     const external = plan.transactions
       .filter((t) => t.source !== "MANUAL")
       .map((t) => `${t.accountId}:${t.externalId}`);

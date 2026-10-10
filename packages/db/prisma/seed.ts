@@ -1,6 +1,8 @@
 // Seed: 24 meses de dados SINTÉTICOS de um grupo fictício (Lia e Caio Exemplo).
 //
 //   pnpm db:seed    grava (ou regrava) a casa do seed
+//   SEED_VIEWER_EMAIL=<conta de teste> pnpm db:seed
+//                   idem, e põe a sua conta de TESTE na casa (para ver o painel; seed/viewer.ts)
 //   pnpm db:reset   apaga o banco, aplica as migrações e roda o seed (meta: menos de 30 s)
 //
 // Nada aqui é dado real. O seed APAGA o grupo fictício anterior antes de gravar, então só roda
@@ -11,6 +13,7 @@ import { monthOf, todayCivil } from "@fintrack/core";
 import { prisma } from "../src/index";
 import { checkSeedTarget } from "./seed/guard";
 import { buildSeedPlan } from "./seed/plan";
+import { addSeedViewer } from "./seed/viewer";
 import { writeSeedPlan } from "./seed/write";
 
 async function main(): Promise<void> {
@@ -21,6 +24,8 @@ async function main(): Promise<void> {
   const today = todayCivil();
   const plan = buildSeedPlan({ endMonth: monthOf(today), today });
   await writeSeedPlan(prisma, plan);
+  const viewerEmail = process.env.SEED_VIEWER_EMAIL?.trim();
+  const viewer = viewerEmail ? await addSeedViewer(prisma, plan, viewerEmail) : null;
   const seconds = ((performance.now() - started) / 1000).toLocaleString("pt-BR", {
     maximumFractionDigits: 1,
   });
@@ -31,6 +36,9 @@ async function main(): Promise<void> {
       `Seed gravado em ${seconds} s: "${plan.household.name}", 24 meses até ${today}.`,
       `  ${plan.users.length} pessoas, ${plan.wallets.length} ambientes, ${plan.accounts.length} contas, ${plan.cards.length} cartões, ${plan.categories.length} categorias`,
       `  ${plan.transactions.length} lançamentos, ${plan.recurrences.length} recorrências, ${plan.statements.length} faturas, ${plan.installmentGroups.length} compras parceladas, ${plan.budgets.length} orçamentos`,
+      ...(viewer
+        ? [`  ${viewer.name} entrou na casa (editora de ${viewer.wallets.join(", ")})`]
+        : []),
     ].join("\n") + "\n",
   );
 }
