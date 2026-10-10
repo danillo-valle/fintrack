@@ -1,3 +1,5 @@
+import { ContentReady } from "./content-ready";
+
 type Props = {
   title: string;
   description?: React.ReactNode;
@@ -10,6 +12,8 @@ type Props = {
 export function PageHeader({ title, description, actions }: Props) {
   return (
     <div className="mb-5 flex flex-wrap items-end justify-between gap-4 md:mb-6">
+      {/* Marca "pronto" quando o conteúdo desta página hidratou (testes E2E; content-ready.tsx) */}
+      <ContentReady />
       <div className="min-w-0">
         <h1 className="text-[1.875rem] font-extrabold tracking-[-0.03em] text-balance md:text-[2.5rem]">
           {title}

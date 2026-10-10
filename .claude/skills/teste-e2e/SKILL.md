@@ -37,9 +37,11 @@ Referência: `apps/web/e2e/permissoes.spec.ts` (M06) e `apps/web/e2e/helpers.ts`
   com `display: none`. `getByRole` já ignora o escondido; `getByLabel`, `getByText` e
   `locator(...)` não: use `.filter({ visible: true })` (o `formAlert` dos helpers já filtra).
 - **Antes do React carregar (M08)**: o `data-hydrated` marca só a moldura; o conteúdo da página
-  vem em Suspense e hidrata depois. O `openPage` espera também cada campo e botão à vista estar
-  ligado ao React (`waitForControls`); depois de navegar de outro jeito (clique num link, `goBack`)
-  e antes de digitar, chame `waitForControls(page)`. Todo `<form>` precisa funcionar sem o React:
+  vem em Suspense e hidrata depois. O `openPage` espera também a marca do `ContentReady` (no
+  `PageHeader`) virar "pronto", o que só acontece depois do commit (`waitForContent`); depois de
+  navegar de outro jeito (clique num link, `goBack`) e antes de digitar, chame `waitForContent(page)`.
+  Não espere pela chave `__reactFiber$`: o React a grava antes do commit. Todo `<form>` precisa
+  funcionar sem o React:
   `formularios.spec.ts` confere o HTML de cada página de `PAGES` e envia um formulário com os
   pacotes de JavaScript barrados.
 - **Tempo é medido no build de produção**: limite de tempo (`toBeLessThan(ms)`) só com

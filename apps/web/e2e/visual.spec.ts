@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { openPage, waitForControls } from "./helpers";
+import { openPage, waitForContent } from "./helpers";
 
 // M07.1 (Visual C, ADR-008): o modal do novo lançamento e a moldura de vidro.
 
@@ -61,7 +61,7 @@ test("os ids do modal não repetem os da página atrás (editar + novo)", async 
     .click();
   await expect(page).toHaveURL(/\/lancamentos\/[0-9a-f-]{36}$/);
   await expect(page.getByRole("heading", { level: 1, name: "Padaria do Bairro" })).toBeVisible();
-  await waitForControls(page);
+  await waitForContent(page);
   await page.getByRole("link", { name: "Novo lançamento" }).click();
   await expect(page.getByRole("dialog", { name: "Novo lançamento" })).toBeVisible();
   const duplicated = await page.evaluate(() => {

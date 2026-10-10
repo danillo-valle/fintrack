@@ -133,8 +133,11 @@ Decisões tomadas com o Danillo antes do código: orçado **por ambiente e por p
 - **A moldura hidrata antes do conteúdo**: o conteúdo de cada página está na fronteira de Suspense
   do `loading.tsx` e hidrata 0,1 a 0,3 s depois (produção, laboratório). Uma tecla digitada nesse
   meio-tempo some (a hidratação devolve o valor do React ao campo). Para quem usa, o intervalo é
-  curto demais para pesar; nos testes, o `openPage` espera cada campo e botão à vista estar ligado
-  ao React (`waitForControls` nos helpers), e não só o `data-hydrated` da moldura.
+  curto demais para pesar, mas um teste digita rápido: o `openPage` espera o `ContentReady` do
+  `PageHeader`, que um efeito marca "pronto" depois do commit (`waitForContent` nos helpers). A
+  primeira versão esperava a chave `__reactFiber$` dos campos, que o React grava antes do commit
+  (fase de renderização, junto com o `initInput` que repõe o valor); no N150, com dois workers,
+  o valor digitado ainda sumia.
 - **Pendência (do Next, não resolvida aqui)**: no build de produção, um formulário enviado antes do
   React carregar chega ao servidor e a action roda, mas a página que volta acusa diferença de
   hidratação (React #418) e o React refaz a tela sem o aviso de confirmação. Acontece também com o
