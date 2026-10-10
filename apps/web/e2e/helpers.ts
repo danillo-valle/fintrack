@@ -14,7 +14,29 @@ import pg from "pg";
 export async function openPage(page: Page, path: string) {
   const response = await page.goto(path);
   await expect(page.locator("html[data-hydrated]")).toBeAttached();
+  await waitForControls(page);
   return response;
+}
+
+/**
+ * Espera cada campo e botão à vista (no conteúdo e num modal) estar ligado ao React.
+ *
+ * O `data-hydrated` (providers.tsx) marca só a moldura. Com o Cache Components (M08), o conteúdo
+ * de cada página fica numa fronteira de Suspense própria (o `loading.tsx` de `(app)`) e hidrata
+ * depois: no build de produção, 0,1 a 0,3 s mais tarde. Digitar nesse meio-tempo some, porque a
+ * hidratação devolve o valor do React ao campo (o E2E de lançamentos falhava assim, só em produção).
+ * O React grava uma chave `__reactFiber$…` em cada elemento que ele hidratou; é interna, mas estável
+ * desde o React 16, e aqui serve só ao teste. Os `<input type="hidden">` da Server Action (o envio
+ * sem JavaScript) nunca são do React e ficam de fora.
+ */
+export async function waitForControls(page: Page) {
+  await page.waitForFunction(() =>
+    [
+      ...document.querySelectorAll(
+        ':is(main, [role="dialog"]) :is(input:not([type="hidden"]), select, textarea, button)',
+      ),
+    ].every((el) => Object.keys(el).some((key) => key.startsWith("__reactFiber$"))),
+  );
 }
 
 /**

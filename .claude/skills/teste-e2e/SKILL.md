@@ -36,10 +36,15 @@ Referência: `apps/web/e2e/permissoes.spec.ts` (M06) e `apps/web/e2e/helpers.ts`
 - **Telas escondidas (Cache Components, M08)**: o Next guarda as 3 últimas telas no documento
   com `display: none`. `getByRole` já ignora o escondido; `getByLabel`, `getByText` e
   `locator(...)` não: use `.filter({ visible: true })` (o `formAlert` dos helpers já filtra).
-- **Antes do React carregar (M08)**: o `openPage` espera o `data-hydrated`, que marca só a
-  moldura; o conteúdo da página vem em Suspense e pode hidratar depois (no N150, segundos). Por
-  isso todo `<form>` precisa funcionar sem o React: `formularios.spec.ts` confere o HTML de cada
-  página de `PAGES` e envia um formulário com os pacotes de JavaScript barrados.
+- **Antes do React carregar (M08)**: o `data-hydrated` marca só a moldura; o conteúdo da página
+  vem em Suspense e hidrata depois. O `openPage` espera também cada campo e botão à vista estar
+  ligado ao React (`waitForControls`); depois de navegar de outro jeito (clique num link, `goBack`)
+  e antes de digitar, chame `waitForControls(page)`. Todo `<form>` precisa funcionar sem o React:
+  `formularios.spec.ts` confere o HTML de cada página de `PAGES` e envia um formulário com os
+  pacotes de JavaScript barrados.
+- **Tempo é medido no build de produção**: limite de tempo (`toBeLessThan(ms)`) só com
+  `test.skip(!PRODUCTION_BUILD, …)`. No `pnpm dev` o número mede a máquina. A suíte contra a imagem
+  local (`PLAYWRIGHT_PRODUCTION=1 pnpm e2e`, passo do manual do M08) roda esses testes.
 - **Deslogado**: `test.use({ storageState: NO_SESSION })`.
 - **E-mail**: `clearEmails(destino)` antes, `linkFromEmail(destino, /assunto/)` depois.
 - **Acessibilidade**: tela nova entra em `PAGES` (axe claro/escuro, foco, proteção); estados que

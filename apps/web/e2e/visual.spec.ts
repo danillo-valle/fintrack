@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { openPage } from "./helpers";
+import { openPage, waitForControls } from "./helpers";
 
 // M07.1 (Visual C, ADR-008): o modal do novo lançamento e a moldura de vidro.
 
@@ -46,15 +46,23 @@ test("abrir /lancamentos/novo direto mostra a página inteira, sem modal", async
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
-test("os ids do modal não repetem os da página atrás (editar + novo)", async ({ page }) => {
+test("os ids do modal não repetem os da página atrás (editar + novo)", async ({
+  page,
+}, testInfo) => {
+  // Só no celular: desde o M07.3, "Novo lançamento" fica no cabeçalho de cada página, e a de edição
+  // não tem; no celular, o + abre o modal por cima dela. (No computador, este teste clicava no link
+  // da lista antes de a navegação terminar e nunca chegava à edição; o build de produção mostrou.)
+  test.skip(testInfo.project.name !== "celular", "no computador a edição não abre o modal");
   await openPage(page, "/lancamentos");
   // abre um lançamento existente (a página de edição tem o mesmo formulário) e, dali, o modal
   await page
     .getByRole("link", { name: /Padaria do Bairro/ })
     .first()
     .click();
-  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  await page.getByRole("link", { name: "Novo lançamento" }).first().click();
+  await expect(page).toHaveURL(/\/lancamentos\/[0-9a-f-]{36}$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Padaria do Bairro" })).toBeVisible();
+  await waitForControls(page);
+  await page.getByRole("link", { name: "Novo lançamento" }).click();
   await expect(page.getByRole("dialog", { name: "Novo lançamento" })).toBeVisible();
   const duplicated = await page.evaluate(() => {
     const seen = new Map<string, number>();

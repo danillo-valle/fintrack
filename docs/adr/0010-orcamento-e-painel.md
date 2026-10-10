@@ -125,6 +125,23 @@ Decisões tomadas com o Danillo antes do código: orçado **por ambiente e por p
     pessoa fica na memória da página da outra.
   - **Testes E2E**: seletores que não sejam por papel podem achar a tela escondida; usam
     `.filter({ visible: true })` (e o `formAlert` dos helpers já filtra).
+- **O tempo do painel é medido no build de produção** (`PLAYWRIGHT_PRODUCTION=1`, a imagem local do
+  M05), não no `pnpm dev`. No dev, a compilação sob demanda e o React de desenvolvimento dividem a
+  CPU com o navegador: a mesma tela oscilou entre 0,6 e 1,5 s no laboratório e ficou em ~1,05 s no
+  N150, sem mudança de código. No build de produção do laboratório, com 24 meses: medianas de
+  0,2 a 0,3 s nas quatro telas. O teste dos 24 meses é pulado no `pnpm dev` (e no CI).
+- **A moldura hidrata antes do conteúdo**: o conteúdo de cada página está na fronteira de Suspense
+  do `loading.tsx` e hidrata 0,1 a 0,3 s depois (produção, laboratório). Uma tecla digitada nesse
+  meio-tempo some (a hidratação devolve o valor do React ao campo). Para quem usa, o intervalo é
+  curto demais para pesar; nos testes, o `openPage` espera cada campo e botão à vista estar ligado
+  ao React (`waitForControls` nos helpers), e não só o `data-hydrated` da moldura.
+- **Pendência (do Next, não resolvida aqui)**: no build de produção, um formulário enviado antes do
+  React carregar chega ao servidor e a action roda, mas a página que volta acusa diferença de
+  hidratação (React #418) e o React refaz a tela sem o aviso de confirmação. Acontece também com o
+  `ActionForm` do M07.4, então vem do Cache Components com o envio sem JavaScript. No `pnpm dev`
+  o aviso aparece. O risco é a pessoa não ver o "registrado" e enviar de novo; com o intervalo de
+  hidratação acima, é raro. `formularios.spec.ts` prova o que é nosso (o envio chega e a resposta
+  traz o resultado). Rever a cada versão do Next.
 - O servidor de desenvolvimento usa mais memória (no laboratório, até ~5 GB no fim da suíte
   E2E). No N150 (15 GiB) cabe; o manual pede para fechar outros `pnpm dev` antes do `pnpm e2e`.
 - No Orçamento do mês, o canto do cabeçalho é o mês (como no canvas D), sem o botão "Novo
