@@ -14,8 +14,8 @@ import type { Prisma } from "./generated/prisma/client";
 export type RequestContext = { ip?: string | null; userAgent?: string | null };
 
 /**
- * Os eventos registrados (M06, M07 e M07.4), no formato entidade.verbo. Lista fechada (union) de
- * propósito: um erro de digitação ("wallet.renmed") vira erro de compilação.
+ * Os eventos registrados (M06, M07, M07.4 e M08), no formato entidade.verbo. Lista fechada
+ * (union) de propósito: um erro de digitação ("wallet.renmed") vira erro de compilação.
  */
 export type AuditAction =
   | "household.created"
@@ -48,7 +48,12 @@ export type AuditAction =
   | "category.created"
   | "category.archived"
   | "category_rule.created"
-  | "category_rule.deleted";
+  | "category_rule.deleted"
+  // M08: orçamento (só ids, mês e contagens; nunca valores)
+  | "budget.set"
+  | "budget.removed"
+  | "budgets.copied"
+  | "budgets.copy_undone";
 
 export type AuditEntry = {
   actorId: string | null;

@@ -121,6 +121,7 @@ describe("filtros na URL", () => {
       },
       walletId: null,
       cursor: null,
+      back: null,
     });
   });
 
@@ -186,6 +187,34 @@ describe("filtros na URL", () => {
     );
     expect(back.filters).toEqual(parsed.filters);
     expect(back.walletId).toBe(parsed.walletId);
+  });
+
+  it("volta (M08): só as telas do painel, e ela vai junto quando um filtro muda", () => {
+    const ok = `/orcamento?mes=2026-10&carteira=${ID}&pago=compartilhado`;
+    for (const back of [
+      "/",
+      `/?carteira=${ID}`,
+      ok,
+      "/orcamento/fluxo?detalhe=2026-11",
+      "/orcamento/evolucao",
+    ]) {
+      expect(parseFilters({ volta: back }, today).back).toBe(back);
+    }
+    for (const bad of [
+      "https://exemplo.test/",
+      "//exemplo.test",
+      "/lancamentos",
+      "/orcamento/editar",
+      "/orcamento?x=<script>",
+      "/orcamento#topo",
+      "javascript:alert(1)",
+    ]) {
+      expect(parseFilters({ volta: bad }, today).back).toBeNull();
+    }
+    const parsed = parseFilters({ volta: ok, categoria: ID2 }, today);
+    const query = new URLSearchParams(filtersToQuery(parsed, { categoria: null }));
+    expect(query.get("volta")).toBe(ok);
+    expect(query.get("categoria")).toBeNull();
   });
 
   it("filtersToQuery acrescenta o cursor da próxima página", () => {

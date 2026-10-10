@@ -32,6 +32,12 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+// Cache Components (M08): o app inteiro é gerado a cada acesso, de propósito. O nonce da CSP muda
+// a cada requisição (proxy.ts) e precisa estar no HTML; por isso o layout raiz lê headers() fora
+// de um <Suspense> e "bloqueia" (instant = false) em vez de servir um esqueleto gerado no build.
+// O cache fica onde ele vale a pena: nas agregações do painel ("use cache" + cacheTag).
+export const instant = false;
+
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   // Nonce desta requisição, sorteado pelo proxy.ts (CSP). O next-themes precisa dele no script
   // que aplica o tema antes da página aparecer; sem o nonce, a CSP bloquearia esse script.

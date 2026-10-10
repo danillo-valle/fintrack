@@ -36,6 +36,17 @@ const nextConfig: NextConfig = {
   // Não anuncia "X-Powered-By: Next.js": nenhum motivo para contar a um visitante o que roda aqui
   poweredByHeader: false,
 
+  // Cache Components (M08, ADR-010): liga o "use cache" e a invalidação por etiqueta (updateTag).
+  // As somas do painel ficam em cache por lar e caem a cada lançamento salvo
+  // (src/lib/finance-cache.ts). O resto do app continua gerado a cada acesso.
+  cacheComponents: true,
+  experimental: {
+    // A checagem de "navegação instantânea" (só no dev) vale apenas para as telas que pedirem
+    // (export const instant = true). Toda tela do app começa pela sessão (requireUser), e o
+    // loading.tsx cobre essa espera; sem isto, o log do dev avisaria em todas as páginas.
+    instantInsights: { validationLevel: "manual-warning" },
+  },
+
   // Cabeçalhos de segurança fixos em toda resposta (a CSP, que muda a cada requisição,
   // vem do proxy.ts). A lista e o porquê de cada um estão em src/lib/security-headers.ts.
   async headers() {

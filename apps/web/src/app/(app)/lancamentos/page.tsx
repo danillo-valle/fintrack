@@ -10,6 +10,7 @@ import { ListToolbar } from "@/components/visual/list-toolbar";
 import { getTransactionsPage } from "@/features/transactions/server/queries";
 import { filtersToQuery } from "@/features/transactions/schemas";
 import { periodPresets } from "@/features/transactions/presentation";
+import { ActiveFilters, BackLink } from "@/features/transactions/ui/active-filters";
 import { activeFilterCount, TransactionFiltersForm } from "@/features/transactions/ui/filters";
 import { environmentsSentence } from "@/features/transactions/environments";
 import { EnvironmentSwitcher } from "@/features/transactions/ui/environment-switcher";
@@ -39,6 +40,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/lan
 
   return (
     <>
+      <BackLink parsed={parsed} categories={page.options.categories} />
       <PageHeader
         title="Lançamentos"
         description={period}
@@ -56,6 +58,12 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/lan
         }
       />
 
+      <ActiveFilters
+        parsed={parsed}
+        options={page.options}
+        payers={page.payers}
+        className="-mt-1 mb-4 md:mb-5"
+      />
       <TotalsSummary
         totals={totals}
         label="Totais do filtro"

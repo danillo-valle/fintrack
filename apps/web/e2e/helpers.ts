@@ -14,7 +14,24 @@ import pg from "pg";
 export async function openPage(page: Page, path: string) {
   const response = await page.goto(path);
   await expect(page.locator("html[data-hydrated]")).toBeAttached();
+  await waitForContent(page);
   return response;
+}
+
+/**
+ * Espera o conteúdo da página estar ligado ao React (não só a moldura).
+ *
+ * O `data-hydrated` (providers.tsx) marca só a moldura. Com o Cache Components (M08), o conteúdo
+ * de cada página fica numa fronteira de Suspense própria (o `loading.tsx` de `(app)`) e hidrata
+ * depois. Digitar antes do commit some: a hidratação repõe o valor do React no campo (o E2E de
+ * lançamentos falhava assim no N150, com o outro worker rodando ao lado). O `PageHeader` traz o
+ * `ContentReady`: sai do servidor com `data-content="carregando"` e um efeito troca para "pronto"
+ * depois do commit. (Uma primeira versão esperava a chave `__reactFiber$` dos campos; o React a
+ * grava na fase de renderização, antes do commit, e ela liberava cedo demais.) Página sem
+ * `PageHeader` (as de entrar e cadastrar) não tem a marca: basta o `data-hydrated`.
+ */
+export async function waitForContent(page: Page) {
+  await page.waitForFunction(() => !document.querySelector('[data-content="carregando"]'));
 }
 
 /**
@@ -22,7 +39,9 @@ export async function openPage(page: Page, path: string) {
  * um elemento com role="alert": o anunciador de mudança de página para leitores de tela.
  */
 export function formAlert(page: Page) {
-  return page.locator('[data-slot="form-alert"]');
+  // Só o que está à vista: com o Cache Components (M08), telas anteriores ficam escondidas no
+  // documento (<Activity>) e o aviso delas também
+  return page.locator('[data-slot="form-alert"]').filter({ visible: true });
 }
 
 /** O Intl separa "R$" do número com um espaço não separável (U+00A0). */
@@ -78,6 +97,9 @@ export const PAGES = [
   "/lancamentos/transferencia",
   "/lancamentos/recorrencias",
   "/orcamento",
+  "/orcamento/fluxo",
+  "/orcamento/evolucao",
+  "/orcamento/editar",
   "/carteiras",
   "/carteiras/nova",
   `/carteiras/${ANA_HOUSEHOLD.sharedWalletId}`,

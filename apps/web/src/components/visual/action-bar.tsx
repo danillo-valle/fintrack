@@ -29,6 +29,10 @@ export function ActionBar({
   );
 }
 
+/** As classes de um item da barra: o mesmo para link (ActionBarLink) e botão de formulário. */
+export const ACTION_BAR_ITEM =
+  "hover:bg-muted focus-visible:ring-ring flex h-[2.625rem] cursor-pointer items-center gap-2 px-3.5 text-sm font-semibold whitespace-nowrap outline-none focus-visible:ring-3 focus-visible:ring-inset disabled:cursor-not-allowed disabled:opacity-60";
+
 export function ActionBarLink({
   href,
   icon: Icon,
@@ -44,7 +48,7 @@ export function ActionBarLink({
     <Link
       href={href}
       style={{ "--tone": `var(--chart-${tone})` } as React.CSSProperties}
-      className="hover:bg-muted focus-visible:ring-ring flex h-[2.625rem] items-center gap-2 px-3.5 text-sm font-semibold whitespace-nowrap outline-none focus-visible:ring-3 focus-visible:ring-inset"
+      className={ACTION_BAR_ITEM}
     >
       <Icon aria-hidden className="size-[1.125rem] shrink-0 text-[var(--tone)]" />
       {children}

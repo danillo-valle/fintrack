@@ -21,6 +21,7 @@ import {
   methodAllowsCard,
   resolvePayer,
   signedAmount,
+  subtreeOf,
   suggestRulePattern,
   toCsv,
   TRANSFER_METHODS,
@@ -42,7 +43,7 @@ import {
   type WalletScope,
 } from "./access";
 import { writeAudit, type RequestContext } from "./audit";
-import { assertUsableCategory, createRuleTx, suggestCategory } from "./categories";
+import { assertUsableCategory, categoryNodes, createRuleTx, suggestCategory } from "./categories";
 import { Prisma, type PrismaClient } from "./generated/prisma/client";
 import { fromDbDecimal, toDbDecimal } from "./money";
 
@@ -458,7 +459,10 @@ export type TransactionFilters = {
   from: CivilDate;
   to: CivilDate;
   accountId?: string | null;
-  /** id da categoria, ou "none" para "sem categoria" (transferências não entram) */
+  /**
+   * id da categoria, ou "none" para "sem categoria" (transferências não entram). A categoria vale
+   * com as de baixo (M08): "Alimentação" acha o Mercado e a Feira, como no painel.
+   */
   categoryId?: string | null;
   text?: string | null;
   type?: TransactionType | null;
@@ -483,11 +487,13 @@ function payerWhere(payer: PayerFilter): Prisma.TransactionWhereInput {
 
 /**
  * O WHERE de lista, totais e exportação: UM só, para os três nunca discordarem. As carteiras
- * vêm sempre de um crachá (escopo ou carteira), nunca da URL.
+ * vêm sempre de um crachá (escopo ou carteira), nunca da URL. A categoria chega já aberta nas de
+ * baixo (whereFor), a mesma árvore que o painel usa (subtreeOf, M08).
  */
 function whereOf(
   walletIds: readonly string[],
   f: TransactionFilters,
+  categoryIds: readonly string[] | null,
 ): Prisma.TransactionWhereInput {
   const and: Prisma.TransactionWhereInput[] = [
     { walletId: { in: [...walletIds] }, deletedAt: null },
@@ -495,7 +501,7 @@ function whereOf(
   ];
   if (f.accountId) and.push({ accountId: f.accountId });
   if (f.categoryId === "none") and.push({ categoryId: null, transferId: null });
-  else if (f.categoryId) and.push({ categoryId: f.categoryId });
+  else if (categoryIds) and.push({ categoryId: { in: [...categoryIds] } });
   if (f.text) {
     and.push({
       OR: [
@@ -509,6 +515,18 @@ function whereOf(
   if (f.type === "income") and.push({ transferId: null, amount: { gt: 0 } });
   if (f.payer) and.push(payerWhere(f.payer));
   return { AND: and };
+}
+
+/** O WHERE com a categoria aberta nas de baixo (uma consulta às categorias do lar). */
+async function whereFor(
+  db: PrismaClient | Prisma.TransactionClient,
+  walletIds: readonly string[],
+  householdId: string | null,
+  f: TransactionFilters,
+): Promise<Prisma.TransactionWhereInput> {
+  if (!f.categoryId || f.categoryId === "none") return whereOf(walletIds, f, null);
+  const nodes = householdId ? await categoryNodes(db, householdId) : [];
+  return whereOf(walletIds, f, [...subtreeOf(f.categoryId, nodes)]);
 }
 
 const LIST_SELECT = {
@@ -563,7 +581,7 @@ export async function listTransactions(
   pageSize: number = PAGE_SIZE,
 ) {
   const after = decodeCursor(cursor);
-  const where = whereOf(scope.walletIds, filters);
+  const where = await whereFor(db, scope.walletIds, scope.householdId, filters);
   const rows = await db.transaction.findMany({
     where: after
       ? {
@@ -599,7 +617,7 @@ export async function sumTransactions(
   scope: WalletScope<"view">,
   filters: TransactionFilters,
 ): Promise<Totals> {
-  const where = whereOf(scope.walletIds, filters);
+  const where = await whereFor(db, scope.walletIds, scope.householdId, filters);
   const [income, expense, count] = await Promise.all([
     db.transaction.aggregate({
       where: { AND: [where, { transferId: null, amount: { gt: 0 } }] },
@@ -645,7 +663,7 @@ export async function exportTransactions(
 ) {
   return db.$transaction(async (tx) => {
     const rows = await tx.transaction.findMany({
-      where: whereOf([grant.wallet.id], filters),
+      where: await whereFor(tx, [grant.wallet.id], grant.wallet.householdId, filters),
       orderBy: [{ occurredOn: "asc" }, { id: "asc" }],
       take: EXPORT_LIMIT,
       select: { ...LIST_SELECT, notes: true },

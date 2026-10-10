@@ -164,3 +164,32 @@ do modal entra com as suas classes `compact:`, e o teste "o modal do novo lança
 A parte que rola num painel de altura automática usa `flex-auto` (base = conteúdo), nunca `flex-1`
 (base 0 %): no Safari, a base 0 % faz o meio do modal sumir. O teste do modal confere
 `flex-basis: auto` no estilo calculado, porque o Chromium dos testes não mostra o problema.
+
+## Painel, números e gráficos (M08, canvas D)
+
+- **Todo número leva aos lançamentos**: valor de dinheiro que vem de uma soma é um `MoneyLink`
+  (`components/money/money-link.tsx`) com o endereço montado por `transactionsHref`
+  (`features/budget/links.ts`), passando `back` (a tela atual) para a lista mostrar "Voltar para
+  …". O `MoneyLink` já tem sublinhado pontilhado, Geist Mono, `data-cents` (o E2E compara com a
+  lista) e 24 px de área de toque. Total que soma categorias diferentes não é link.
+- **Abas de seção** (`TabNav`): cada aba é uma página (link com `aria-current="page"`), com rótulo
+  curto no celular. **Mês** (`MonthNav`): os botões dizem para onde vão ("Setembro de 2026").
+- **Gráfico**: barra cheia = aconteceu; listrada (`hatch`, com `--tone` para outra cor) =
+  previsto; traço preto = orçado; losango = mês passado; traço laranja = média. `ChartLegend`
+  escreve cada marca (com `shortLabel` no celular). Cada gráfico tem `role="img"` com o nome
+  completo, ou cada barra é um link com nome completo; e sempre há uma **tabela** com os mesmos
+  números (`ViewToggle`, `?ver=tabela`; no celular, um link "Tabela"). Proporções com
+  `percentOf` e escalas com `niceScale` (`lib/chart.ts`), em bigint até o fim.
+- **Estado sem orçado / sem gasto** em cada tela; ambiente único vira o nome dele ("Ambiente Casa").
+- **Safari**: regra de layout que depende do navegador ganha uma asserção de estilo calculado no
+  E2E (`painel.spec.ts`: `repeating-linear-gradient` da listra, colunas da grade) e entra no
+  roteiro de conferência à mão do manual.
+
+## Telas preservadas (Cache Components, M08)
+
+O Next guarda as 3 últimas telas escondidas (`<Activity>`) em vez de desmontá-las. Formulário
+com aviso de sucesso usa o `ActionForm`, que monta de novo (outra `key`, `useRenewWhenHidden`) ao
+esconder depois de um envio. Nunca embrulhe a Server Action numa função antes do `<form action>`
+(nem no `useActionState`): o formulário deixa de funcionar antes do React carregar
+(`formularios.spec.ts` pega). Menu ou popover aberto fecha num `useLayoutEffect` de limpeza.
+Estado que precisa recomeçar a cada visita vem da URL, não de `useState`.

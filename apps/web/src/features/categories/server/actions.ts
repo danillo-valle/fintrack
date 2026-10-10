@@ -6,6 +6,7 @@ import { createCategory, createRule, deleteRule, prisma, setCategoryArchived } f
 import { revalidatePath } from "next/cache";
 import { requestContext, requireHouseholdAccess, runAction, type ActionState } from "@/lib/access";
 import { requireUser } from "@/lib/auth/session";
+import { financeChanged } from "@/lib/finance-cache";
 import { archiveCategorySchema, categorySchema, ruleIdSchema, ruleSchema } from "../schemas";
 
 const PAGE = "/ajustes/categorias";
@@ -26,6 +27,7 @@ export async function createCategoryAction(
     await createCategory(prisma, grant, parsed.data, await requestContext());
     return `Categoria "${parsed.data.name}" criada.`;
   });
+  if (!result.error) await financeChanged(session);
   revalidatePath(PAGE);
   return result;
 }
@@ -49,6 +51,7 @@ export async function setCategoryArchivedAction(
     );
     return archived ? "Categoria arquivada." : "Categoria restaurada.";
   });
+  if (!result.error) await financeChanged(session);
   revalidatePath(PAGE);
   return result;
 }
@@ -65,6 +68,7 @@ export async function createRuleAction(
     await createRule(prisma, grant, parsed.data, await requestContext());
     return "Regra criada. Ela já vale para as próximas sugestões.";
   });
+  if (!result.error) await financeChanged(session);
   revalidatePath(PAGE);
   return result;
 }
@@ -81,6 +85,7 @@ export async function deleteRuleAction(
     await deleteRule(prisma, grant, parsed.data.ruleId, await requestContext());
     return "Regra apagada.";
   });
+  if (!result.error) await financeChanged(session);
   revalidatePath(PAGE);
   return result;
 }

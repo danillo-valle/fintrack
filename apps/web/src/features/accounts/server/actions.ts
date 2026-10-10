@@ -13,6 +13,7 @@ import {
 import { revalidatePath } from "next/cache";
 import { requestContext, requireWalletAccess, runAction, type ActionState } from "@/lib/access";
 import { requireUser } from "@/lib/auth/session";
+import { financeChanged } from "@/lib/finance-cache";
 import {
   accountSchema,
   archiveAccountSchema,
@@ -40,6 +41,7 @@ export async function createAccountAction(
     await createAccount(prisma, grant, input, await requestContext());
     return `Conta "${input.name}" criada.`;
   });
+  if (!result.error) await financeChanged(session);
   revalidatePath(PAGE);
   return result;
 }
@@ -63,6 +65,7 @@ export async function setAccountArchivedAction(
     );
     return archived ? "Conta arquivada." : "Conta desarquivada.";
   });
+  if (!result.error) await financeChanged(session);
   revalidatePath(PAGE);
   return result;
 }
@@ -86,6 +89,7 @@ export async function createCardAction(
     );
     return `Cartão "${input.nickname}" cadastrado.`;
   });
+  if (!result.error) await financeChanged(session);
   revalidatePath(PAGE);
   return result;
 }
@@ -103,6 +107,7 @@ export async function setCardArchivedAction(
     await setCardArchived(prisma, grant, parsed.data.cardId, archived, await requestContext());
     return archived ? "Cartão arquivado." : "Cartão desarquivado.";
   });
+  if (!result.error) await financeChanged(session);
   revalidatePath(PAGE);
   return result;
 }
@@ -123,6 +128,7 @@ export async function setCardSharedPurchasesAction(
       ? "Cartão marcado como de compras conjuntas: as compras dele aparecem como Compartilhado."
       : "Cartão desmarcado: as compras dele voltam a aparecer como do portador.";
   });
+  if (!result.error) await financeChanged(session);
   revalidatePath(PAGE);
   revalidatePath("/lancamentos");
   return result;

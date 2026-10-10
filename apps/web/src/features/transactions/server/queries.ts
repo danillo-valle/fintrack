@@ -55,7 +55,7 @@ async function categoriesOf(session: Session) {
  * As pessoas do lar para "Pago por", pela ordem em que entraram (é ela que decide a cor), e o
  * Compartilhado no fim. Sem lar, lista vazia.
  */
-async function payersOf(session: Session): Promise<PayerOption[]> {
+export async function payersOf(session: Session): Promise<PayerOption[]> {
   try {
     const grant = await requireHouseholdAccess(session, "view");
     const members = (await listHouseholdMembers(prisma, grant)).toSorted(

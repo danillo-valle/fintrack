@@ -175,6 +175,13 @@ export type DomainErrorCode =
   | "INSTALLMENTS_NEED_CREDIT_CARD" // só compra no cartão de crédito é parcelada
   | "CARD_CYCLE_MISSING" // o cartão não tem dia de fechamento e vencimento cadastrados
   | "INSTALLMENT_COUNT_INVALID" // de 2 a 24 parcelas
+  // ── Orçamento (M08) ──
+  | "BUDGET_AMOUNT_INVALID" // valor do orçado negativo ou grande demais
+  | "BUDGET_LEVEL_CONFLICT" // a categoria de cima (ou a de baixo) já tem orçado no mês
+  | "BUDGET_SHARES_PERSONAL" // divisão por pessoa só em ambiente compartilhado
+  | "SHARES_DUPLICATED" // a mesma pessoa duas vezes na divisão
+  | "SHARES_NEGATIVE" // parte negativa
+  | "SHARES_SUM_MISMATCH" // as partes não somam o valor da categoria
   | "NOT_FOUND";
 
 // ── M07: contas, lançamentos e listas que juntam várias carteiras ───────────────

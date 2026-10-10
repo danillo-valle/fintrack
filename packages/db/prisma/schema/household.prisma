@@ -76,6 +76,7 @@ model HouseholdMember {
   household         Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
   user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   walletMemberships WalletMember[]
+  budgetShares      BudgetShare[]
 
   // Chave primária composta: a mesma pessoa não entra duas vezes no mesmo grupo
   @@id([householdId, userId])

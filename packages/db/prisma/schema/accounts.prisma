@@ -18,6 +18,7 @@
 //   Household ── Category        árvore de categorias do grupo (Alimentação › Mercado)
 //             └─ CategoryRule    "texto contém X" → categoria Y (cascata do M10, 1ª camada)
 //   Wallet ── Budget             quanto o ambiente planeja gastar por categoria em cada mês
+//             └─ BudgetShare     a parte de cada pessoa nesse valor (M08, ambiente compartilhado)
 //
 // Regras que o Prisma não sabe escrever (CHECK) estão na migração <data>_dominio (pasta
 // migrations), comentadas uma a uma. Elas aparecem aqui como "CHECK:" para quem lê o schema.
@@ -253,10 +254,42 @@ model Budget {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  wallet   Wallet   @relation(fields: [walletId, householdId], references: [id, householdId], onDelete: Cascade)
-  category Category @relation(fields: [categoryId, householdId], references: [id, householdId], onDelete: Cascade)
+  wallet   Wallet        @relation(fields: [walletId, householdId], references: [id, householdId], onDelete: Cascade)
+  category Category      @relation(fields: [categoryId, householdId], references: [id, householdId], onDelete: Cascade)
+  /// A divisão por quem paga (M08). Vazia = o valor não está dividido
+  shares   BudgetShare[]
 
   // Um valor por categoria por mês em cada ambiente
   @@unique([walletId, categoryId, month])
+  // Alvo da chave composta (budgetId, householdId) da divisão (M08)
+  @@unique([id, householdId])
   @@map("budget")
+}
+
+/// A parte de uma pessoa no orçado de uma categoria (M08, decisão "por ambiente e por pessoa").
+/// Só em ambiente compartilhado ("Casa"): Mercado R$ 1.700 = Lia 650 + Caio 450 +
+/// Compartilhado 600 (o exemplo do seed). A pessoa é a mesma de "Pago por" (ADR-009): o portador do cartão ou o
+/// titular da conta; userId nulo é o Compartilhado (cartão de compras conjuntas).
+/// Regra do domínio (budgets.ts): a soma das partes é o valor do Budget.
+model BudgetShare {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  householdId String   @db.Uuid
+  budgetId    String   @db.Uuid
+  /// Quem paga. Nulo = Compartilhado. CHECK à mão: só um Compartilhado por orçado
+  userId      String?
+  /// A parte da pessoa (positiva). CHECK: maior ou igual a zero
+  amount      Decimal  @db.Decimal(14, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Composta: a divisão é do mesmo lar do orçado
+  budget          Budget           @relation(fields: [budgetId, householdId], references: [id, householdId], onDelete: Cascade)
+  // Composta com o lar: só gente do lar recebe uma parte. Quem sai do lar perde a parte (a tela
+  // mostra o que ficou sem dono até alguém dividir de novo)
+  householdMember HouseholdMember? @relation(fields: [householdId, userId], references: [householdId, userId], onDelete: Cascade)
+
+  // Uma parte por pessoa em cada orçado (o Compartilhado, nulo, é garantido por índice à mão)
+  @@unique([budgetId, userId])
+  @@index([householdId, userId])
+  @@map("budget_share")
 }

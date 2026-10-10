@@ -1,120 +1,45 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeftRight, Plus, ReceiptText, Repeat, Wallet } from "lucide-react";
+import { ReceiptText } from "lucide-react";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
+import { MoneyLink } from "@/components/money/money-link";
 import { Button } from "@/components/ui/button";
-import { IconTile, type Tone } from "@/components/visual/icon-tile";
-import { getTransactionsPage } from "@/features/transactions/server/queries";
-import { EnvironmentSwitcher } from "@/features/transactions/ui/environment-switcher";
+import { HighlightCard, StatCard, SummaryGrid } from "@/components/visual/summary";
+import { budgetQuery } from "@/features/budget/schemas";
+import { getHomeDashboard } from "@/features/budget/server/queries";
+import { EnvironmentRow } from "@/features/budget/ui/environment-row";
+import { GroupSpendingChart, GroupSpendingTable } from "@/features/budget/ui/group-spending";
+import { BudgetAlerts, CashFlowMini, Panel } from "@/features/budget/ui/home-panels";
+import { ViewToggle } from "@/features/budget/ui/view-toggle";
 import { NewTransactionButton } from "@/features/transactions/ui/new-transaction-button";
-import { TotalsSummary } from "@/features/transactions/ui/totals-summary";
-import { TransactionList } from "@/features/transactions/ui/transaction-list";
 import { requireUser } from "@/lib/auth/session";
-import { formatMonth, todayISO } from "@/lib/dates";
-import { TEXT_LINK } from "@/lib/styles";
+import { formatBRL } from "@/lib/money";
+import { NUMBER_LINK } from "@/lib/styles";
+import { cn } from "@/lib/utils";
 
 // Título da aba igual ao h1, como nas outras páginas: "Início · FinTrack" (WCAG 2.4.2)
 export const metadata: Metadata = { title: "Início" };
 
-const SHORTCUTS: { href: string; label: string; icon: typeof Plus; tone: Tone }[] = [
-  { href: "/lancamentos/novo", label: "Novo lançamento", icon: Plus, tone: 1 },
-  { href: "/lancamentos/transferencia", label: "Transferência", icon: ArrowLeftRight, tone: 5 },
-  { href: "/lancamentos/recorrencias", label: "Recorrências", icon: Repeat, tone: 4 },
-  { href: "/carteiras", label: "Carteiras", icon: Wallet, tone: 3 },
-];
-
-// Início (M07.2; resumo do M07.3 e seletor de ambiente do M07.4): o resumo do mês, atalhos e os
-// últimos lançamentos.
-// Os números saem da MESMA consulta da lista (com o crachá de escopo do M07): só as carteiras
-// que a pessoa vê. O painel completo, com orçamento e gráficos, chega no M08.
+// Início (M08, canvas D "Início: orçamento, gasto por categoria e fluxo"): como estamos este mês.
+// O previsto de fim de mês, o gasto até hoje, o orçado e as entradas; o gasto por categoria contra
+// o mês passado e a média de 6 meses; as categorias acima do ritmo; e o resultado dos próximos 6
+// meses. Todo número leva aos lançamentos que o compõem.
 export default async function HomePage({ searchParams }: PageProps<"/">) {
   // Toda página do app começa conferindo a sessão (skill auth-guard)
   const session = await requireUser();
-  const firstName = session.user.name.split(" ")[0] ?? session.user.name;
-  const today = todayISO();
-  // Só o ambiente vem da URL (?carteira=): o Início é sempre o mês de hoje
-  const { carteira } = await searchParams;
-  const page = await getTransactionsPage(session, { carteira });
-  const month = formatMonth(new Date(`${today}T12:00:00Z`));
-  const recent = page.items.slice(0, 5);
+  const home = await getHomeDashboard(session, await searchParams);
+  const { summary } = home;
+  const here = (extra: Record<string, string | null>) =>
+    `/${budgetQuery({ walletId: home.walletId, view: home.view }, extra)}`;
 
-  return (
-    <>
-      <PageHeader
-        title="Início"
-        description={`Olá, ${firstName}. Este é o resumo do mês.`}
-        actions={
-          page.hasWallets ? (
-            <>
-              <EnvironmentSwitcher
-                environments={page.environments}
-                current={page.parsed.walletId}
-                hrefFor={(walletId) => (walletId ? `/?carteira=${walletId}` : "/")}
-              />
-              <NewTransactionButton />
-            </>
-          ) : undefined
-        }
-      />
-
-      {page.hasWallets ? (
-        <div className="flex flex-col gap-6">
-          <TotalsSummary
-            totals={page.totals}
-            label="Resumo do mês"
-            balanceLabel={`Saldo de ${month}`}
-            testIdPrefix="inicio"
-          />
-
-          <nav aria-label="Atalhos" className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            {SHORTCUTS.map((s) => (
-              <Link
-                key={s.href}
-                href={s.href}
-                className="bg-card hover:bg-muted focus-visible:ring-ring flex items-center gap-3 rounded-2xl border p-3 text-sm font-medium outline-none focus-visible:ring-3"
-              >
-                <IconTile tone={s.tone} icon={s.icon} size="sm" />
-                {s.label}
-              </Link>
-            ))}
-          </nav>
-
-          <section aria-labelledby="recentes" className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-baseline justify-between gap-2 px-1">
-              <h2 id="recentes" className="text-lg font-semibold tracking-tight">
-                Últimos lançamentos
-              </h2>
-              <Link href="/lancamentos" className={TEXT_LINK}>
-                Ver todos
-              </Link>
-            </div>
-            {recent.length === 0 ? (
-              <EmptyState
-                icon={ReceiptText}
-                title="Nenhum lançamento neste mês"
-                description="Registre um gasto ou uma receita para ver o resumo do mês aqui."
-                action={
-                  <Button asChild>
-                    <Link href="/lancamentos/novo">
-                      <Plus aria-hidden />
-                      Registrar um lançamento
-                    </Link>
-                  </Button>
-                }
-              />
-            ) : (
-              <TransactionList
-                items={recent}
-                payers={page.payers}
-                today={today}
-                readOnly
-                dayHeading="h3"
-              />
-            )}
-          </section>
-        </div>
-      ) : (
+  if (!home.hasWallets) {
+    return (
+      <>
+        <PageHeader
+          title="Início"
+          description={`Olá, ${session.user.name.split(" ")[0] ?? session.user.name}. Como estamos este mês.`}
+        />
         <EmptyState
           icon={ReceiptText}
           title="Nenhum lançamento ainda"
@@ -125,7 +50,203 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
             </Button>
           }
         />
-      )}
+      </>
+    );
+  }
+
+  const left =
+    summary.status.kind === "within"
+      ? `sobra ${formatBRL(summary.status.left)}`
+      : summary.status.kind === "over"
+        ? `passa ${formatBRL(summary.status.by)}`
+        : null;
+  const sideLink = cn(NUMBER_LINK, "text-chart-1-ink text-sm font-semibold");
+
+  return (
+    <>
+      <PageHeader
+        title="Início"
+        description={`${home.todayLabel.charAt(0).toUpperCase()}${home.todayLabel.slice(1)} · dia ${home.elapsedDays} de ${home.monthDays}`}
+        actions={<NewTransactionButton />}
+      />
+
+      <div className="flex flex-col gap-5">
+        <EnvironmentRow
+          environments={home.environments}
+          current={home.walletId}
+          sentence={home.sentence}
+          hrefFor={(walletId) => `/${budgetQuery({ walletId, view: home.view })}`}
+        />
+
+        <SummaryGrid
+          label={`Resumo de ${home.monthLabel}`}
+          className="md:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]"
+        >
+          <HighlightCard
+            label="Saídas previstas até o fim do mês"
+            data-testid="inicio-previsto"
+            note={
+              summary.budgetCount > 0 ? (
+                <>
+                  de{" "}
+                  <Link href={summary.budget.href} className={cn(NUMBER_LINK, "tabular font-mono")}>
+                    {formatBRL(summary.budget.cents)}
+                  </Link>{" "}
+                  orçados{left ? ` · ${left}` : ""}
+                </>
+              ) : (
+                <>
+                  Sem orçamento neste mês.{" "}
+                  <Link href={summary.budget.href} className={NUMBER_LINK}>
+                    Definir
+                  </Link>
+                </>
+              )
+            }
+          >
+            <MoneyLink
+              cents={summary.projected.cents}
+              href={summary.projected.href}
+              label="Saídas previstas até o fim do mês"
+            />
+          </HighlightCard>
+          <StatCard
+            label="Gasto até hoje"
+            tone="expense"
+            data-testid="inicio-gasto"
+            note={<span className="hidden md:inline">variáveis, fixas e parcelas</span>}
+          >
+            <MoneyLink
+              cents={summary.spent.cents}
+              href={summary.spent.href}
+              label="Gasto até hoje"
+              className="text-expense"
+            />
+          </StatCard>
+          <StatCard
+            label="Orçado no mês"
+            className="hidden md:flex"
+            note={summary.budgetCount === 1 ? "1 categoria" : `${summary.budgetCount} categorias`}
+          >
+            <Link
+              href={summary.budget.href}
+              className={cn(NUMBER_LINK, "tabular font-mono")}
+              data-testid="inicio-orcado"
+            >
+              {formatBRL(summary.budget.cents)}
+            </Link>
+          </StatCard>
+          <StatCard
+            label="Entradas"
+            tone="income"
+            data-testid="inicio-entradas"
+            note={<span className="hidden md:inline">até hoje</span>}
+          >
+            <MoneyLink
+              cents={summary.income.cents}
+              href={summary.income.href}
+              label="Entradas até hoje"
+              sign="+"
+              className="text-income"
+            />
+          </StatCard>
+        </SummaryGrid>
+
+        {home.alerts.length > 0 ? (
+          <section aria-labelledby="atencao" className="flex flex-col gap-2 md:hidden">
+            <h2 id="atencao" className="text-muted-foreground mx-1 text-[0.8125rem] font-bold">
+              Atenção
+            </h2>
+            <BudgetAlerts
+              alerts={home.alerts}
+              withinCount={home.withinCount}
+              budgetHref={summary.budget.href}
+              compact
+            />
+          </section>
+        ) : null}
+
+        <div className="grid items-start gap-4 md:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)]">
+          <Panel
+            id="gasto-por-categoria"
+            title="Gasto por categoria"
+            aside={
+              <ViewToggle
+                current={home.view}
+                hrefFor={(view) => here({ ver: view === "tabela" ? "tabela" : null })}
+              />
+            }
+          >
+            {home.groups.length === 0 ? (
+              <p className="text-muted-foreground text-sm">
+                Nenhum gasto neste mês nem nos 6 anteriores.
+              </p>
+            ) : home.view === "tabela" ? (
+              <GroupSpendingTable groups={home.groups} />
+            ) : (
+              <GroupSpendingChart
+                groups={home.groups}
+                allHref={`/orcamento/evolucao${budgetQuery({ walletId: home.walletId })}#todas`}
+              />
+            )}
+            <p className="text-muted-foreground text-[0.8125rem]">
+              Clique numa categoria para ver a evolução mês a mês; num valor, para ver os
+              lançamentos que o compõem. A aba Tabela mostra os mesmos números, com o mês passado e
+              a média de 6 meses escritos.
+            </p>
+          </Panel>
+
+          <div className="flex flex-col gap-4">
+            <Panel
+              id="orcado-realizado"
+              title="Orçado × realizado"
+              className="hidden md:flex"
+              aside={
+                <Link href={summary.budget.href} className={sideLink}>
+                  Orçamento
+                </Link>
+              }
+            >
+              {summary.budgetCount === 0 ? (
+                <p className="text-muted-foreground text-sm">
+                  Nenhuma categoria com orçado neste mês.{" "}
+                  <Link href={summary.budget.href} className={NUMBER_LINK}>
+                    Definir o orçamento
+                  </Link>
+                </p>
+              ) : (
+                <BudgetAlerts
+                  alerts={home.alerts}
+                  withinCount={home.withinCount}
+                  budgetHref={summary.budget.href}
+                />
+              )}
+            </Panel>
+            <Panel
+              id="fluxo"
+              title="Fluxo de caixa"
+              aside={
+                <Link
+                  href={`/orcamento/fluxo${budgetQuery({ walletId: home.walletId })}`}
+                  className={sideLink}
+                >
+                  6 meses
+                </Link>
+              }
+            >
+              <p className="text-muted-foreground -mt-1 hidden text-[0.8125rem] md:block">
+                Resultado de cada mês, só com o que já está previsto
+              </p>
+              <div className="hidden md:block">
+                <CashFlowMini months={home.cashflow} />
+              </div>
+              <div className="md:hidden">
+                <CashFlowMini months={home.cashflow} limit={3} />
+              </div>
+            </Panel>
+          </div>
+        </div>
+      </div>
     </>
   );
 }

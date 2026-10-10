@@ -201,7 +201,16 @@ export type ParsedFilters = {
   filters: ListFilters;
   walletId: string | null;
   cursor: string | null;
+  /** De onde se veio (M08): uma tela do painel, para o link "Voltar para Orçamento · Mercado" */
+  back: string | null;
 };
+
+/**
+ * O "volta" só aceita as telas do painel, com os parâmetros delas: nunca outro site nem outro
+ * caminho (um link com ?volta=https://... não pode virar um redirecionamento aberto).
+ */
+const BACK = /^\/(orcamento(\/(fluxo|evolucao))?)?(\?[A-Za-z0-9=&%._-]{0,400})?$/;
+export const backOrNull = (value: string | null) => (value && BACK.test(value) ? value : null);
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -250,12 +259,13 @@ export function parseFilters(params: SearchParams, today: CivilDate): ParsedFilt
     },
     walletId: idOrNull(one(params.carteira)),
     cursor: one(params.cursor),
+    back: backOrNull(one(params.volta)),
   };
 }
 
 /** O contrário: monta a URL de volta (próxima página, limpar um filtro, exportar o mesmo). */
 export function filtersToQuery(
-  parsed: { filters: ListFilters; walletId: string | null },
+  parsed: { filters: ListFilters; walletId: string | null; back?: string | null },
   extra: Record<string, string | null> = {},
 ): string {
   const { filters: f, walletId } = parsed;
@@ -268,6 +278,7 @@ export function filtersToQuery(
   if (f.text) query.set("q", f.text);
   if (f.type) query.set("tipo", TYPE_PARAM[f.type]);
   if (f.payer) query.set("pago", payerParam(f.payer));
+  if (parsed.back) query.set("volta", parsed.back);
   for (const [key, value] of Object.entries(extra)) {
     if (value === null) query.delete(key);
     else query.set(key, value);

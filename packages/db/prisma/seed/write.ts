@@ -79,11 +79,24 @@ export async function writeSeedPlan(prisma: PrismaClient, plan: SeedPlan): Promi
       // 4. Orçamentos, recorrências, faturas e compras parceladas
       await tx.budget.createMany({
         data: plan.budgets.map((b) => ({
-          ...b,
+          id: b.id,
+          walletId: b.walletId,
+          categoryId: b.categoryId,
           householdId,
           month: dbDateFromCivil(firstDayOf(b.month)),
           amount: toDbDecimal(b.amount),
         })),
+      });
+      await tx.budgetShare.createMany({
+        data: plan.budgets.flatMap((b) =>
+          b.shares.map((share) => ({
+            id: share.id,
+            householdId,
+            budgetId: b.id,
+            userId: share.userId,
+            amount: toDbDecimal(share.amount),
+          })),
+        ),
       });
       await tx.recurrence.createMany({
         data: plan.recurrences.map((r) => ({

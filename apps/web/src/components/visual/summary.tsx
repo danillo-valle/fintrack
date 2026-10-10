@@ -56,15 +56,21 @@ export function SoftPanel({
   );
 }
 
-/** O destaque do resumo: rótulo e valor. No celular, numa linha só e ocupando a linha inteira. */
+/**
+ * O destaque do resumo: rótulo e valor. No celular, numa linha só e ocupando a linha inteira.
+ * Com `note` (M08: "de R$ 5.910,00 orçados · sobra R$ 66,63"), a frase vai embaixo, nos dois
+ * tamanhos, e o celular empilha rótulo, valor e frase como no canvas D.
+ */
 export function HighlightCard({
   label,
   children,
+  note,
   className,
   "data-testid": testId,
 }: {
   label: string;
   children: React.ReactNode;
+  note?: React.ReactNode;
   className?: string;
   "data-testid"?: string;
 }) {
@@ -73,11 +79,17 @@ export function HighlightCard({
       data-testid={testId}
       className={cn("col-span-2 flex md:col-span-1 [&>*]:flex-1", className)}
     >
-      <SoftPanel className="flex items-baseline justify-between gap-3 px-4 py-3.5 md:flex-col md:items-start md:justify-start md:gap-0.5 md:px-5 md:py-4">
+      <SoftPanel
+        className={cn(
+          "flex px-4 py-3.5 md:flex-col md:items-start md:justify-start md:gap-0.5 md:px-5 md:py-4",
+          note ? "flex-col items-start gap-1" : "items-baseline justify-between gap-3",
+        )}
+      >
         <span className="text-[0.8125rem]">{label}</span>
         <span className="text-hero-soft-strong text-[1.375rem] font-bold md:text-2xl">
           {children}
         </span>
+        {note ? <span className="text-[0.8125rem]">{note}</span> : null}
       </SoftPanel>
     </div>
   );
@@ -94,6 +106,7 @@ export function StatCard({
   label,
   children,
   icon,
+  note,
   tone = "neutral",
   className,
   "data-testid": testId,
@@ -102,6 +115,8 @@ export function StatCard({
   children: React.ReactNode;
   /** Ícone decorativo (aria-hidden), na cor do tom */
   icon?: React.ReactNode;
+  /** Uma frase pequena embaixo do valor (M08: "13 categorias") */
+  note?: React.ReactNode;
   tone?: keyof typeof STAT_TONE;
   className?: string;
   "data-testid"?: string;
@@ -117,6 +132,7 @@ export function StatCard({
       <div className="flex min-w-0 flex-col gap-0.5">
         <span className="text-muted-foreground text-xs md:text-[0.8125rem]">{label}</span>
         <span className="text-base font-bold md:text-[1.375rem]">{children}</span>
+        {note ? <span className="text-muted-foreground text-xs">{note}</span> : null}
       </div>
       {icon ? (
         <span

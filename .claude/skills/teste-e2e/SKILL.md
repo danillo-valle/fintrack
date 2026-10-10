@@ -29,6 +29,27 @@ Referência: `apps/web/e2e/permissoes.spec.ts` (M06) e `apps/web/e2e/helpers.ts`
   (`ANA_FINANCE`), para as telas entrarem em `PAGES`. Mas ela é usada por testes que rodam ao mesmo
   tempo: teste que confere SOMA ou CONTAGEM cria um lar próprio (`createHouseholdDirect` +
   `createFinanceDirect`) e compara a tela com um `SELECT` do banco.
+- **Painel (M08)**: todo número com `data-cents` leva à lista; o teste abre o `href` e compara
+  com `total-saidas`/`total-entradas` (`expectListMatches` em `painel.spec.ts`). Desempenho com
+  24 meses: o seed com `SEED_VIEWER_EMAIL` põe uma conta de teste na casa do exemplo (só no
+  desktop, porque o seed é um só).
+- **Telas escondidas (Cache Components, M08)**: o Next guarda as 3 últimas telas no documento
+  com `display: none`. `getByRole` já ignora o escondido; `getByLabel`, `getByText` e
+  `locator(...)` não: use `.filter({ visible: true })` (o `formAlert` dos helpers já filtra).
+- **Antes do React carregar (M08)**: o `data-hydrated` marca só a moldura; o conteúdo da página
+  vem em Suspense e hidrata depois. O `openPage` espera também a marca do `ContentReady` (no
+  `PageHeader`) virar "pronto", o que só acontece depois do commit (`waitForContent`); depois de
+  navegar de outro jeito (clique num link, `goBack`) e antes de digitar, chame `waitForContent(page)`.
+  Não espere pela chave `__reactFiber$`: o React a grava antes do commit. Todo `<form>` precisa
+  funcionar sem o React:
+  `formularios.spec.ts` confere o HTML de cada página de `PAGES` e envia um formulário com os
+  pacotes de JavaScript barrados.
+- **Esquema de URL por lista permitida**: para conferir para onde um link ou formulário aponta, leia o
+  `protocol` de `new URL(...)` e aceite só `http:`/`https:`. Nunca `startsWith("javascript:")`: o CodeQL
+  acusa (js/incomplete-url-scheme-check, alta) e trava o PR, mesmo em arquivo de teste.
+- **Tempo é medido no build de produção**: limite de tempo (`toBeLessThan(ms)`) só com
+  `test.skip(!PRODUCTION_BUILD, …)`. No `pnpm dev` o número mede a máquina. A suíte contra a imagem
+  local (`PLAYWRIGHT_PRODUCTION=1 pnpm e2e`, passo do manual do M08) roda esses testes.
 - **Deslogado**: `test.use({ storageState: NO_SESSION })`.
 - **E-mail**: `clearEmails(destino)` antes, `linkFromEmail(destino, /assunto/)` depois.
 - **Acessibilidade**: tela nova entra em `PAGES` (axe claro/escuro, foco, proteção); estados que

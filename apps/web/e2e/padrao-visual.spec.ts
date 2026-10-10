@@ -4,19 +4,18 @@ import { NO_SESSION, openPage } from "./helpers";
 
 // M07.2: o padrão Elétrico em todas as telas (ADR-008, adendo).
 
-test("o Início mostra o mesmo saldo do mês que a lista de lançamentos", async ({ page }) => {
-  await openPage(page, "/lancamentos");
-  // Os rótulos mudam ("Saldo do período", "Saldo de outubro de 2026"); o valor tem de ser o mesmo
-  const valor = async (testId: string) =>
-    (await page.getByTestId(testId).innerText())
-      .replace(/\s+/g, " ")
-      .match(/[−-]?\s?R\$ ?[\d.,]+/)?.[0];
-  const saldoLista = await valor("total-saldo");
+test("o Início mostra o mesmo gasto do mês que a lista de lançamentos", async ({ page }) => {
+  // M08: o Início virou o painel (canvas D). O "Gasto até hoje" leva à lista do mês até hoje,
+  // que soma o mesmo valor (painel.spec.ts confere todos os números)
   await openPage(page, "/");
-  await expect(page.getByRole("region", { name: "Resumo do mês" })).toBeVisible();
-  expect(saldoLista).toBeTruthy();
-  expect(await valor("inicio-saldo")).toBe(saldoLista);
-  await expect(page.getByRole("navigation", { name: "Atalhos" }).getByRole("link")).toHaveCount(4);
+  await expect(page.getByRole("region", { name: /^Resumo de / })).toBeVisible();
+  const link = page.getByTestId("inicio-gasto").getByRole("link");
+  const cents = BigInt((await link.getAttribute("data-cents")) ?? "x");
+  await link.click();
+  await expect(page).toHaveURL(/\/lancamentos\?/);
+  const text = (await page.getByTestId("total-saidas").innerText()).replace(/\s+/g, " ");
+  const [, reais, centavos] = text.match(/R\$ ?([\d.]+),(\d{2})/) ?? [];
+  expect(BigInt(`${reais?.replaceAll(".", "")}${centavos}`)).toBe(cents);
 });
 
 test("os chips de período trocam as datas na URL e marcam o escolhido", async ({ page }) => {

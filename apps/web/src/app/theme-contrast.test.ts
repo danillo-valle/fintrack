@@ -129,6 +129,37 @@ describe.each([
     }
   });
 
+  // M08 (painel): rótulos e links na tinta de um tom sobre o cartão ("Orçamento", "6 meses",
+  // a etiqueta "Fixa", a média), e as pílulas a 14 % (filtros ativos, "em andamento")
+  it.each([1, 4, 5])("tinta do tom %s sobre o cartão e sobre o tom a 14 % ≥ 4,5:1", (tone) => {
+    const ink = theme[`chart-${tone}-ink`]!;
+    expect(contrast(ink, theme.card!)).toBeGreaterThanOrEqual(4.5);
+    for (const surface of [theme.card!, theme.background!]) {
+      expect(contrast(ink, mix(theme[`chart-${tone}`]!, 0.14, surface))).toBeGreaterThanOrEqual(
+        4.5,
+      );
+    }
+  });
+
+  it("alerta do orçamento: texto sobre a despesa a 10 % ≥ 4,5:1 e o ícone ≥ 3:1", () => {
+    for (const surface of [theme.card!, theme.background!]) {
+      const tint = mix(theme.expense!, 0.1, surface);
+      expect(contrast(theme.foreground!, tint)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(theme.expense!, tint)).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  // A barra listrada do previsto (utility "hatch": 78 % e 18 % do tom): a listra forte se
+  // distingue do trilho (muted) e do cartão, como objeto gráfico (≥ 3:1)
+  it.each(["chart-1", "expense"])(
+    "listra forte do previsto (%s) ≥ 3:1 sobre o trilho e o cartão",
+    (tone) => {
+      for (const surface of [theme.card!, theme.muted!]) {
+        expect(contrast(mix(theme[tone]!, 0.78, surface), surface)).toBeGreaterThanOrEqual(3);
+      }
+    },
+  );
+
   it.each(NON_TEXT)("%s sobre o cartão ≥ 3:1", (name) => {
     expect(contrast(theme[name]!, theme.card!)).toBeGreaterThanOrEqual(3);
   });
