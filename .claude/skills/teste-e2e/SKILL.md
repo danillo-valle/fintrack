@@ -44,6 +44,9 @@ Referência: `apps/web/e2e/permissoes.spec.ts` (M06) e `apps/web/e2e/helpers.ts`
   funcionar sem o React:
   `formularios.spec.ts` confere o HTML de cada página de `PAGES` e envia um formulário com os
   pacotes de JavaScript barrados.
+- **Esquema de URL por lista permitida**: para conferir para onde um link ou formulário aponta, leia o
+  `protocol` de `new URL(...)` e aceite só `http:`/`https:`. Nunca `startsWith("javascript:")`: o CodeQL
+  acusa (js/incomplete-url-scheme-check, alta) e trava o PR, mesmo em arquivo de teste.
 - **Tempo é medido no build de produção**: limite de tempo (`toBeLessThan(ms)`) só com
   `test.skip(!PRODUCTION_BUILD, …)`. No `pnpm dev` o número mede a máquina. A suíte contra a imagem
   local (`PLAYWRIGHT_PRODUCTION=1 pnpm e2e`, passo do manual do M08) roda esses testes.

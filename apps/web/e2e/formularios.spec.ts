@@ -2,7 +2,7 @@
 //
 //   1. O HTML que o servidor manda já traz a Server Action no <form>: um clique antes do
 //      JavaScript carregar não se perde (aprimoramento progressivo). Se alguém embrulhar a action
-//      numa função do navegador, o React escreve action="javascript:throw…" e este teste pega.
+//      numa função do navegador, o React escreve um action que não é http(s) e este teste pega.
 //      (Foi o que aconteceu no M08: no N150, com a página compilando, o clique em "Lançar as
 //      deste mês" chegava antes do JavaScript e sumia.)
 //   2. Com a página à vista e o React ainda sem carregar, o clique vira um envio do navegador,
@@ -47,10 +47,15 @@ test.describe("antes do JavaScript", () => {
     test.slow();
     for (const path of PAGES) {
       await page.goto(path);
-      const actions = await page
+      // Lista permitida, não lista negada: o envio vai para http(s), o próprio servidor. Qualquer
+      // outro esquema (o "javascript:throw…" do React, data:, vbscript:…) reprova. (Conferir por
+      // "começa com javascript:" é o que o CodeQL acusa como js/incomplete-url-scheme-check.)
+      const targets = await page
         .locator("form")
-        .evaluateAll((forms) => forms.map((f) => f.getAttribute("action") ?? ""));
-      const lost = actions.filter((a) => a.startsWith("javascript:"));
+        .evaluateAll((forms) =>
+          forms.map((f) => new URL(f.getAttribute("action") ?? "", location.href).protocol),
+        );
+      const lost = targets.filter((protocol) => protocol !== "http:" && protocol !== "https:");
       expect(lost, `${path}: formulário que só funciona depois do JavaScript`).toEqual([]);
     }
   });
