@@ -15,12 +15,12 @@
 //       </>
 //     )}
 //   </ActionForm>
-import { type ReactNode } from "react";
+import { useActionState, useReducer, useState, type ReactNode } from "react";
 // O FormAlert nasceu no M03 dentro de auth, mas é genérico: reaproveitado aqui
 import { FormAlert } from "@/features/auth/ui/form-alert";
 import { INITIAL_ACTION_STATE, type ActionState } from "@/lib/action-state";
 import { useFieldErrors } from "@/lib/use-field-errors";
-import { useFreshActionState } from "@/lib/use-fresh-action-state";
+import { useRenewWhenHidden } from "@/lib/use-renew-when-hidden";
 
 type Field = {
   props: ReturnType<ReturnType<typeof useFieldErrors>["fieldProps"]>;
@@ -44,20 +44,31 @@ type Props<S extends ActionState> = {
   }) => ReactNode;
 };
 
-export function ActionForm<S extends ActionState>({
+export function ActionForm<S extends ActionState>(props: Props<S>) {
+  // Cache Components (M08): a tela escondida depois de um envio volta com o formulário novo
+  // (outra `key`), sem o aviso de antes. Veja lib/use-renew-when-hidden.ts.
+  const [generation, renew] = useReducer((n: number) => n + 1, 0);
+  return <ActionFormBody key={generation} {...props} renew={renew} />;
+}
+
+function ActionFormBody<S extends ActionState>({
   action,
   initialState,
   idPrefix = "",
   className,
   children,
+  renew,
   ...aria
-}: Props<S>) {
-  // Awaited<S>: o tipo que o React espera para o estado (S é um objeto simples, então é o próprio S)
-  // Volta ao início quando a tela fica escondida depois de um envio (Cache Components, M08)
-  const [state, formAction, pending, formRef] = useFreshActionState<S, FormData>(
+}: Props<S> & { renew: () => void }) {
+  // Awaited<S>: o tipo que o React espera para o estado (S é um objeto simples, então é o próprio S).
+  // A Server Action vai direto para o useActionState e daí para o <form>: assim o formulário
+  // funciona antes do JavaScript carregar (aprimoramento progressivo).
+  const [state, formAction, pending] = useActionState<S, FormData>(
     action,
     (initialState ?? INITIAL_ACTION_STATE) as Awaited<S>,
   );
+  const [pristine] = useState(state);
+  useRenewWhenHidden(state !== pristine, renew);
   const { errors, validate, fieldProps, errorId, alertId } = useFieldErrors(idPrefix);
 
   const field = (name: string, options: { helpId?: string } = {}): Field => ({
@@ -68,7 +79,6 @@ export function ActionForm<S extends ActionState>({
 
   return (
     <form
-      ref={formRef}
       action={formAction}
       noValidate
       className={className}

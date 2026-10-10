@@ -113,9 +113,14 @@ Decisões tomadas com o Danillo antes do código: orçado **por ambiente e por p
 - Com o Cache Components, o Next guarda as 3 últimas telas escondidas no documento
   (`<Activity>`, `display: none`) em vez de desmontá-las; não há opção para desligar. Três efeitos,
   tratados de propósito:
-  - **Formulários**: o `ActionForm` usa `useFreshActionState` (`lib/use-fresh-action-state.ts`):
-    depois de um envio, ao esconder a tela, o aviso volta ao início e os campos são limpos.
-    Rascunho sem envio continua (é a vantagem da preservação).
+  - **Formulários**: depois de um envio, ao esconder a tela, o `ActionForm` monta de novo (troca
+    a `key`, com `useRenewWhenHidden` em `lib/use-renew-when-hidden.ts`): aviso e campos voltam ao
+    início. Rascunho sem envio continua (é a vantagem da preservação). A Server Action vai direta
+    do `useActionState` para o `<form action>`, sem função em volta: embrulhada, o HTML do servidor
+    sai com `action="javascript:throw…"` e um clique antes do React carregar se perde. Foi o
+    primeiro desenho (`useFreshActionState`) e falhou no N150, onde a página demora a hidratar
+    (o `data-hydrated` marca só a moldura; o conteúdo vem em Suspense e hidrata depois).
+    `formularios.spec.ts` confere os dois lados.
   - **Sair da conta** continua com recarga inteira (`navigateAfterAuthChange`), então nada de uma
     pessoa fica na memória da página da outra.
   - **Testes E2E**: seletores que não sejam por papel podem achar a tela escondida; usam

@@ -88,6 +88,8 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
 - Mudança no banco: siga a skill `prisma-migration`. Nunca edite migração aplicada; nunca rode reset sem a pessoa pedir.
 - Acesso ao banco só dentro de `features/*/server/` ou `lib/`; o ESLint bloqueia o resto.
 - Toda página de `(app)` e toda Server Action começam com `await requireUser()`; siga a skill `auth-guard`.
+- Formulário com Server Action: a action vai direta do `useActionState` para o `<form action>`, sem função em volta
+  (senão o clique antes do React carregar se perde). Use o `ActionForm`; veja a skill `ui-componentes`.
 - Tudo que toca uma carteira ou o lar passa pelo crachá (`requireWalletAccess`/`requireHouseholdAccess`);
   recurso de outra pessoa responde 404. Funcionalidade nova: siga a skill `nova-feature` (e `teste-e2e`).
 - Categorização (sugestão, regras, camadas de IA): siga a skill `categorizacao`. A sugestão só lê as carteiras

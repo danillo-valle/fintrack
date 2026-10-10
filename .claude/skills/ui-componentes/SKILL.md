@@ -188,6 +188,8 @@ A parte que rola num painel de altura automática usa `flex-auto` (base = conte�
 ## Telas preservadas (Cache Components, M08)
 
 O Next guarda as 3 últimas telas escondidas (`<Activity>`) em vez de desmontá-las. Formulário
-com aviso de sucesso usa o `ActionForm` (ou `useFreshActionState`), que limpa o aviso e os campos
-ao esconder depois de um envio. Menu ou popover aberto fecha num `useLayoutEffect` de limpeza.
+com aviso de sucesso usa o `ActionForm`, que monta de novo (outra `key`, `useRenewWhenHidden`) ao
+esconder depois de um envio. Nunca embrulhe a Server Action numa função antes do `<form action>`
+(nem no `useActionState`): o formulário deixa de funcionar antes do React carregar
+(`formularios.spec.ts` pega). Menu ou popover aberto fecha num `useLayoutEffect` de limpeza.
 Estado que precisa recomeçar a cada visita vem da URL, não de `useState`.
