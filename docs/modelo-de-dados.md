@@ -66,6 +66,8 @@ erDiagram
     Category |o--o{ Transaction : classifica
     Category ||--o{ CategoryRule : "alvo de"
     Category ||--o{ Budget : "limite de"
+    Budget ||--o{ BudgetShare : "dividido em (M08)"
+    HouseholdMember |o--o{ BudgetShare : "parte de"
     Category |o--o{ Recurrence : classifica
 
     CardStatement |o--o{ Transaction : "inclui (competência)"
@@ -145,6 +147,12 @@ erDiagram
         uuid categoryId FK
         date month "sempre dia 1"
         decimal amount "14,2"
+    }
+    BudgetShare {
+        uuid id PK
+        uuid budgetId FK
+        string userId FK "nulo = Compartilhado"
+        decimal amount "14,2, soma = Budget.amount"
     }
     Recurrence {
         uuid id PK
@@ -232,24 +240,26 @@ registro sobreviver mesmo que a pessoa ou o grupo sejam apagados.
 
 ## As travas que moram no banco
 
-| Regra                                                                    | Onde                                                               |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------ |
-| O mesmo lançamento importado entra uma vez só                            | único `(accountId, source, externalId)`                            |
-| Conta, ambiente, categoria e parcela de um lançamento são do mesmo grupo | chaves compostas com `householdId`                                 |
-| O cartão é da conta do lançamento; a fatura também                       | chaves compostas `(cardId, accountId)`, `(statementId, accountId)` |
-| Só quem é do grupo entra num ambiente do grupo                           | chave `(householdId, userId)` → `household_member`                 |
-| Cartão guarda só os 4 últimos dígitos                                    | CHECK `payment_card_last_four_check`                               |
-| Crédito só em cartão; vale só em vale-refeição; fatura só em cartão      | gatilho `transaction_method_matches_account`                       |
-| Valor nunca é zero; importado sempre tem `externalId`                    | CHECKs de `transaction`                                            |
-| Cartão tem fechamento e vencimento; as outras contas, não                | CHECK `financial_account_card_days_check`                          |
-| Mês de orçamento e de fatura guardado como dia 1                         | CHECKs de `budget` e `card_statement`                              |
-| A auditoria só acrescenta                                                | gatilho `audit_log_append_only`                                    |
-| Convite guarda só o hash do segredo; e-mail em minúsculas (M06)          | CHECKs `household_invite_token_hash_check` e `_email_check`        |
-| Convite não é aceito e cancelado ao mesmo tempo; prazo depois da criação | CHECKs `household_invite_state_check` e `_expiry_check`            |
-| Nome de lar e de carteira com 1 a 60 caracteres (M06)                    | CHECKs `household_name_length_check` e `wallet_name_length_check`  |
-| "Quem categorizou" só existe com categoria (M07)                         | CHECK `transaction_categorized_by_check`                           |
-| Transferência não tem categoria (M07)                                    | CHECK `transaction_transfer_category_check`                        |
-| Exemplo de treino é uma correção de verdade (M07)                        | CHECKs `categorization_example_change_check` e `_source_check`     |
+| Regra                                                                    | Onde                                                                  |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| O mesmo lançamento importado entra uma vez só                            | único `(accountId, source, externalId)`                               |
+| Conta, ambiente, categoria e parcela de um lançamento são do mesmo grupo | chaves compostas com `householdId`                                    |
+| O cartão é da conta do lançamento; a fatura também                       | chaves compostas `(cardId, accountId)`, `(statementId, accountId)`    |
+| Só quem é do grupo entra num ambiente do grupo                           | chave `(householdId, userId)` → `household_member`                    |
+| Cartão guarda só os 4 últimos dígitos                                    | CHECK `payment_card_last_four_check`                                  |
+| Crédito só em cartão; vale só em vale-refeição; fatura só em cartão      | gatilho `transaction_method_matches_account`                          |
+| Valor nunca é zero; importado sempre tem `externalId`                    | CHECKs de `transaction`                                               |
+| Cartão tem fechamento e vencimento; as outras contas, não                | CHECK `financial_account_card_days_check`                             |
+| Mês de orçamento e de fatura guardado como dia 1                         | CHECKs de `budget` e `card_statement`                                 |
+| Parte do orçado nunca negativa; um Compartilhado só por orçado (M08)     | CHECK `budget_share_amount_check` e índice `budget_share_shared_once` |
+| Parte só para quem é do lar; quem sai perde a parte (M08)                | chave `(householdId, userId)` → `household_member`, em cascata        |
+| A auditoria só acrescenta                                                | gatilho `audit_log_append_only`                                       |
+| Convite guarda só o hash do segredo; e-mail em minúsculas (M06)          | CHECKs `household_invite_token_hash_check` e `_email_check`           |
+| Convite não é aceito e cancelado ao mesmo tempo; prazo depois da criação | CHECKs `household_invite_state_check` e `_expiry_check`               |
+| Nome de lar e de carteira com 1 a 60 caracteres (M06)                    | CHECKs `household_name_length_check` e `wallet_name_length_check`     |
+| "Quem categorizou" só existe com categoria (M07)                         | CHECK `transaction_categorized_by_check`                              |
+| Transferência não tem categoria (M07)                                    | CHECK `transaction_transfer_category_check`                           |
+| Exemplo de treino é uma correção de verdade (M07)                        | CHECKs `categorization_example_change_check` e `_source_check`        |
 
 Cada regra tem um teste em `packages/db/src/integration/`, que tenta quebrá-la contra o
 PostgreSQL de verdade (`pnpm test:integration`).
@@ -284,14 +294,33 @@ fazer o quê** é decidido no código, num ponto só: `authorizeWallet` e `autho
   mensal usaria, então gerar o mês de novo não duplica.
 - As decisões e o porquê estão no [ADR-009](adr/0009-pago-por-parcelas-e-fixas.md).
 
+## Orçamento e painel (M08)
+
+- **Orçado** é por ambiente, categoria e mês (`budget`). Num ambiente compartilhado ele pode
+  ser **dividido por pessoa** (`budget_share`): uma parte por pessoa do lar e uma do
+  Compartilhado (`userId` nulo, o cartão de compras conjuntas). A soma das partes é o orçado;
+  quem confere é o `setBudget` (`@fintrack/db`), que grava as duas tabelas numa transação.
+- **Nível:** num mesmo ambiente e mês, ou se orça a categoria de cima (Alimentação) ou as de
+  baixo (Mercado, Padaria), nunca as duas: o painel somaria duas vezes. Regra no core
+  (`budgetLevelConflict`), aplicada no `setBudget` e na cópia do mês anterior.
+- **Painel:** as somas saem de uma consulta agrupada (`spendingRows`: mês, ambiente, categoria,
+  quem pagou, natureza e "até hoje"), com a mesma regra de "Pago por" e o mesmo recorte da
+  lista. O que o número quer dizer (previsto, média de 6 meses, orçado × realizado, fluxo de
+  caixa) é decidido no core (`budget.ts`, `dashboard.ts`, `cashflow.ts`). Nada disso é guardado:
+  o que se calcula não vira coluna.
+- **Fluxo de caixa:** compra no cartão conta no vencimento da fatura; transferência não entra;
+  recorrência ainda não lançada entra pelo valor previsto.
+- As decisões e o porquê estão no [ADR-010](adr/0010-orcamento-e-painel.md).
+
 ## Como ler o dinheiro
 
 - **No banco:** `NUMERIC(14,2)`, com sinal: negativo saiu, positivo entrou.
 - **No código:** `bigint` em centavos (`@fintrack/core`). A ponte é `toDbDecimal` e
   `fromDbDecimal` (`@fintrack/db`), sempre passando por texto, nunca por `number`.
-- **Gasto do mês de um ambiente:** some por `walletId`, só o que tem `transferId` nulo,
-  `deletedAt` nulo e `status` diferente de SCHEDULED. Transferência e pagamento de fatura
-  mudam o dinheiro de lugar, não são gasto.
+- **Gasto do mês de um ambiente:** some por `walletId`, só o que tem `transferId` nulo e
+  `deletedAt` nulo. Transferência e pagamento de fatura mudam o dinheiro de lugar, não são
+  gasto. No painel (M08), "gasto até hoje" é o que tem `occurredOn` até hoje; o que já está
+  lançado para depois de hoje (parcela futura, fixa agendada) entra no **previsto**.
 - **Fatura de um cartão:** some por `statementId` (competência) ou por `accountId` e
   `occurredOn` (quando a compra aconteceu). Os dois números são diferentes, e os dois certos.
 

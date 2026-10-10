@@ -57,11 +57,17 @@ Recurso novo com id na URL que não é uma carteira? Crie um `authorizeX` em
        await fazerAlgo(prisma, grant, parsed.data, await requestContext()); // 4. operação
        return "Feito.";
      });
+     if (!result.error) await financeChanged(session); // 5. mudou dinheiro? (M08)
      revalidatePath(`/carteiras/${parsed.data.walletId}`);
      return result;
    }
    ```
-7. **Leitura para a página** (`features/<assunto>/server/queries.ts`, com `import "server-only"`):
+   Toda action que grava lançamento, conta, categoria ou orçado chama `financeChanged`
+   (`lib/finance-cache.ts`): ele derruba o cache das somas do lar (`updateTag`).
+7. **Leitura para a página** (`features/<assunto>/server/queries.ts`, com `import "server-only"`).
+   Soma pesada repetida em várias telas (painel, M08) vai para `server/data.ts` com
+   `"use cache"`, `cacheLife("minutes")` e `cacheTag(financeTag(householdId))`; a chave é o escopo
+   e o dia, e o conteúdo só números e ids (nada de nome, e-mail ou cookie dentro do cache).
    `requireWalletAccess(...).catch(notFoundOnDenied)`; devolva também `can.{ação}` para a tela
    decidir os botões. Esconder botão é conforto; quem decide é a action.
 8. **Tela**: página em `app/(app)/...` começa com `await requireUser()`; formulários com
@@ -71,6 +77,7 @@ Recurso novo com id na URL que não é uma carteira? Crie um `authorizeX` em
 9. **E2E** (skill `teste-e2e`): a página entra em `PAGES` (axe, foco, proteção); um teste de
    IDOR (URL de outra pessoa → página 404 sem dados) e o fluxo principal no celular.
    Lista com totais: um teste em lar próprio confere a soma da tela contra o SQL, ao centavo.
+   Número do painel: o teste abre o link (`data-cents`) e confere o total da lista (`painel.spec.ts`).
 10. `pnpm check`, `pnpm test:integration` e `pnpm e2e` inteiros antes do PR.
 
 ## Proibido

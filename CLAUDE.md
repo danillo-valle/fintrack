@@ -18,7 +18,9 @@ Projeto de portfólio construído em módulos (M00 a M12); cada módulo é uma m
 - Lar, carteiras e permissões (M06): matriz de papéis pura, crachá tipado e auditoria (ADR-006, `docs/permissoes.md`)
 - Lançamentos, contas e categorias (M07): lançamento rápido, lista com filtros na URL e cursor, transferência,
   recorrências, CSV com reautenticação, cascata de categorização pronta para IA (ADR-007)
-- Próximos módulos: orçamento e dashboards (M08), Open Finance com Meu Pluggy e serviço Python (M09), IA (M10)
+- Orçamento e painel (M08): orçado por ambiente e por pessoa, previsto no ritmo do mês, fluxo de caixa de 6 meses,
+  evolução mês a mês; todo número leva à lista; somas com `"use cache"` e etiqueta por lar (ADR-010)
+- Próximos módulos: Open Finance com Meu Pluggy e serviço Python (M09), IA (M10)
 
 Regras específicas do Next.js 16: @apps/web/AGENTS.md
 
@@ -28,6 +30,7 @@ Regras específicas do Next.js 16: @apps/web/AGENTS.md
 - `pnpm dev` inicia o app em http://localhost:3000
 - `pnpm db:migrate --name descricao` cria e aplica uma migração; `pnpm db:studio` abre o banco no navegador
 - `pnpm db:seed` grava a casa fictícia (24 meses); `pnpm db:reset` apaga o banco, migra e roda o seed (só a pessoa roda)
+- `SEED_VIEWER_EMAIL=<conta de teste> pnpm db:seed` põe uma conta de TESTE na casa fictícia (ver o painel com 24 meses)
 - `pnpm test:integration` prova as regras do banco (CHECKs, chaves, gatilho) contra o Postgres
 - `bash scripts/gerar-schema-auth.sh` atualiza as tabelas do Better Auth depois de mudar o `auth.ts`
 - `pnpm check` roda lint, tipos, testes e build (o mesmo que o CI)
@@ -54,15 +57,19 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
 - `apps/web/src/features/{households,wallets}/` lar, convites e carteiras (M06)
 - `apps/web/src/features/transactions/` lançar, listar (filtros na URL, cursor, totais), transferir, recorrências,
   exportar (M07); `features/{accounts,categories}/` contas, cartões, categorias e regras
+- `apps/web/src/features/budget/` Início (painel), Orçamento, Fluxo de caixa, Evolução e "Editar valores" (M08):
+  `links.ts` (o caminho de cada número até a lista), `server/data.ts` (somas com cache), `server/queries.ts`
+- `apps/web/src/lib/finance-cache.ts` etiqueta do cache das somas e `financeChanged` (chamado por toda action de dinheiro)
 - `apps/web/src/lib/labels.ts` nomes em português de formas de pagamento, tipos de conta etc.
 - `apps/web/src/proxy.ts` redireciona quem não tem sessão (conveniência, não barreira)
 - `packages/core/` regras puras: `money.ts` (centavos, rateio, parcelas), `dates.ts`, `card.ts`, `access.ts` (matriz de papéis),
   `transactions.ts` (sinal, forma × conta, cursor, recorrência), `categorization.ts` (cascata), `csv.ts`,
-  `payer.ts` ("Pago por", M07.4)
+  `payer.ts` ("Pago por", M07.4), `budget.ts` (previsto, orçado × realizado, divisão), `dashboard.ts` (somas por
+  recorte, evolução) e `cashflow.ts` (fluxo de caixa) do M08
 - `packages/db/` schema em pasta (`prisma/schema/`), migrações, seed, cliente, `money.ts` (Decimal ⇄ centavos),
   `access.ts` (crachás), `households.ts`, `wallets.ts` e `audit.ts` (operações com auditoria),
   `transactions.ts`, `accounts.ts`, `categories.ts` (camadas da cascata) e `recurrences.ts` (M07),
-  `installments.ts` (compra parcelada, M07.4)
+  `installments.ts` (compra parcelada, M07.4), `budgets.ts` (orçado, divisão, cópia) e `dashboard.ts` (somas do painel, M08)
 - `docs/permissoes.md` quem pode fazer o quê (conferido por teste)
 - `docs/modelo-de-dados.md` diagrama das tabelas (conferido por teste)
 - `apps/web/e2e/` testes Playwright
@@ -91,9 +98,11 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
 - Código e identificadores em inglês; textos da interface, commits, PRs e documentação em português.
 - Não use `any` nem `console.log`.
 - Cores só por token do tema (`text-income`, `bg-muted`); nunca cor fixa.
+- Todo número do painel leva aos lançamentos que o compõem (`MoneyLink` + `transactionsHref`), e a lista soma o
+  mesmo valor (E2E). Toda action que muda dinheiro chama `financeChanged` (cache das somas, ADR-010).
 - Para qualquer trabalho de interface, siga a skill `ui-componentes` (visual "Elétrico", ADR-008: vidro só
   na moldura, contraste conferido pelo `theme-contrast.test.ts`, novo lançamento em modal de rota).
-  A referência visual é o canvas "FinTrack Visual" (linha C.2): tela nova é desenhada lá antes do código.
+  A referência visual é o canvas "FinTrack Visual" (linhas C.2 e D): tela nova é desenhada lá antes do código.
 - Mudança nova entra como estrutura, não como remendo: peça visual repetida vira componente em
   `components/visual/`, peça de domínio fica em `features/<nome>/ui/`, regra de negócio vai para
   `packages/core` (com teste). Se a peça nova muda quem a chama, atualize toda a cadeia de chamadas.

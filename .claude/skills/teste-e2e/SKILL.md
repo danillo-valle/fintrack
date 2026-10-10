@@ -29,6 +29,13 @@ Referência: `apps/web/e2e/permissoes.spec.ts` (M06) e `apps/web/e2e/helpers.ts`
   (`ANA_FINANCE`), para as telas entrarem em `PAGES`. Mas ela é usada por testes que rodam ao mesmo
   tempo: teste que confere SOMA ou CONTAGEM cria um lar próprio (`createHouseholdDirect` +
   `createFinanceDirect`) e compara a tela com um `SELECT` do banco.
+- **Painel (M08)**: todo número com `data-cents` leva à lista; o teste abre o `href` e compara
+  com `total-saidas`/`total-entradas` (`expectListMatches` em `painel.spec.ts`). Desempenho com
+  24 meses: o seed com `SEED_VIEWER_EMAIL` põe uma conta de teste na casa do exemplo (só no
+  desktop, porque o seed é um só).
+- **Telas escondidas (Cache Components, M08)**: o Next guarda as 3 últimas telas no documento
+  com `display: none`. `getByRole` já ignora o escondido; `getByLabel`, `getByText` e
+  `locator(...)` não: use `.filter({ visible: true })` (o `formAlert` dos helpers já filtra).
 - **Deslogado**: `test.use({ storageState: NO_SESSION })`.
 - **E-mail**: `clearEmails(destino)` antes, `linkFromEmail(destino, /assunto/)` depois.
 - **Acessibilidade**: tela nova entra em `PAGES` (axe claro/escuro, foco, proteção); estados que
