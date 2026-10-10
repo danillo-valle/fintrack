@@ -99,7 +99,9 @@ test.describe("IDOR: carteira de outra pessoa responde 404", () => {
   test("a Ana abre as próprias carteiras normalmente", async ({ page }) => {
     await openPage(page, `/carteiras/${ANA_HOUSEHOLD.sharedWalletId}`);
     await expect(page.getByRole("heading", { level: 1, name: "Casa da Ana" })).toBeVisible();
-    await expect(page.getByText(ANA_HOUSEHOLD.partner.name, { exact: true })).toBeVisible();
+    await expect(
+      page.getByText(ANA_HOUSEHOLD.partner.name, { exact: true }).filter({ visible: true }),
+    ).toBeVisible();
   });
 });
 
@@ -252,7 +254,9 @@ test.describe("papéis na tela da carteira", () => {
       .selectOption("VIEWER");
     await page.getByRole("button", { name: "Criar carteira" }).click();
     await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
-    await expect(page.getByText(ANA_HOUSEHOLD.partner.name, { exact: true })).toBeVisible();
+    await expect(
+      page.getByText(ANA_HOUSEHOLD.partner.name, { exact: true }).filter({ visible: true }),
+    ).toBeVisible();
 
     // Arquiva (com confirmação) para não poluir a lista dos outros testes
     await page.getByRole("button", { name: "Arquivar" }).click();

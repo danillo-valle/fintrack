@@ -566,7 +566,12 @@ test.describe("com sessão própria", () => {
     await expect(page).toHaveURL("/reautenticar?next=%2Fajustes%2Fseguranca");
     await expect(page.locator("html[data-hydrated]")).toBeAttached();
 
-    await page.getByLabel("Senha", { exact: true }).fill("senha errada demais");
+    // Cache Components (M08): a tela de Segurança fica escondida no documento (<Activity>);
+    // os seletores pegam só o que está à vista
+    await page
+      .getByLabel("Senha", { exact: true })
+      .filter({ visible: true })
+      .fill("senha errada demais");
     await page.getByRole("button", { name: "Confirmar", exact: true }).click();
     await expect(formAlert(page)).toHaveText("Senha incorreta.");
 

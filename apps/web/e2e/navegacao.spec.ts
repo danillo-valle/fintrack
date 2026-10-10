@@ -34,8 +34,13 @@ test("o primeiro Tab oferece pular direto para o conteúdo", async ({ page }) =>
 });
 
 test("Novo lançamento está sempre a um toque", async ({ page }) => {
-  await openPage(page, "/orcamento");
-  await page.getByRole("link", { name: "Novo lançamento" }).first().click();
+  // M08: no Orçamento do mês o canto do cabeçalho é o mês (canvas D); o Fluxo tem o botão
+  await openPage(page, "/orcamento/fluxo");
+  await page
+    .getByRole("link", { name: "Novo lançamento" })
+    .filter({ visible: true })
+    .first()
+    .click();
   await expect(page).toHaveURL("/lancamentos/novo");
   // M07.1: dentro do app, o formulário abre em modal por cima da página (que continua atrás)
   const modal = page.getByRole("dialog", { name: "Novo lançamento" });

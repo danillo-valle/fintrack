@@ -96,7 +96,9 @@ test.describe("o uso diário", () => {
     await page.getByLabel("Valor").pressSequentially("4235");
     await page.getByLabel("Descrição").fill("Supermercado Bom Preço");
     await expect(page.getByText(/Sugerida: Mercado/)).toBeVisible();
-    await expect(page.getByLabel("Categoria")).toHaveValue(p.categories["Mercado"]!);
+    await expect(page.getByLabel("Categoria").filter({ visible: true })).toHaveValue(
+      p.categories["Mercado"]!,
+    );
     await page.getByRole("button", { name: "Salvar despesa" }).click();
     await expect(page.getByText(brl("Despesa de R$ 42,35 registrada"))).toBeVisible();
     expect(Date.now() - started).toBeLessThan(10_000); // critério de pronto do roteiro
@@ -119,7 +121,10 @@ test.describe("o uso diário", () => {
       page.getByRole("heading", { level: 1, name: "Supermercado Bom Preço" }),
     ).toBeVisible();
     await expect(page.locator("html[data-hydrated]")).toBeAttached();
-    await page.getByLabel("Categoria").selectOption({ label: "Restaurante" });
+    await page
+      .getByLabel("Categoria")
+      .filter({ visible: true })
+      .selectOption({ label: "Restaurante" });
     await page.getByLabel("Sempre categorizar assim").check();
     await page.getByRole("button", { name: "Salvar alterações" }).click();
     await expect(page.getByText("Lançamento salvo.")).toBeVisible();

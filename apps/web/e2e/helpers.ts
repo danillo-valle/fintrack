@@ -22,7 +22,9 @@ export async function openPage(page: Page, path: string) {
  * um elemento com role="alert": o anunciador de mudança de página para leitores de tela.
  */
 export function formAlert(page: Page) {
-  return page.locator('[data-slot="form-alert"]');
+  // Só o que está à vista: com o Cache Components (M08), telas anteriores ficam escondidas no
+  // documento (<Activity>) e o aviso delas também
+  return page.locator('[data-slot="form-alert"]').filter({ visible: true });
 }
 
 /** O Intl separa "R$" do número com um espaço não separável (U+00A0). */
@@ -78,6 +80,9 @@ export const PAGES = [
   "/lancamentos/transferencia",
   "/lancamentos/recorrencias",
   "/orcamento",
+  "/orcamento/fluxo",
+  "/orcamento/evolucao",
+  "/orcamento/editar",
   "/carteiras",
   "/carteiras/nova",
   `/carteiras/${ANA_HOUSEHOLD.sharedWalletId}`,
