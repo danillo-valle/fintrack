@@ -25,6 +25,11 @@ export function useRouteModal() {
   return value;
 }
 
+/** O mesmo, mas sem erro fora do modal: um formulário que vive nos dois (modal e página). */
+export function useOptionalRouteModal() {
+  return useContext(ModalContext);
+}
+
 // Modal de rota (Visual C, ADR-008; layout do M07.3). Abre por cima da página atual quando a
 // navegação vem de um link do app (rota interceptada); recarregar ou abrir o link direto mostra a
 // página inteira.

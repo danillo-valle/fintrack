@@ -36,6 +36,7 @@ import {
   type ActionState,
 } from "@/lib/access";
 import { requireRecentAuth, requireUser } from "@/lib/auth/session";
+import { financeChanged } from "@/lib/finance-cache";
 import type { Session } from "@/lib/auth";
 import {
   exportSchema,
@@ -165,6 +166,7 @@ export async function createTransactionAction(
       created = { ...base, id, undoable: true, detail: null };
     }
   });
+  if (!result.error) await financeChanged(session);
   revalidatePath(LIST);
   return result.error
     ? { ...result, created: null, version: prev.version }
@@ -200,6 +202,7 @@ export async function updateTransactionAction(
     );
     return "Lançamento salvo.";
   });
+  if (!result.error) await financeChanged(session);
   revalidatePath(LIST);
   revalidatePath(`${LIST}/${id.data.transactionId}`);
   return result;
@@ -218,6 +221,7 @@ export async function deleteTransactionAction(
     await deleteTransaction(prisma, grant, await requestContext());
     return "Lançamento excluído.";
   });
+  if (!result.error) await financeChanged(session);
   revalidatePath(LIST);
   return result;
 }
@@ -236,6 +240,7 @@ export async function restoreTransactionAction(
     await restoreTransaction(prisma, grant, await requestContext());
     return "Lançamento de volta.";
   });
+  if (!result.error) await financeChanged(session);
   revalidatePath(LIST);
   return result;
 }
@@ -253,6 +258,7 @@ export async function confirmTransactionAction(
     await confirmTransaction(prisma, grant);
     return "Confirmado.";
   });
+  if (!result.error) await financeChanged(session);
   revalidatePath(LIST);
   return result;
 }
@@ -273,6 +279,7 @@ export async function createTransferAction(
     await createTransfer(prisma, from, to, { ...data, cents: data.amount });
     return "Transferência registrada. Ela não conta como gasto nem como receita.";
   });
+  if (!result.error) await financeChanged(session);
   revalidatePath(LIST);
   return { ...result, created: null, version: result.error ? prev.version : prev.version + 1 };
 }
@@ -299,6 +306,7 @@ export async function createRecurrenceAction(
     );
     return 'Recorrência criada. Use "Lançar as deste mês" para gerar o lançamento agendado.';
   });
+  if (!result.error) await financeChanged(session);
   revalidatePath(`${LIST}/recorrencias`);
   return result;
 }
@@ -315,6 +323,7 @@ export async function archiveRecurrenceAction(
     await archiveRecurrence(prisma, wallet, parsed.data.recurrenceId, await requestContext());
     return "Recorrência encerrada. Os lançamentos já gerados continuam.";
   });
+  if (!result.error) await financeChanged(session);
   revalidatePath(`${LIST}/recorrencias`);
   return result;
 }
@@ -338,6 +347,7 @@ export async function generateRecurrencesAction(
       ? "Nada novo: as recorrências deste mês já estavam lançadas."
       : `${created} ${created === 1 ? "lançamento agendado criado" : "lançamentos agendados criados"}.`;
   });
+  if (!result.error) await financeChanged(session);
   revalidatePath(LIST);
   revalidatePath(`${LIST}/recorrencias`);
   return result;

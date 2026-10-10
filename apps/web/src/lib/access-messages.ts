@@ -83,6 +83,13 @@ const DOMAIN_ERROR_MESSAGE: Record<DomainErrorCode, string> = {
   CARD_CYCLE_MISSING:
     "Este cartão não tem os dias de fechamento e vencimento. Cadastre em Ajustes > Contas e cartões.",
   INSTALLMENT_COUNT_INVALID: "Escolha de 2 a 24 parcelas.",
+  BUDGET_AMOUNT_INVALID: "Informe um valor de R$ 0,00 a R$ 9.999.999,99.",
+  BUDGET_LEVEL_CONFLICT:
+    "Esta categoria e a de cima (ou uma de baixo) não podem ter orçado no mesmo mês. Escolha um nível.",
+  BUDGET_SHARES_PERSONAL: "A divisão por pessoa só existe em ambiente compartilhado.",
+  SHARES_DUPLICATED: "Cada pessoa aparece uma vez só na divisão.",
+  SHARES_NEGATIVE: "A parte de cada pessoa precisa ser zero ou mais.",
+  SHARES_SUM_MISMATCH: "As partes precisam somar o valor da categoria.",
   NOT_FOUND: "Não encontramos o que você pediu.",
 };
 
@@ -126,6 +133,10 @@ export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
   "category.archived": "arquivou ou restaurou uma categoria",
   "category_rule.created": "criou uma regra de categoria",
   "category_rule.deleted": "apagou uma regra de categoria",
+  "budget.set": "definiu o orçado de uma categoria",
+  "budget.removed": "tirou o orçado de uma categoria",
+  "budgets.copied": "copiou o orçamento do mês anterior",
+  "budgets.copy_undone": "desfez a cópia do orçamento",
 };
 
 export function auditActionLabel(action: string): string {

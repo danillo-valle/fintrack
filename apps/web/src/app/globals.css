@@ -220,6 +220,12 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  /* A "tinta" de cada tom (M07.4), para texto na cor do tom: text-chart-1-ink (M08) */
+  --color-chart-1-ink: var(--chart-1-ink);
+  --color-chart-2-ink: var(--chart-2-ink);
+  --color-chart-3-ink: var(--chart-3-ink);
+  --color-chart-4-ink: var(--chart-4-ink);
+  --color-chart-5-ink: var(--chart-5-ink);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-muted-foreground: var(--sidebar-muted-foreground);
@@ -343,6 +349,17 @@
 /* Com o modal aberto, a página atrás não rola */
 html:has(dialog.route-modal[open]) {
   overflow: hidden;
+}
+
+/* Gráficos do M08: a parte PREVISTA de uma barra é listrada e a que já aconteceu é cheia, para a
+   cor nunca ser o único sinal. O tom vem de --tone (padrão: --chart-1). As listras mais fortes
+   passam de 3:1 sobre o cartão (theme-contrast.test.ts, "listra do previsto"). */
+@utility hatch {
+  background-image: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--tone, var(--chart-1)) 78%, transparent) 0 3px,
+    color-mix(in srgb, var(--tone, var(--chart-1)) 18%, transparent) 3px 7px
+  );
 }
 
 /* Placeholder com desfoque (carregando): formas suaves no lugar do conteúdo que vai chegar */

@@ -15,11 +15,12 @@
 //       </>
 //     )}
 //   </ActionForm>
-import { useActionState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 // O FormAlert nasceu no M03 dentro de auth, mas é genérico: reaproveitado aqui
 import { FormAlert } from "@/features/auth/ui/form-alert";
 import { INITIAL_ACTION_STATE, type ActionState } from "@/lib/action-state";
 import { useFieldErrors } from "@/lib/use-field-errors";
+import { useFreshActionState } from "@/lib/use-fresh-action-state";
 
 type Field = {
   props: ReturnType<ReturnType<typeof useFieldErrors>["fieldProps"]>;
@@ -52,7 +53,8 @@ export function ActionForm<S extends ActionState>({
   ...aria
 }: Props<S>) {
   // Awaited<S>: o tipo que o React espera para o estado (S é um objeto simples, então é o próprio S)
-  const [state, formAction, pending] = useActionState<S, FormData>(
+  // Volta ao início quando a tela fica escondida depois de um envio (Cache Components, M08)
+  const [state, formAction, pending, formRef] = useFreshActionState<S, FormData>(
     action,
     (initialState ?? INITIAL_ACTION_STATE) as Awaited<S>,
   );
@@ -66,6 +68,7 @@ export function ActionForm<S extends ActionState>({
 
   return (
     <form
+      ref={formRef}
       action={formAction}
       noValidate
       className={className}
