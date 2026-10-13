@@ -119,6 +119,8 @@ jobs:
       # A consulta de senhas vazadas depende de um serviço externo: desligada no CI
       HIBP_CHECK: "off"
       MAILPIT_URL: http://localhost:8025
+      # M09.1: a Pluggy de mentira (o playwright.config.ts sobe); nunca a de verdade no CI
+      PLUGGY_API_URL: http://127.0.0.1:8787
     steps:
       - name: Baixa o código
         uses: actions/checkout@v7
@@ -138,12 +140,16 @@ jobs:
       - name: Instala o Chromium do Playwright e as bibliotecas do sistema
         run: pnpm --filter @fintrack/web exec playwright install --with-deps chromium
 
-      - name: Gera um segredo temporário para o Better Auth
+      - name: Gera os segredos temporários (Better Auth e chave das conexões)
         run: |
           # Segredo descartável, só para este job. ::add-mask:: esconde o valor em todos os logs
           SECRET=$(openssl rand -base64 32)
           echo "::add-mask::$SECRET"
           echo "BETTER_AUTH_SECRET=$SECRET" >> "$GITHUB_ENV"
+          # M09.1: chave descartável que cifra o Client Secret sintético dos testes
+          KEY=$(openssl rand -base64 32)
+          echo "::add-mask::$KEY"
+          echo "CONNECTION_SECRET_KEYS=1:$KEY" >> "$GITHUB_ENV"
 
       - name: Cria as tabelas no banco de teste (migrações do Prisma)
         run: pnpm db:deploy
