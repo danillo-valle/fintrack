@@ -50,6 +50,13 @@ Referência: `apps/web/e2e/permissoes.spec.ts` (M06) e `apps/web/e2e/helpers.ts`
 - **Tempo é medido no build de produção**: limite de tempo (`toBeLessThan(ms)`) só com
   `test.skip(!PRODUCTION_BUILD, …)`. No `pnpm dev` o número mede a máquina. A suíte contra a imagem
   local (`PLAYWRIGHT_PRODUCTION=1 pnpm e2e`, passo do manual do M08) roda esses testes.
+- **Banco (M09.1)**: nenhum teste fala com a Pluggy de verdade. O `playwright.config.ts` sobe a
+  Pluggy de mentira (`pnpm pluggy:fake`, porta 8787, banco sintético de
+  `@fintrack/importers/testing`) e aponta o app para ela (`PLUGGY_API_URL`). Credenciais:
+  `SYNTHETIC_CREDENTIALS`; bancos: `SYNTHETIC_IDS`. Referência: `coleta-bancaria.spec.ts`.
+- **Esperar trabalho em segundo plano** (a fila do pg-boss): `expect.poll` recarregando a página,
+  e dentro do poll **nada que espere** (`count()`, não `textContent()` de algo que pode não existir:
+  ele fica parado até o fim do poll e a página nunca é recarregada).
 - **Deslogado**: `test.use({ storageState: NO_SESSION })`.
 - **E-mail**: `clearEmails(destino)` antes, `linkFromEmail(destino, /assunto/)` depois.
 - **Acessibilidade**: tela nova entra em `PAGES` (axe claro/escuro, foco, proteção); estados que

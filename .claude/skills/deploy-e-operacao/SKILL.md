@@ -65,6 +65,22 @@ Leia antes: `docs/adr/0005-hospedagem-e-deploy.md` (decisões) e `docs/operacao/
 10. **Antes de dizer que pronto**: `pnpm check`, `pnpm e2e` e, se mexeu em imagem ou deploy,
     `docker build --target web .` e `deploy/bin/smoke-test` contra o container.
 
+## Coleta bancária (M09.1, ADR-011)
+
+- A fila (pg-boss, schema `pgboss` no mesmo Postgres) roda **dentro do container `web`**, ligada
+  pelo `instrumentation.ts`. `SYNC_WORKER=off` em `/srv/fintrack/app.env` para a busca diária e o
+  botão sem derrubar o site. Logs: `sync.worker_started`, `sync.finished`, `sync.worker_failed`.
+- `CONNECTION_SECRET_KEYS` cifra o Client Secret de cada pessoa. Gere com
+  `fintrack-definir app.env CONNECTION_SECRET_KEYS --gerar-chave 1`, guarde a cópia no
+  gerenciador de senhas (fora do backup). Trocar: `--gerar-chave 2` põe a nova na frente e
+  mantém a antiga. **Nunca** apague uma versão que ainda decifra conexões gravadas.
+- O app de produção fala com `https://api.pluggy.ai` (padrão). Dev, CI e E2E usam a Pluggy de
+  mentira (`PLUGGY_API_URL=http://127.0.0.1:8787`).
+- Client ID, Client Secret, Item ID e a chave de acesso da Pluggy nunca vão para log, auditoria
+  ou mensagem de erro: erro do provedor vira código (`PROVIDER_AUTH_FAILED`...).
+- O `migrate` copia `packages/importers` (o `@fintrack/db` depende dele). Pacote novo do qual o
+  db dependa entra no `COPY` do estágio `migrate`.
+
 ## Problema na produção? Comece por aqui
 
 ```bash

@@ -175,13 +175,37 @@ estiver conectado com ele. Desligue o `cloudflared` da máquina antiga, se ela a
 Todo valor novo entra com o `fintrack-definir` (o secreto é pedido escondido, sem ir para o
 histórico). Guarde o valor novo também no gerenciador de senhas.
 
-| Segredo               | Como trocar                                                                                                                                                                                                               | Efeito colateral                                                                        |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| Token do túnel        | Painel Zero Trust → o túnel → **Refresh token**; `sudo -u fintrack fintrack-definir .env TUNNEL_TOKEN`; `sudo -u fintrack fintrack-compose up -d cloudflared`                                                             | Alguns segundos fora do ar                                                              |
-| Chave do Resend       | Crie outra (só envio, só o domínio); `sudo -u fintrack fintrack-definir app.env SMTP_PASSWORD`; `sudo -u fintrack fintrack-compose up -d web`; apague a antiga no Resend                                                  | Nenhum                                                                                  |
-| Senha do banco        | `sudo -u fintrack fintrack-compose exec db psql -U fintrack -c "\password fintrack"` (digite a nova); `sudo -u fintrack fintrack-definir .env POSTGRES_PASSWORD` (a mesma); `sudo -u fintrack fintrack-compose up -d web` | Alguns segundos fora do ar                                                              |
-| `BETTER_AUTH_SECRET`  | `sudo -u fintrack fintrack-definir app.env BETTER_AUTH_SECRET --gerar-base64 32`; `sudo -u fintrack fintrack-compose up -d web`                                                                                           | **Todas as sessões caem e o 2FA precisa ser refeito**                                   |
-| Chave do backup (age) | `age-keygen` novo; guarde a privada; troque o `backup-recipient.txt`                                                                                                                                                      | Backups antigos continuam precisando da chave ANTIGA: guarde as duas até eles expirarem |
+| Segredo                  | Como trocar                                                                                                                                                                                                                             | Efeito colateral                                                                        |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Token do túnel           | Painel Zero Trust → o túnel → **Refresh token**; `sudo -u fintrack fintrack-definir .env TUNNEL_TOKEN`; `sudo -u fintrack fintrack-compose up -d cloudflared`                                                                           | Alguns segundos fora do ar                                                              |
+| Chave do Resend          | Crie outra (só envio, só o domínio); `sudo -u fintrack fintrack-definir app.env SMTP_PASSWORD`; `sudo -u fintrack fintrack-compose up -d web`; apague a antiga no Resend                                                                | Nenhum                                                                                  |
+| Senha do banco           | `sudo -u fintrack fintrack-compose exec db psql -U fintrack -c "\password fintrack"` (digite a nova); `sudo -u fintrack fintrack-definir .env POSTGRES_PASSWORD` (a mesma); `sudo -u fintrack fintrack-compose up -d web`               | Alguns segundos fora do ar                                                              |
+| `BETTER_AUTH_SECRET`     | `sudo -u fintrack fintrack-definir app.env BETTER_AUTH_SECRET --gerar-base64 32`; `sudo -u fintrack fintrack-compose up -d web`                                                                                                         | **Todas as sessões caem e o 2FA precisa ser refeito**                                   |
+| Chave do backup (age)    | `age-keygen` novo; guarde a privada; troque o `backup-recipient.txt`                                                                                                                                                                    | Backups antigos continuam precisando da chave ANTIGA: guarde as duas até eles expirarem |
+| `CONNECTION_SECRET_KEYS` | `sudo -u fintrack fintrack-definir app.env CONNECTION_SECRET_KEYS --gerar-chave N` (N = a próxima versão: a nova vai na frente, as antigas ficam); `sudo -u fintrack fintrack-compose up -d web`; guarde o valor inteiro no gerenciador | Nenhum. Só tire uma versão antiga depois que cada pessoa salvar as credenciais de novo  |
+
+## Busca do banco (Meu Pluggy, M09.1)
+
+A busca roda dentro do container `web` (fila pg-boss no próprio Postgres): todo dia às 06:47 e
+quando alguém aperta "Buscar agora". Cada execução fica em Ajustes › Conexões bancárias ›
+Sincronizações, com o resultado escrito.
+
+```bash
+# As últimas buscas no log (sem credencial nenhuma: só códigos e contagens)
+sudo -u fintrack fintrack-compose logs --since 24h --no-log-prefix web | jq -R 'fromjson? | select(.event? // "" | startswith("sync."))'
+# As últimas execuções no banco
+sudo -u fintrack fintrack-compose exec db psql -U fintrack -c \
+  "SELECT \"startedAt\", status, trigger, \"itemsCreated\", error FROM sync_run ORDER BY \"startedAt\" DESC LIMIT 10"
+```
+
+| Situação                                                    | O que fazer                                                                                                                                                                                       |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "a Pluggy recusou o Client Secret"                          | A pessoa trocou o Client Secret no painel da Pluggy: ela salva as credenciais de novo no app                                                                                                      |
+| "a Pluggy não respondeu" / "a Pluggy pediu uma pausa"       | Nada: a fila tenta de novo duas vezes, e amanhã às 06:47 também                                                                                                                                   |
+| Nenhuma busca desde ontem, sem erro                         | `sync.worker_failed` no log? Confira se o `web` está de pé (`fintrack-status`) e se `SYNC_WORKER` não está `off` no `app.env`                                                                     |
+| Aviso "o servidor ainda não tem a chave"                    | Falta `CONNECTION_SECRET_KEYS` no `app.env`: veja "Trocar um segredo"                                                                                                                             |
+| Chave perdida (servidor refeito sem a cópia do gerenciador) | `sudo -u fintrack fintrack-definir app.env CONNECTION_SECRET_KEYS --gerar-chave 2` (uma versão que a perdida não usava), reinicie o `web` e peça a cada pessoa que digite o Client Secret de novo |
+| Parar as buscas sem derrubar o site                         | `sudo -u fintrack fintrack-definir app.env SYNC_WORKER off`; `sudo -u fintrack fintrack-compose up -d web`. Para voltar: `on`                                                                     |
 
 ## Alertas
 
