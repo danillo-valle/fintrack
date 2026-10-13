@@ -88,6 +88,7 @@ export async function spendingRows(
     LEFT JOIN "payment_card" c ON c."id" = t."cardId"
     WHERE t."walletId" = ANY(${walletIdsOf(scope)}::uuid[])
       AND t."deletedAt" IS NULL
+      AND t."status" <> 'PENDING' -- recebido do banco: fora das somas até a revisão (ADR-011)
       AND t."transferId" IS NULL
       AND t."occurredOn" BETWEEN ${from}::date AND ${to}::date
     GROUP BY 1, 2, 3, 4, 5, 6
@@ -231,6 +232,7 @@ export async function cashRows(
     LEFT JOIN "card_statement" s ON s."id" = t."statementId"
     WHERE t."walletId" = ANY(${walletIdsOf(scope)}::uuid[])
       AND t."deletedAt" IS NULL
+      AND t."status" <> 'PENDING' -- recebido do banco: fora das somas até a revisão (ADR-011)
       AND t."transferId" IS NULL
       AND t."occurredOn" BETWEEN (${dbDateFromCivil(from)}::date - interval '2 months')::date
                              AND ${dbDateFromCivil(to)}::date

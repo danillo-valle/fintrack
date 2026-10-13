@@ -53,7 +53,11 @@ export type AuditAction =
   | "budget.set"
   | "budget.removed"
   | "budgets.copied"
-  | "budgets.copy_undone";
+  | "budgets.copy_undone"
+  // M09.1: conexão com o banco (nunca Client ID inteiro, segredo, Item ID ou número de conta)
+  | "connection.saved"
+  | "connection.accounts_linked"
+  | "connection.sync_requested";
 
 export type AuditEntry = {
   actorId: string | null;
@@ -71,7 +75,8 @@ export type AuditEntry = {
     | "financial_account"
     | "payment_card"
     | "category"
-    | "category_rule";
+    | "category_rule"
+    | "provider_connection";
   entityId: string;
   metadata?: Prisma.InputJsonObject;
 };

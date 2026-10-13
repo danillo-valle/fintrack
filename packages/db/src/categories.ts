@@ -305,6 +305,9 @@ export function historySuggester(db: PrismaClient, scope: WalletScope<"view">): 
           categoryId: { not: null },
           amount: input.kind === "expense" ? { lt: 0 } : { gt: 0 },
           category: { archivedAt: null },
+          // Recebido do banco com a categoria que a PRÓPRIA cascata sugeriu ainda não é voto: senão
+          // uma sugestão errada se reforçaria sozinha a cada busca (M09.1)
+          NOT: { status: "PENDING", categorizedBy: { in: ["RULE", "HISTORY"] } },
         },
         orderBy: [{ occurredOn: "desc" }, { id: "desc" }],
         take: HISTORY_WINDOW,
