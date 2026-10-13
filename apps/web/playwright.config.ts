@@ -3,6 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 const PORT = 3000;
 const BASE_URL = `http://localhost:${PORT}`;
 const CI = Boolean(process.env.CI);
+const PLUGGY_FAKE_URL = "http://127.0.0.1:8787";
 
 // Os testes acessam o banco e o Mailpit, então precisam das mesmas variáveis do app.
 // Em casa, lê o .env da raiz; no CI, as variáveis vêm do workflow.
@@ -44,11 +45,22 @@ export default defineConfig({
       dependencies: ["preparar"],
     },
   ],
-  // Sobe o app antes dos testes. Se você já estiver com "pnpm dev" rodando, reaproveita.
-  webServer: {
-    command: "pnpm dev",
-    url: `${BASE_URL}/api/health`,
-    reuseExistingServer: !CI,
-    timeout: 120_000,
-  },
+  // Sobe a Pluggy de mentira (M09.1) e o app antes dos testes. Se você já estiver com
+  // "pnpm pluggy:fake" e "pnpm dev" rodando, reaproveita (o .env aponta o app para a de mentira).
+  webServer: [
+    {
+      command: "pnpm pluggy:fake",
+      url: `${PLUGGY_FAKE_URL}/health`,
+      reuseExistingServer: !CI,
+      timeout: 30_000,
+    },
+    {
+      command: "pnpm dev",
+      url: `${BASE_URL}/api/health`,
+      reuseExistingServer: !CI,
+      timeout: 120_000,
+      // Nenhum teste fala com a Pluggy de verdade
+      env: { PLUGGY_API_URL: PLUGGY_FAKE_URL },
+    },
+  ],
 });
