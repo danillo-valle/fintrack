@@ -100,46 +100,57 @@ enum RecurrenceKind {
 
 /// Um lançamento: dinheiro que entrou ou saiu de uma conta, atribuído a um ambiente.
 model Transaction {
-  id                 String                @id @default(uuid(7)) @db.Uuid
-  householdId        String                @db.Uuid
+  id                        String                @id @default(uuid(7)) @db.Uuid
+  householdId               String                @db.Uuid
   /// DE QUEM é: o ambiente onde o lançamento conta ("Casa", "Danillo")
-  walletId           String                @db.Uuid
+  walletId                  String                @db.Uuid
   /// QUEM PAGA: a conta (corrente, fatura do cartão, vale...)
-  accountId          String                @db.Uuid
+  accountId                 String                @db.Uuid
   /// Com qual cartão daquela conta (opcional: PIX e transferência não têm cartão)
-  cardId             String?               @db.Uuid
-  method             PaymentMethod
-  categoryId         String?               @db.Uuid
+  cardId                    String?               @db.Uuid
+  method                    PaymentMethod
+  categoryId                String?               @db.Uuid
   /// Quem decidiu a categoria (M07). Opcional: os lançamentos antigos e os sem categoria ficam
   /// nulos. CHECK: só existe junto com categoryId
-  categorizedBy      CategorizationSource?
+  categorizedBy             CategorizationSource?
   /// Valor com sinal, em reais com 2 casas (NUMERIC(14,2)). CHECK: diferente de zero
-  amount             Decimal               @db.Decimal(14, 2)
+  amount                    Decimal               @db.Decimal(14, 2)
   /// Dia do lançamento (coluna DATE)
-  occurredOn         DateTime              @db.Date
+  occurredOn                DateTime              @db.Date
   /// CHECK: de 1 a 200 caracteres
-  description        String
-  notes              String?
-  status             TransactionStatus     @default(CONFIRMED)
-  source             TransactionSource     @default(MANUAL)
+  description               String
+  notes                     String?
+  status                    TransactionStatus     @default(CONFIRMED)
+  source                    TransactionSource     @default(MANUAL)
   /// Id do lançamento na origem (FITID do OFX, id da Pluggy, ocorrência da recorrência).
   /// CHECK: obrigatório fora do MANUAL
-  externalId         String?
+  externalId                String?
   /// Fatura em que a compra entrou (só cartão de crédito)
-  statementId        String?               @db.Uuid
-  installmentGroupId String?               @db.Uuid
+  statementId               String?               @db.Uuid
+  installmentGroupId        String?               @db.Uuid
   /// 1, 2, 3... CHECK: preenchido junto com installmentGroupId, nunca sozinho
-  installmentNumber  Int?                  @db.SmallInt
+  installmentNumber         Int?                  @db.SmallInt
   /// Recorrência que gerou este lançamento (conta fixa, assinatura, salário)
-  recurrenceId       String?               @db.Uuid
-  transferId         String?               @db.Uuid
+  recurrenceId              String?               @db.Uuid
+  transferId                String?               @db.Uuid
   /// Estorno: aponta para a compra estornada
-  reversalOfId       String?               @db.Uuid
+  reversalOfId              String?               @db.Uuid
+  /// Compra em outra moeda (M09.1): o valor e a moeda originais; `amount` fica em reais.
+  /// CHECK: os dois juntos ou nenhum; moeda com 3 letras maiúsculas
+  originalAmount            Decimal?              @db.Decimal(14, 2)
+  originalCurrency          String?               @db.Char(3)
+  /// A categoria que o banco devolve (M09.1, texto da Pluggy). Vira camada da cascata no M09.2.
+  /// CHECK: de 1 a 100 caracteres
+  providerCategory          String?
+  /// Parcela como o banco informa ("3 de 6"), enquanto a compra não é ligada a uma compra
+  /// parcelada do FinTrack (M09.2). CHECK: os dois juntos, 1 <= número <= total, total de 2 a 99
+  providerInstallmentNumber Int?                  @db.SmallInt
+  providerInstallmentCount  Int?                  @db.SmallInt
   /// Quem lançou (nulo para o que veio de importação ou recorrência)
-  createdById        String?
-  createdAt          DateTime              @default(now())
-  updatedAt          DateTime              @updatedAt
-  deletedAt          DateTime?
+  createdById               String?
+  createdAt                 DateTime              @default(now())
+  updatedAt                 DateTime              @updatedAt
+  deletedAt                 DateTime?
 
   household              Household               @relation(fields: [householdId], references: [id], onDelete: Cascade)
   // Chaves COMPOSTAS: cada par precisa existir junto na outra tabela. Um lançamento com o
@@ -192,13 +203,66 @@ model CardStatement {
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
-  account      FinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  account      FinancialAccount   @relation(fields: [accountId], references: [id], onDelete: Cascade)
   transactions Transaction[]
+  charges      StatementCharge[]
+  payments     StatementPayment[]
 
   // Alvo da chave composta (statementId, accountId): a compra está na fatura da própria conta
   @@unique([id, accountId])
   @@unique([accountId, referenceMonth])
   @@map("card_statement")
+}
+
+/// Tipo de encargo da fatura, como o Open Finance informa (M09.1).
+enum StatementChargeKind {
+  IOF
+  /// Juros de mora
+  LATE_INTEREST
+  /// Multa por atraso
+  LATE_FEE
+  /// Juros remuneratórios (rotativo)
+  REMUNERATIVE_INTEREST
+  OTHER
+
+  @@map("statement_charge_kind")
+}
+
+/// Encargo de uma fatura vinda do banco: IOF, juros, multa (M09.1). Regravados a cada busca.
+model StatementCharge {
+  id          String              @id @default(uuid(7)) @db.Uuid
+  statementId String              @db.Uuid
+  accountId   String              @db.Uuid
+  kind        StatementChargeKind
+  /// Valor do encargo (positivo = a pagar). CHECK: maior ou igual a zero
+  amount      Decimal             @db.Decimal(14, 2)
+  createdAt   DateTime            @default(now())
+
+  // Composta: o encargo é da fatura daquela conta
+  statement CardStatement    @relation(fields: [statementId, accountId], references: [id, accountId], onDelete: Cascade)
+  account   FinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([statementId])
+  @@index([accountId])
+  @@map("statement_charge")
+}
+
+/// Pagamento de uma fatura, como o banco informa (M09.1). Regravados a cada busca.
+model StatementPayment {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  statementId String   @db.Uuid
+  accountId   String   @db.Uuid
+  paidOn      DateTime @db.Date
+  /// Valor pago. CHECK: maior que zero
+  amount      Decimal  @db.Decimal(14, 2)
+  createdAt   DateTime @default(now())
+
+  statement CardStatement    @relation(fields: [statementId, accountId], references: [id, accountId], onDelete: Cascade)
+  account   FinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([statementId])
+  @@index([accountId])
+  @@map("statement_payment")
 }
 
 /// Compra parcelada: a compra original, de onde saem os lançamentos de cada parcela.
