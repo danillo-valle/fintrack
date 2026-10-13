@@ -34,6 +34,8 @@ type Props<S extends ActionState> = {
   /** Prefixo dos ids (vários formulários na mesma página não podem repetir id) */
   idPrefix?: string;
   className?: string;
+  /** id do <form>: os botões do rodapé de um modal ligam-se a ele com form="…" (M09.1) */
+  id?: string;
   /** Rótulo acessível do formulário (aparece para leitor de tela como região "form") */
   "aria-label"?: string;
   children: (helpers: {
@@ -56,6 +58,7 @@ function ActionFormBody<S extends ActionState>({
   initialState,
   idPrefix = "",
   className,
+  id,
   children,
   renew,
   ...aria
@@ -79,6 +82,7 @@ function ActionFormBody<S extends ActionState>({
 
   return (
     <form
+      id={id}
       action={formAction}
       noValidate
       className={className}

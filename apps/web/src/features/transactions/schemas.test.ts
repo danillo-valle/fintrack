@@ -118,6 +118,7 @@ describe("filtros na URL", () => {
         text: null,
         type: null,
         payer: null,
+        received: false,
       },
       walletId: null,
       cursor: null,
@@ -147,8 +148,16 @@ describe("filtros na URL", () => {
       text: "mercado",
       type: "expense",
       payer: { kind: "shared" },
+      received: false,
     });
     expect(parsed.walletId).toBe(ID);
+  });
+
+  it("situacao=recebidos: a fila do banco, dos últimos 12 meses até hoje (M09.1)", () => {
+    const parsed = parseFilters({ situacao: "recebidos" }, today);
+    expect(parsed.filters).toMatchObject({ from: "2025-10-07", to: "2026-10-07", received: true });
+    expect(filtersToQuery(parsed)).toContain("situacao=recebidos");
+    expect(parseFilters({ situacao: "outra" }, today).filters.received).toBe(false);
   });
 
   it("lixo na URL vira o padrão, nunca erro", () => {

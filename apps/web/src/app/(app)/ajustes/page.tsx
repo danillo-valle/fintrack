@@ -1,6 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronRight, House, Landmark, ShieldCheck, Tags, type LucideIcon } from "lucide-react";
+import {
+  ChevronRight,
+  House,
+  Landmark,
+  Link2,
+  ShieldCheck,
+  Tags,
+  type LucideIcon,
+} from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { NewTransactionButton } from "@/features/transactions/ui/new-transaction-button";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
@@ -20,6 +28,13 @@ const LINKS: { href: string; title: string; detail: string; icon: LucideIcon; to
     detail: "De onde sai e para onde vai o dinheiro",
     icon: Landmark,
     tone: 1,
+  },
+  {
+    href: "/ajustes/conexoes",
+    title: "Conexões bancárias",
+    detail: "Meu Pluggy: saldo, faturas e compras do banco",
+    icon: Link2,
+    tone: 4,
   },
   {
     href: "/ajustes/categorias",

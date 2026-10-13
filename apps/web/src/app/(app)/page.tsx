@@ -12,6 +12,10 @@ import { EnvironmentRow } from "@/features/budget/ui/environment-row";
 import { GroupSpendingChart, GroupSpendingTable } from "@/features/budget/ui/group-spending";
 import { BudgetAlerts, CashFlowMini, Panel } from "@/features/budget/ui/home-panels";
 import { ViewToggle } from "@/features/budget/ui/view-toggle";
+import { getBankHome } from "@/features/bank/server/queries";
+import { BankAccountCards } from "@/features/bank/ui/bank-accounts";
+import { ReceivedBanner } from "@/features/bank/ui/received-banner";
+import { SyncLine } from "@/features/bank/ui/sync-line";
 import { NewTransactionButton } from "@/features/transactions/ui/new-transaction-button";
 import { requireUser } from "@/lib/auth/session";
 import { formatBRL } from "@/lib/money";
@@ -29,6 +33,8 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
   // Toda página do app começa conferindo a sessão (skill auth-guard)
   const session = await requireUser();
   const home = await getHomeDashboard(session, await searchParams);
+  // M09.1: contas e cartões do banco no mesmo recorte de ambiente (nulo sem conexão nenhuma)
+  const bank = home.hasWallets ? await getBankHome(session, home.walletId) : null;
   const { summary } = home;
   const here = (extra: Record<string, string | null>) =>
     `/${budgetQuery({ walletId: home.walletId, view: home.view }, extra)}`;
@@ -78,6 +84,28 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
           hrefFor={(walletId) => `/${budgetQuery({ walletId, view: home.view })}`}
         />
 
+        {bank && bank.accounts.length > 0 ? (
+          <section aria-labelledby="contas-e-cartoes" className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2
+                id="contas-e-cartoes"
+                className="text-[1.0625rem] font-extrabold tracking-[-0.01em] md:text-xl"
+              >
+                Contas e cartões
+              </h2>
+              <SyncLine
+                bankUpdatedAt={bank.bankUpdatedAt}
+                lastSyncedAt={bank.lastSyncedAt}
+                canSync={bank.canSync}
+              />
+            </div>
+            <BankAccountCards accounts={bank.accounts} />
+          </section>
+        ) : null}
+        {bank ? (
+          <ReceivedBanner count={bank.received.count} uncategorized={bank.received.uncategorized} />
+        ) : null}
+
         <SummaryGrid
           label={`Resumo de ${home.monthLabel}`}
           className="md:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]"
@@ -114,7 +142,13 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
             label="Gasto até hoje"
             tone="expense"
             data-testid="inicio-gasto"
-            note={<span className="hidden md:inline">variáveis, fixas e parcelas</span>}
+            note={
+              <span className="hidden md:inline">
+                {bank && bank.received.count > 0
+                  ? "só lançamentos confirmados"
+                  : "variáveis, fixas e parcelas"}
+              </span>
+            }
           >
             <MoneyLink
               cents={summary.spent.cents}

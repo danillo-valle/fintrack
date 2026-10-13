@@ -3,6 +3,7 @@
 // quem digita. Nada do formulário é confiável, nem o <select> de forma de pagamento.
 import {
   decimalToCents,
+  addMonths,
   isCivilDate,
   MAX_ABS_CENTS,
   monthRange,
@@ -195,6 +196,8 @@ export type ListFilters = {
   type: TransactionTypeFilter | null;
   /** "Pago por" (M07.4): Compartilhado ou uma pessoa */
   payer: PayerFilter | null;
+  /** Recebidos do banco esperando revisão (M09.1); fora disso, a lista não os mostra */
+  received: boolean;
 };
 
 export type ParsedFilters = {
@@ -233,15 +236,18 @@ const idOrNull = (value: string | null) => (value && UUID.test(value) ? value.to
 /**
  * Lê os filtros da URL. Os nomes são em português porque aparecem na barra de endereço:
  *   /lancamentos?de=2026-10-01&ate=2026-10-31&carteira=<id>&conta=<id>&categoria=<id|sem>&q=mercado&tipo=despesa&pago=<id|compartilhado>
+ *   /lancamentos?situacao=recebidos   os recebidos do banco que esperam revisão (M09.1); sem
+ *                                     datas, os dos últimos 12 meses
  * Nada aqui é confiável: valor fora do formato é ignorado (cai no padrão), nunca vira erro.
  * O id de carteira passa depois pelo escopo do servidor: carteira alheia = lista vazia.
  */
 export function parseFilters(params: SearchParams, today: CivilDate): ParsedFilters {
+  const received = one(params.situacao) === "recebidos";
   const month = monthRange(today);
   let from = one(params.de);
   let to = one(params.ate);
-  from = from && isCivilDate(from) ? from : month.from;
-  to = to && isCivilDate(to) ? to : month.to;
+  from = from && isCivilDate(from) ? from : received ? addMonths(today, -12) : month.from;
+  to = to && isCivilDate(to) ? to : received ? today : month.to;
   if (from > to) [from, to] = [to, from];
 
   const category = one(params.categoria);
@@ -256,6 +262,7 @@ export function parseFilters(params: SearchParams, today: CivilDate): ParsedFilt
       type: TYPES[one(params.tipo) ?? ""] ?? null,
       // A pessoa passa depois pelo escopo: filtrar por quem não está no lar só esvazia a lista
       payer: parsePayerParam(one(params.pago)),
+      received,
     },
     walletId: idOrNull(one(params.carteira)),
     cursor: one(params.cursor),
@@ -278,6 +285,7 @@ export function filtersToQuery(
   if (f.text) query.set("q", f.text);
   if (f.type) query.set("tipo", TYPE_PARAM[f.type]);
   if (f.payer) query.set("pago", payerParam(f.payer));
+  if (f.received) query.set("situacao", "recebidos");
   if (parsed.back) query.set("volta", parsed.back);
   for (const [key, value] of Object.entries(extra)) {
     if (value === null) query.delete(key);

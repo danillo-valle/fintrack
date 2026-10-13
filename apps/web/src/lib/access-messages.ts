@@ -90,6 +90,18 @@ const DOMAIN_ERROR_MESSAGE: Record<DomainErrorCode, string> = {
   SHARES_DUPLICATED: "Cada pessoa aparece uma vez só na divisão.",
   SHARES_NEGATIVE: "A parte de cada pessoa precisa ser zero ou mais.",
   SHARES_SUM_MISMATCH: "As partes precisam somar o valor da categoria.",
+  CONNECTION_KEY_MISSING:
+    "O servidor ainda não tem a chave que protege as credenciais (CONNECTION_SECRET_KEYS). Avise quem cuida dele.",
+  CONNECTION_SECRET_REQUIRED: "Cole o Client Secret do painel da Pluggy.",
+  CONNECTION_ITEMS_LIMIT: "Informe de 1 a 5 bancos (o limite do Meu Pluggy).",
+  CONNECTION_ITEM_INVALID: "Item ID só tem letras, números e hífen. Copie do painel da Pluggy.",
+  CONNECTION_NOT_READY: "Conecte o Meu Pluggy antes (Ajustes › Conexões bancárias).",
+  ACCOUNT_KIND_MISMATCH:
+    "Cartão do banco liga só com conta de cartão (e conta corrente, com conta corrente ou poupança).",
+  ACCOUNT_ALREADY_LINKED: "Essa conta do FinTrack já está ligada a outra conta do banco.",
+  IMPORT_FROM_INVALID: "A data de corte vai de 12 meses atrás até hoje.",
+  PROVIDER_ACCOUNT_UNKNOWN:
+    "Essa conta não veio do banco agora. Recarregue a página e escolha de novo.",
   NOT_FOUND: "Não encontramos o que você pediu.",
 };
 
@@ -137,6 +149,9 @@ export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
   "budget.removed": "tirou o orçado de uma categoria",
   "budgets.copied": "copiou o orçamento do mês anterior",
   "budgets.copy_undone": "desfez a cópia do orçamento",
+  "connection.saved": "salvou as credenciais do Meu Pluggy",
+  "connection.accounts_linked": "ligou as contas do banco",
+  "connection.sync_requested": "pediu uma busca no banco",
 };
 
 export function auditActionLabel(action: string): string {

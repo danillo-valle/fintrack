@@ -21,6 +21,7 @@ import {
   listTransactions,
   listUsableAccounts,
   prisma,
+  receivedSummary,
   sumTransactions,
 } from "@fintrack/db";
 import {
@@ -122,13 +123,15 @@ export async function getTransactionsPage(
 ) {
   const parsed = parseFilters(params, today ?? todayCivil());
   const scope = await requireScope(session, "view", parsed.walletId);
-  const [page, totals, wallets, accounts, cats, payers] = await Promise.all([
+  const [page, totals, wallets, accounts, cats, payers, received] = await Promise.all([
     listTransactions(prisma, scope, parsed.filters, parsed.cursor),
     sumTransactions(prisma, scope, parsed.filters),
     listMyWallets(prisma, session.user.id),
     listUsableAccounts(prisma, session.user.id),
     categoriesOf(session),
     payersOf(session),
+    // M09.1: quantos recebidos do banco esperam revisão (ficam fora desta lista e dos totais)
+    receivedSummary(prisma, scope.walletIds),
   ]);
   const canEdit = new Set(
     wallets.filter((w) => w.role !== "VIEWER" && !w.archived).map((w) => w.id),
@@ -148,6 +151,7 @@ export async function getTransactionsPage(
     /** O seletor de ambiente: os que a pessoa vê, compartilhados primeiro */
     environments: environmentsOf(wallets),
     payers,
+    received,
     /** As outras pessoas do lar (primeiro nome): o pessoal delas fica de fora da soma */
     otherMembers: payers
       .filter((p) => p.param !== SHARED_PAYER_PARAM && p.param !== session.user.id)
