@@ -5,6 +5,9 @@
 #   fintrack-definir <arquivo> <NOME>                 pede o valor ESCONDIDO (tokens, chaves)
 #   fintrack-definir <arquivo> <NOME> --gerar-hex N   sorteia N bytes em hexadecimal
 #   fintrack-definir <arquivo> <NOME> --gerar-base64 N
+#   fintrack-definir <arquivo> <NOME> --gerar-chave V   chave versionada "V:<32 bytes base64>" (M09.1);
+#                                                       com chaves já gravadas, a nova vai na frente
+#                                                       e as antigas ficam
 #   fintrack-definir --conferir                       lista o que ainda está com TROQUE
 #
 # <arquivo> é .env, app.env ou operacao.env (dentro de /srv/fintrack). Rode como o usuário
@@ -38,7 +41,7 @@ main() {
   local file="${1:-}" name="${2:-}" mode="${3:-}" value
   case "$file" in
     .env | app.env | operacao.env) ;;
-    *) die "uso: fintrack-definir <.env|app.env|operacao.env> <NOME> [valor | --gerar-hex N | --gerar-base64 N]" ;;
+    *) die "uso: fintrack-definir <.env|app.env|operacao.env> <NOME> [valor | --gerar-hex N | --gerar-base64 N | --gerar-chave V]" ;;
   esac
   [[ "$name" =~ ^[A-Z][A-Z0-9_]*$ ]] || die "nome de variável inválido: '$name' (use MAIUSCULAS_COM_SUBLINHADO)"
   local path="$FINTRACK_HOME/$file"
@@ -47,6 +50,18 @@ main() {
   case "$mode" in
     --gerar-hex) value=$(openssl rand -hex "${4:-32}") ;;
     --gerar-base64) value=$(openssl rand -base64 "${4:-32}") ;;
+    --gerar-chave)
+      local version="${4:-1}" current
+      [[ "$version" =~ ^[0-9]{1,3}$ ]] || die "versão da chave inválida: '$version' (use 1, 2, 3...)"
+      # Troca de chave: a nova entra NA FRENTE (é a que cifra) e as antigas continuam (decifram
+      # o que já está gravado). Nunca apaga uma chave daqui. O valor nunca é impresso.
+      current=$(grep -E "^$name=" "$path" | tail -n 1 | cut -d= -f2- | tr -d '"' || true)
+      [[ "$current" == *TROQUE* ]] && current=""
+      if [[ ",$current" == *",$version:"* ]]; then
+        die "a versão $version já existe em $name: use a próxima (ex.: $((version + 1)))"
+      fi
+      value="$version:$(openssl rand -base64 32)${current:+,$current}"
+      ;;
     "")
       printf 'Valor de %s (não aparece na tela; cole e tecle Enter): ' "$name" >&2
       IFS= read -rs value
@@ -61,6 +76,10 @@ main() {
   # "nenhum" é aceito para a VPS sem túnel (apêndice A do manual), onde o cloudflared fica desligado.
   if [ "$name" = TUNNEL_TOKEN ] && [ "$value" != nenhum ] && ! [[ "$value" =~ ^eyJ[A-Za-z0-9+/=_-]{100,}$ ]]; then
     die "isso não parece o token do túnel (${#value} caracteres). Cole só o texto depois de --token, que começa com eyJ"
+  fi
+  # A chave do M09.1 é "versão:base64" (uma ou mais, separadas por vírgula; a primeira cifra)
+  if [ "$name" = CONNECTION_SECRET_KEYS ] && ! [[ "$value" =~ ^[0-9]{1,3}:[A-Za-z0-9+/=]{40,}(,[0-9]{1,3}:[A-Za-z0-9+/=]{40,})*$ ]]; then
+    die "isso não parece uma chave versionada (use --gerar-chave 1, ou cole 1:<base64 de 32 bytes>)"
   fi
 
   # Troca a linha NOME=... (comentada ou não) ou acrescenta no fim. O arquivo novo nasce ao lado

@@ -51,6 +51,22 @@ const schema = z.object({
   // Nível do log JSON (src/lib/logger.ts). O logger lê direto de process.env, para funcionar até
   // quando outra variável está errada; a validação aqui só impede um valor digitado errado.
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).optional(),
+  // ── Coleta bancária (M09.1, ADR-011) ──
+  // Chaves que cifram o Client Secret do Meu Pluggy no banco: "versão:base64" separados por
+  // vírgula, a primeira cifra (openssl rand -base64 32). Sem ela, as telas de conexão explicam
+  // que o servidor não está pronto. O formato é conferido por parseKeyring (features/bank).
+  CONNECTION_SECRET_KEYS: z
+    .string()
+    .regex(
+      /^\s*\d{1,3}:[A-Za-z0-9+/=]{40,}\s*(,\s*\d{1,3}:[A-Za-z0-9+/=]{40,}\s*)*$/,
+      "use versão:base64 (openssl rand -base64 32)",
+    )
+    .optional(),
+  // Endereço da API da Pluggy. Só os testes E2E apontam para a Pluggy de mentira (127.0.0.1)
+  PLUGGY_API_URL: z.url({ protocol: /^https?$/ }).default("https://api.pluggy.ai"),
+  // A fila de sincronização (pg-boss) roda dentro do próprio servidor do app. "off" desliga
+  // (a agenda diária e o "Buscar agora" ficam parados até voltar a "on")
+  SYNC_WORKER: z.enum(["on", "off"]).default("on"),
 });
 
 const parsed = schema.safeParse(process.env);
