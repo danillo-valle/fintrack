@@ -13,6 +13,31 @@ import { ProviderError } from "../provider";
 
 export const PLUGGY_API_URL = "https://api.pluggy.ai";
 
+/**
+ * O endereço base da API, conferido: só http: e https: (lista permitida, nunca por prefixo), sem
+ * usuário e senha, sem consulta nem âncora, e sem as barras do fim. As barras saem num laço, não
+ * com regex: o replace(/\/+$/) que estava aqui é quadrático com muitas "/" seguidas de outro
+ * caractere (o CodeQL acusou, js/polynomial-redos).
+ */
+export function normalizeBaseUrl(raw: string): string {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error("PLUGGY_API_URL não é um endereço válido");
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") {
+    throw new Error("PLUGGY_API_URL precisa começar com https:// ou http://");
+  }
+  if (url.username || url.password) {
+    throw new Error("PLUGGY_API_URL não pode ter usuário nem senha");
+  }
+  const path = url.pathname;
+  let end = path.length;
+  while (end > 0 && path[end - 1] === "/") end -= 1;
+  return `${url.origin}${path.slice(0, end)}`;
+}
+
 /** O mínimo de fetch que o cliente usa (o fetch do Node, ou um falso nos testes). */
 export type FetchLike = (
   url: string,
@@ -41,7 +66,7 @@ export class PluggyClient {
   private apiKey: { value: string; expiresAt: number } | null = null;
 
   constructor(private readonly options: PluggyClientOptions) {
-    this.baseUrl = (options.baseUrl ?? PLUGGY_API_URL).replace(/\/+$/, "");
+    this.baseUrl = normalizeBaseUrl(options.baseUrl ?? PLUGGY_API_URL);
     this.fetchFn = options.fetch ?? (globalThis.fetch as unknown as FetchLike);
     this.timeoutMs = options.timeoutMs ?? 20_000;
     this.now = options.now ?? Date.now;
