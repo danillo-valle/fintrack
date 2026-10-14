@@ -167,11 +167,13 @@ test("conectar o Meu Pluggy, ligar as contas e ver saldo, fatura e recebidos", a
   // Recebido fica FORA do painel: o gasto do mês continua zero
   await expect(page.getByTestId("inicio-gasto")).toContainText(brl("R$ 0,00"));
 
-  // A lista padrão não mostra os recebidos; o link leva à fila deles
+  // A lista padrão não mostra os recebidos; o link leva à revisão deles (M09.2)
   await openPage(page, "/lancamentos");
   await expect(page.getByTestId("link-recebidos")).toBeVisible();
   await page.getByTestId("link-recebidos").click();
-  await expect(page.getByRole("list", { name: "Recebidos do banco" })).toBeVisible();
+  await page.waitForURL("**/lancamentos/recebidos");
+  await expect(page.getByRole("heading", { level: 1, name: "Recebidos do banco" })).toBeVisible();
+  await expect(page.getByTestId("recebido").first()).toBeVisible();
   await expectNoA11yViolations(page);
 
   // ── 4. Página do cartão ──
