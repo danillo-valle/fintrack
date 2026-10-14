@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import {
   Banknote,
   CreditCard,
@@ -21,6 +22,7 @@ import { AccountForm } from "@/features/accounts/ui/account-form";
 import { CardForm } from "@/features/accounts/ui/card-form";
 import { requireUser } from "@/lib/auth/session";
 import { ACCOUNT_KIND_LABEL, CARD_FORM_LABEL } from "@/lib/labels";
+import { TEXT_LINK } from "@/lib/styles";
 
 export const metadata: Metadata = { title: "Contas e cartões" };
 
@@ -72,7 +74,9 @@ export default async function AccountsPage() {
                         />
                         <div className="min-w-0">
                           <p className="font-medium break-words">
-                            {a.name}
+                            <Link href={`/ajustes/contas/${a.id}`} className={TEXT_LINK}>
+                              {a.name}
+                            </Link>
                             {a.archivedAt ? (
                               <span className="text-muted-foreground"> (arquivada)</span>
                             ) : null}

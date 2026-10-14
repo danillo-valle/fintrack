@@ -26,10 +26,13 @@ export function SyncLine({
   bankUpdatedAt,
   lastSyncedAt,
   canSync,
+  compact = false,
 }: {
   bankUpdatedAt: Date | null;
   lastSyncedAt: Date | null;
   canSync: boolean;
+  /** Letra menor, no cabeçalho de uma página cheia (revisão, M09.2) */
+  compact?: boolean;
 }) {
   const parts = [
     bankUpdatedAt ? `Banco atualizado ${whenLabel(bankUpdatedAt)}` : null,
@@ -38,7 +41,9 @@ export function SyncLine({
   const sentence = parts.join(" · ");
   return (
     <div className="flex flex-wrap items-center gap-3" data-testid="sync-line">
-      <span className="text-muted-foreground inline-flex items-center gap-2 text-sm">
+      <span
+        className={`text-muted-foreground inline-flex items-center gap-2 ${compact ? "text-[0.8125rem]" : "text-sm"}`}
+      >
         {lastSyncedAt ? (
           <CheckCircle2 aria-hidden className="text-income size-[1.125rem]" />
         ) : (

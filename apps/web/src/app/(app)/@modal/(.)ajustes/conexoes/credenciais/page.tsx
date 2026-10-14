@@ -28,6 +28,7 @@ export default async function CredentialsModal() {
           submitIcon="seguir"
           backLabel="Cancelar"
           backHref="/ajustes/conexoes"
+          closesModal
         />
       }
     >

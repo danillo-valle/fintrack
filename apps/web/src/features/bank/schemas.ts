@@ -117,3 +117,70 @@ export const setCategorySchema = z
       .transform((v) => v === "on"),
   })
   .refine((d) => d.categoryId || d.newCategory, { message: "Escolha uma categoria." });
+
+// ── Revisão dos recebidos (M09.2) ───────────────────────────────────────────────
+
+/**
+ * O que cada botão da revisão pede (um formulário por botão, todos para a mesma action):
+ *   confirm  "Confirmar" na linha (com o ambiente escolhido na linha)
+ *   bulk     "Confirmar os N que já têm categoria" (de uma fatura, de uma conta ou de tudo)
+ *   reject   "Não é o mesmo" num par sugerido
+ *   refund   "Ligar ao original" num estorno sugerido
+ */
+export const reviewSchema = z.discriminatedUnion("intent", [
+  z.object({
+    intent: z.literal("confirm"),
+    transactionId: z.uuid(),
+    walletId: z
+      .union([z.literal(""), z.uuid()])
+      .default("")
+      .transform((v) => v || null),
+  }),
+  z.object({
+    intent: z.literal("bulk"),
+    accountId: z
+      .union([z.literal(""), z.uuid()])
+      .default("")
+      .transform((v) => v || null),
+    statementId: z
+      .union([z.literal(""), z.uuid()])
+      .default("")
+      .transform((v) => v || null),
+  }),
+  z.object({ intent: z.literal("reject"), receivedId: z.uuid(), ownId: z.uuid() }),
+  z.object({ intent: z.literal("refund"), receivedId: z.uuid(), ownId: z.uuid() }),
+]);
+
+export type ReviewInput = z.infer<typeof reviewSchema>;
+
+/** O "Desfazer" do aviso: os ids confirmados (um a um ou em lote) ou o par/estorno. */
+export const undoSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("review"),
+    ids: z
+      .string()
+      .transform((v) => v.split(",").filter(Boolean))
+      .pipe(z.array(z.uuid()).min(1).max(500)),
+  }),
+  z.object({ kind: z.literal("match"), matchId: z.uuid() }),
+]);
+
+export const pairSchema = z.object({ receivedId: z.uuid(), ownId: z.uuid() });
+
+/** "Cadastrar e reorganizar": o cartão de um final que o banco mandou (só os 4 dígitos). */
+export const registerFinalSchema = z.object({
+  accountId: z.uuid(),
+  nickname: z
+    .string()
+    .trim()
+    .min(1, "Dê um apelido ao cartão.")
+    .max(60, "Use no máximo 60 caracteres."),
+  lastFour: z.string().regex(/^\d{4}$/, "Digite só os 4 últimos dígitos."),
+  holderId: z.string().trim().min(1, "Escolha o portador.").max(100),
+});
+
+/** O filtro da revisão (?ver=pares | sem-categoria). */
+export type ReviewView = "todos" | "pares" | "sem-categoria";
+export function parseReviewView(value: unknown): ReviewView {
+  return value === "pares" || value === "sem-categoria" ? value : "todos";
+}

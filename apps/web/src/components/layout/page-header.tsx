@@ -1,20 +1,36 @@
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
+import { TEXT_LINK } from "@/lib/styles";
 import { ContentReady } from "./content-ready";
 
 type Props = {
   title: string;
   description?: React.ReactNode;
   actions?: React.ReactNode;
+  /** A página de cima, em cima do título ("Lançamentos ›"): canvas E.2 (M09.2) */
+  crumb?: { href: string; label: string };
 };
 
 // Toda página começa com um único <h1>: é por ele que o leitor de tela se orienta.
 // Visual Elétrico (M07.2; medidas do M07.3): título grande e firme, sem rótulo em caixa alta em
 // cima, e a ação principal da página (Novo lançamento, por exemplo) alinhada embaixo, à direita.
-export function PageHeader({ title, description, actions }: Props) {
+export function PageHeader({ title, description, actions, crumb }: Props) {
   return (
     <div className="mb-5 flex flex-wrap items-end justify-between gap-4 md:mb-6">
       {/* Marca "pronto" quando o conteúdo desta página hidratou (testes E2E; content-ready.tsx) */}
       <ContentReady />
       <div className="min-w-0">
+        {crumb ? (
+          <nav aria-label="Caminho" className="mb-1 text-sm">
+            <Link
+              href={crumb.href}
+              className={`${TEXT_LINK} text-muted-foreground inline-flex min-h-8 items-center gap-1.5`}
+            >
+              {crumb.label}
+              <ChevronRight aria-hidden className="size-3.5" />
+            </Link>
+          </nav>
+        ) : null}
         <h1 className="text-[1.875rem] font-extrabold tracking-[-0.03em] text-balance md:text-[2.5rem]">
           {title}
         </h1>

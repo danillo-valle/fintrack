@@ -2,7 +2,16 @@ import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type SegmentedItem = { href: string; label: string; icon?: LucideIcon; active: boolean };
+export type SegmentedItem = {
+  href: string;
+  label: string;
+  icon?: LucideIcon;
+  active: boolean;
+  /** Rótulo curto no celular ("Pares" em vez de "Com par sugerido"), M09.2 */
+  shortLabel?: string;
+  /** Quantos itens a opção mostra, em cinza ao lado do rótulo (M09.2) */
+  count?: number;
+};
 
 // Um seletor de "uma coisa entre poucas" feito de links (M07.4): o escolhido em destaque, com
 // aria-current. Links, e não botões, porque a escolha vai para a URL (dá para voltar e
@@ -25,7 +34,7 @@ export function SegmentedNav({
         className,
       )}
     >
-      {items.map(({ href, label: text, icon: Icon, active }) => (
+      {items.map(({ href, label: text, icon: Icon, active, shortLabel, count }) => (
         <Link
           key={href}
           href={href}
@@ -38,7 +47,19 @@ export function SegmentedNav({
           )}
         >
           {Icon ? <Icon aria-hidden className="hidden size-[1.0625rem] shrink-0 md:block" /> : null}
-          <span className="truncate">{text}</span>
+          {shortLabel ? (
+            <>
+              <span className="truncate md:hidden">{shortLabel}</span>
+              <span className="hidden truncate md:inline">{text}</span>
+            </>
+          ) : (
+            <span className="truncate">{text}</span>
+          )}
+          {count !== undefined ? (
+            <span className="text-muted-foreground tabular font-mono text-xs font-medium">
+              {count}
+            </span>
+          ) : null}
         </Link>
       ))}
     </nav>

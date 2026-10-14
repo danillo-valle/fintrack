@@ -43,6 +43,7 @@ describe("rótulos", () => {
     expect(auditActionLabel("x.y")).toBe("x.y");
     // 13 eventos do M06 + 14 do M07 + 2 do M07.4 (compras conjuntas e compra parcelada) + 4 do M08
     // + 3 do M09.1 (credenciais, contas ligadas, busca pedida)
-    expect(Object.keys(AUDIT_ACTION_LABEL)).toHaveLength(36);
+    // + 7 do M09.2 (confirmar, em lote, desfazer, par, recusa, estorno, desfazer o par)
+    expect(Object.keys(AUDIT_ACTION_LABEL)).toHaveLength(43);
   });
 });

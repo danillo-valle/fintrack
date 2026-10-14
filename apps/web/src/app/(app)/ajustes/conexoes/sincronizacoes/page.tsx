@@ -98,7 +98,7 @@ export default async function SyncHistoryPage() {
               Recebidos esperando revisão
             </span>
             <Link
-              href="/lancamentos?situacao=recebidos"
+              href="/lancamentos/recebidos"
               className={cn(
                 TEXT_LINK,
                 "text-chart-4-ink tabular font-mono text-base font-bold md:text-[1.375rem]",
