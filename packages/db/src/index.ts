@@ -83,3 +83,6 @@ export * from "./connection-secret";
 export * from "./connections";
 export * from "./sync";
 export * from "./statements";
+
+// Revisão e reconciliação (M09.2): a fila dos recebidos, os pares e o desfazer (ADR-012)
+export * from "./review";

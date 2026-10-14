@@ -1,10 +1,11 @@
 "use client";
 
-// Rodapé dos passos de "Conectar o Meu Pluggy" (M09.1): Cancelar/Voltar e o botão principal,
+// Rodapé dos passos de "Conectar o Meu Pluggy" (M09.1) e do "Confirmar o par" (M09.2):
+// Cancelar/Voltar e o botão principal,
 // ligado ao formulário pelo atributo form="…" (o rodapé do modal fica fora do <form>, sempre à
 // vista mesmo quando o meio rola). Na página inteira, o mesmo rodapé vai embaixo do formulário.
 import Link from "next/link";
-import { ArrowRight, RefreshCw } from "lucide-react";
+import { ArrowRight, Check, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useOptionalRouteModal } from "@/components/ui/route-modal";
 
@@ -14,19 +15,29 @@ export function StepFooter({
   submitIcon,
   backLabel,
   backHref,
+  closesModal = false,
 }: {
   formId: string;
   submitLabel: string;
   /** Nome do ícone (componente não passa do servidor para o navegador) */
-  submitIcon?: "seguir" | "buscar";
+  submitIcon?: "seguir" | "buscar" | "confirmar";
   backLabel: string;
   backHref: string;
+  /** Dentro do modal, o botão de voltar só fecha (a página de baixo é o `backHref`) */
+  closesModal?: boolean;
 }) {
   const modal = useOptionalRouteModal();
-  const Icon = submitIcon === "seguir" ? ArrowRight : submitIcon === "buscar" ? RefreshCw : null;
+  const Icon =
+    submitIcon === "seguir"
+      ? ArrowRight
+      : submitIcon === "buscar"
+        ? RefreshCw
+        : submitIcon === "confirmar"
+          ? Check
+          : null;
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-2.5 md:flex md:justify-end">
-      {modal && backHref === "/ajustes/conexoes" ? (
+      {modal && closesModal ? (
         <Button
           type="button"
           variant="outline"

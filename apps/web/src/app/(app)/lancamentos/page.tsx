@@ -76,16 +76,17 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/lan
         testIdPrefix="total"
       />
       <p className="text-muted-foreground mt-2 mb-5 px-1 text-[0.8125rem]">
-        {received
-          ? "Recebidos do banco: ficam fora do painel e dos outros totais até a revisão. "
-          : null}
+        {received ? (
+          <>
+            Recebidos do banco: ficam fora do painel e dos outros totais até a revisão.{" "}
+            <Link href="/lancamentos/recebidos" className={TEXT_LINK}>
+              Revisar e confirmar
+            </Link>{" "}
+          </>
+        ) : null}
         {!received && page.received.count > 0 ? (
           <>
-            <Link
-              href={`/lancamentos?${filtersToQuery({ ...parsed, filters: { ...parsed.filters, received: true } }, { de: null, ate: null, cursor: null })}`}
-              className={TEXT_LINK}
-              data-testid="link-recebidos"
-            >
+            <Link href="/lancamentos/recebidos" className={TEXT_LINK} data-testid="link-recebidos">
               {page.received.count === 1
                 ? "1 recebido do banco"
                 : `${page.received.count} recebidos do banco`}

@@ -96,6 +96,11 @@ const DOMAIN_ERROR_MESSAGE: Record<DomainErrorCode, string> = {
   CONNECTION_ITEMS_LIMIT: "Informe de 1 a 5 bancos (o limite do Meu Pluggy).",
   CONNECTION_ITEM_INVALID: "Item ID só tem letras, números e hífen. Copie do painel da Pluggy.",
   CONNECTION_NOT_READY: "Conecte o Meu Pluggy antes (Ajustes › Conexões bancárias).",
+  REVIEW_STALE: "Esse recebido já foi conferido. Recarregue a página para ver como ficou.",
+  PAIR_NOT_ALLOWED: "Esses dois lançamentos não formam um par (valor, conta ou datas diferentes).",
+  REFUND_NOT_ALLOWED:
+    "Esse crédito não é estorno daquela compra (valor, loja ou prazo diferentes).",
+  UNDO_EXPIRED: "Não dá mais para desfazer: o lançamento mudou depois.",
   ACCOUNT_KIND_MISMATCH:
     "Cartão do banco liga só com conta de cartão (e conta corrente, com conta corrente ou poupança).",
   ACCOUNT_ALREADY_LINKED: "Essa conta do FinTrack já está ligada a outra conta do banco.",
@@ -152,6 +157,13 @@ export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
   "connection.saved": "salvou as credenciais do Meu Pluggy",
   "connection.accounts_linked": "ligou as contas do banco",
   "connection.sync_requested": "pediu uma busca no banco",
+  "transaction.reviewed": "confirmou um recebido do banco",
+  "transactions.reviewed_bulk": "confirmou recebidos do banco em lote",
+  "transaction.review_undone": "desfez a confirmação de recebidos do banco",
+  "transaction.paired": "juntou um recebido do banco a um lançamento",
+  "transaction.pair_rejected": "recusou um par sugerido na revisão",
+  "transaction.refund_linked": "ligou um estorno à compra",
+  "transaction.match_undone": "desfez um par ou um estorno",
 };
 
 export function auditActionLabel(action: string): string {

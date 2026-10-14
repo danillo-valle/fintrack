@@ -43,6 +43,7 @@ export async function createAccountAction(
   });
   if (!result.error) await financeChanged(session);
   revalidatePath(PAGE);
+  revalidatePath(`${PAGE}/[accountId]`, "page");
   return result;
 }
 
@@ -67,6 +68,7 @@ export async function setAccountArchivedAction(
   });
   if (!result.error) await financeChanged(session);
   revalidatePath(PAGE);
+  revalidatePath(`${PAGE}/[accountId]`, "page");
   return result;
 }
 
@@ -80,17 +82,25 @@ export async function createCardAction(
   const { walletId, accountId, holderId, ...input } = parsed.data;
   const result = await runAction(async () => {
     const grant = await requireWalletAccess(session, walletId, "manage_accounts");
-    await createCard(
+    const card = await createCard(
       prisma,
       grant,
       accountId,
       { ...input, holderId: holderId || null },
       await requestContext(),
     );
-    return `Cartão "${input.nickname}" cadastrado.`;
+    // M09.2: recebidos do banco com este final já estavam esperando o cadastro
+    const moved =
+      card.rerouted === 0
+        ? ""
+        : card.rerouted === 1
+          ? " 1 recebido do banco foi para ele."
+          : ` ${card.rerouted} recebidos do banco foram para ele.`;
+    return `Cartão "${input.nickname}" cadastrado.${moved}`;
   });
   if (!result.error) await financeChanged(session);
   revalidatePath(PAGE);
+  revalidatePath(`${PAGE}/[accountId]`, "page");
   return result;
 }
 
@@ -109,6 +119,7 @@ export async function setCardArchivedAction(
   });
   if (!result.error) await financeChanged(session);
   revalidatePath(PAGE);
+  revalidatePath(`${PAGE}/[accountId]`, "page");
   return result;
 }
 
@@ -130,6 +141,7 @@ export async function setCardSharedPurchasesAction(
   });
   if (!result.error) await financeChanged(session);
   revalidatePath(PAGE);
+  revalidatePath(`${PAGE}/[accountId]`, "page");
   revalidatePath("/lancamentos");
   return result;
 }

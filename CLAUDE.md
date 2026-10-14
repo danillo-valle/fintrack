@@ -23,7 +23,10 @@ Projeto de portfólio construído em módulos (M00 a M12); cada módulo é uma m
 - Coleta bancária (M09.1): Meu Pluggy com credenciais cifradas, busca diária na fila pg-boss (no próprio
   Postgres), tudo do banco entra como Recebido e fica fora das somas até a revisão; fatura aberta calculada
   e fechada conferida ao centavo (ADR-011)
-- Próximos módulos: revisão e reconciliação, OFX, PDF e serviço Python (M09.2 a M09.4), IA (M10)
+- Revisão e reconciliação (M09.2): recebidos confirmados um a um ou em lote, par com o seu lançamento
+  (mesmo valor, até 5 dias; a parcela pelo número), estorno ligado à compra, "Desfazer" e o final de
+  cartão que o banco mandou e não está cadastrado (ADR-012)
+- Próximos módulos: OFX, PDF e serviço Python (M09.3 e M09.4), IA (M10)
 
 Regras específicas do Next.js 16: @apps/web/AGENTS.md
 
@@ -64,7 +67,8 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
 - `apps/web/src/features/budget/` Início (painel), Orçamento, Fluxo de caixa, Evolução e "Editar valores" (M08):
   `links.ts` (o caminho de cada número até a lista), `server/data.ts` (somas com cache), `server/queries.ts`
 - `apps/web/src/features/bank/` conexões bancárias (M09.1): credenciais, ligar contas, fila de busca
-  (`server/jobs.ts`), página do cartão, recebidos e a categoria em um clique (`ui/category-picker.tsx`)
+  (`server/jobs.ts`), página do cartão, recebidos e a categoria em um clique (`ui/category-picker.tsx`);
+  a revisão do M09.2 em `server/review.ts`, `server/review-actions.ts` e `ui/review/`
 - `apps/web/src/lib/finance-cache.ts` etiqueta do cache das somas e `financeChanged` (chamado por toda action de dinheiro)
 - `apps/web/src/lib/labels.ts` nomes em português de formas de pagamento, tipos de conta etc.
 - `apps/web/src/proxy.ts` redireciona quem não tem sessão (conveniência, não barreira)
@@ -79,7 +83,8 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
 - `packages/importers/` os provedores de dados do banco (`TransactionProvider`, Meu Pluggy, JSON com
   dinheiro exato) e, em `testing/`, o banco sintético e a Pluggy de mentira
 - `packages/db/src/` do M09.1: `connection-secret.ts` (AES-256-GCM), `connections.ts` (credenciais e ligação),
-  `sync.ts` (a busca idempotente) e `statements.ts` (faturas); `packages/core/src/sync.ts` as regras puras
+  `sync.ts` (a busca idempotente) e `statements.ts` (faturas); `packages/core/src/sync.ts` as regras puras;
+  do M09.2: `packages/db/src/review.ts` (fila, par, estorno, lote, desfazer) e `packages/core/src/reconcile.ts`
 - `docs/permissoes.md` quem pode fazer o quê (conferido por teste)
 - `docs/modelo-de-dados.md` diagrama das tabelas (conferido por teste)
 - `apps/web/e2e/` testes Playwright

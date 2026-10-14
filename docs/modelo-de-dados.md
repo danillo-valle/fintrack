@@ -66,6 +66,8 @@ erDiagram
     CardStatement ||--o{ StatementCharge : "IOF, juros (M09.1)"
     CardStatement ||--o{ StatementPayment : "pago em (M09.1)"
     Wallet |o--o{ PaymentCard : "compras importadas entram em (M09.1)"
+    Transaction ||--o{ TransactionMatch : "recebido do par (M09.2)"
+    Transaction ||--o{ TransactionMatch : "seu lançamento (M09.2)"
 
     Category |o--o{ Category : "subcategoria de"
     Category |o--o{ Transaction : classifica
@@ -184,6 +186,17 @@ erDiagram
         uuid transferId "dois lados"
         enum categorizedBy "MANUAL | RULE | HISTORY (M07)"
         timestamp deletedAt "exclusão lógica"
+        char providerCardLastFour "final que o banco mandou (M09.2)"
+        timestamp reviewedAt "conferido (M09.2)"
+        uuid mergedIntoId "juntado ao recebido (M09.2)"
+    }
+    TransactionMatch {
+        uuid id PK
+        uuid receivedId FK "o que veio do banco"
+        uuid ownId FK "o seu lançamento"
+        enum kind "SAME | INSTALLMENT | REFUND"
+        enum status "CONFIRMED | REJECTED | UNDONE"
+        json receivedBefore "para o Desfazer"
     }
     CategorizationExample {
         uuid id PK
@@ -365,6 +378,26 @@ OPEN_FINANCE` e o id do banco em `externalId`. A chave única (conta, origem, id
   Bill: é calculada das compras recebidas sem fatura, no período do fechamento anterior ao
   próximo (`openStatementWindow`). O último saldo e limite ficam em `account_balance`.
 - As decisões e o porquê estão no [ADR-011](adr/0011-coleta-bancaria.md).
+
+## Revisão e reconciliação (M09.2)
+
+- **Confirmar:** o recebido passa de `PENDING` a `CONFIRMED`, com `reviewedAt` e `reviewedById`,
+  e entra nas somas. Um a um (no ambiente escolhido na linha) ou em lote ("Confirmar os N que
+  já têm categoria": só os com categoria e sem par sugerido).
+- **Par:** as sugestões são calculadas na hora (`suggestPairs`, no core): mesma conta, mesmo
+  valor ao centavo, datas a até 5 dias; a parcela do banco ("3 de 6") com a sua parcela de
+  mesmo número e total, sem olhar a data. Ao juntar, fica o **recebido** (que tem o id do banco)
+  com a descrição, a categoria, o ambiente, a observação, a parcela e a recorrência do seu
+  lançamento; o seu fica apagado (`deletedAt`) e aponta para ele (`mergedIntoId`).
+- **Estorno:** crédito do banco do mesmo valor e da mesma loja de uma compra de até 90 dias
+  antes; "Ligar ao original" grava `reversalOfId` (os dois ficam: um anula o outro).
+- **Decisões:** `transaction_match` guarda o que a pessoa decidiu (par confirmado, recusado ou
+  desfeito) e o antes dos dois lados, para o "Desfazer". A recusa ("Não é o mesmo") faz a
+  sugestão não voltar.
+- **Adicional antes do cadastro:** o final que o banco manda fica em `providerCardLastFour`.
+  Final que não está cadastrado deixa o recebido sem cartão (nunca no titular); cadastrar o
+  cartão leva os recebidos dele para o cartão e o ambiente do portador (`rerouteReceived`).
+- As decisões e o porquê estão no [ADR-012](adr/0012-revisao-e-reconciliacao.md).
 
 ## Como ler o dinheiro
 

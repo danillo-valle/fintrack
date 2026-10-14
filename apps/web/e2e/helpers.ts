@@ -98,6 +98,8 @@ export const PAGES = [
   "/lancamentos/recorrencias",
   // M09.1: a fila dos recebidos do banco (vazia para a Ana) e a página do cartão (sem banco)
   "/lancamentos?situacao=recebidos",
+  // M09.2: a revisão dos recebidos (vazia para a Ana) e a conta em Ajustes › Contas
+  "/lancamentos/recebidos",
   "/orcamento",
   "/orcamento/fluxo",
   "/orcamento/evolucao",
@@ -112,6 +114,7 @@ export const PAGES = [
   "/ajustes",
   "/ajustes/lar",
   "/ajustes/contas",
+  `/ajustes/contas/${ANA_FINANCE.cardAccountId}`,
   "/ajustes/categorias",
   "/ajustes/conexoes",
   "/ajustes/seguranca",

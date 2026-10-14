@@ -61,6 +61,7 @@ model Household {
   recurrences            Recurrence[]
   invites                HouseholdInvite[]
   categorizationExamples CategorizationExample[]
+  transactionMatches     TransactionMatch[]
 
   @@map("household")
 }
