@@ -60,6 +60,9 @@ const eslintConfig = defineConfig([
     "coverage/**",
     "next-env.d.ts",
     "src/generated/**",
+    // Relatórios do Playwright: com traces, o relatório traz o visualizador inteiro (JS minificado)
+    "playwright-report/**",
+    "test-results/**",
   ]),
 ]);
 

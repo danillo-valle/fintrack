@@ -89,6 +89,15 @@ export function ActiveFilters({
   const defaultPeriod = f.from === firstDayOf(month) && f.to === dayOfMonth(month, 31);
 
   const chips: { key: string; label: string; short: string; remove: string }[] = [];
+  // M09.1: a fila dos recebidos do banco (tirar o filtro volta à lista conferida, do mês)
+  if (f.received) {
+    chips.push({
+      key: "situacao",
+      label: "Recebidos do banco, esperando revisão",
+      short: "Recebidos",
+      remove: href({ situacao: null, de: null, ate: null }),
+    });
+  }
   if (f.categoryId) {
     const name =
       f.categoryId === "none"
@@ -103,7 +112,7 @@ export function ActiveFilters({
   }
   // O período sempre tem valor; vira filtro "ativo" quando não é o mês de hoje ou quando se veio
   // do painel (o número clicado é daquele período)
-  if (!defaultPeriod || parsed.back) {
+  if ((!defaultPeriod || parsed.back) && !f.received) {
     const label = periodLabel(f.from, f.to);
     chips.push({
       key: "periodo",
@@ -171,7 +180,7 @@ export function ActiveFilters({
         </span>
       ))}
       <Link
-        href={`/lancamentos?${filtersToQuery({ walletId: parsed.walletId, filters: { ...f, from: firstDayOf(month), to: dayOfMonth(month, 31), accountId: null, categoryId: null, text: null, type: null, payer: null } })}`}
+        href={`/lancamentos?${filtersToQuery({ walletId: parsed.walletId, filters: { ...f, from: firstDayOf(month), to: dayOfMonth(month, 31), accountId: null, categoryId: null, text: null, type: null, payer: null, received: false } })}`}
         className={cn(NUMBER_LINK, "ml-1 text-sm font-semibold")}
       >
         Limpar

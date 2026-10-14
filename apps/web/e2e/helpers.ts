@@ -96,6 +96,8 @@ export const PAGES = [
   `/lancamentos/${ANA_FINANCE.transactionId}`,
   "/lancamentos/transferencia",
   "/lancamentos/recorrencias",
+  // M09.1: a fila dos recebidos do banco (vazia para a Ana) e a página do cartão (sem banco)
+  "/lancamentos?situacao=recebidos",
   "/orcamento",
   "/orcamento/fluxo",
   "/orcamento/evolucao",
@@ -104,12 +106,14 @@ export const PAGES = [
   "/carteiras/nova",
   `/carteiras/${ANA_HOUSEHOLD.sharedWalletId}`,
   `/carteiras/${ANA_HOUSEHOLD.personalWalletId}`,
+  `/carteiras/conta/${ANA_FINANCE.cardAccountId}`,
   // Convite com segredo no formato certo, mas que não existe: a tela explica e não quebra
   `/convite/${"A".repeat(43)}`,
   "/ajustes",
   "/ajustes/lar",
   "/ajustes/contas",
   "/ajustes/categorias",
+  "/ajustes/conexoes",
   "/ajustes/seguranca",
   ...(PRODUCTION_BUILD ? [] : ["/dev/ui"]),
 ];

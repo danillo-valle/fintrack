@@ -105,6 +105,10 @@ model FinancialAccount {
   statements        CardStatement[]
   installmentGroups InstallmentGroup[]
   recurrences       Recurrence[]
+  /// O último saldo e limite informados pelo banco (M09.1)
+  bankBalance       AccountBalance?
+  statementCharges  StatementCharge[]
+  statementPayments StatementPayment[]
 
   // Alvo das chaves compostas (accountId, householdId) de lançamentos, parcelas e
   // recorrências: ninguém usa a conta de outro grupo.
@@ -137,6 +141,10 @@ model PaymentCard {
   /// em "Pago por", e não como do portador. Só muda quem aparece como pagador; quem paga a
   /// fatura continua sendo a conta (ADR-009).
   sharedPurchases Boolean   @default(false)
+  /// Ambiente em que entram as compras deste cartão que vêm do banco (M09.1). Nulo = a regra
+  /// padrão: adicional de outra pessoa → o ambiente pessoal do portador; senão, o da conta.
+  /// Precisa ser do mesmo lar (conferido em connections.ts, setCardImportWallet)
+  importWalletId  String?   @db.Uuid
   /// Arquivar em vez de apagar: o cartão some das listas, os lançamentos antigos continuam
   archivedAt      DateTime?
   createdAt       DateTime  @default(now())
@@ -144,6 +152,7 @@ model PaymentCard {
 
   account      FinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
   holder       User?            @relation("CardHolder", fields: [holderId], references: [id], onDelete: SetNull)
+  importWallet Wallet?          @relation("CardImportWallet", fields: [importWalletId], references: [id], onDelete: SetNull)
   transactions Transaction[]
   recurrences  Recurrence[]
 
@@ -151,6 +160,7 @@ model PaymentCard {
   @@unique([id, accountId])
   @@index([accountId])
   @@index([holderId])
+  @@index([importWalletId])
   @@map("payment_card")
 }
 

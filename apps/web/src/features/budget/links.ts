@@ -50,6 +50,8 @@ export function transactionsHref(link: ListLink): string {
       text: null,
       type: link.type ?? null,
       payer,
+      // O painel soma só o que foi conferido: a lista que ele abre é a mesma (sem os recebidos)
+      received: false,
     },
     back: link.back ?? null,
   })}`;

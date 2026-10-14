@@ -20,7 +20,10 @@ Projeto de portfólio construído em módulos (M00 a M12); cada módulo é uma m
   recorrências, CSV com reautenticação, cascata de categorização pronta para IA (ADR-007)
 - Orçamento e painel (M08): orçado por ambiente e por pessoa, previsto no ritmo do mês, fluxo de caixa de 6 meses,
   evolução mês a mês; todo número leva à lista; somas com `"use cache"` e etiqueta por lar (ADR-010)
-- Próximos módulos: Open Finance com Meu Pluggy e serviço Python (M09), IA (M10)
+- Coleta bancária (M09.1): Meu Pluggy com credenciais cifradas, busca diária na fila pg-boss (no próprio
+  Postgres), tudo do banco entra como Recebido e fica fora das somas até a revisão; fatura aberta calculada
+  e fechada conferida ao centavo (ADR-011)
+- Próximos módulos: revisão e reconciliação, OFX, PDF e serviço Python (M09.2 a M09.4), IA (M10)
 
 Regras específicas do Next.js 16: @apps/web/AGENTS.md
 
@@ -35,7 +38,8 @@ Regras específicas do Next.js 16: @apps/web/AGENTS.md
 - `bash scripts/gerar-schema-auth.sh` atualiza as tabelas do Better Auth depois de mudar o `auth.ts`
 - `pnpm check` roda lint, tipos, testes e build (o mesmo que o CI)
 - `pnpm --filter @fintrack/web test` roda só os testes do app web
-- `pnpm e2e` roda os testes de ponta a ponta (sobe o app sozinho, se não estiver rodando)
+- `pnpm e2e` roda os testes de ponta a ponta (sobe o app e a Pluggy de mentira, se não estiverem rodando)
+- `pnpm pluggy:fake` sobe a Pluggy de mentira (banco sintético) em http://127.0.0.1:8787, para o `pnpm dev`
 - `bash scripts/lighthouse-a11y.sh` mede a acessibilidade com o Lighthouse (precisa do `pnpm dev`)
 - `pnpm format` formata tudo com Prettier
 - `docker build --target web .` constrói a imagem de produção; `bash deploy/bin/smoke-test <url>` confere uma instância
@@ -59,6 +63,8 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
   exportar (M07); `features/{accounts,categories}/` contas, cartões, categorias e regras
 - `apps/web/src/features/budget/` Início (painel), Orçamento, Fluxo de caixa, Evolução e "Editar valores" (M08):
   `links.ts` (o caminho de cada número até a lista), `server/data.ts` (somas com cache), `server/queries.ts`
+- `apps/web/src/features/bank/` conexões bancárias (M09.1): credenciais, ligar contas, fila de busca
+  (`server/jobs.ts`), página do cartão, recebidos e a categoria em um clique (`ui/category-picker.tsx`)
 - `apps/web/src/lib/finance-cache.ts` etiqueta do cache das somas e `financeChanged` (chamado por toda action de dinheiro)
 - `apps/web/src/lib/labels.ts` nomes em português de formas de pagamento, tipos de conta etc.
 - `apps/web/src/proxy.ts` redireciona quem não tem sessão (conveniência, não barreira)
@@ -70,6 +76,10 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
   `access.ts` (crachás), `households.ts`, `wallets.ts` e `audit.ts` (operações com auditoria),
   `transactions.ts`, `accounts.ts`, `categories.ts` (camadas da cascata) e `recurrences.ts` (M07),
   `installments.ts` (compra parcelada, M07.4), `budgets.ts` (orçado, divisão, cópia) e `dashboard.ts` (somas do painel, M08)
+- `packages/importers/` os provedores de dados do banco (`TransactionProvider`, Meu Pluggy, JSON com
+  dinheiro exato) e, em `testing/`, o banco sintético e a Pluggy de mentira
+- `packages/db/src/` do M09.1: `connection-secret.ts` (AES-256-GCM), `connections.ts` (credenciais e ligação),
+  `sync.ts` (a busca idempotente) e `statements.ts` (faturas); `packages/core/src/sync.ts` as regras puras
 - `docs/permissoes.md` quem pode fazer o quê (conferido por teste)
 - `docs/modelo-de-dados.md` diagrama das tabelas (conferido por teste)
 - `apps/web/e2e/` testes Playwright
@@ -97,6 +107,8 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
 - Variáveis de ambiente novas: no `.env.example` (sem valor real), no `src/lib/env.ts` (validação), no `globalPassThroughEnv` do `turbo.json` e no `deploy/env/app.env.example`; avise no PR que o valor de produção vai em `/srv/fintrack/app.env` antes do merge.
 - Log no servidor só pelo `logger` (`src/lib/logger.ts`), com `event`; migração para produção sempre aditiva. Siga a skill `deploy-e-operacao`.
 - Nenhum dado financeiro real, `.env` ou segredo em arquivo versionado.
+- Dados do banco: siga a skill `importador`. Resposta de banco em teste é sintética, escrita à mão; nenhum
+  teste chama a Pluggy de verdade; Client ID, Client Secret e tokens nunca em log, Git ou navegador.
 - Código e identificadores em inglês; textos da interface, commits, PRs e documentação em português.
 - Não use `any` nem `console.log`.
 - Cores só por token do tema (`text-income`, `bg-muted`); nunca cor fixa.
@@ -104,7 +116,7 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
   mesmo valor (E2E). Toda action que muda dinheiro chama `financeChanged` (cache das somas, ADR-010).
 - Para qualquer trabalho de interface, siga a skill `ui-componentes` (visual "Elétrico", ADR-008: vidro só
   na moldura, contraste conferido pelo `theme-contrast.test.ts`, novo lançamento em modal de rota).
-  A referência visual é o canvas "FinTrack Visual" (linhas C.2 e D): tela nova é desenhada lá antes do código.
+  A referência visual é o canvas "FinTrack Visual" (linhas C.2, D e E): tela nova é desenhada lá antes do código.
 - Mudança nova entra como estrutura, não como remendo: peça visual repetida vira componente em
   `components/visual/`, peça de domínio fica em `features/<nome>/ui/`, regra de negócio vai para
   `packages/core` (com teste). Se a peça nova muda quem a chama, atualize toda a cadeia de chamadas.

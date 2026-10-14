@@ -42,6 +42,7 @@ describe("rótulos", () => {
     expect(auditActionLabel("wallet.renamed")).toBe("renomeou uma carteira");
     expect(auditActionLabel("x.y")).toBe("x.y");
     // 13 eventos do M06 + 14 do M07 + 2 do M07.4 (compras conjuntas e compra parcelada) + 4 do M08
-    expect(Object.keys(AUDIT_ACTION_LABEL)).toHaveLength(33);
+    // + 3 do M09.1 (credenciais, contas ligadas, busca pedida)
+    expect(Object.keys(AUDIT_ACTION_LABEL)).toHaveLength(36);
   });
 });

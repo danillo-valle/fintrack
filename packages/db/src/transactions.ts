@@ -104,7 +104,7 @@ export async function recordCorrection(
     to: string | null;
     userId: string;
   },
-  options: CategorizationOptions,
+  options: Pick<CategorizationOptions, "rememberRule">,
   ctx: RequestContext,
 ) {
   if (!isCorrection({ chosenCategoryId: input.to, previousCategoryId: input.from.categoryId })) {
@@ -306,6 +306,64 @@ export async function updateTransaction(
   });
 }
 
+/**
+ * Só a categoria, num clique (M09.1: "Escolher categoria" nos lançamentos recebidos do banco).
+ * Mesma regra da edição: escolher outra categoria que não a gravada é uma CORREÇÃO (exemplo de
+ * treino) e, com "sempre categorizar assim", vira regra. A revisão (PENDING → CONFIRMED) é outra
+ * ação, do M09.2: aqui o status não muda.
+ */
+export async function setTransactionCategory(
+  db: PrismaClient,
+  grant: TransactionGrant<"edit">,
+  categoryId: string,
+  options: Pick<CategorizationOptions, "rememberRule">,
+  ctx: RequestContext,
+) {
+  if (grant.transaction.transferId) throw new DomainError("TRANSFER_READONLY");
+  await db.$transaction(async (tx) => {
+    const current = await tx.transaction.findFirst({
+      where: { id: grant.transaction.id, deletedAt: null },
+      select: { categoryId: true, categorizedBy: true, amount: true, description: true },
+    });
+    if (!current) throw new DomainError("NOT_FOUND");
+    const kind = fromDbDecimal(current.amount) < 0n ? "expense" : "income";
+    const chosen = await assertUsableCategory(tx, grant.transaction.householdId, categoryId, kind);
+    if (chosen === current.categoryId) return; // a mesma: nada muda (e não vira exemplo)
+    await tx.transaction.update({
+      where: { id: grant.transaction.id },
+      data: { categoryId: chosen, categorizedBy: "MANUAL" },
+    });
+    await recordCorrection(
+      tx,
+      {
+        householdId: grant.transaction.householdId,
+        transactionId: grant.transaction.id,
+        description: current.description,
+        kind,
+        from: { categoryId: current.categoryId, source: current.categorizedBy },
+        to: chosen,
+        userId: grant.userId,
+      },
+      // A cascata não roda de novo aqui: a correção compara com o que estava gravado
+      options,
+      ctx,
+    );
+    // Sem categoria antes: não é correção, mas o "sempre categorizar assim" ainda vale
+    if (current.categoryId === null && options.rememberRule && chosen) {
+      const pattern = options.rememberRule.pattern ?? suggestRulePattern(current.description);
+      if (pattern) {
+        await createRuleTx(
+          tx,
+          options.rememberRule.grant,
+          { categoryId: chosen, pattern, match: "CONTAINS" },
+          ctx,
+          "correction",
+        );
+      }
+    }
+  });
+}
+
 /** Agendado (recorrência) → aconteceu. */
 export async function confirmTransaction(db: PrismaClient, grant: TransactionGrant<"edit">) {
   const { count } = await db.transaction.updateMany({
@@ -468,6 +526,11 @@ export type TransactionFilters = {
   type?: TransactionType | null;
   /** "Pago por" (M07.4): Compartilhado ou uma pessoa */
   payer?: PayerFilter | null;
+  /**
+   * Recebidos do banco (M09.1): true = só os que esperam revisão (PENDING). Sem o filtro, a lista
+   * mostra o resto, e o que espera revisão fica fora da lista, dos totais e do painel (ADR-011).
+   */
+  received?: boolean | null;
 };
 
 /**
@@ -498,6 +561,7 @@ function whereOf(
   const and: Prisma.TransactionWhereInput[] = [
     { walletId: { in: [...walletIds] }, deletedAt: null },
     { occurredOn: { gte: dbDateFromCivil(f.from), lte: dbDateFromCivil(f.to) } },
+    f.received ? { status: "PENDING" } : { status: { not: "PENDING" } },
   ];
   if (f.accountId) and.push({ accountId: f.accountId });
   if (f.categoryId === "none") and.push({ categoryId: null, transferId: null });
@@ -544,24 +608,48 @@ const LIST_SELECT = {
   installmentGroup: { select: { installmentCount: true } },
   wallet: { select: { id: true, name: true, kind: true } },
   account: { select: { id: true, name: true, kind: true, holderId: true } },
-  category: { select: { id: true, name: true } },
+  category: { select: { id: true, name: true, parent: { select: { name: true } } } },
   card: { select: { nickname: true, lastFour: true, holderId: true, sharedPurchases: true } },
+  // M09.1: o que o banco informa (parcela, compra em outra moeda)
+  providerInstallmentNumber: true,
+  providerInstallmentCount: true,
+  originalAmount: true,
+  originalCurrency: true,
 } satisfies Prisma.TransactionSelect;
 
 type ListRow = Prisma.TransactionGetPayload<{ select: typeof LIST_SELECT }>;
 
 function toItem(row: ListRow) {
-  const { installmentNumber, installmentGroup, ...rest } = row;
+  const {
+    installmentNumber,
+    installmentGroup,
+    providerInstallmentNumber,
+    providerInstallmentCount,
+    originalAmount,
+    originalCurrency,
+    category,
+    ...rest
+  } = row;
   return {
     ...rest,
+    category: category
+      ? { id: category.id, name: category.name, parent: category.parent?.name ?? null }
+      : null,
     amount: fromDbDecimal(row.amount),
     occurredOn: civilFromDbDate(row.occurredOn),
     // "Pago por" (M07.4): calculado do cartão e da conta, pela mesma regra do filtro
     payer: resolvePayer({ card: row.card, account: row.account }),
-    /** "Parcela 2 de 10"; nulo fora de compra parcelada */
+    /** "Parcela 2 de 10"; nulo fora de compra parcelada (ou a parcela que o banco informou, M09.1) */
     installment:
       installmentNumber !== null && installmentGroup
         ? { number: installmentNumber, count: installmentGroup.installmentCount }
+        : providerInstallmentNumber !== null && providerInstallmentCount !== null
+          ? { number: providerInstallmentNumber, count: providerInstallmentCount }
+          : null,
+    /** Compra em outra moeda (M09.1): o valor e a moeda originais */
+    original:
+      originalAmount !== null && originalCurrency !== null
+        ? { amount: fromDbDecimal(originalAmount), currency: originalCurrency }
         : null,
   };
 }

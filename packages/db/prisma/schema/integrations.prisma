@@ -1,8 +1,15 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Conexões com bancos, sincronizações e trilha de auditoria (M04; usadas no M06 e no M09)
 //
-//   User ── ProviderConnection ── SyncRun   cada execução da sincronização, auditável
-//   AuditLog                                quem fez o quê, quando e de onde (só acrescenta)
+//   User ── ProviderConnection ── SyncRun        cada execução da sincronização, auditável
+//                              ├─ ProviderItem   cada banco conectado no Meu Pluggy (M09.1)
+//                              └─ FinancialAccount (connectionId + externalId) a conta ligada
+//   FinancialAccount ── AccountBalance           o último saldo e limite que o banco informou
+//   AuditLog                                     quem fez o quê, quando e de onde (só acrescenta)
+//
+// M09.1 (ADR-011): o Client Secret fica CIFRADO (AES-256-GCM) com a chave fora do banco, na
+// variável CONNECTION_SECRET_KEYS; tudo que o banco manda entra como lançamento PENDING
+// ("recebido"), fora das somas até a revisão.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Provedor de dados bancários. Por enquanto, só o Meu Pluggy (Open Finance, M09).
@@ -28,6 +35,14 @@ enum SyncStatus {
   @@map("sync_status")
 }
 
+/// Quem pediu a sincronização (M09.1): a agenda diária ou o botão "Buscar agora".
+enum SyncTrigger {
+  SCHEDULED
+  MANUAL
+
+  @@map("sync_trigger")
+}
+
 /// Conexão de uma pessoa com o provedor. Cada cônjuge conecta só as próprias contas.
 model ProviderConnection {
   id               String           @id @default(uuid(7)) @db.Uuid
@@ -39,7 +54,11 @@ model ProviderConnection {
   status           ConnectionStatus @default(ACTIVE)
   clientId         String?
   /// Client Secret CIFRADO (M09), com a chave fora do banco. Nunca texto claro, nunca em log.
+  /// Formato (M09.1): versão da chave (1 byte) + IV (12) + etiqueta GCM (16) + texto cifrado
   secretCiphertext Bytes?
+  /// Data de corte (M09.1): nada do banco antes deste dia entra no FinTrack (os lançamentos
+  /// manuais antigos ficam como estão e não duplicam). Nulo até a pessoa ligar as contas
+  importFrom       DateTime?        @db.Date
   lastSyncedAt     DateTime?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
@@ -48,28 +67,83 @@ model ProviderConnection {
   wallet   Wallet             @relation(fields: [walletId], references: [id], onDelete: Cascade)
   accounts FinancialAccount[]
   runs     SyncRun[]
+  items    ProviderItem[]
 
+  // Uma conexão por pessoa e provedor (M09.1): cada cônjuge tem o próprio Meu Pluggy
+  @@unique([userId, provider])
   @@index([userId])
   @@index([walletId])
   @@map("provider_connection")
 }
 
+/// Um banco conectado no Meu Pluggy (M09.1). A pessoa copia o Item ID do painel da Pluggy: para
+/// contas do Meu Pluggy, a API não lista os items sozinha. Até 5 por conexão (regra do app).
+model ProviderItem {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  connectionId  String    @db.Uuid
+  /// O Item ID na Pluggy. CHECK: de 8 a 64 caracteres, só letras, números e hífen
+  externalId    String
+  /// Nome do banco, como a Pluggy informa ("Banco Aurora"); nulo até a primeira busca
+  institution   String?
+  /// Quando o Meu Pluggy atualizou este banco pela última vez (ele atualiza 1 vez por dia)
+  bankUpdatedAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  connection ProviderConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, externalId])
+  @@map("provider_item")
+}
+
 /// Uma execução da sincronização: começou, terminou, quantos itens, qual erro.
 model SyncRun {
-  id           String     @id @default(uuid(7)) @db.Uuid
-  connectionId String     @db.Uuid
-  startedAt    DateTime   @default(now())
+  id             String      @id @default(uuid(7)) @db.Uuid
+  connectionId   String      @db.Uuid
+  startedAt      DateTime    @default(now())
   /// CHECK: nulo enquanto RUNNING; depois, igual ou posterior ao início
-  finishedAt   DateTime?
-  status       SyncStatus @default(RUNNING)
-  itemsCreated Int        @default(0)
-  itemsUpdated Int        @default(0)
-  error        String?
+  finishedAt     DateTime?
+  status         SyncStatus  @default(RUNNING)
+  itemsCreated   Int         @default(0)
+  itemsUpdated   Int         @default(0)
+  /// Agenda diária ou botão "Buscar agora" (M09.1)
+  trigger        SyncTrigger @default(SCHEDULED)
+  /// Quem apertou o botão (nulo na agenda). Sem chave estrangeira: o histórico sobrevive à conta
+  requestedById  String?
+  /// Lançamentos que o banco mandou de novo sem nenhuma mudança (M09.1). CHECK: maior ou igual a 0
+  itemsUnchanged Int         @default(0)
+  /// Lançamentos que não puderam entrar (compra em outra moeda sem o valor em reais). CHECK: >= 0
+  itemsSkipped   Int         @default(0)
+  /// O código do erro (PROVIDER_AUTH_FAILED, PROVIDER_UNAVAILABLE...), nunca a resposta crua do
+  /// provedor: ela pode trazer dado pessoal. A tela traduz o código
+  error          String?
 
   connection ProviderConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
 
   @@index([connectionId, startedAt(sort: Desc)])
   @@map("sync_run")
+}
+
+/// O último saldo e limite que o banco informou para uma conta ligada (M09.1). Uma linha por
+/// conta, sobrescrita a cada busca: é o que o Início mostra em "Contas e cartões".
+model AccountBalance {
+  accountId       String    @id @db.Uuid
+  /// Saldo da conta corrente ou poupança (com sinal). Nulo em cartão
+  balance         Decimal?  @db.Decimal(14, 2)
+  /// Limite total e disponível do cartão. CHECK: maiores ou iguais a zero
+  creditLimit     Decimal?  @db.Decimal(14, 2)
+  availableCredit Decimal?  @db.Decimal(14, 2)
+  /// Fechamento e vencimento da fatura aberta, como o banco informa
+  closeDate       DateTime? @db.Date
+  dueDate         DateTime? @db.Date
+  /// Moeda da conta. CHECK: 3 letras maiúsculas (ISO 4217)
+  currency        String    @default("BRL") @db.Char(3)
+  /// Quando o FinTrack leu estes números do banco
+  asOf            DateTime
+
+  account FinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@map("account_balance")
 }
 
 /// Trilha de auditoria (OWASP A09:2025). SÓ ACRESCENTA: um gatilho no banco recusa UPDATE e

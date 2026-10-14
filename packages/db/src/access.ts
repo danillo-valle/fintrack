@@ -182,6 +182,16 @@ export type DomainErrorCode =
   | "SHARES_DUPLICATED" // a mesma pessoa duas vezes na divisão
   | "SHARES_NEGATIVE" // parte negativa
   | "SHARES_SUM_MISMATCH" // as partes não somam o valor da categoria
+  // ── Coleta bancária (M09.1) ──
+  | "CONNECTION_KEY_MISSING" // o servidor não tem CONNECTION_SECRET_KEYS (avise quem cuida dele)
+  | "CONNECTION_SECRET_REQUIRED" // a primeira conexão precisa do Client Secret
+  | "CONNECTION_ITEMS_LIMIT" // de 1 a 5 bancos por pessoa (limite do Meu Pluggy)
+  | "CONNECTION_ITEM_INVALID" // Item ID fora do formato (letras, números e hífen)
+  | "CONNECTION_NOT_READY" // ainda sem credenciais ou sem contas ligadas
+  | "ACCOUNT_KIND_MISMATCH" // cartão do banco ligado a conta que não é cartão (ou o contrário)
+  | "ACCOUNT_ALREADY_LINKED" // a conta do FinTrack já está ligada a outra conta do banco
+  | "IMPORT_FROM_INVALID" // data de corte no futuro ou mais de 12 meses para trás
+  | "PROVIDER_ACCOUNT_UNKNOWN" // a conta escolhida não veio do banco nesta conexão
   | "NOT_FOUND";
 
 // ── M07: contas, lançamentos e listas que juntam várias carteiras ───────────────
@@ -348,4 +358,128 @@ export async function authorizeScope<A extends "view" | "edit">(
     householdId: memberships[0]?.householdId ?? null,
     walletIds: allowed.map((m) => m.wallet.id) as readonly string[],
   } as WalletScope<A>;
+}
+
+// ── M09.1: a conexão de cada pessoa com o banco ─────────────────────────────────
+
+/**
+ * Prova de que `userId` está mexendo na PRÓPRIA conexão com o banco. Não existe "a conexão de
+ * outra pessoa" pelo app: nem o dono do lar vê as credenciais ou o histórico de sincronização do
+ * cônjuge (cada um conecta só as próprias contas, regra do Meu Pluggy). Por isso nenhuma tela
+ * recebe o id da conexão pela URL: a conexão é sempre a de quem está logado.
+ * Só authorizeConnectionOwner cria.
+ */
+export type ConnectionGrant = {
+  readonly [grantBrand]: "own_connection";
+  readonly userId: string;
+  readonly householdId: string;
+  /** A carteira pessoal da pessoa: onde entram as contas novas criadas ao ligar */
+  readonly personalWalletId: string;
+  /** A conexão, se a pessoa já salvou credenciais */
+  readonly connectionId: string | null;
+};
+
+export type ConnectionAccess =
+  { ok: true; grant: ConnectionGrant } | { ok: false; reason: "NO_HOUSEHOLD" | "NOT_FOUND" };
+
+/** A conexão Meu Pluggy de quem está logado (ou a permissão para criar uma). */
+export async function authorizeConnectionOwner(
+  db: PrismaClient,
+  userId: string,
+): Promise<ConnectionAccess> {
+  const household = await authorizeHousehold(db, userId, "view");
+  if (!household.ok) return { ok: false, reason: "NO_HOUSEHOLD" };
+  const [personal, connection] = await Promise.all([
+    db.walletMember.findFirst({
+      where: {
+        userId,
+        role: "OWNER",
+        wallet: { householdId: household.grant.household.id, kind: "PERSONAL", archivedAt: null },
+      },
+      select: { walletId: true },
+    }),
+    db.providerConnection.findUnique({
+      where: { userId_provider: { userId, provider: "PLUGGY" } },
+      select: { id: true },
+    }),
+  ]);
+  if (!personal) return { ok: false, reason: "NOT_FOUND" };
+  return {
+    ok: true,
+    grant: {
+      userId,
+      householdId: household.grant.household.id,
+      personalWalletId: personal.walletId,
+      connectionId: connection?.id ?? null,
+    } as ConnectionGrant,
+  };
+}
+
+/**
+ * Prova de que `userId` pode VER a conta `accountId` por inteiro (a página do cartão com a fatura,
+ * M09.1): quem vê a carteira que gere a conta. O portador de um cartão adicional não vê a fatura
+ * inteira (regra do M04). Conta de outra pessoa = NOT_FOUND, igual a uma que não existe.
+ * Só authorizeAccountView cria.
+ */
+export type AccountViewGrant = {
+  readonly [grantBrand]: "view_account";
+  readonly userId: string;
+  readonly account: {
+    readonly id: string;
+    readonly householdId: string;
+    readonly walletId: string;
+    readonly name: string;
+    readonly kind: "CHECKING" | "SAVINGS" | "CREDIT_CARD" | "MEAL_VOUCHER" | "CASH";
+    readonly institution: string | null;
+    readonly closingDay: number | null;
+    readonly dueDay: number | null;
+    readonly connectionId: string | null;
+  };
+  readonly wallet: WalletGrant<"view">;
+};
+
+export async function authorizeAccountView(
+  db: PrismaClient,
+  userId: string,
+  accountId: string,
+): Promise<{ ok: true; grant: AccountViewGrant } | { ok: false; reason: "NOT_FOUND" }> {
+  if (!isUuid(accountId)) return { ok: false, reason: "NOT_FOUND" };
+  const account = await db.financialAccount.findUnique({
+    where: { id: accountId },
+    select: {
+      id: true,
+      householdId: true,
+      walletId: true,
+      name: true,
+      kind: true,
+      institution: true,
+      closingDay: true,
+      dueDay: true,
+      connectionId: true,
+      archivedAt: true,
+    },
+  });
+  if (!account || account.archivedAt) return { ok: false, reason: "NOT_FOUND" };
+  const wallet = await authorizeWallet(db, userId, account.walletId, "view");
+  if (!wallet.ok) return { ok: false, reason: "NOT_FOUND" };
+  const { id, householdId, walletId, name, kind, institution, closingDay, dueDay, connectionId } =
+    account;
+  return {
+    ok: true,
+    grant: {
+      userId,
+      account: {
+        id,
+        householdId,
+        walletId,
+        name,
+        kind,
+        institution,
+        closingDay,
+        dueDay,
+        connectionId,
+      },
+      wallet: wallet.grant,
+    } as AccountViewGrant,
+  };
 }

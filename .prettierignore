@@ -5,3 +5,5 @@ coverage/
 node_modules/
 next-env.d.ts
 src/generated/
+# Respostas gravadas da Pluggy (sintéticas): o texto exato dos números importa (exact-json.ts)
+packages/importers/fixtures/

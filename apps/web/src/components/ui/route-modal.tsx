@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 
 type Props = {
   title: string;
+  /** Linha curta em cima do título, em destaque (M09.1: "Passo 1 de 2 · Credenciais") */
+  eyebrow?: string;
   /** Uma linha embaixo do título. Pode ser um componente (o ambiente do lançamento, por exemplo). */
   description?: React.ReactNode;
   /** Seletor do campo que recebe o foco ao abrir (por exemplo "#modal-amount"). */
@@ -39,7 +41,7 @@ export function useOptionalRouteModal() {
 // e só quando a tela é baixa demais (no celular, quase sempre; no computador, a partir de 900 px de
 // altura, nunca). No celular, um painel que sobe da base; a partir de 768 px, centralizado.
 // Fechar = voltar no histórico (a URL volta junto).
-export function RouteModal({ title, description, initialFocus, footer, children }: Props) {
+export function RouteModal({ title, eyebrow, description, initialFocus, footer, children }: Props) {
   const router = useRouter();
   const ref = useRef<HTMLDialogElement>(null);
   // A rota paralela guarda o último conteúdo quando se navega para outro endereço SEM fechar
@@ -81,6 +83,9 @@ export function RouteModal({ title, description, initialFocus, footer, children 
           <span aria-hidden className="bg-border mx-auto h-1.5 w-10 rounded-full md:hidden" />
           <div className="flex items-start justify-between gap-4">
             <div className="flex flex-col gap-0.5">
+              {eyebrow ? (
+                <p className="text-chart-1-ink text-[0.8125rem] font-bold">{eyebrow}</p>
+              ) : null}
               <h2
                 id="modal-titulo"
                 className="text-xl font-extrabold tracking-tight md:text-[1.375rem]"

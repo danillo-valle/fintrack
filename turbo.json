@@ -11,7 +11,10 @@
     "HIBP_CHECK",
     "GOOGLE_CLIENT_*",
     "MAILPIT_URL",
-    "LOG_LEVEL"
+    "LOG_LEVEL",
+    "CONNECTION_SECRET_KEYS",
+    "PLUGGY_API_URL",
+    "SYNC_WORKER"
   ],
   "tasks": {
     "build": {

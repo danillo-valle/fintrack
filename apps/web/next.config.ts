@@ -22,7 +22,7 @@ const nextConfig: NextConfig = {
   devIndicators: false,
 
   // Os pacotes do monorepo são publicados como TypeScript (sem build próprio): o Next.js os compila
-  transpilePackages: ["@fintrack/core", "@fintrack/db"],
+  transpilePackages: ["@fintrack/core", "@fintrack/db", "@fintrack/importers"],
 
   // ── M05: produção em container ────────────────────────────────────────────────
   // "standalone": o build gera .next/standalone com um server.js e SÓ os arquivos de

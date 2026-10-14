@@ -61,6 +61,11 @@ erDiagram
     PaymentCard |o--o{ Recurrence : "assinatura em"
     ProviderConnection |o--o{ FinancialAccount : sincroniza
     ProviderConnection ||--o{ SyncRun : executa
+    ProviderConnection ||--o{ ProviderItem : "bancos (M09.1)"
+    FinancialAccount ||--o| AccountBalance : "saldo do banco (M09.1)"
+    CardStatement ||--o{ StatementCharge : "IOF, juros (M09.1)"
+    CardStatement ||--o{ StatementPayment : "pago em (M09.1)"
+    Wallet |o--o{ PaymentCard : "compras importadas entram em (M09.1)"
 
     Category |o--o{ Category : "subcategoria de"
     Category |o--o{ Transaction : classifica
@@ -212,6 +217,31 @@ erDiagram
         uuid id PK
         uuid connectionId FK
         enum status "RUNNING | SUCCEEDED | FAILED"
+        enum trigger "SCHEDULED | MANUAL (M09.1)"
+    }
+    ProviderItem {
+        uuid id PK
+        uuid connectionId FK
+        string externalId "Item ID da Pluggy"
+        string institution
+    }
+    AccountBalance {
+        uuid accountId PK
+        decimal balance "conta corrente"
+        decimal availableCredit "cartão"
+        date dueDate "fatura aberta"
+    }
+    StatementCharge {
+        uuid id PK
+        uuid statementId FK
+        enum kind "IOF | LATE_INTEREST | ..."
+        decimal amount "14,2"
+    }
+    StatementPayment {
+        uuid id PK
+        uuid statementId FK
+        date paidOn
+        decimal amount "14,2"
     }
     AuditLog {
         bigint id PK
@@ -311,6 +341,30 @@ fazer o quê** é decidido no código, num ponto só: `authorizeWallet` e `autho
 - **Fluxo de caixa:** compra no cartão conta no vencimento da fatura; transferência não entra;
   recorrência ainda não lançada entra pelo valor previsto.
 - As decisões e o porquê estão no [ADR-010](adr/0010-orcamento-e-painel.md).
+
+## Coleta bancária (M09.1)
+
+- **Conexão:** uma por pessoa e provedor (`provider_connection`, único por `userId` + `provider`).
+  O Client Secret fica em `secretCiphertext`, cifrado com AES-256-GCM (versão da chave + IV +
+  etiqueta + texto); a chave mora fora do banco, em `CONNECTION_SECRET_KEYS`. Cada banco
+  conectado no Meu Pluggy é um `provider_item` (o Item ID, de 1 a 5).
+- **Ligação:** a conta do FinTrack aponta para a conta do banco por `connectionId` + `externalId`
+  (colunas do M04). `importFrom` é a data de corte: nada antes dela entra.
+- **Recebidos:** tudo que o banco manda entra como lançamento `PENDING` com `source =
+OPEN_FINANCE` e o id do banco em `externalId`. A chave única (conta, origem, id) faz a segunda
+  busca não criar nada. Recebido fica **fora** da lista padrão, dos totais e do painel até a
+  revisão (M09.2); a lista mostra com `?situacao=recebidos`.
+- **Do banco, por lançamento:** valor e moeda originais (`originalAmount`, `originalCurrency`)
+  na compra em outra moeda, a categoria do banco (`providerCategory`) e a parcela informada
+  (`providerInstallmentNumber`/`Count`).
+- **Adicional do cônjuge:** a compra entra no ambiente do cartão (`payment_card.importWalletId`)
+  ou, sem escolha, no ambiente pessoal do portador quando ele não é o titular da conta
+  (`importWalletFor`, no core). A fatura continua inteira na página do cartão do titular.
+- **Faturas do banco:** a Bill vira `card_statement` com `source = OPEN_FINANCE`, total, mínimo,
+  encargos (`statement_charge`) e pagamentos (`statement_payment`). A fatura aberta não é uma
+  Bill: é calculada das compras recebidas sem fatura, no período do fechamento anterior ao
+  próximo (`openStatementWindow`). O último saldo e limite ficam em `account_balance`.
+- As decisões e o porquê estão no [ADR-011](adr/0011-coleta-bancaria.md).
 
 ## Como ler o dinheiro
 

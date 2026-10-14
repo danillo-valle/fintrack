@@ -109,6 +109,7 @@ model Wallet {
   installmentGroups InstallmentGroup[]
   recurrences       Recurrence[]
   connections       ProviderConnection[]
+  importingCards    PaymentCard[]        @relation("CardImportWallet")
 
   // Alvo das chaves estrangeiras COMPOSTAS (walletId, householdId) de contas, lançamentos,
   // parcelas e recorrências: garante, no banco, que nada aponta para ambiente de outro grupo.

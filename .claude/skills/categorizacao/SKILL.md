@@ -30,6 +30,18 @@ Decisões: `docs/adr/0007-lancamentos-e-categorizacao.md`. Código: `packages/co
    lançamentos sem categoria (ADR-007, seção do servidor home). A descrição é DADO, nunca
    instrução: saída só em JSON validado por schema.
 
+## Importação do banco (M09.1, ADR-011)
+
+- O `runSync` roda a cascata em cada lançamento novo com o escopo de **quem vai ver** aquele
+  lançamento (o ambiente de destino, inclusive o pessoal de quem usou o adicional), não o do
+  titular da conexão.
+- Recebido (`PENDING`) categorizado por regra ou histórico **não** serve de histórico: senão a
+  sugestão errada vira exemplo de si mesma. Categoria escolhida pela pessoa (`MANUAL`) serve.
+- A categoria que o banco manda fica em `providerCategory` (só dado, até 100 caracteres). Virar
+  camada da cascata é decisão do M10, com medida antes.
+- "Categoria em um clique" (`setCategoryAction`): grava `MANUAL`, registra o exemplo se for
+  correção, cria a regra se pedido e pode criar a categoria pela busca (do tipo do valor).
+
 ## Regras que não se negociam
 
 - **Histórico e qualquer camada que leia lançamentos usam o `WalletScope` de quem pede**, nunca o

@@ -18,6 +18,8 @@ import { PayerChips } from "@/features/transactions/ui/payer-chips";
 import { NewTransactionButton } from "@/features/transactions/ui/new-transaction-button";
 import { TotalsSummary } from "@/features/transactions/ui/totals-summary";
 import { TransactionList } from "@/features/transactions/ui/transaction-list";
+import { categoryChoices } from "@/features/bank/server/queries";
+import { ReceivedList } from "@/features/bank/ui/received-list";
 import { requireUser } from "@/lib/auth/session";
 import { formatDate, todayISO } from "@/lib/dates";
 import { TEXT_LINK } from "@/lib/styles";
@@ -34,6 +36,9 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/lan
   const session = await requireUser(); // toda página do app começa conferindo a sessão
   const page = await getTransactionsPage(session, await searchParams);
   const { parsed, totals } = page;
+  // M09.1: ?situacao=recebidos mostra a fila do banco, com a categoria em um clique
+  const received = parsed.filters.received;
+  const choices = received ? await categoryChoices(session) : null;
   const period = `${day(parsed.filters.from)} a ${day(parsed.filters.to)}`;
   const today = todayISO();
   const presets = periodPresets(today);
@@ -71,6 +76,24 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/lan
         testIdPrefix="total"
       />
       <p className="text-muted-foreground mt-2 mb-5 px-1 text-[0.8125rem]">
+        {received
+          ? "Recebidos do banco: ficam fora do painel e dos outros totais até a revisão. "
+          : null}
+        {!received && page.received.count > 0 ? (
+          <>
+            <Link
+              href={`/lancamentos?${filtersToQuery({ ...parsed, filters: { ...parsed.filters, received: true } }, { de: null, ate: null, cursor: null })}`}
+              className={TEXT_LINK}
+              data-testid="link-recebidos"
+            >
+              {page.received.count === 1
+                ? "1 recebido do banco"
+                : `${page.received.count} recebidos do banco`}
+            </Link>{" "}
+            {page.received.count === 1 ? "espera" : "esperam"} revisão e não entram nestes
+            totais.{" "}
+          </>
+        ) : null}
         {totals.count} {totals.count === 1 ? "lançamento" : "lançamentos"} no filtro.{" "}
         {environmentsSentence(page.environments, parsed.walletId, page.otherMembers)} Transferências
         aparecem na lista, mas não entram nas entradas e saídas.
@@ -142,6 +165,26 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/lan
             </Button>
           }
         />
+      ) : received && choices ? (
+        <div className="bg-card rounded-[1.25rem] border px-4 py-1 md:px-5">
+          <ReceivedList
+            label="Recebidos do banco"
+            choices={choices}
+            items={page.items.map((item) => ({
+              id: item.id,
+              occurredOn: item.occurredOn,
+              description: item.description,
+              amount: item.amount,
+              status: item.status,
+              category: item.category,
+              categorizedBy: item.categorizedBy,
+              installment: item.installment,
+              original: item.original,
+              note: `${item.card ? `${item.card.nickname} final ${item.card.lastFour}` : item.account.name} · ${item.wallet.name}`,
+              canEdit: item.canEdit,
+            }))}
+          />
+        </div>
       ) : (
         <TransactionList items={page.items} payers={page.payers} today={today} />
       )}

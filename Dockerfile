@@ -89,7 +89,8 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
 CMD ["node", "apps/web/server.js"]
 
 # ── 5. migrate: o Prisma CLI com as migrações (e o seed) ────────────────────────────────────
-# Instala SÓ o @fintrack/db e o que ele usa (core, config): nada do app web nem do Playwright.
+# Instala SÓ o @fintrack/db e o que ele usa (core, config e, desde o M09.1, importers): nada do
+# app web nem do Playwright.
 # O "prisma generate" lê o prisma.config.ts, que exige um DATABASE_URL: de mentira, só aqui.
 # O de verdade chega quando o container roda (env_file do compose de produção).
 # Parte da "base" (sem o node_modules completo que o estágio deps materializa) e reaproveita
@@ -98,6 +99,7 @@ FROM base AS migrate
 COPY pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/core packages/core
 COPY packages/config packages/config
+COPY packages/importers packages/importers
 COPY packages/db packages/db
 RUN --mount=type=cache,id=fintrack-pnpm-store,target=/pnpm-store \
     pnpm install --frozen-lockfile --prefer-offline --store-dir /pnpm-store --filter "@fintrack/db..." \
