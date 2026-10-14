@@ -11,6 +11,7 @@ import { DomainError, type WalletGrant } from "./access";
 import { writeAudit, type RequestContext } from "./audit";
 import type { PrismaClient } from "./generated/prisma/client";
 import { fromDbDecimal, toDbDecimal } from "./money";
+import { rerouteReceived } from "./review";
 
 /** Contas em que a pessoa pode lançar: as das carteiras que ela edita e as dos cartões dela. */
 export async function listUsableAccounts(db: PrismaClient, userId: string) {
@@ -220,6 +221,9 @@ export async function createCard(
         sharedPurchases: input.sharedPurchases ?? false,
       },
     });
+    // M09.2: os recebidos do banco com este final (um adicional que chegou antes do cadastro)
+    // vão agora para o cartão e para o ambiente do portador
+    const rerouted = await rerouteReceived(tx, account.id);
     await writeAudit(
       tx,
       {
@@ -234,11 +238,12 @@ export async function createCard(
           form: input.form,
           isAdditional: input.isAdditional,
           sharedPurchases: input.sharedPurchases ?? false,
+          rerouted,
         },
       },
       ctx,
     );
-    return card;
+    return { ...card, rerouted };
   });
 }
 
@@ -256,6 +261,12 @@ export async function setCardArchived(
       data: { archivedAt: archived ? new Date() : null },
     });
     if (count === 0) throw new DomainError("NOT_FOUND");
+    // M09.2: os recebidos do final saem do cartão arquivado (ou voltam para ele)
+    const card = await tx.paymentCard.findUniqueOrThrow({
+      where: { id: cardId },
+      select: { accountId: true },
+    });
+    await rerouteReceived(tx, card.accountId);
     await writeAudit(
       tx,
       {

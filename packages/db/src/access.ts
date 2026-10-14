@@ -192,6 +192,11 @@ export type DomainErrorCode =
   | "ACCOUNT_ALREADY_LINKED" // a conta do FinTrack já está ligada a outra conta do banco
   | "IMPORT_FROM_INVALID" // data de corte no futuro ou mais de 12 meses para trás
   | "PROVIDER_ACCOUNT_UNKNOWN" // a conta escolhida não veio do banco nesta conexão
+  // ── Revisão e reconciliação (M09.2) ──
+  | "REVIEW_STALE" // o recebido já foi conferido (ou o seu lançamento já foi juntado) noutra aba
+  | "PAIR_NOT_ALLOWED" // os dois lançamentos não obedecem à regra do par (valor, conta, datas)
+  | "REFUND_NOT_ALLOWED" // o crédito não estorna aquela compra (valor, loja, prazo de 90 dias)
+  | "UNDO_EXPIRED" // o "Desfazer" já não vale (outra pessoa decidiu, ou o lançamento mudou)
   | "NOT_FOUND";
 
 // ── M07: contas, lançamentos e listas que juntam várias carteiras ───────────────

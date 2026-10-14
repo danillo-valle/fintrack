@@ -15,6 +15,7 @@
 // do M04 + o achar-antes-de-gravar daqui. Nada aqui entra nas somas do painel: PENDING fica de
 // fora até a revisão (M09.2), então a sincronização não precisa invalidar o cache das somas.
 import {
+  cardForLastFour,
   civilFromDbDate,
   compareCivil,
   dbDateFromCivil,
@@ -284,7 +285,10 @@ export async function runSync(
 }
 
 /** O ambiente pessoal de cada pessoa do lar (o dono dele), para o adicional do cônjuge. */
-async function personalWalletsOf(db: PrismaClient, householdId: string) {
+export async function personalWalletsOf(
+  db: PrismaClient | Prisma.TransactionClient,
+  householdId: string,
+) {
   const rows = await db.walletMember.findMany({
     where: { role: "OWNER", wallet: { householdId, kind: "PERSONAL", archivedAt: null } },
     select: { userId: true, walletId: true },
@@ -467,6 +471,8 @@ const EXISTING_SELECT = {
   description: true,
   amount: true,
   cardId: true,
+  walletId: true,
+  providerCardLastFour: true,
   statementId: true,
   providerCategory: true,
   providerInstallmentNumber: true,
@@ -521,11 +527,12 @@ async function saveTransactions(
       })
     ).map((row) => [row.externalId as string, row]),
   );
-  // O cartão pelo final que o banco mandou; sem final, o cartão único da conta (se houver um só)
+  // O cartão pelo final que o banco mandou (M09.2): final que não está cadastrado (adicional
+  // novo) fica sem cartão, e não no titular; sem final, o cartão único da conta
   const cardOf = (lastFour: string | null) =>
-    account.cards.find((c) => c.lastFour === lastFour) ??
-    (account.cards.length === 1 ? (account.cards[0] ?? null) : null);
-  const cardFor = (lastFour: string | null) => cardOf(lastFour)?.id ?? null;
+    account.kind === "CREDIT_CARD" ? cardForLastFour(account.cards, lastFour) : null;
+  const walletFor = (card: LinkedAccount["cards"][number] | null) =>
+    importWalletFor({ account, card, personalWallets: input.personalWallets });
 
   const creates: Prisma.TransactionCreateManyInput[] = [];
   const updates: { id: string; data: Prisma.TransactionUncheckedUpdateInput }[] = [];
@@ -534,22 +541,15 @@ async function saveTransactions(
       account.kind === "CREDIT_CARD" && t.billExternalId
         ? (statements.get(t.billExternalId) ?? null)
         : null;
-    const cardId = account.kind === "CREDIT_CARD" ? cardFor(t.cardLastFour) : null;
-    // Comparado no formato GRAVADO (ids da fatura e do cartão), para uma compra de fatura que
-    // não foi importada (antes da data de corte) não parecer "mudada" a cada busca
-    const incoming: ImportedFields = {
-      ...fieldsOf(t),
-      statementExternalId: statementId,
-      cardLastFour: cardId,
-    };
+    const card = cardOf(t.cardLastFour);
+    const cardId = card?.id ?? null;
+    // A fatura é comparada no formato GRAVADO (id), para uma compra de fatura que não foi
+    // importada (antes da data de corte) não parecer "mudada" a cada busca
+    const incoming: ImportedFields = { ...fieldsOf(t), statementExternalId: statementId };
     const row = existing.get(t.externalId);
     if (!row) {
       const kind = t.amount < 0n ? "expense" : "income";
-      const destination = importWalletFor({
-        account,
-        card: account.kind === "CREDIT_CARD" ? cardOf(t.cardLastFour) : null,
-        personalWallets: input.personalWallets,
-      });
+      const destination = walletFor(card);
       const suggesters = await input.suggestersFor(destination.viewerId ?? input.ownerId);
       const suggestion = await runCascade(suggesters, { description: incoming.description, kind });
       creates.push({
@@ -572,6 +572,7 @@ async function saveTransactions(
         providerCategory: t.category,
         providerInstallmentNumber: t.installment?.number ?? null,
         providerInstallmentCount: t.installment?.count ?? null,
+        providerCardLastFour: t.cardLastFour,
       });
       continue;
     }
@@ -585,7 +586,7 @@ async function saveTransactions(
       description: row.description,
       amount: fromDbDecimal(row.amount),
       statementExternalId: row.statementId,
-      cardLastFour: row.cardId,
+      cardLastFour: row.providerCardLastFour,
       installment:
         row.providerInstallmentNumber !== null && row.providerInstallmentCount !== null
           ? { number: row.providerInstallmentNumber, count: row.providerInstallmentCount }
@@ -600,7 +601,9 @@ async function saveTransactions(
       providerCategory: row.providerCategory,
     };
     const changed = importChanges(current, incoming);
-    if (changed.length === 0) {
+    // O cartão muda também sem o banco mudar nada: a pessoa cadastrou o final do adicional
+    const cardMoved = row.cardId !== cardId;
+    if (changed.length === 0 && !cardMoved) {
       counts.unchanged += 1;
       continue;
     }
@@ -612,6 +615,9 @@ async function saveTransactions(
         amount: toDbDecimal(t.amount),
         statementId,
         cardId,
+        providerCardLastFour: t.cardLastFour,
+        // Com o cartão, muda o ambiente, se a pessoa não tinha escolhido outro
+        ...(cardMoved ? rerouteWallet(row, account, card, walletFor) : {}),
         originalAmount: t.original ? toDbDecimal(t.original.amount) : null,
         originalCurrency: t.original?.currency ?? null,
         providerCategory: t.category,
@@ -632,6 +638,22 @@ async function saveTransactions(
       counts.updated += 1;
     }
   });
+}
+
+/**
+ * O ambiente de um recebido cujo cartão mudou (adicional cadastrado depois): vai para o ambiente
+ * do cartão novo SÓ se ainda estava no ambiente que o cartão antigo daria. Se a pessoa já tinha
+ * mudado o ambiente, a escolha dela fica.
+ */
+export function rerouteWallet<C extends { id: string }>(
+  row: { walletId: string; cardId: string | null },
+  account: { cards: readonly C[] },
+  card: C | null,
+  walletFor: (card: C | null) => { walletId: string },
+): { walletId?: string } {
+  const previous = account.cards.find((c) => c.id === row.cardId) ?? null;
+  if (row.walletId !== walletFor(previous).walletId) return {};
+  return { walletId: walletFor(card).walletId };
 }
 
 function fieldsOf(t: ProviderTransaction): ImportedFields {

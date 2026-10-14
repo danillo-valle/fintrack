@@ -57,7 +57,15 @@ export type AuditAction =
   // M09.1: conexão com o banco (nunca Client ID inteiro, segredo, Item ID ou número de conta)
   | "connection.saved"
   | "connection.accounts_linked"
-  | "connection.sync_requested";
+  | "connection.sync_requested"
+  // M09.2: revisão do que veio do banco (só ids e contagens; nunca valor ou descrição)
+  | "transaction.reviewed"
+  | "transactions.reviewed_bulk"
+  | "transaction.review_undone"
+  | "transaction.paired"
+  | "transaction.pair_rejected"
+  | "transaction.refund_linked"
+  | "transaction.match_undone";
 
 export type AuditEntry = {
   actorId: string | null;
