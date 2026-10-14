@@ -39,6 +39,9 @@ model User {
   invitesCreated         HouseholdInvite[]       @relation("InviteCreator")
   invitesAccepted        HouseholdInvite[]       @relation("InviteAcceptor")
   categorizationExamples CategorizationExample[]
+  // Revisão do que veio do banco (M09.2)
+  transactionsReviewed   Transaction[]           @relation("TransactionReviewer")
+  matchesDecided         TransactionMatch[]
 
   @@unique([email])
   @@map("user")

@@ -146,6 +146,16 @@ model Transaction {
   /// parcelada do FinTrack (M09.2). CHECK: os dois juntos, 1 <= número <= total, total de 2 a 99
   providerInstallmentNumber Int?                  @db.SmallInt
   providerInstallmentCount  Int?                  @db.SmallInt
+  /// O final do cartão que o banco mandou (M09.2), mesmo quando ele não está cadastrado (um
+  /// adicional novo): é por ele que a compra muda de cartão quando a pessoa cadastra o final.
+  /// CHECK: 4 dígitos
+  providerCardLastFour      String?               @db.Char(4)
+  /// Revisão (M09.2): quando e por quem o recebido foi conferido (PENDING → CONFIRMED)
+  reviewedAt                DateTime?
+  reviewedById              String?
+  /// Par (M09.2): o seu lançamento juntado ao recebido do banco aponta para ele e fica apagado
+  /// (deletedAt). "Desfazer" volta os dois. CHECK: só junto com deletedAt
+  mergedIntoId              String?               @db.Uuid
   /// Quem lançou (nulo para o que veio de importação ou recorrência)
   createdById               String?
   createdAt                 DateTime              @default(now())
@@ -167,6 +177,11 @@ model Transaction {
   reversalOf             Transaction?            @relation("Reversal", fields: [reversalOfId], references: [id], onDelete: SetNull)
   reversals              Transaction[]           @relation("Reversal")
   createdBy              User?                   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  reviewedBy             User?                   @relation("TransactionReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  mergedInto             Transaction?            @relation("Merge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
+  mergedFrom             Transaction[]           @relation("Merge")
+  matchesAsReceived      TransactionMatch[]      @relation("MatchReceived")
+  matchesAsOwn           TransactionMatch[]      @relation("MatchOwn")
   categorizationExamples CategorizationExample[]
 
   // Idempotência da importação: o mesmo lançamento da mesma origem na mesma conta, uma vez só.
@@ -182,7 +197,63 @@ model Transaction {
   @@index([categoryId])
   @@index([recurrenceId])
   @@index([transferId])
+  @@index([mergedIntoId])
+  @@index([reversalOfId])
   @@map("transaction")
+}
+
+/// O tipo de um par da revisão (M09.2, ADR-012).
+enum MatchKind {
+  /// O mesmo gasto: mesmo valor, datas a até 5 dias
+  SAME
+  /// A parcela do banco ("3 de 6") com a parcela da compra parcelada do FinTrack
+  INSTALLMENT
+  /// Um crédito do banco que estorna uma compra anterior (reversalOfId)
+  REFUND
+
+  @@map("match_kind")
+}
+
+/// A decisão da pessoa sobre um par.
+enum MatchStatus {
+  /// Juntou (ou ligou o estorno)
+  CONFIRMED
+  /// "Não é o mesmo": a sugestão não volta
+  REJECTED
+  /// Juntou e desfez
+  UNDONE
+
+  @@map("match_status")
+}
+
+/// Uma decisão da revisão sobre um par recebido × seu lançamento (M09.2). As sugestões são
+/// calculadas na hora (packages/core/src/reconcile.ts); aqui fica só o que a pessoa decidiu, e o
+/// estado de antes, para o "Desfazer". Um par por recebido é garantido pela própria operação: ela
+/// só junta um recebido ainda PENDING e um lançamento seu ainda não apagado (UPDATE condicional).
+/// CHECK: os dois lados são lançamentos diferentes; UNDONE anda junto com undoneAt
+model TransactionMatch {
+  id             String      @id @default(uuid(7)) @db.Uuid
+  householdId    String      @db.Uuid
+  receivedId     String      @db.Uuid
+  ownId          String      @db.Uuid
+  kind           MatchKind
+  status         MatchStatus
+  /// Os campos do recebido e do seu lançamento antes de juntar (para o "Desfazer")
+  receivedBefore Json?
+  ownBefore      Json?
+  decidedById    String?
+  decidedAt      DateTime    @default(now())
+  undoneAt       DateTime?
+
+  household Household   @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  received  Transaction @relation("MatchReceived", fields: [receivedId], references: [id], onDelete: Cascade)
+  own       Transaction @relation("MatchOwn", fields: [ownId], references: [id], onDelete: Cascade)
+  decidedBy User?       @relation(fields: [decidedById], references: [id], onDelete: SetNull)
+
+  @@index([receivedId])
+  @@index([ownId])
+  @@index([householdId, decidedAt(sort: Desc)])
+  @@map("transaction_match")
 }
 
 /// Fatura do cartão: guarda a competência (mês de referência) e o caixa (vencimento).
