@@ -17,6 +17,14 @@ Decisões: `docs/adr/0011-coleta-bancaria.md`. Tabelas: `docs/modelo-de-dados.md
 3. `apps/web/src/features/bank/server/jobs.ts`: a fila (pg-boss) chama o `runSync`, uma busca
    por conexão por vez. A tela só pede (`enqueueSync`); nunca roda a busca dentro da requisição.
 4. Tudo chega como `PENDING` (Recebido) e fica fora das somas até a revisão.
+5. A revisão (M09.2, ADR-012): `packages/core/src/reconcile.ts` sugere o par (mesma conta, mesmo
+   valor, até 5 dias; a parcela pelo número), o estorno e o lote; `packages/db/src/review.ts`
+   confere a regra de novo e grava a decisão (`transaction_match`), com "Desfazer". Ao juntar,
+   fica o recebido (que tem o id do banco) com o lado da pessoa; o lançamento dela fica apagado
+   com `mergedIntoId`. Importador novo (OFX, PDF) entra como `PENDING` e ganha a revisão de graça.
+6. O cartão de cada compra vem do final (`cardForLastFour`): final desconhecido fica sem cartão
+   (nunca no titular) e o final vai para `providerCardLastFour`; cadastrar o cartão reorganiza
+   os recebidos (`rerouteReceived`).
 
 ## Regras que não se negociam
 
@@ -64,6 +72,6 @@ Decisões: `docs/adr/0011-coleta-bancaria.md`. Tabelas: `docs/modelo-de-dados.md
 
 ```bash
 pnpm --filter @fintrack/importers test
-pnpm --filter @fintrack/db test:integration -- coleta-bancaria
-pnpm --filter @fintrack/web exec playwright test coleta-bancaria
+pnpm --filter @fintrack/db test:integration -- coleta-bancaria revisao
+pnpm --filter @fintrack/web exec playwright test coleta-bancaria revisao
 ```

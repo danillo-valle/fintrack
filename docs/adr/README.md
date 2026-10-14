@@ -19,3 +19,4 @@ Modelo para um ADR novo: copie `0001-stack-e-monorepo.md` e troque o conteúdo.
 | 009 | ["Pago por", ambientes, parcelas e despesas fixas](0009-pago-por-parcelas-e-fixas.md)        | aceita |
 | 010 | [Orçamento, painel e cache das somas](0010-orcamento-e-painel.md)                            | aceita |
 | 011 | [Coleta bancária com o Meu Pluggy](0011-coleta-bancaria.md)                                  | aceita |
+| 012 | [Revisão e reconciliação do que vem do banco](0012-revisao-e-reconciliacao.md)               | aceita |
