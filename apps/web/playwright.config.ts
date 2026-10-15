@@ -4,6 +4,9 @@ const PORT = 3000;
 const BASE_URL = `http://localhost:${PORT}`;
 const CI = Boolean(process.env.CI);
 const PLUGGY_FAKE_URL = "http://127.0.0.1:8787";
+// O serviço Python que lê a fatura em PDF (M09.4): o de verdade, com os PDFs sintéticos de
+// samples/pdf. Ele confere o token do app em http://127.0.0.1:3000/api/auth/jwks
+const ML_URL = "http://127.0.0.1:8001";
 
 // Os testes acessam o banco e o Mailpit, então precisam das mesmas variáveis do app.
 // Em casa, lê o .env da raiz; no CI, as variáveis vêm do workflow.
@@ -45,8 +48,9 @@ export default defineConfig({
       dependencies: ["preparar"],
     },
   ],
-  // Sobe a Pluggy de mentira (M09.1) e o app antes dos testes. Se você já estiver com
-  // "pnpm pluggy:fake" e "pnpm dev" rodando, reaproveita (o .env aponta o app para a de mentira).
+  // Sobe a Pluggy de mentira (M09.1), o serviço Python (M09.4) e o app antes dos testes. Se você
+  // já estiver com "pnpm pluggy:fake", "pnpm ml:dev" e "pnpm dev" rodando, reaproveita (o .env
+  // aponta o app para os dois).
   webServer: [
     {
       command: "pnpm pluggy:fake",
@@ -55,12 +59,18 @@ export default defineConfig({
       timeout: 30_000,
     },
     {
+      command: "pnpm --filter @fintrack/ml dev",
+      url: `${ML_URL}/health`,
+      reuseExistingServer: !CI,
+      timeout: 60_000,
+    },
+    {
       command: "pnpm dev",
       url: `${BASE_URL}/api/health`,
       reuseExistingServer: !CI,
       timeout: 120_000,
       // Nenhum teste fala com a Pluggy de verdade
-      env: { PLUGGY_API_URL: PLUGGY_FAKE_URL },
+      env: { PLUGGY_API_URL: PLUGGY_FAKE_URL, ML_SERVICE_URL: ML_URL },
     },
   ],
 });
