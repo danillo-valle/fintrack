@@ -11,11 +11,16 @@
 #
 #   celular → Cloudflare (HTTPS) → [cloudflared] → [caddy] → [web] → [db]
 #             na internet           └──────── rede "entrada" ────┘   └ rede "dados" ┘
+#                                                                │
+#                                                              [ml]  rede "ml" (M09.4): o
+#                                                                    serviço que lê o PDF
 #
 #   - Nenhum serviço publica porta no servidor ("ports:" não aparece em lugar nenhum). O
 #     cloudflared faz uma conexão de SAÍDA até a Cloudflare e as visitas voltam por ela.
 #     Por isso o firewall (ufw) não precisa de regra nova e o roteador não abre nada.
 #   - A rede "dados" é interna (sem saída para a internet): o banco só fala com o app.
+#   - A rede "ml" também é interna: o serviço Python só fala com o app (recebe o PDF e confere o
+#     token pela chave pública do app); não alcança a internet nem o banco.
 #
 # Variáveis: /srv/fintrack/.env (POSTGRES_PASSWORD, TUNNEL_TOKEN), /srv/fintrack/app.env (as do
 # app) e /srv/fintrack/estado/versao.env (FINTRACK_VERSION, escrita pelo deploy). Modelos em
@@ -99,13 +104,31 @@ services:
       - /tmp
       - /app/apps/web/.next/cache:uid=1000,gid=1000
     # entrada: recebe as visitas do Caddy e sai para a internet (e-mail pelo Resend, consulta de
-    # senhas vazadas). dados: fala com o banco.
-    networks: [entrada, dados]
+    # senhas vazadas). dados: fala com o banco. ml: fala com o serviço Python (M09.4).
+    networks: [entrada, dados, ml]
     depends_on:
       db:
         condition: service_healthy
     # O healthcheck vem da imagem (Dockerfile: GET /api/health a cada 30 s)
     mem_limit: 1g
+    logging: *logging
+
+  # ── O serviço Python que lê a fatura em PDF (M09.4, ADR-014) ───────────────────────────
+  # Só na rede interna "ml": sem porta, sem internet, sem banco. O app o chama em
+  # http://ml:8001 (ML_SERVICE_URL no app.env); ele confere o token do app pela chave pública
+  # em http://web:3000/api/auth/jwks. O PDF e a senha ficam só na memória.
+  ml:
+    <<: *hardening
+    image: ghcr.io/danillo-valle/fintrack-ml:${FINTRACK_VERSION:?o deploy define FINTRACK_VERSION}
+    restart: unless-stopped
+    environment:
+      ML_JWKS_URL: http://web:3000/api/auth/jwks
+    read_only: true
+    tmpfs:
+      - /tmp
+    networks: [ml]
+    # O healthcheck vem da imagem (services/ml/Dockerfile: GET /health a cada 30 s)
+    mem_limit: 512m
     logging: *logging
 
   # ── Caddy: a porta de entrada dentro do servidor ───────────────────────────────────────
@@ -169,6 +192,9 @@ networks:
         - subnet: 172.31.250.0/24
   dados:
     # Sem rota para fora: nem o banco nem quem estiver nesta rede alcança a internet por ela
+    internal: true
+  ml:
+    # Também sem rota para fora: só o app e o serviço Python (M09.4)
     internal: true
 
 volumes:

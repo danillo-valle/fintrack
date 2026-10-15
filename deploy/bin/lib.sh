@@ -28,6 +28,7 @@ COMPOSE_FILE="$REPO_DIR/deploy/compose.prod.yml"
 # Imagens publicadas pelo CI (job "imagem" do ci.yml)
 IMAGE_WEB="${IMAGE_WEB:-ghcr.io/danillo-valle/fintrack-web}"
 IMAGE_MIGRATE="${IMAGE_MIGRATE:-ghcr.io/danillo-valle/fintrack-migrate}"
+IMAGE_ML="${IMAGE_ML:-ghcr.io/danillo-valle/fintrack-ml}"
 REPO_URL="${REPO_URL:-https://github.com/danillo-valle/fintrack.git}"
 
 # Configurações de operação (retenção, Drive, Healthchecks), se o arquivo existir

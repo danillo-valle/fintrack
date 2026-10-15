@@ -5,7 +5,7 @@
 #   fintrack-deploy <commit> --force   tenta de novo um commit que já falhou uma vez
 #
 # Passo a passo (cada um só começa se o anterior deu certo):
-#   1. baixa as duas imagens do commit (web e migrate) do GHCR
+#   1. baixa as imagens do commit (web, migrate e, desde o M09.4, ml) do GHCR
 #   2. traz os arquivos de deploy/ do mesmo commit (compose, Caddyfile, scripts)
 #   3. faz um backup do banco ("antes do deploy")
 #   4. aplica as migrações novas (prisma migrate deploy)
@@ -46,7 +46,7 @@ main() {
   # 1. Imagens
   log "baixando as imagens"
   local image
-  for image in "$IMAGE_WEB:$target" "$IMAGE_MIGRATE:$target"; do
+  for image in "$IMAGE_WEB:$target" "$IMAGE_MIGRATE:$target" "$IMAGE_ML:$target"; do
     docker pull -q "$image" >/dev/null || fail "$target" "$previous" "não consegui baixar $image"
   done
   [ "$(image_revision "$IMAGE_WEB:$target")" = "$target" ] \
@@ -174,7 +174,7 @@ prune_images() {
   local keep_n="${KEEP_IMAGES:-3}" keep tag image
   keep=$( { current_version; cat "$STATE_DIR/versao-anterior" 2>/dev/null;
             awk '$3 == "ok" {print $2}' "$STATE_DIR/deploys.log" | tail -n "$keep_n"; } | sort -u)
-  for image in "$IMAGE_WEB" "$IMAGE_MIGRATE"; do
+  for image in "$IMAGE_WEB" "$IMAGE_MIGRATE" "$IMAGE_ML"; do
     docker image ls "$image" --format '{{.Tag}}' | while read -r tag; do
       is_commit "$tag" || continue
       grep -qx "$tag" <<<"$keep" || docker rmi -f "$image:$tag" >/dev/null 2>&1 || true

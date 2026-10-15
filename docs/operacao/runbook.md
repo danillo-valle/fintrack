@@ -207,6 +207,28 @@ sudo -u fintrack fintrack-compose exec db psql -U fintrack -c \
 | Chave perdida (servidor refeito sem a cópia do gerenciador) | `sudo -u fintrack fintrack-definir app.env CONNECTION_SECRET_KEYS --gerar-chave 2` (uma versão que a perdida não usava), reinicie o `web` e peça a cada pessoa que digite o Client Secret de novo |
 | Parar as buscas sem derrubar o site                         | `sudo -u fintrack fintrack-definir app.env SYNC_WORKER off`; `sudo -u fintrack fintrack-compose up -d web`. Para voltar: `on`                                                                     |
 
+## Fatura em PDF (serviço `ml`, M09.4)
+
+O PDF da fatura é lido pelo container `ml` (Python), na rede interna `ml`: sem porta, sem
+internet, sem banco. O app o chama em `http://ml:8001` (`ML_SERVICE_URL` no `app.env`); ele
+confere o token do app em `http://web:3000/api/auth/jwks`. O PDF e a senha nunca vão para disco
+nem para log.
+
+```bash
+# Saúde do serviço (o healthcheck da imagem)
+sudo -u fintrack fintrack-compose ps ml
+# As faturas recusadas (só o código e um detalhe sem dado do arquivo)
+sudo -u fintrack fintrack-compose logs --since 24h --no-log-prefix web | jq -R 'fromjson? | select(.event? == "file.rejected")'
+sudo -u fintrack fintrack-compose logs --since 24h ml
+```
+
+| Situação                                         | O que fazer                                                                                                                        |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| "O leitor de PDF não está ligado neste servidor" | Falta `ML_SERVICE_URL` no `app.env`: `sudo -u fintrack fintrack-definir app.env ML_SERVICE_URL http://ml:8001` e reinicie o `web`  |
+| "O leitor de PDF não respondeu agora"            | `fintrack-compose ps ml`: fora do ar? `fintrack-compose up -d ml`. O OFX continua funcionando enquanto isso                        |
+| "O leitor de PDF recusou o pedido"               | O token não passou (`ml.unauthorized` no log do `ml`): confira o relógio do servidor (`timedatectl`) e se o `web` responde ao JWKS |
+| Uma fatura de um banco novo não é lida           | Ajuste de perfil (skill `importador`): `python -m app.estrutura` no PDF, no seu computador; o PDF nunca vai para o servidor ou Git |
+
 ## Alertas
 
 | Alerta                               | Significa                                   | Primeiro passo                                    |
