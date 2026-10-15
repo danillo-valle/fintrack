@@ -26,7 +26,9 @@ Projeto de portfólio construído em módulos (M00 a M12); cada módulo é uma m
 - Revisão e reconciliação (M09.2): recebidos confirmados um a um ou em lote, par com o seu lançamento
   (mesmo valor, até 5 dias; a parcela pelo número), estorno ligado à compra, "Desfazer" e o final de
   cartão que o banco mandou e não está cadastrado (ADR-012)
-- Próximos módulos: OFX, PDF e serviço Python (M09.3 e M09.4), IA (M10)
+- Importar extrato (M09.3): arquivo OFX (1.x e 2.x) lido na memória e descartado, conferência antes de
+  gravar, conta sugerida pelo final, nada duplicado (o mesmo id ou o que já veio pelo Meu Pluggy) (ADR-013)
+- Próximos módulos: PDF e serviço Python (M09.4), IA (M10)
 
 Regras específicas do Next.js 16: @apps/web/AGENTS.md
 
@@ -68,7 +70,8 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
   `links.ts` (o caminho de cada número até a lista), `server/data.ts` (somas com cache), `server/queries.ts`
 - `apps/web/src/features/bank/` conexões bancárias (M09.1): credenciais, ligar contas, fila de busca
   (`server/jobs.ts`), página do cartão, recebidos e a categoria em um clique (`ui/category-picker.tsx`);
-  a revisão do M09.2 em `server/review.ts`, `server/review-actions.ts` e `ui/review/`
+  a revisão do M09.2 em `server/review.ts`, `server/review-actions.ts` e `ui/review/`; o extrato OFX
+  do M09.3 em `server/imports.ts`, `server/import-actions.ts` e `ui/import/`
 - `apps/web/src/lib/finance-cache.ts` etiqueta do cache das somas e `financeChanged` (chamado por toda action de dinheiro)
 - `apps/web/src/lib/labels.ts` nomes em português de formas de pagamento, tipos de conta etc.
 - `apps/web/src/proxy.ts` redireciona quem não tem sessão (conveniência, não barreira)
@@ -81,10 +84,11 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
   `transactions.ts`, `accounts.ts`, `categories.ts` (camadas da cascata) e `recurrences.ts` (M07),
   `installments.ts` (compra parcelada, M07.4), `budgets.ts` (orçado, divisão, cópia) e `dashboard.ts` (somas do painel, M08)
 - `packages/importers/` os provedores de dados do banco (`TransactionProvider`, Meu Pluggy, JSON com
-  dinheiro exato) e, em `testing/`, o banco sintético e a Pluggy de mentira
+  dinheiro exato), o leitor de OFX (`ofx/`, M09.3) e, em `testing/`, o banco sintético e a Pluggy de mentira
 - `packages/db/src/` do M09.1: `connection-secret.ts` (AES-256-GCM), `connections.ts` (credenciais e ligação),
   `sync.ts` (a busca idempotente) e `statements.ts` (faturas); `packages/core/src/sync.ts` as regras puras;
-  do M09.2: `packages/db/src/review.ts` (fila, par, estorno, lote, desfazer) e `packages/core/src/reconcile.ts`
+  do M09.2: `packages/db/src/review.ts` (fila, par, estorno, lote, desfazer) e `packages/core/src/reconcile.ts`;
+  do M09.3: `packages/db/src/file-imports.ts` (conferência e importação) e `packages/core/src/file-import.ts`
 - `docs/permissoes.md` quem pode fazer o quê (conferido por teste)
 - `docs/modelo-de-dados.md` diagrama das tabelas (conferido por teste)
 - `apps/web/e2e/` testes Playwright

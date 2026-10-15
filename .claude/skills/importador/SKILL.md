@@ -1,6 +1,6 @@
 ---
 name: importador
-description: Como os dados do banco entram no FinTrack (Meu Pluggy hoje; OFX e PDF no M09.3 e M09.4) - a interface TransactionProvider, dinheiro exato desde o JSON, a sincronização idempotente na fila pg-boss, recebidos fora das somas, faturas e o banco sintético dos testes. Use ao mexer em packages/importers, em packages/db/src/sync.ts, connections.ts ou statements.ts, em features/bank, ao criar um importador novo ou ao escrever teste com resposta de banco.
+description: Como os dados do banco entram no FinTrack (Meu Pluggy, extrato OFX; PDF no M09.4) - a interface TransactionProvider, dinheiro exato desde o JSON, a sincronização idempotente na fila pg-boss, recebidos fora das somas, faturas e o banco sintético dos testes. Use ao mexer em packages/importers, em packages/db/src/sync.ts, connections.ts, statements.ts ou file-imports.ts, em features/bank, ao criar um importador novo ou ao escrever teste com resposta de banco.
 ---
 
 # Importador (dados do banco)
@@ -44,18 +44,35 @@ Decisões: `docs/adr/0011-coleta-bancaria.md`. Tabelas: `docs/modelo-de-dados.md
 - **Recebido fora das somas**: consulta nova de total ou painel filtra `status <> 'PENDING'`
   (há teste de integração para a lista, os totais e o painel).
 
-## Importador novo (OFX no M09.3, PDF no M09.4)
+## Extrato OFX (M09.3, ADR-013)
 
-1. Um adaptador em `packages/importers/src/<fonte>/` que devolve os mesmos tipos de
-   `provider.ts`. Se a fonte não tiver "contas" e "faturas" (OFX de um arquivo só), escreva um
-   adaptador fino que monte o que faltar, em vez de mudar o `runSync` para cada fonte.
-2. `externalId`: o id da fonte (FITID no OFX); sem id, um hash estável de data + valor +
-   descrição + ordem no arquivo, documentado.
-3. Valor `source` novo (enum, migração aditiva, skill `prisma-migration`).
-4. Testes: unitário do adaptador com arquivo **sintético escrito à mão** em `samples/` (a
-   única pasta com .ofx, .pdf, .csv ou planilha) e integração no `runSync` provando idempotência.
-5. Arquivo enviado pela pessoa: tamanho máximo, tipo conferido pelo conteúdo, nunca gravado em
-   disco fora do processamento, e reautenticação como no CSV do M07.
+- Leitor puro: `packages/importers/src/ofx/parse.ts` (`parseOfx`, `sniffOfx`, `fileFingerprint`).
+  OFX 1 (SGML, latin-1) e 2 (XML); até 2 MB (`MAX_OFX_BYTES`); tipo pelos primeiros bytes;
+  erros como código `OFX_*`, sem dado do arquivo.
+- `externalId` = FITID; sem FITID ou repetido, hash estável (`h:` + 32 hex) de FITID + data +
+  valor + descrição + a ordem entre as linhas iguais.
+- Duas etapas (`packages/db/src/file-imports.ts`): `createFilePreview` (só o resumo, o SHA-256
+  e as linhas lidas, 1 hora, só de quem enviou) e `importFilePreview` (confere de novo e grava).
+  O arquivo nunca é gravado em disco, log ou auditoria.
+- Sem duplicar (`classifyImportRows`, core): "já importado" (mesmo id na conta) e "já veio pelo
+  Meu Pluggy" (recebido `OPEN_FINANCE` com o mesmo valor e a mesma data, um para um).
+- Conta sugerida: `suggestImportAccount` (arquivo anterior do mesmo banco e final, final do
+  cartão, única do tipo). Importa só quem edita a carteira da conta.
+- Sem reautenticação (decisão do ADR-013): importar só acrescenta Recebidos fora das somas.
+
+## Importador novo (PDF no M09.4)
+
+1. Um leitor em `packages/importers/src/<fonte>/` que devolve as linhas no formato do OFX
+   (`OfxTransaction`: id, data, descrição, valor, forma, parcela) e um resumo (banco, final,
+   período). A conferência e a gravação do M09.3 servem de novo; não crie outro caminho.
+2. `externalId`: o id da fonte; sem id, um hash estável de data + valor + descrição + ordem no
+   arquivo, documentado.
+3. Valor novo de `FileImportKind` (migração aditiva, skill `prisma-migration`).
+4. Testes: unitário do leitor com arquivo **sintético escrito à mão** em `samples/` (a única
+   pasta com .ofx, .pdf, .csv ou planilha, sem sequência de 13 a 19 dígitos fora das datas) e
+   integração provando que importar duas vezes não duplica.
+5. Arquivo enviado pela pessoa: tamanho máximo, tipo conferido pelo conteúdo, lido na memória e
+   descartado; só o SHA-256 fica.
 
 ## Testes sem banco de verdade
 
@@ -72,6 +89,6 @@ Decisões: `docs/adr/0011-coleta-bancaria.md`. Tabelas: `docs/modelo-de-dados.md
 
 ```bash
 pnpm --filter @fintrack/importers test
-pnpm --filter @fintrack/db test:integration -- coleta-bancaria revisao
-pnpm --filter @fintrack/web exec playwright test coleta-bancaria revisao
+pnpm --filter @fintrack/db test:integration -- coleta-bancaria revisao importar-extrato
+pnpm --filter @fintrack/web exec playwright test coleta-bancaria revisao importar-extrato
 ```
