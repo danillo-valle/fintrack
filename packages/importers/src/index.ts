@@ -9,3 +9,4 @@ export {
   type PluggyCredentials,
 } from "./pluggy/client";
 export { PluggyProvider } from "./pluggy/adapter";
+export * from "./ofx";
