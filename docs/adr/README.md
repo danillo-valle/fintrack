@@ -21,3 +21,4 @@ Modelo para um ADR novo: copie `0001-stack-e-monorepo.md` e troque o conteúdo.
 | 011 | [Coleta bancária com o Meu Pluggy](0011-coleta-bancaria.md)                                  | aceita |
 | 012 | [Revisão e reconciliação do que vem do banco](0012-revisao-e-reconciliacao.md)               | aceita |
 | 013 | [Importar extrato OFX](0013-importar-extrato.md)                                             | aceita |
+| 014 | [Fatura do cartão em PDF e o serviço Python](0014-fatura-em-pdf.md)                          | aceita |
