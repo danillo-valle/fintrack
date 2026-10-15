@@ -5,6 +5,7 @@ export {
   OfxError,
   parseOfx,
   sniffOfx,
+  stripComments,
   type OfxErrorCode,
   type OfxStatement,
   type OfxTransaction,

@@ -3,7 +3,14 @@
 // variações montadas aqui. Nenhum extrato real.
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { fileFingerprint, isOfxError, MAX_OFX_BYTES, parseOfx, sniffOfx } from "./parse";
+import {
+  fileFingerprint,
+  isOfxError,
+  MAX_OFX_BYTES,
+  parseOfx,
+  sniffOfx,
+  stripComments,
+} from "./parse";
 
 const SAMPLES = new URL("../../../../samples/ofx/", import.meta.url);
 const aurora = readFileSync(new URL("aurora-conta-4321.ofx", SAMPLES));
@@ -261,5 +268,41 @@ describe("parseOfx: detalhes", () => {
       "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
     );
     expect(fileFingerprint(aurora)).not.toBe(fileFingerprint(visa));
+  });
+});
+
+describe("stripComments: comentários fora, sem expressão regular", () => {
+  it("tira um, vários e o que não fecha", () => {
+    expect(stripComments("a<!-- x -->b<!--y-->c")).toBe("abc");
+    expect(stripComments("a<!-- sem fim <TRNAMT>-1.00")).toBe("a");
+    expect(stripComments("sem comentário")).toBe("sem comentário");
+  });
+
+  it("o que sobra de uma passada não vira comentário novo", () => {
+    expect(stripComments("<!<!--x-->--x-->")).toBe("<!--x-->");
+  });
+
+  it("muitos '<!--' seguidos terminam rápido (linear)", () => {
+    const evil = "<!--".repeat(200_000);
+    const start = performance.now();
+    expect(stripComments(evil)).toBe("");
+    expect(performance.now() - start).toBeLessThan(1000);
+  });
+
+  it("entidade fora do Unicode fica como veio", () => {
+    const file = sgml(
+      list(trn("<DTPOSTED>20261001<TRNAMT>-1.00<FITID>a<MEMO>LOJA &#99999999; &#x41;")),
+    );
+    expect(parseOfx(latin1(file)).transactions[0]!.description).toBe("LOJA &#99999999; A");
+  });
+
+  it("uma tag dentro de comentário não entra no extrato", () => {
+    const file = sgml(
+      list(
+        trn("<DTPOSTED>20261001<TRNAMT>-1.00<FITID>a<MEMO>CAFE") +
+          "<!-- <STMTTRN><TRNAMT>-999.00 -->",
+      ),
+    );
+    expect(parseOfx(latin1(file)).transactions.map((t) => t.amount)).toEqual([-100n]);
   });
 });

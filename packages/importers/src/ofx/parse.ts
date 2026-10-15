@@ -129,17 +129,38 @@ const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"'
 
 function unescape(text: string): string {
   return text.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, ref: string) => {
-    if (ref.startsWith("#x") || ref.startsWith("#X"))
-      return String.fromCodePoint(Number.parseInt(ref.slice(2), 16));
-    if (ref.startsWith("#")) return String.fromCodePoint(Number.parseInt(ref.slice(1), 10));
+    if (ref.startsWith("#")) {
+      const hex = ref[1] === "x" || ref[1] === "X";
+      const code = Number.parseInt(ref.slice(hex ? 2 : 1), hex ? 16 : 10);
+      // Código fora do Unicode (&#99999999;) fica como veio, em vez de derrubar a leitura
+      return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : whole;
+    }
     return ENTITIES[ref.toLowerCase()] ?? whole;
   });
+}
+
+/**
+ * Tira os comentários (<!-- … -->) numa passada só, com indexOf: sem expressão regular (uma
+ * regex preguiçosa aqui é quadrática com muitos "<!--" e, trocando em uma passada, deixaria
+ * pedaços como "<!<!--x-->--" virarem um comentário novo). Comentário sem fim: some até o fim.
+ */
+export function stripComments(text: string): string {
+  let out = "";
+  let from = 0;
+  for (;;) {
+    const open = text.indexOf("<!--", from);
+    if (open < 0) return out + text.slice(from);
+    out += text.slice(from, open);
+    const close = text.indexOf("-->", open + 4);
+    if (close < 0) return out;
+    from = close + 3;
+  }
 }
 
 function parseTree(text: string): OfxNode {
   const start = text.search(/<OFX>/i);
   if (start < 0) throw new OfxError("OFX_NOT_RECOGNIZED", "sem <OFX>");
-  const body = text.slice(start).replace(/<!--[\s\S]*?-->/g, "");
+  const body = stripComments(text.slice(start));
   const root: OfxNode = { name: "#root", value: null, children: [] };
   const stack: OfxNode[] = [root];
   const tag = /<(\/?)([A-Za-z0-9._]+)>([^<]*)/g;
