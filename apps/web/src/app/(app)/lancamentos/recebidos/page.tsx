@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Check, Inbox } from "lucide-react";
+import Link from "next/link";
+import { Check, Inbox, Upload } from "lucide-react";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { SegmentedNav } from "@/components/visual/segmented-nav";
@@ -7,11 +8,12 @@ import { parseReviewView, type ReviewView } from "@/features/bank/schemas";
 import { getReviewPage } from "@/features/bank/server/review";
 import { FinalsNotice } from "@/features/bank/ui/review/finals-notice";
 import { PairCard } from "@/features/bank/ui/review/pair-card";
-import { MAIN_BUTTON } from "@/features/bank/ui/review/parts";
+import { MAIN_BUTTON, SMALL_BUTTON } from "@/features/bank/ui/review/parts";
 import { ReceivedGroup } from "@/features/bank/ui/review/received-group";
 import { ReviewActions, ReviewForm, ReviewSubmit } from "@/features/bank/ui/review/review-actions";
 import { SyncLine } from "@/features/bank/ui/sync-line";
 import { requireUser } from "@/lib/auth/session";
+import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Recebidos do banco" };
 
@@ -54,14 +56,21 @@ export default async function ReviewPage({ searchParams }: PageProps<"/lancament
           </>
         }
         actions={
-          page.sync.canSync || page.sync.lastSyncedAt ? (
-            <SyncLine
-              bankUpdatedAt={page.sync.bankUpdatedAt}
-              lastSyncedAt={page.sync.lastSyncedAt}
-              canSync={page.sync.canSync}
-              compact
-            />
-          ) : null
+          <>
+            {page.sync.canSync || page.sync.lastSyncedAt ? (
+              <SyncLine
+                bankUpdatedAt={page.sync.bankUpdatedAt}
+                lastSyncedAt={page.sync.lastSyncedAt}
+                canSync={page.sync.canSync}
+                compact
+              />
+            ) : null}
+            {/* M09.3: o extrato .ofx do banco entra aqui, como os recebidos do Meu Pluggy */}
+            <Link href="/lancamentos/importar" className={cn(SMALL_BUTTON, "gap-1.5")}>
+              <Upload aria-hidden className="size-4" />
+              Importar OFX
+            </Link>
+          </>
         }
       />
       <noscript>
@@ -72,7 +81,7 @@ export default async function ReviewPage({ searchParams }: PageProps<"/lancament
         <EmptyState
           icon={Inbox}
           title="Nada para revisar"
-          description="Tudo o que veio do banco já foi conferido. A próxima busca traz o que for novo."
+          description="Tudo o que veio do banco já foi conferido. A próxima busca (ou um extrato .ofx importado) traz o que for novo."
         />
       ) : (
         <div className="flex flex-col gap-4 md:gap-5">

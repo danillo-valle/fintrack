@@ -34,6 +34,18 @@ const dateTimeFormat = new Intl.DateTimeFormat(APP_LOCALE, {
   minute: "2-digit",
 });
 
+const shortDayFormat = new Intl.DateTimeFormat(APP_LOCALE, {
+  timeZone: APP_TIME_ZONE,
+  day: "2-digit",
+  month: "2-digit",
+});
+
+const timeFormat = new Intl.DateTimeFormat(APP_LOCALE, {
+  timeZone: APP_TIME_ZONE,
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
 // en-CA formata como AAAA-MM-DD, o formato do <input type="date">
 const isoDayFormat = new Intl.DateTimeFormat("en-CA", {
   timeZone: APP_TIME_ZONE,
@@ -50,6 +62,11 @@ export function formatDate(date: Date): string {
 /** 01/10/2026, 14:05 (usado na lista de sessões) */
 export function formatDateTime(date: Date): string {
   return dateTimeFormat.format(date);
+}
+
+/** O dia e a hora separados, sem o ano: { day: "02/10", time: "19:40" } (M09.3) */
+export function dayAndTime(date: Date): { day: string; time: string } {
+  return { day: shortDayFormat.format(date), time: timeFormat.format(date) };
 }
 
 /** 1 de outubro de 2026 */
