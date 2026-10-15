@@ -68,6 +68,8 @@ erDiagram
     Wallet |o--o{ PaymentCard : "compras importadas entram em (M09.1)"
     Transaction ||--o{ TransactionMatch : "recebido do par (M09.2)"
     Transaction ||--o{ TransactionMatch : "seu lançamento (M09.2)"
+    FinancialAccount |o--o{ FileImport : "extrato importado (M09.3)"
+    FileImport |o--o{ Transaction : "linhas do arquivo (M09.3)"
 
     Category |o--o{ Category : "subcategoria de"
     Category |o--o{ Transaction : classifica
@@ -189,6 +191,7 @@ erDiagram
         char providerCardLastFour "final que o banco mandou (M09.2)"
         timestamp reviewedAt "conferido (M09.2)"
         uuid mergedIntoId "juntado ao recebido (M09.2)"
+        uuid fileImportId FK "extrato de origem (M09.3)"
     }
     TransactionMatch {
         uuid id PK
@@ -256,6 +259,14 @@ erDiagram
         date paidOn
         decimal amount "14,2"
     }
+    FileImport {
+        uuid id PK
+        uuid accountId FK "a conta em que entrou"
+        char sha256 "impressão digital (nunca o arquivo)"
+        enum status "PREVIEW | IMPORTED"
+        char accountLastFour "só o final"
+        json preview "linhas lidas, só enquanto confere"
+    }
     AuditLog {
         bigint id PK
         string actorId "sem FK"
@@ -303,6 +314,8 @@ registro sobreviver mesmo que a pessoa ou o grupo sejam apagados.
 | "Quem categorizou" só existe com categoria (M07)                         | CHECK `transaction_categorized_by_check`                              |
 | Transferência não tem categoria (M07)                                    | CHECK `transaction_transfer_category_check`                           |
 | Exemplo de treino é uma correção de verdade (M07)                        | CHECKs `categorization_example_change_check` e `_source_check`        |
+| Extrato importado guarda só SHA-256, o final e as contagens (M09.3)      | CHECKs de `file_import` (`_sha256_check`, `_last_four_check`...)      |
+| Só linha de origem OFX aponta para o arquivo (M09.3)                     | CHECK `transaction_file_import_check`                                 |
 
 Cada regra tem um teste em `packages/db/src/integration/`, que tenta quebrá-la contra o
 PostgreSQL de verdade (`pnpm test:integration`).
@@ -398,6 +411,20 @@ OPEN_FINANCE` e o id do banco em `externalId`. A chave única (conta, origem, id
   Final que não está cadastrado deixa o recebido sem cartão (nunca no titular); cadastrar o
   cartão leva os recebidos dele para o cartão e o ambiente do portador (`rerouteReceived`).
 - As decisões e o porquê estão no [ADR-012](adr/0012-revisao-e-reconciliacao.md).
+
+## Importar extrato (M09.3)
+
+- **O arquivo nunca é guardado.** O OFX é lido na memória (`parseOfx`) e descartado; fica em
+  `file_import` a impressão digital (SHA-256), o banco, o final da conta ou do cartão, o período
+  e as contagens. Enquanto a pessoa confere (até 1 hora), as linhas lidas ficam em `preview`;
+  ao importar, `preview` vira nulo (CHECK) e a conferência vencida é apagada.
+- **Cada linha nova** entra como Recebido (`PENDING`, origem `OFX`, `externalId` = FITID) com
+  `fileImportId`, e ganha a revisão do M09.2. A chave única `(accountId, source, externalId)`
+  faz o mesmo arquivo (ou um que se sobrepõe) não entrar duas vezes.
+- **Sem duplicar o Meu Pluggy:** na conta ligada, a linha do arquivo com o mesmo valor e a mesma
+  data de um recebido do banco não entra ("já veio pelo Meu Pluggy"); cada recebido cobre uma
+  linha só (`classifyImportRows`).
+- As decisões e o porquê estão no [ADR-013](adr/0013-importar-extrato.md).
 
 ## Como ler o dinheiro
 

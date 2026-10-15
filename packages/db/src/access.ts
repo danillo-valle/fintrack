@@ -197,6 +197,9 @@ export type DomainErrorCode =
   | "PAIR_NOT_ALLOWED" // os dois lançamentos não obedecem à regra do par (valor, conta, datas)
   | "REFUND_NOT_ALLOWED" // o crédito não estorna aquela compra (valor, loja, prazo de 90 dias)
   | "UNDO_EXPIRED" // o "Desfazer" já não vale (outra pessoa decidiu, ou o lançamento mudou)
+  // ── Importar extrato (M09.3) ──
+  | "FILE_PREVIEW_EXPIRED" // a conferência venceu (1 hora), foi cancelada ou já foi importada
+  | "FILE_ACCOUNT_KIND_MISMATCH" // extrato de conta só em corrente ou poupança; fatura, em cartão
   | "NOT_FOUND";
 
 // ── M07: contas, lançamentos e listas que juntam várias carteiras ───────────────

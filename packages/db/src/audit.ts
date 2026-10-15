@@ -65,7 +65,9 @@ export type AuditAction =
   | "transaction.paired"
   | "transaction.pair_rejected"
   | "transaction.refund_linked"
-  | "transaction.match_undone";
+  | "transaction.match_undone"
+  // M09.3: extrato importado (só ids e contagens; nunca nome do arquivo, final ou valor)
+  | "file.imported";
 
 export type AuditEntry = {
   actorId: string | null;
@@ -84,7 +86,8 @@ export type AuditEntry = {
     | "payment_card"
     | "category"
     | "category_rule"
-    | "provider_connection";
+    | "provider_connection"
+    | "file_import";
   entityId: string;
   metadata?: Prisma.InputJsonObject;
 };

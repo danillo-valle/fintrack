@@ -47,6 +47,7 @@ export type {
   HouseholdMember,
   InstallmentGroup,
   PaymentCard,
+  FileImport,
   ProviderConnection,
   Recurrence,
   SyncRun,
@@ -86,3 +87,6 @@ export * from "./statements";
 
 // Revisão e reconciliação (M09.2): a fila dos recebidos, os pares e o desfazer (ADR-012)
 export * from "./review";
+
+// Importar extrato (M09.3): o arquivo OFX lido vira Recebidos, sem duplicar (ADR-013)
+export * from "./file-imports";
