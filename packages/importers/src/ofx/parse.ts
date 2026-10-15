@@ -12,7 +12,6 @@
 // Saem os tipos do FinTrack (dinheiro bigint exato, data civil, só os 4 últimos dígitos). O
 // número inteiro da conta ou do cartão (ACCTID) é lido aqui e DESCARTADO aqui: nada além do final
 // sai desta função, nem em erro.
-import { createHash } from "node:crypto";
 import {
   fitsInColumn,
   importedDescription,
@@ -25,7 +24,7 @@ import {
   type StatementKind,
 } from "@fintrack/core";
 import { moneyFromText } from "../exact-json";
-import type { ProviderTransaction } from "../provider";
+import { stableRowId, type FileTransaction, type StatementFile } from "../statement-file";
 
 /** O maior arquivo aceito: um ano de extrato de conta movimentada fica bem abaixo disso. */
 export const MAX_OFX_BYTES = 2 * 1024 * 1024;
@@ -62,30 +61,11 @@ export function isOfxError(error: unknown): error is OfxError {
   return error instanceof OfxError;
 }
 
-/** Um lançamento do arquivo, nos campos que o importador grava. */
-export type OfxTransaction = Pick<
-  ProviderTransaction,
-  "externalId" | "occurredOn" | "description" | "amount" | "paymentHint" | "installment"
->;
+/** Um lançamento do arquivo (o mesmo tipo do PDF). */
+export type OfxTransaction = FileTransaction;
 
-export type OfxStatement = {
-  version: 1 | 2;
-  kind: StatementKind;
-  /** Nome do banco (FI/ORG), quando o arquivo traz */
-  institution: string | null;
-  /** Código do banco (BANKID), só no extrato de conta */
-  bankId: string | null;
-  /** Os 4 últimos dígitos da conta ou do cartão */
-  lastFour: string | null;
-  accountType: "CHECKING" | "SAVINGS" | "CREDIT_CARD";
-  /** O período do extrato (DTSTART/DTEND; sem eles, a primeira e a última data) */
-  period: { from: CivilDate; to: CivilDate } | null;
-  /** Saldo (LEDGERBAL) e o dia dele */
-  balance: { amount: Cents; on: CivilDate } | null;
-  transactions: OfxTransaction[];
-  /** Linhas que não viram lançamento: valor zero e o pagamento da fatura no extrato do cartão */
-  skipped: number;
-};
+/** O extrato lido do OFX: o StatementFile, com a versão do formato. */
+export type OfxStatement = StatementFile & { format: "OFX"; version: 1 | 2 };
 
 // ── Bytes → texto ───────────────────────────────────────────────────────────────
 
@@ -215,10 +195,6 @@ function amountOf(value: string | null): Cents | null {
   return moneyFromText(raw);
 }
 
-function fallbackId(parts: readonly string[]): string {
-  return createHash("sha256").update(parts.join("\u001f")).digest("hex").slice(0, 32);
-}
-
 // ── O extrato ───────────────────────────────────────────────────────────────────
 
 /**
@@ -292,7 +268,7 @@ export function parseOfx(bytes: Uint8Array): OfxStatement {
       const key = [fitid ?? "", occurredOn, String(amount), description].join("|");
       const ordinal = seen.get(key) ?? 0;
       seen.set(key, ordinal + 1);
-      externalId = `h:${fallbackId([key, String(ordinal)])}`;
+      externalId = `h:${stableRowId([key, String(ordinal)])}`;
     }
 
     transactions.push({
@@ -320,6 +296,7 @@ export function parseOfx(bytes: Uint8Array): OfxStatement {
   const balanceOn = civilOf(text(ledger, "DTASOF"));
 
   return {
+    format: "OFX",
     version,
     kind,
     institution: org ? importedDescription(org).slice(0, 80) : null,
@@ -330,10 +307,7 @@ export function parseOfx(bytes: Uint8Array): OfxStatement {
     balance: balanceAmount !== null && balanceOn ? { amount: balanceAmount, on: balanceOn } : null,
     transactions,
     skipped,
+    invoice: null,
+    profile: null,
   };
-}
-
-/** A impressão digital do arquivo (SHA-256): o que fica guardado no lugar do arquivo. */
-export function fileFingerprint(bytes: Uint8Array): string {
-  return createHash("sha256").update(bytes).digest("hex");
 }

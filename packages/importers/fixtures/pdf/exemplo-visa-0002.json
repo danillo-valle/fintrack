@@ -1,0 +1,77 @@
+{
+  "kind": "CREDIT_CARD",
+  "profile": "Banco Exemplo",
+  "institution": "Banco Exemplo",
+  "lastFour": "0002",
+  "dueDate": "2026-11-10",
+  "closingDate": "2026-11-01",
+  "total": "2093.51",
+  "minimum": "314.03",
+  "charges": [
+    {
+      "kind": "IOF",
+      "amount": "13.51"
+    },
+    {
+      "kind": "REMUNERATIVE_INTEREST",
+      "amount": "30.00"
+    }
+  ],
+  "period": {
+    "from": "2026-10-01",
+    "to": "2026-10-28"
+  },
+  "transactions": [
+    {
+      "occurredOn": "2026-10-01",
+      "description": "RESTAURANTE SABOR",
+      "amount": "-54.20"
+    },
+    {
+      "occurredOn": "2026-10-02",
+      "description": "ESTORNO RESTAURANTE SABOR",
+      "amount": "54.20"
+    },
+    {
+      "occurredOn": "2026-10-04",
+      "description": "POSTO ESTRELA",
+      "amount": "-88.40"
+    },
+    {
+      "occurredOn": "2026-10-06",
+      "description": "STREAMING GLOBAL USD 6,50",
+      "amount": "-36.00"
+    },
+    {
+      "occurredOn": "2026-10-08",
+      "description": "LIVRARIA NOBRE PARC 04/06",
+      "amount": "-199.90"
+    },
+    {
+      "occurredOn": "2026-10-15",
+      "description": "MERCADO BOM PRECO",
+      "amount": "-312.48"
+    },
+    {
+      "occurredOn": "2026-10-18",
+      "description": "FARMACIA CENTRAL",
+      "amount": "-47.90"
+    },
+    {
+      "occurredOn": "2026-10-20",
+      "description": "LOJA DE CASA",
+      "amount": "-1200.00"
+    },
+    {
+      "occurredOn": "2026-10-25",
+      "description": "PADARIA PAO QUENTE",
+      "amount": "-23.50"
+    },
+    {
+      "occurredOn": "2026-10-28",
+      "description": "SUPERMERCADO CENTRAL",
+      "amount": "-141.82"
+    }
+  ],
+  "skipped": 1
+}

@@ -14,7 +14,8 @@
     "LOG_LEVEL",
     "CONNECTION_SECRET_KEYS",
     "PLUGGY_API_URL",
-    "SYNC_WORKER"
+    "SYNC_WORKER",
+    "ML_SERVICE_URL"
   ],
   "tasks": {
     "build": {

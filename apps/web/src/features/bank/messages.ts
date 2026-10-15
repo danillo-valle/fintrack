@@ -1,7 +1,7 @@
 // Textos em português da coleta bancária (M09.1): os códigos de erro da Pluggy e da
 // sincronização, como aparecem no aviso do formulário e no histórico de sincronizações.
 // Funções puras (sem banco): usadas no servidor e nos componentes.
-import type { OfxErrorCode, ProviderErrorCode } from "@fintrack/importers";
+import type { OfxErrorCode, PdfErrorCode, ProviderErrorCode } from "@fintrack/importers";
 
 const PROVIDER_MESSAGE: Record<ProviderErrorCode | "SYNC_FAILED", string> = {
   PROVIDER_AUTH_FAILED:
@@ -49,7 +49,7 @@ export function syncErrorShort(code: string | null | undefined): string {
 // ── Importar extrato (M09.3) ────────────────────────────────────────────────────
 
 const OFX_MESSAGE: Record<OfxErrorCode | "OFX_EMPTY", string> = {
-  OFX_EMPTY: "Escolha o arquivo .ofx que você baixou do banco.",
+  OFX_EMPTY: "Escolha o extrato .ofx ou a fatura .pdf que você baixou do banco.",
   OFX_TOO_LARGE: "O arquivo passa de 2 MB. Baixe do banco um período menor (um mês, por exemplo).",
   OFX_NOT_RECOGNIZED:
     "Esse arquivo não é um extrato OFX. No app ou no site do banco, procure Extrato › Exportar › OFX.",
@@ -65,5 +65,34 @@ const OFX_MESSAGE: Record<OfxErrorCode | "OFX_EMPTY", string> = {
 export function ofxErrorMessage(code: string): string {
   return (
     (OFX_MESSAGE as Record<string, string>)[code] ?? "Não deu para ler o arquivo. Tente de novo."
+  );
+}
+
+// ── Fatura em PDF (M09.4) ───────────────────────────────────────────────────────
+
+const PDF_MESSAGE: Record<PdfErrorCode, string> = {
+  PDF_TOO_LARGE: "O PDF passa de 5 MB. Baixe do banco só a fatura do mês.",
+  PDF_TOO_MANY_PAGES: "O PDF tem mais de 30 páginas. Baixe do banco só a fatura do mês.",
+  PDF_NOT_RECOGNIZED:
+    "Não deu para abrir esse PDF. Baixe a fatura de novo do app ou do site do banco.",
+  PDF_PASSWORD_REQUIRED: "Este PDF tem senha. Digite a senha para abrir.",
+  PDF_PASSWORD_WRONG: "A senha não abriu o PDF. Confira e tente de novo.",
+  PDF_NO_TEXT:
+    "Esse PDF é uma imagem (escaneado ou foto) e não tem texto para ler. Baixe a fatura original do banco.",
+  PDF_NO_STATEMENT:
+    "O PDF não parece uma fatura de cartão: faltam o vencimento ou o total. Para extrato da conta, use o OFX.",
+  PDF_BAD_DATA:
+    "Uma linha da fatura tem data ou valor que não dá para ler. Baixe a fatura de novo do banco.",
+  PDF_SERVICE_UNAVAILABLE:
+    "O leitor de PDF não respondeu agora. Tente de novo em alguns minutos; o OFX continua funcionando.",
+  PDF_SERVICE_REJECTED: "O leitor de PDF recusou o pedido. Os detalhes estão no log do servidor.",
+  PDF_SERVICE_NOT_CONFIGURED:
+    "O leitor de PDF não está ligado neste servidor. Por enquanto, importe o OFX do banco.",
+};
+
+/** Frase para um código do leitor de PDF (a fatura foi recusada antes de qualquer gravação). */
+export function pdfErrorMessage(code: string): string {
+  return (
+    (PDF_MESSAGE as Record<string, string>)[code] ?? "Não deu para ler a fatura. Tente de novo."
   );
 }

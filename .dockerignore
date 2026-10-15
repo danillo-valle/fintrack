@@ -23,6 +23,9 @@ packages/db/src/generated
 apps/web/playwright-report
 apps/web/test-results
 apps/web/e2e/.auth
+# O ambiente Python do serviço (M09.4): a imagem dele é outra (services/ml/Dockerfile)
+**/.venv
+**/__pycache__
 
 # Coisas do seu ambiente, sem uso no build
 .git

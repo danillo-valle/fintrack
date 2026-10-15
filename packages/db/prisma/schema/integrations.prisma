@@ -175,9 +175,10 @@ model AuditLog {
   @@map("audit_log")
 }
 
-/// O tipo de arquivo enviado (M09.3: OFX; o PDF da fatura vem no M09.4).
+/// O tipo de arquivo enviado (M09.3: OFX; M09.4: o PDF da fatura, lido pelo serviço Python).
 enum FileImportKind {
   OFX
+  PDF
 
   @@map("file_import_kind")
 }
@@ -229,6 +230,13 @@ model FileImport {
   alreadyImportedCount Int               @default(0)
   /// Linhas que não viram lançamento (o pagamento da fatura no extrato do cartão)
   skippedCount         Int               @default(0)
+  /// O perfil que leu o PDF ("Banco Exemplo", "genérico"), M09.4. CHECK: só no PDF
+  profile              String?
+  /// A fatura do PDF (M09.4): total − (compras + encargos) lidos do arquivo. Zero = confere ao
+  /// centavo. CHECK: só no PDF
+  invoiceDifference    Decimal?          @db.Decimal(14, 2)
+  /// A fatura do cartão em que o PDF entrou (M09.4)
+  statementId          String?           @db.Uuid
   /// As linhas lidas, enquanto a pessoa confere. CHECK: nulo quando IMPORTED
   preview              Json?
   /// Até quando a conferência vale (1 hora); depois disso a linha é apagada
@@ -241,6 +249,7 @@ model FileImport {
   user         User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
   // Composta e NoAction (regra 7 da skill): conta em uso é arquivada, não apagada
   account      FinancialAccount? @relation(fields: [accountId, householdId], references: [id, householdId], onDelete: NoAction)
+  statement    CardStatement?    @relation(fields: [statementId], references: [id], onDelete: SetNull)
   transactions Transaction[]
 
   // Alvo da chave composta do lançamento
@@ -250,5 +259,6 @@ model FileImport {
   @@index([householdId, createdAt(sort: Desc)])
   @@index([userId])
   @@index([accountId])
+  @@index([statementId])
   @@map("file_import")
 }

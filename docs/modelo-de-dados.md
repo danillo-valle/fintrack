@@ -70,6 +70,7 @@ erDiagram
     Transaction ||--o{ TransactionMatch : "seu lançamento (M09.2)"
     FinancialAccount |o--o{ FileImport : "extrato importado (M09.3)"
     FileImport |o--o{ Transaction : "linhas do arquivo (M09.3)"
+    CardStatement |o--o{ FileImport : "fatura em PDF (M09.4)"
 
     Category |o--o{ Category : "subcategoria de"
     Category |o--o{ Transaction : classifica
@@ -191,7 +192,7 @@ erDiagram
         char providerCardLastFour "final que o banco mandou (M09.2)"
         timestamp reviewedAt "conferido (M09.2)"
         uuid mergedIntoId "juntado ao recebido (M09.2)"
-        uuid fileImportId FK "extrato de origem (M09.3)"
+        uuid fileImportId FK "arquivo de origem: OFX (M09.3) ou PDF (M09.4)"
     }
     TransactionMatch {
         uuid id PK
@@ -263,9 +264,13 @@ erDiagram
         uuid id PK
         uuid accountId FK "a conta em que entrou"
         char sha256 "impressão digital (nunca o arquivo)"
+        enum kind "OFX | PDF (M09.4)"
         enum status "PREVIEW | IMPORTED"
         char accountLastFour "só o final"
         json preview "linhas lidas, só enquanto confere"
+        string profile "perfil que leu o PDF (M09.4)"
+        decimal invoiceDifference "14,2; fatura confere = 0 (M09.4)"
+        uuid statementId FK "fatura do PDF (M09.4)"
     }
     AuditLog {
         bigint id PK

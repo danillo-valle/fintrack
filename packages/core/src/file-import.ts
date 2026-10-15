@@ -3,7 +3,8 @@
 //
 //   installmentFromDescription   a parcela ("PARC 03/06") escrita na descrição do banco
 //   paymentHintFromText          PIX, boleto ou transferência pelo tipo e pela descrição
-//   classifyImportRows           cada linha do arquivo: nova, já veio pelo Meu Pluggy ou já importada
+//   matchImportRows              cada linha do arquivo: nova, já veio pelo Meu Pluggy ou já importada
+//                                (pelo id, ou pelo outro formato de arquivo: OFX ↔ PDF)
 //   importAccountKinds           que tipo de conta pode receber um extrato de conta ou de cartão
 //   suggestImportAccount         em qual conta o arquivo entra (a pessoa confirma)
 //
@@ -49,36 +50,57 @@ export function paymentHintFromText(type: string | null, description: string): P
 
 export type ImportRowState = "NEW" | "PLUGGY" | "IMPORTED";
 
+/** Um lançamento que já está na conta e pode "cobrir" uma linha do arquivo. */
+export type ExistingForImport = { id?: string; occurredOn: CivilDate; amount: Cents };
+
 /**
- * O estado de cada linha do arquivo, na ordem do arquivo:
- *   IMPORTED  o id da linha (FITID) já existe nesta conta, vindo de outro arquivo
- *   PLUGGY    a conta está ligada ao Meu Pluggy e já há um recebido dele com o mesmo valor e a
- *             mesma data. Cada recebido "cobre" uma linha só: dois cafés iguais no mesmo dia no
- *             arquivo e um no banco = um PLUGGY e um NEW
+ * O estado de cada linha do arquivo, na ordem do arquivo, e qual lançamento já existente a cobriu:
+ *   IMPORTED  o id da linha (FITID, ou o hash do PDF) já existe nesta conta, vindo de outro
+ *             arquivo do mesmo formato; OU (M09.4) a mesma compra já entrou por um arquivo do
+ *             OUTRO formato (o OFX do mês e depois o PDF da mesma fatura): mesmo valor e data
+ *   PLUGGY    já há um recebido do Meu Pluggy com o mesmo valor e a mesma data
  *   NEW       entra como Recebido
+ * Cada lançamento existente "cobre" uma linha só: dois cafés iguais no mesmo dia no arquivo e um
+ * no banco = um PLUGGY e um NEW. O Meu Pluggy é procurado antes do outro formato.
  */
-export function classifyImportRows(input: {
+export function matchImportRows(input: {
   rows: readonly { externalId: string; occurredOn: CivilDate; amount: Cents }[];
-  /** Os ids de arquivo (externalId com origem OFX) que a conta já tem */
+  /** Os ids de arquivo (externalId com a mesma origem) que a conta já tem */
   importedIds: ReadonlySet<string>;
   /** Os lançamentos do Meu Pluggy da conta no período (apagados não entram) */
-  fromPluggy: readonly { occurredOn: CivilDate; amount: Cents }[];
-}): ImportRowState[] {
-  const available = new Map<string, number>();
-  for (const row of input.fromPluggy) {
-    const key = `${row.occurredOn}|${row.amount}`;
-    available.set(key, (available.get(key) ?? 0) + 1);
-  }
-  return input.rows.map((row) => {
-    if (input.importedIds.has(row.externalId)) return "IMPORTED";
-    const key = `${row.occurredOn}|${row.amount}`;
-    const left = available.get(key) ?? 0;
-    if (left > 0) {
-      available.set(key, left - 1);
-      return "PLUGGY";
+  fromPluggy: readonly ExistingForImport[];
+  /** Os lançamentos que vieram de arquivo do outro formato (OFX ↔ PDF), não apagados */
+  fromOtherFiles?: readonly ExistingForImport[];
+}): { state: ImportRowState; matchedId: string | null }[] {
+  const pool = (list: readonly ExistingForImport[]) => {
+    const map = new Map<string, (string | null)[]>();
+    for (const row of list) {
+      const key = `${row.occurredOn}|${row.amount}`;
+      map.set(key, [...(map.get(key) ?? []), row.id ?? null]);
     }
-    return "NEW";
+    return map;
+  };
+  const take = (map: Map<string, (string | null)[]>, key: string) => {
+    const left = map.get(key);
+    if (!left || left.length === 0) return undefined;
+    return left.shift() as string | null;
+  };
+  const pluggy = pool(input.fromPluggy);
+  const other = pool(input.fromOtherFiles ?? []);
+  return input.rows.map((row) => {
+    if (input.importedIds.has(row.externalId)) return { state: "IMPORTED", matchedId: null };
+    const key = `${row.occurredOn}|${row.amount}`;
+    const byPluggy = take(pluggy, key);
+    if (byPluggy !== undefined) return { state: "PLUGGY", matchedId: byPluggy };
+    const byOther = take(other, key);
+    if (byOther !== undefined) return { state: "IMPORTED", matchedId: byOther };
+    return { state: "NEW", matchedId: null };
   });
+}
+
+/** Só os estados de matchImportRows (a tela e as contagens). */
+export function classifyImportRows(input: Parameters<typeof matchImportRows>[0]): ImportRowState[] {
+  return matchImportRows(input).map((m) => m.state);
 }
 
 // ── Em qual conta ───────────────────────────────────────────────────────────────

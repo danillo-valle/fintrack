@@ -10,3 +10,12 @@ export {
 } from "./pluggy/client";
 export { PluggyProvider } from "./pluggy/adapter";
 export * from "./ofx";
+export * from "./pdf";
+export {
+  fileFingerprint,
+  stableRowId,
+  stableRowIds,
+  type FileInvoice,
+  type FileTransaction,
+  type StatementFile,
+} from "./statement-file";

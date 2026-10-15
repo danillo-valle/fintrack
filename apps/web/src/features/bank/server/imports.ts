@@ -1,4 +1,4 @@
-// Leituras de "Importar extrato" (M09.3, linha E.3 do canvas). A conferência é de quem enviou;
+// Leituras de "Importar extrato" (M09.3, linha E.3 do canvas; a fatura em PDF, M09.4, E.4). A conferência é de quem enviou;
 // o histórico mostra os arquivos das contas que a pessoa vê.
 import "server-only";
 import {
@@ -16,7 +16,7 @@ import { requireScope } from "@/lib/access";
 import type { Session } from "@/lib/auth";
 
 // Os tipos que as telas usam (features/*/ui não importa @fintrack/db, nem só o tipo)
-export type { FileImportSummary, PreviewRow } from "@fintrack/db";
+export type { FileImportSummary, InvoiceCheck, PreviewRow } from "@fintrack/db";
 
 /** A tela de envio: pode importar (edita alguma carteira), o histórico e o resultado do último. */
 export async function getImportPage(session: Session, importedId: string | null) {
@@ -52,7 +52,9 @@ export async function getPreviewPage(
     id && isUuid(id) ? (preview.accounts.find((a) => a.id === id) ?? null) : null;
   const picked = byId(chosen);
   const account = picked ?? byId(preview.suggestion?.accountId) ?? preview.accounts[0] ?? null;
-  const states = account ? await classifyPreviewRows(prisma, account.id, preview.rows) : [];
+  const states = account
+    ? await classifyPreviewRows(prisma, account.id, preview.rows, preview.format)
+    : [];
   const counts = { NEW: 0, PLUGGY: 0, IMPORTED: 0 } satisfies Record<ImportRowState, number>;
   for (const state of states) counts[state] += 1;
   if (!account) counts.NEW = preview.rows.length;

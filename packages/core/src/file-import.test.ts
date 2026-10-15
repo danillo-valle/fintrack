@@ -2,6 +2,7 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
   classifyImportRows,
+  matchImportRows,
   importAccountKinds,
   installmentFromDescription,
   paymentHintFromText,
@@ -154,5 +155,37 @@ describe("suggestImportAccount", () => {
     expect(
       suggestImportAccount({ kind: "CREDIT_CARD", lastFour: "0002", candidates: [] }),
     ).toBeNull();
+  });
+});
+
+describe("matchImportRows (M09.4: o outro formato de arquivo)", () => {
+  const row = (externalId: string, occurredOn: string, amount: bigint) => ({
+    externalId,
+    occurredOn,
+    amount,
+  });
+
+  it("o PDF da fatura depois do OFX do mês: a mesma compra é 'já importado'", () => {
+    const matches = matchImportRows({
+      rows: [row("p:a", "2026-10-04", -8840n), row("p:b", "2026-10-05", -100n)],
+      importedIds: new Set(),
+      fromPluggy: [],
+      fromOtherFiles: [{ id: "ofx-1", occurredOn: "2026-10-04", amount: -8840n }],
+    });
+    expect(matches).toEqual([
+      { state: "IMPORTED", matchedId: "ofx-1" },
+      { state: "NEW", matchedId: null },
+    ]);
+  });
+
+  it("o Meu Pluggy vem antes do outro arquivo, e cada um cobre uma linha", () => {
+    const matches = matchImportRows({
+      rows: [row("p:a", "2026-10-04", -500n), row("p:b", "2026-10-04", -500n)],
+      importedIds: new Set(),
+      fromPluggy: [{ id: "pl-1", occurredOn: "2026-10-04", amount: -500n }],
+      fromOtherFiles: [{ id: "ofx-1", occurredOn: "2026-10-04", amount: -500n }],
+    });
+    expect(matches.map((m) => m.matchedId)).toEqual(["pl-1", "ofx-1"]);
+    expect(matches.map((m) => m.state)).toEqual(["PLUGGY", "IMPORTED"]);
   });
 });

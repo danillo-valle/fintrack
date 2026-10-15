@@ -28,7 +28,10 @@ Projeto de portfólio construído em módulos (M00 a M12); cada módulo é uma m
   cartão que o banco mandou e não está cadastrado (ADR-012)
 - Importar extrato (M09.3): arquivo OFX (1.x e 2.x) lido na memória e descartado, conferência antes de
   gravar, conta sugerida pelo final, nada duplicado (o mesmo id ou o que já veio pelo Meu Pluggy) (ADR-013)
-- Próximos módulos: PDF e serviço Python (M09.4), IA (M10)
+- Fatura em PDF (M09.4): serviço Python `services/ml` (FastAPI, pdfplumber, uv) só na rede interna, com
+  token curto do Better Auth (JWKS); leitor genérico com perfis, senha pedida na hora e nunca guardada,
+  a fatura conferida ao centavo e gravada com os encargos; mesma conferência do OFX (ADR-014)
+- Próximo módulo: IA (M10)
 
 Regras específicas do Next.js 16: @apps/web/AGENTS.md
 
@@ -43,7 +46,9 @@ Regras específicas do Next.js 16: @apps/web/AGENTS.md
 - `bash scripts/gerar-schema-auth.sh` atualiza as tabelas do Better Auth depois de mudar o `auth.ts`
 - `pnpm check` roda lint, tipos, testes e build (o mesmo que o CI)
 - `pnpm --filter @fintrack/web test` roda só os testes do app web
-- `pnpm e2e` roda os testes de ponta a ponta (sobe o app e a Pluggy de mentira, se não estiverem rodando)
+- `pnpm e2e` roda os testes de ponta a ponta (sobe o app, a Pluggy de mentira e o serviço Python, se não estiverem rodando)
+- `pnpm ml:dev` sobe o serviço Python que lê o PDF da fatura em http://127.0.0.1:8001 (precisa do uv;
+  `pnpm --filter @fintrack/ml test` roda o pytest)
 - `pnpm pluggy:fake` sobe a Pluggy de mentira (banco sintético) em http://127.0.0.1:8787, para o `pnpm dev`
 - `bash scripts/lighthouse-a11y.sh` mede a acessibilidade com o Lighthouse (precisa do `pnpm dev`)
 - `pnpm format` formata tudo com Prettier
@@ -71,7 +76,7 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
 - `apps/web/src/features/bank/` conexões bancárias (M09.1): credenciais, ligar contas, fila de busca
   (`server/jobs.ts`), página do cartão, recebidos e a categoria em um clique (`ui/category-picker.tsx`);
   a revisão do M09.2 em `server/review.ts`, `server/review-actions.ts` e `ui/review/`; o extrato OFX
-  do M09.3 em `server/imports.ts`, `server/import-actions.ts` e `ui/import/`
+  do M09.3 e a fatura em PDF do M09.4 em `server/imports.ts`, `server/import-actions.ts` e `ui/import/`
 - `apps/web/src/lib/finance-cache.ts` etiqueta do cache das somas e `financeChanged` (chamado por toda action de dinheiro)
 - `apps/web/src/lib/labels.ts` nomes em português de formas de pagamento, tipos de conta etc.
 - `apps/web/src/proxy.ts` redireciona quem não tem sessão (conveniência, não barreira)
@@ -84,7 +89,10 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
   `transactions.ts`, `accounts.ts`, `categories.ts` (camadas da cascata) e `recurrences.ts` (M07),
   `installments.ts` (compra parcelada, M07.4), `budgets.ts` (orçado, divisão, cópia) e `dashboard.ts` (somas do painel, M08)
 - `packages/importers/` os provedores de dados do banco (`TransactionProvider`, Meu Pluggy, JSON com
-  dinheiro exato), o leitor de OFX (`ofx/`, M09.3) e, em `testing/`, o banco sintético e a Pluggy de mentira
+  dinheiro exato), o leitor de OFX (`ofx/`, M09.3), o cliente do serviço de PDF (`pdf/`, M09.4) e, em
+  `testing/`, o banco sintético e a Pluggy de mentira
+- `services/ml/` o serviço Python (M09.4): `app/fatura.py` (leitor), `app/perfis.py` (um perfil por banco),
+  `app/auth.py` (token pelo JWKS), `app/estrutura.py` (a estrutura de um PDF real, sem valores)
 - `packages/db/src/` do M09.1: `connection-secret.ts` (AES-256-GCM), `connections.ts` (credenciais e ligação),
   `sync.ts` (a busca idempotente) e `statements.ts` (faturas); `packages/core/src/sync.ts` as regras puras;
   do M09.2: `packages/db/src/review.ts` (fila, par, estorno, lote, desfazer) e `packages/core/src/reconcile.ts`;

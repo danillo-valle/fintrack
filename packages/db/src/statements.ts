@@ -7,6 +7,10 @@
 //
 // No M09.1 a fatura conta só o que veio do banco (source OPEN_FINANCE): os lançamentos manuais
 // do mesmo cartão são casados com os do banco na reconciliação do M09.2.
+//
+// M09.4: a fatura fechada também pode vir do PDF que a pessoa importou (source PDF), e as
+// compras ligadas a ela podem ter vindo do Meu Pluggy, do OFX ou do próprio PDF. Os lançamentos
+// manuais (as parcelas do M04) continuam fora da conferência: são casados na revisão.
 import {
   civilFromDbDate,
   compareCivil,
@@ -18,7 +22,17 @@ import {
 } from "@fintrack/core";
 import type { AccountViewGrant } from "./access";
 import type { Prisma, PrismaClient } from "./generated/prisma/client";
+import type { TransactionSource } from "./generated/prisma/enums";
 import { fromDbDecimal, fromDbDecimalOrNull } from "./money";
+
+/** As faturas fechadas que a página confere: as do banco e as do PDF importado (M09.4). */
+const STATEMENT_SOURCES = ["OPEN_FINANCE", "PDF"] as const satisfies readonly TransactionSource[];
+/** As compras que contam na conferência: as que vieram do banco ou de arquivo. */
+const IMPORTED_SOURCES = [
+  "OPEN_FINANCE",
+  "OFX",
+  "PDF",
+] as const satisfies readonly TransactionSource[];
 
 const RECEIVED_SELECT = {
   id: true,
@@ -79,7 +93,11 @@ export async function cardStatementView(
   const [balance, closed] = await Promise.all([
     db.accountBalance.findUnique({ where: { accountId: account.id } }),
     db.cardStatement.findMany({
-      where: { accountId: account.id, source: "OPEN_FINANCE", total: { not: null } },
+      where: {
+        accountId: account.id,
+        source: { in: [...STATEMENT_SOURCES] },
+        total: { not: null },
+      },
       orderBy: { dueDate: "desc" },
       take: 6,
       select: {
@@ -90,6 +108,7 @@ export async function cardStatementView(
         total: true,
         minimumPayment: true,
         status: true,
+        source: true,
         charges: { select: { kind: true, amount: true } },
         payments: { orderBy: { paidOn: "asc" }, select: { paidOn: true, amount: true } },
       },
@@ -137,7 +156,7 @@ export async function cardStatementView(
         by: ["statementId"],
         where: {
           statementId: { in: closed.map((s) => s.id) },
-          source: "OPEN_FINANCE",
+          source: { in: [...IMPORTED_SOURCES] },
           deletedAt: null,
           transferId: null,
         },
@@ -172,6 +191,8 @@ export async function cardStatementView(
       total,
       minimumPayment: fromDbDecimalOrNull(s.minimumPayment),
       status: s.status,
+      /** De onde a fatura veio: o banco (Meu Pluggy) ou o PDF importado */
+      source: s.source as (typeof STATEMENT_SOURCES)[number],
       purchases: -purchasesSum,
       purchaseCount: linked?._count._all ?? 0,
       charges,

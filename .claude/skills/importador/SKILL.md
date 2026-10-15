@@ -1,6 +1,6 @@
 ---
 name: importador
-description: Como os dados do banco entram no FinTrack (Meu Pluggy, extrato OFX; PDF no M09.4) - a interface TransactionProvider, dinheiro exato desde o JSON, a sincronização idempotente na fila pg-boss, recebidos fora das somas, faturas e o banco sintético dos testes. Use ao mexer em packages/importers, em packages/db/src/sync.ts, connections.ts, statements.ts ou file-imports.ts, em features/bank, ao criar um importador novo ou ao escrever teste com resposta de banco.
+description: Como os dados do banco entram no FinTrack (Meu Pluggy, extrato OFX, fatura em PDF pelo serviço Python) - a interface TransactionProvider, dinheiro exato desde o JSON, a sincronização idempotente na fila pg-boss, recebidos fora das somas, faturas e o banco sintético dos testes. Use ao mexer em packages/importers, em packages/db/src/sync.ts, connections.ts, statements.ts ou file-imports.ts, em services/ml, em features/bank, ao criar um importador novo ou ao escrever teste com resposta de banco.
 ---
 
 # Importador (dados do banco)
@@ -54,23 +54,47 @@ Decisões: `docs/adr/0011-coleta-bancaria.md`. Tabelas: `docs/modelo-de-dados.md
 - Duas etapas (`packages/db/src/file-imports.ts`): `createFilePreview` (só o resumo, o SHA-256
   e as linhas lidas, 1 hora, só de quem enviou) e `importFilePreview` (confere de novo e grava).
   O arquivo nunca é gravado em disco, log ou auditoria.
-- Sem duplicar (`classifyImportRows`, core): "já importado" (mesmo id na conta) e "já veio pelo
-  Meu Pluggy" (recebido `OPEN_FINANCE` com o mesmo valor e a mesma data, um para um).
+- Sem duplicar (`matchImportRows`, core): "já importado" (mesmo id na conta, ou a mesma compra
+  vinda do OUTRO formato, OFX ↔ PDF) e "já veio pelo Meu Pluggy" (recebido `OPEN_FINANCE` com o
+  mesmo valor e a mesma data, um para um).
 - Conta sugerida: `suggestImportAccount` (arquivo anterior do mesmo banco e final, final do
   cartão, única do tipo). Importa só quem edita a carteira da conta.
 - Sem reautenticação (decisão do ADR-013): importar só acrescenta Recebidos fora das somas.
 
-## Importador novo (PDF no M09.4)
+## Fatura em PDF (M09.4, ADR-014)
 
-1. Um leitor em `packages/importers/src/<fonte>/` que devolve as linhas no formato do OFX
-   (`OfxTransaction`: id, data, descrição, valor, forma, parcela) e um resumo (banco, final,
-   período). A conferência e a gravação do M09.3 servem de novo; não crie outro caminho.
+- Quem lê é o serviço Python `services/ml` (FastAPI + pdfplumber, uv): `POST /v1/faturas` com o
+  corpo cru do PDF (até 5 MB, 30 páginas), token `Bearer` e, se o PDF pedir, a senha em
+  `X-Pdf-Password` (base64url). Erro só como código `PDF_*`; log só com o código.
+- O leitor é genérico (data no começo da linha, valor no fim) com perfis por banco em
+  `app/perfis.py` (rótulos de vencimento, total, mínimo, fechamento; linhas ignoradas; nomes dos
+  encargos). Perfil novo: rode `uv run python -m app.estrutura fatura.pdf` no PDF real (mostra só
+  a estrutura, nenhum valor), escreva o perfil e um PDF SINTÉTICO equivalente em
+  `scripts/gerar_faturas.py`; o PDF real nunca entra no Git nem no chat.
+- O app: `readInvoice` (`packages/importers/src/pdf/invoice.ts`) chama o serviço com o token de
+  `mlServiceToken` (plugin `jwt` do Better Auth, 2 min, só no servidor) e devolve o mesmo
+  `StatementFile` do OFX, com `invoice` (vencimento, total, mínimo, encargos) e `profile`.
+  Linhas sem id: `p:` + hash de data, valor, descrição e ordem.
+- A senha: pedida na hora (`UploadState.pdf`), o arquivo fica só na aba e volta com ela; nunca é
+  gravada nem vai para log, auditoria ou navegador (`autocomplete="off"`).
+- Importar o PDF grava a fatura do cartão do vencimento (origem `PDF`, com os encargos) e liga a
+  ela as compras novas e as já existentes (`statementId`). A fatura do Meu Pluggy vale mais: o
+  PDF só liga as compras. A diferença vista na conferência fica em `invoiceDifference`.
+- O contrato entre os dois lados é o JSON `packages/importers/fixtures/pdf/exemplo-visa-0002.json`:
+  o pytest confere que o serviço o produz, e o vitest e a integração do db o usam.
+
+## Importador novo
+
+1. Um leitor que devolve o `StatementFile` (`packages/importers/src/statement-file.ts`): linhas
+   (id, data, descrição, valor, forma, parcela) e o resumo (banco, final, período; a fatura, se
+   houver). A conferência e a gravação servem de novo; não crie outro caminho.
 2. `externalId`: o id da fonte; sem id, um hash estável de data + valor + descrição + ordem no
-   arquivo, documentado.
-3. Valor novo de `FileImportKind` (migração aditiva, skill `prisma-migration`).
-4. Testes: unitário do leitor com arquivo **sintético escrito à mão** em `samples/` (a única
-   pasta com .ofx, .pdf, .csv ou planilha, sem sequência de 13 a 19 dígitos fora das datas) e
-   integração provando que importar duas vezes não duplica.
+   arquivo (`stableRowIds`), com um prefixo próprio.
+3. Valor novo de `FileImportKind` e de `TransactionSource`, se for o caso (migração aditiva, skill
+   `prisma-migration`); confira o `transaction_file_import_check`.
+4. Testes: unitário do leitor com arquivo **sintético** em `samples/` (a única pasta com .ofx,
+   .pdf, .csv ou planilha, sem sequência de 13 a 19 dígitos fora das datas) e integração provando
+   que importar duas vezes não duplica.
 5. Arquivo enviado pela pessoa: tamanho máximo, tipo conferido pelo conteúdo, lido na memória e
    descartado; só o SHA-256 fica.
 
@@ -89,6 +113,7 @@ Decisões: `docs/adr/0011-coleta-bancaria.md`. Tabelas: `docs/modelo-de-dados.md
 
 ```bash
 pnpm --filter @fintrack/importers test
-pnpm --filter @fintrack/db test:integration -- coleta-bancaria revisao importar-extrato
-pnpm --filter @fintrack/web exec playwright test coleta-bancaria revisao importar-extrato
+pnpm --filter @fintrack/ml test
+pnpm --filter @fintrack/db test:integration -- coleta-bancaria revisao importar-extrato fatura-pdf
+pnpm --filter @fintrack/web exec playwright test coleta-bancaria revisao importar-extrato fatura-pdf
 ```

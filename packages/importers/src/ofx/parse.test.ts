@@ -3,14 +3,8 @@
 // variações montadas aqui. Nenhum extrato real.
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import {
-  fileFingerprint,
-  isOfxError,
-  MAX_OFX_BYTES,
-  parseOfx,
-  sniffOfx,
-  stripComments,
-} from "./parse";
+import { isOfxError, MAX_OFX_BYTES, parseOfx, sniffOfx, stripComments } from "./parse";
+import { fileFingerprint } from "../statement-file";
 
 const SAMPLES = new URL("../../../../samples/ofx/", import.meta.url);
 const aurora = readFileSync(new URL("aurora-conta-4321.ofx", SAMPLES));

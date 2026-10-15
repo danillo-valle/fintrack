@@ -94,7 +94,7 @@ test("importar extrato: conta, arquivo repetido, cartão, erro e acesso", async 
   await openPage(page, "/lancamentos/importar");
   await expect(page.getByRole("heading", { level: 1, name: "Importar extrato" })).toBeVisible();
   await expectNoA11yViolations(page);
-  await shown(page.getByLabel("Escolha o arquivo .ofx do banco")).setInputFiles(AURORA);
+  await shown(page.getByLabel("Escolha o extrato .ofx ou a fatura .pdf")).setInputFiles(AURORA);
   await page.waitForURL(/\/lancamentos\/importar\/[0-9a-f-]{36}/);
   const conferUrl = page.url();
   await expect(shown(page.getByTestId("resumo-arquivo"))).toHaveText(
@@ -119,7 +119,7 @@ test("importar extrato: conta, arquivo repetido, cartão, erro e acesso", async 
   expect(await fromFile()).toBe("9");
 
   // ── 2. O mesmo arquivo de novo: o aviso e nada novo; Cancelar ──
-  await shown(page.getByLabel("Escolha o arquivo .ofx do banco")).setInputFiles(AURORA);
+  await shown(page.getByLabel("Escolha o extrato .ofx ou a fatura .pdf")).setInputFiles(AURORA);
   await page.waitForURL(/\/lancamentos\/importar\/[0-9a-f-]{36}/);
   await expect(shown(page.getByTestId("aviso-repetido"))).toContainText(
     "Este arquivo já foi importado",
@@ -136,7 +136,7 @@ test("importar extrato: conta, arquivo repetido, cartão, erro e acesso", async 
   expect(left[0]!.n).toBe("0");
 
   // ── 3. A fatura do cartão ──
-  await shown(page.getByLabel("Escolha o arquivo .ofx do banco")).setInputFiles(VISA);
+  await shown(page.getByLabel("Escolha o extrato .ofx ou a fatura .pdf")).setInputFiles(VISA);
   await page.waitForURL(/\/lancamentos\/importar\/[0-9a-f-]{36}/);
   await expect(shown(page.getByTestId("resumo-arquivo"))).toContainText("cartão final 0002");
   await expect(shown(page.getByLabel("Entra na conta"))).toHaveValue(accounts["Visa Exemplo"]!.id);
@@ -150,7 +150,7 @@ test("importar extrato: conta, arquivo repetido, cartão, erro e acesso", async 
   expect(await fromFile()).toBe("15");
 
   // ── 4. Um arquivo que não é OFX ──
-  await shown(page.getByLabel("Escolha o arquivo .ofx do banco")).setInputFiles({
+  await shown(page.getByLabel("Escolha o extrato .ofx ou a fatura .pdf")).setInputFiles({
     name: "planilha.ofx",
     mimeType: "application/x-ofx",
     buffer: Buffer.from("data;descricao;valor\n01/10/2026;CAFE;-3,00\n"),
@@ -161,7 +161,7 @@ test("importar extrato: conta, arquivo repetido, cartão, erro e acesso", async 
   expect(await fromFile()).toBe("15");
 
   // ── 5. Outra pessoa (a Ana) abre a conferência: 404 ──
-  await shown(page.getByLabel("Escolha o arquivo .ofx do banco")).setInputFiles(AURORA);
+  await shown(page.getByLabel("Escolha o extrato .ofx ou a fatura .pdf")).setInputFiles(AURORA);
   await page.waitForURL(/\/lancamentos\/importar\/[0-9a-f-]{36}/);
   const ana = await browser.newContext({ storageState: AUTH_FILE });
   const anaPage = await ana.newPage();

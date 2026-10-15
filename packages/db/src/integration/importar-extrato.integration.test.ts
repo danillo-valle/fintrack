@@ -28,6 +28,7 @@ import {
   deleteTestHousehold,
   prisma,
   TEST_CTX,
+  FILE_IMPORT_CLOCK,
   type TestHousehold,
 } from "./fixtures";
 
@@ -37,7 +38,8 @@ const visaBytes = readFileSync(new URL("exemplo-visa-0002.ofx", SAMPLES));
 const aurora = parseOfx(auroraBytes);
 const visa = parseOfx(visaBytes);
 
-const NOW = new Date("2026-10-10T15:00:00.000Z");
+// A janela deste arquivo no relógio comum (fixtures.ts, FILE_IMPORT_CLOCK)
+const NOW = FILE_IMPORT_CLOCK.ofx;
 const later = (ms: number) => new Date(NOW.getTime() + ms);
 const day = (d: string) => new Date(`${d}T00:00:00Z`);
 

@@ -46,6 +46,18 @@ jobs:
       - name: Instala as dependências exatamente como no lockfile
         run: pnpm install --frozen-lockfile
 
+      # M09.4: o serviço Python (services/ml), gerenciado pelo uv com as versões do uv.lock
+      - name: Instala o uv (o Python do serviço que lê o PDF)
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.32"
+          enable-cache: true
+          cache-dependency-glob: services/ml/uv.lock
+
+      - name: Instala o Python e as dependências exatas do serviço (uv.lock)
+        run: uv sync --frozen
+        working-directory: services/ml
+
       # Segredo aleatório a cada execução: nenhum segredo fixo no repositório
       - name: Gera um segredo temporário para o Better Auth
         run: |
@@ -121,6 +133,8 @@ jobs:
       MAILPIT_URL: http://localhost:8025
       # M09.1: a Pluggy de mentira (o playwright.config.ts sobe); nunca a de verdade no CI
       PLUGGY_API_URL: http://127.0.0.1:8787
+      # M09.4: o serviço Python de verdade (o playwright.config.ts sobe), com PDFs sintéticos
+      ML_SERVICE_URL: http://127.0.0.1:8001
     steps:
       - name: Baixa o código
         uses: actions/checkout@v7
@@ -136,6 +150,18 @@ jobs:
 
       - name: Instala as dependências
         run: pnpm install --frozen-lockfile
+
+      # M09.4: o serviço Python (services/ml), gerenciado pelo uv com as versões do uv.lock
+      - name: Instala o uv (o Python do serviço que lê o PDF)
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.32"
+          enable-cache: true
+          cache-dependency-glob: services/ml/uv.lock
+
+      - name: Instala o Python e as dependências exatas do serviço (uv.lock)
+        run: uv sync --frozen
+        working-directory: services/ml
 
       - name: Instala o Chromium do Playwright e as bibliotecas do sistema
         run: pnpm --filter @fintrack/web exec playwright install --with-deps chromium
@@ -248,6 +274,17 @@ jobs:
           cache-from: type=gha,scope=fintrack-migrate
           cache-to: type=gha,mode=max,scope=fintrack-migrate
 
+      # M09.4: o serviço Python. Contexto = services/ml (não a raiz)
+      - name: Constrói a imagem do serviço Python (ml)
+        uses: docker/build-push-action@v7
+        with:
+          context: services/ml
+          load: true
+          tags: fintrack-ml:ci
+          build-args: APP_VERSION=${{ github.sha }}
+          cache-from: type=gha,scope=fintrack-ml
+          cache-to: type=gha,mode=max,scope=fintrack-ml
+
       - name: Migrações num banco limpo, pela imagem
         run: docker run --rm --network host -e DATABASE_URL=postgresql://fintrack:fintrack@localhost:5432/fintrack fintrack-migrate:ci
 
@@ -265,9 +302,27 @@ jobs:
             fintrack-web:ci
           bash deploy/bin/smoke-test http://localhost:3000 "${{ github.sha }}"
 
+      - name: Teste de fumaça do serviço Python, endurecido como em produção
+        run: |
+          docker run -d --name ml --network host --read-only --tmpfs /tmp \
+            --cap-drop ALL --security-opt no-new-privileges:true \
+            -e ML_JWKS_URL=http://127.0.0.1:3000/api/auth/jwks \
+            fintrack-ml:ci
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:8001/health >/dev/null 2>&1 && break
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8001/health | grep -q '"ok"'
+          # Sem token, nada é lido: 401
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/pdf' \
+            --data-binary @samples/pdf/exemplo-visa-0002.pdf http://127.0.0.1:8001/v1/faturas)
+          test "$code" = 401 || { echo "esperava 401 sem token, veio $code"; exit 1; }
+
       - name: Mostra o log do app se algo falhou
         if: failure()
-        run: docker logs web || true
+        run: |
+          docker logs web || true
+          docker logs ml || true
 
       - name: Entra no GHCR (só na main)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -280,7 +335,7 @@ jobs:
       - name: Publica as imagens com o commit como etiqueta (só na main)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          for name in web migrate; do
+          for name in web migrate ml; do
             docker tag "fintrack-$name:ci" "ghcr.io/danillo-valle/fintrack-$name:${{ github.sha }}"
             docker push --quiet "ghcr.io/danillo-valle/fintrack-$name:${{ github.sha }}"
           done
@@ -310,7 +365,7 @@ jobs:
 
       - name: Etiqueta :main nas imagens deste commit (sem baixar nem reconstruir)
         run: |
-          for name in web migrate; do
+          for name in web migrate ml; do
             docker buildx imagetools create \
               --tag "ghcr.io/danillo-valle/fintrack-$name:main" \
               "ghcr.io/danillo-valle/fintrack-$name:${{ github.sha }}"

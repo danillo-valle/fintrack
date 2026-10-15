@@ -1,5 +1,4 @@
 export {
-  fileFingerprint,
   isOfxError,
   MAX_OFX_BYTES,
   OfxError,
