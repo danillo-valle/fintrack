@@ -156,7 +156,7 @@ model Transaction {
   /// Par (M09.2): o seu lançamento juntado ao recebido do banco aponta para ele e fica apagado
   /// (deletedAt). "Desfazer" volta os dois. CHECK: só junto com deletedAt
   mergedIntoId              String?               @db.Uuid
-  /// O extrato (OFX) de onde a linha veio (M09.3). Só com source OFX
+  /// O arquivo (OFX, M09.3; PDF da fatura, M09.4) de onde a linha veio. Só com source OFX ou PDF
   fileImportId              String?               @db.Uuid
   /// Quem lançou (nulo para o que veio de importação ou recorrência)
   createdById               String?
@@ -283,6 +283,8 @@ model CardStatement {
   transactions Transaction[]
   charges      StatementCharge[]
   payments     StatementPayment[]
+  /// Os PDFs da fatura que entraram nela (M09.4)
+  fileImports  FileImport[]
 
   // Alvo da chave composta (statementId, accountId): a compra está na fatura da própria conta
   @@unique([id, accountId])
