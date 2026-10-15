@@ -15,6 +15,8 @@ const AUTH_ONLY = new Set([
   "TwoFactor",
   "Passkey",
   "RateLimit",
+  // M09.4: as chaves do plugin jwt (tabela do Better Auth)
+  "Jwks",
 ]);
 
 function schemaModels(): string[] {

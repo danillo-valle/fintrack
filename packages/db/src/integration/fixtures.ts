@@ -159,6 +159,22 @@ export async function withPgClient<T>(fn: (client: pg.Client) => Promise<T>): Pr
 /** Contexto de requisição falso: a auditoria grava IP e navegador. */
 export const TEST_CTX = { ip: "203.0.113.7", userAgent: "vitest" };
 
+/**
+ * O relógio de mentira dos testes de arquivo importado (M09.3 OFX, M09.4 PDF).
+ *
+ * Toda conferência nova limpa as conferências vencidas de TODOS os lares (purgeExpiredPreviews),
+ * e os arquivos de teste rodam em paralelo no mesmo banco (no CI e numa máquina de 4 núcleos).
+ * Com relógios distantes, a limpeza de um arquivo apagava a conferência que o outro ia importar
+ * (FILE_PREVIEW_EXPIRED). Por isso as duas janelas ficam no mesmo dia e não se alcançam:
+ *   OFX  conferências das 15:00 às 15:07 (vencem até 16:07); limpa no máximo até 16:07
+ *   PDF  conferências das 15:20 às 15:23 (vencem a partir de 16:20); limpa no máximo até 15:23
+ * Arquivo novo que cria conferência: escolha uma janela que respeite as duas regras.
+ */
+export const FILE_IMPORT_CLOCK = {
+  ofx: new Date("2026-10-10T15:00:00.000Z"),
+  pdf: new Date("2026-10-10T15:20:00.000Z"),
+} as const;
+
 /** Uma pessoa avulsa, sem lar (para testar convite e "gente de fora"). */
 export async function createLoosePerson(label: string) {
   const tag = randomUUID().slice(0, 8);
