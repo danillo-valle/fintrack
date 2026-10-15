@@ -1,13 +1,16 @@
-// "Arquivos importados" (M09.3, pranchas E3-Importar e E3-CelImportar): o nome, a conta, o
-// período e o que aconteceu com as linhas. O arquivo em si não existe mais; só este resumo.
+// "Arquivos importados" (M09.3, pranchas E3-Importar e E3-CelImportar; M09.4, E4-Importar): o
+// nome, a conta, o período (na fatura em PDF, o vencimento) e o que aconteceu com as linhas e
+// com a fatura. O arquivo em si não existe mais; só este resumo.
 import { FileText } from "lucide-react";
+import { formatBRL } from "@/lib/money";
 import type { FileImportSummary } from "../../server/imports";
 import { dayAndTime } from "@/lib/dates";
 import { dayMonth } from "../review/parts";
+import { PdfGlyph } from "./pdf-file-icon";
 
 /** "31 entraram · 5 já vinham do Meu Pluggy" ou "0 entraram · arquivo já importado". */
 export function importOutcome(
-  f: Pick<FileImportSummary, "created" | "pluggy" | "alreadyImported">,
+  f: Pick<FileImportSummary, "created" | "pluggy" | "alreadyImported" | "invoice">,
 ) {
   const parts = [f.created === 1 ? "1 entrou" : `${f.created} entraram`];
   if (f.pluggy > 0)
@@ -16,6 +19,14 @@ export function importOutcome(
     parts.push("arquivo já importado");
   else if (f.alreadyImported > 0)
     parts.push(`${f.alreadyImported} já ${f.alreadyImported === 1 ? "importado" : "importados"}`);
+  if (f.invoice) {
+    const off = f.invoice.difference;
+    parts.push(
+      off === 0n
+        ? "fatura confere"
+        : `fatura não confere (${off > 0n ? "faltam" : "sobram"} ${formatBRL(off > 0n ? off : -off)})`,
+    );
+  }
   return parts.join(" · ");
 }
 
@@ -43,9 +54,11 @@ export function ImportHistory({ history }: { history: readonly FileImportSummary
         <ul className="divide-y" data-testid="arquivos-importados">
           {history.map((f) => {
             const when = dayAndTime(f.importedAt);
-            const period = f.period
-              ? `${dayMonth(f.period.from)} a ${dayMonth(f.period.to)}`
-              : "sem período";
+            const period = f.invoice?.dueDate
+              ? `vence ${dayMonth(f.invoice.dueDate)}`
+              : f.period
+                ? `${dayMonth(f.period.from)} a ${dayMonth(f.period.to)}`
+                : "sem período";
             return (
               <li
                 key={f.id}
@@ -55,7 +68,11 @@ export function ImportHistory({ history }: { history: readonly FileImportSummary
                   aria-hidden
                   className="bg-muted row-span-2 grid size-[2.125rem] place-items-center rounded-[0.625rem]"
                 >
-                  <FileText className="size-[1.125rem]" />
+                  {f.format === "PDF" ? (
+                    <PdfGlyph className="size-[1.125rem]" />
+                  ) : (
+                    <FileText className="size-[1.125rem]" />
+                  )}
                 </span>
                 <strong className="truncate text-[0.9375rem]">{f.fileName}</strong>
                 <span className="text-muted-foreground tabular hidden font-mono text-[0.8125rem] md:row-span-2 md:block">

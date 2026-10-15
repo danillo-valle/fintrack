@@ -1,10 +1,11 @@
 // Nomes em português do que o código chama em inglês (M07): formas de pagamento, tipos de
-// conta, quem categorizou, recorrências e cartões. Record<tipo, texto>: valor novo sem frase
+// conta, quem categorizou, recorrências, cartões e encargos da fatura. Record<tipo, texto>: valor novo sem frase
 // aqui vira erro de compilação. Sem banco: serve à tela do servidor e à do navegador.
 import type {
   AccountKind,
   CategorizationSource,
   PaymentMethod,
+  StatementChargeKind,
   TransactionKind,
 } from "@fintrack/core";
 
@@ -57,3 +58,12 @@ export const STATUS_LABEL = {
   SCHEDULED: "Agendado",
   CONFIRMED: "Confirmado",
 } as const;
+
+/** Encargos da fatura do cartão (M09.1; a fatura em PDF, M09.4). */
+export const CHARGE_LABEL: Record<StatementChargeKind, string> = {
+  IOF: "IOF",
+  LATE_INTEREST: "Juros de mora",
+  LATE_FEE: "Multa",
+  REMUNERATIVE_INTEREST: "Juros do rotativo",
+  OTHER: "Outros encargos",
+};

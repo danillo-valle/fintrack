@@ -10,6 +10,7 @@ import { ReceivedList } from "@/features/bank/ui/received-list";
 import { SyncLine } from "@/features/bank/ui/sync-line";
 import { notFoundOnDenied } from "@/lib/access";
 import { requireUser } from "@/lib/auth/session";
+import { CHARGE_LABEL } from "@/lib/labels";
 import { formatBRL } from "@/lib/money";
 import { TEXT_LINK } from "@/lib/styles";
 import { cn } from "@/lib/utils";
@@ -34,13 +35,6 @@ const MONTHS = [
   "dezembro",
 ];
 const monthName = (key: string) => MONTHS[Number.parseInt(key.slice(5, 7), 10) - 1] ?? key;
-const CHARGE_LABEL: Record<string, string> = {
-  IOF: "IOF",
-  LATE_INTEREST: "Juros de mora",
-  LATE_FEE: "Multa",
-  REMUNERATIVE_INTEREST: "Juros do rotativo",
-  OTHER: "Outros encargos",
-};
 
 // A página do cartão (M09.1, pranchas E-Cartao e E-CelCartao): a fatura aberta calculada das
 // compras que o banco já mandou (cada uma com a categoria em um clique) e a última fatura fechada
@@ -244,8 +238,9 @@ export default async function CardPage({ params }: PageProps<"/carteiras/conta/[
                 )}
               </div>
               <span className="text-muted-foreground text-[0.8125rem]">
-                Fechada pelo banco em {dm(latest.closingDate)} ·{" "}
-                {latest.status === "PAID" ? "venceu" : "vence"} em {dm(latest.dueDate)}
+                {latest.source === "PDF" ? "Da fatura em PDF · fechada" : "Fechada pelo banco"} em{" "}
+                {dm(latest.closingDate)} · {latest.status === "PAID" ? "venceu" : "vence"} em{" "}
+                {dm(latest.dueDate)}
               </span>
               <dl className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 text-[0.9375rem]">
                 <dt>Compras</dt>
@@ -255,7 +250,7 @@ export default async function CardPage({ params }: PageProps<"/carteiras/conta/[
                   .map((kind) => (
                     <ChargeRow
                       key={kind}
-                      label={CHARGE_LABEL[kind] ?? kind}
+                      label={CHARGE_LABEL[kind]}
                       cents={latest.charges
                         .filter((c) => c.kind === kind)
                         .reduce((sum, c) => sum + c.amount, 0n)}
@@ -287,6 +282,7 @@ export default async function CardPage({ params }: PageProps<"/carteiras/conta/[
               </dl>
               <Check
                 check={latest.check}
+                fromPdf={latest.source === "PDF"}
                 purchaseCount={latest.purchaseCount}
                 purchases={latest.purchases}
                 charges={latest.total - latest.purchases}
@@ -349,11 +345,14 @@ function ChargeRow({
 
 function Check({
   check,
+  fromPdf,
   purchaseCount,
   purchases,
   charges,
 }: {
   check: { kind: "matches" } | { kind: "partial" } | { kind: "difference"; difference: bigint };
+  /** A fatura veio do PDF importado (M09.4), não do banco */
+  fromPdf: boolean;
   purchaseCount: number;
   purchases: bigint;
   charges: bigint;
@@ -368,8 +367,8 @@ function Check({
         <span className="text-sm">
           <strong>Confere ao centavo.</strong> As {purchaseCount} compras ligadas a esta fatura
           somam {formatBRL(purchases)}; com{" "}
-          {charges > 0n ? `os encargos (${formatBRL(charges)})` : "os encargos"}, dão o total do
-          banco.
+          {charges > 0n ? `os encargos (${formatBRL(charges)})` : "os encargos"}, dão o total{" "}
+          {fromPdf ? "da fatura" : "do banco"}.
         </span>
       </div>
     );
@@ -395,8 +394,8 @@ function Check({
         <strong>
           Diferença de {formatBRL(check.difference < 0n ? -check.difference : check.difference)}
         </strong>{" "}
-        entre as compras recebidas e o total do banco. A conferência compra a compra vem com a
-        revisão (M09.2).
+        entre as compras recebidas e o total {fromPdf ? "da fatura (não confere)" : "do banco"}. A
+        conferência compra a compra vem com a revisão (M09.2).
       </span>
     </div>
   );

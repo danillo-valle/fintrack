@@ -41,9 +41,10 @@ const nextConfig: NextConfig = {
   // (src/lib/finance-cache.ts). O resto do app continua gerado a cada acesso.
   cacheComponents: true,
   experimental: {
-    // Importar extrato (M09.3): o arquivo .ofx vai numa Server Action. O leitor recusa mais de
-    // 2 MB; o limite aqui (o padrão é 1 MB) deixa folga para o resto do formulário.
-    serverActions: { bodySizeLimit: "3mb" },
+    // Importar extrato (M09.3) e a fatura em PDF (M09.4): o arquivo vai numa Server Action. O
+    // leitor recusa OFX acima de 2 MB e PDF acima de 5 MB; o limite aqui (o padrão é 1 MB) deixa
+    // folga para o resto do formulário.
+    serverActions: { bodySizeLimit: "6mb" },
     // A checagem de "navegação instantânea" (só no dev) vale apenas para as telas que pedirem
     // (export const instant = true). Toda tela do app começa pela sessão (requireUser), e o
     // loading.tsx cobre essa espera; sem isto, o log do dev avisaria em todas as páginas.

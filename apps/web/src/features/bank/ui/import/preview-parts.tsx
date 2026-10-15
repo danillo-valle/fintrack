@@ -1,18 +1,120 @@
-// As peças da conferência (M09.3, pranchas E3-Conferir, E3-Cartao e E3-CelConferir): o resumo
-// do arquivo, os três números (novos, Meu Pluggy, já importados) e as linhas com o estado de
+// As peças da conferência (M09.3, pranchas E3-Conferir, E3-Cartao e E3-CelConferir; M09.4,
+// E4-Conferir, E4-NaoConfere e E4-CelConferir): o resumo do arquivo, a fatura do PDF conferida
+// ao centavo, os três números (novos, Meu Pluggy, já importados) e as linhas com o estado de
 // cada uma. O estado está sempre escrito; a cor e o ícone só reforçam.
-import { CircleCheck, CreditCard, Landmark, Link2, Plus } from "lucide-react";
+import { CircleCheck, CreditCard, Landmark, Link2, Plus, TriangleAlert } from "lucide-react";
 import type { ImportRowState } from "@fintrack/core";
-import type { PreviewRow } from "../../server/imports";
+import type { InvoiceCheck, PreviewRow } from "../../server/imports";
 import { AmountText } from "@/components/money/amount-text";
 import { ToneChip } from "@/components/visual/tone-chip";
+import { CHARGE_LABEL } from "@/lib/labels";
 import { formatBRL } from "@/lib/money";
 import { dayMonth } from "../review/parts";
+import { PdfFileIcon } from "./pdf-file-icon";
 
 /** Quantas linhas a conferência mostra (o resto aparece em Recebidos depois). */
 export const PREVIEW_ROWS = 10;
 
 const year = (date: string) => date.slice(0, 4);
+const fullDate = (date: string) => `${dayMonth(date)}/${year(date)}`;
+
+/** O resumo da fatura em PDF: banco, final, vencimento e o perfil que leu. */
+export function InvoiceSummary({
+  institution,
+  lastFour,
+  dueDate,
+  fileName,
+  rowCount,
+  profile,
+}: {
+  institution: string | null;
+  lastFour: string | null;
+  dueDate: string;
+  fileName: string;
+  rowCount: number;
+  profile: string | null;
+}) {
+  const title = [
+    institution ?? "Fatura do cartão",
+    lastFour ? `cartão final ${lastFour}` : null,
+    `vence ${fullDate(dueDate)}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <div className="grid grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-3">
+      <PdfFileIcon tone={5} />
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <strong className="text-base" data-testid="resumo-arquivo">
+          {title}
+        </strong>
+        <span className="text-muted-foreground text-[0.8125rem] break-words">
+          {fileName} · {rowCount === 1 ? "1 lançamento" : `${rowCount} lançamentos`}
+          {profile ? ` · lido pelo perfil ${profile}` : ""}
+        </span>
+      </span>
+    </div>
+  );
+}
+
+/**
+ * "A fatura": as compras lidas + os encargos = o total impresso? Confere ao centavo, ou quanto
+ * falta (o PDF tem menos compras que o total) ou sobra. A situação vem escrita na etiqueta.
+ */
+export function InvoiceSettlement({ invoice }: { invoice: InvoiceCheck }) {
+  const off = invoice.difference;
+  const rows = [
+    { label: "Compras e créditos do período", cents: invoice.purchases },
+    ...invoice.charges.map((c) => ({ label: CHARGE_LABEL[c.kind], cents: c.amount })),
+  ];
+  return (
+    <section
+      aria-labelledby="a-fatura"
+      data-testid="fatura-conferida"
+      className="bg-muted/50 flex flex-col gap-1.5 rounded-2xl border px-3.5 py-3 md:px-[1.125rem] md:py-3.5"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 id="a-fatura" className="text-base font-extrabold">
+          A fatura
+        </h3>
+        {invoice.matches ? (
+          <ToneChip tone={5} icon={CircleCheck}>
+            Confere ao centavo
+          </ToneChip>
+        ) : (
+          <ToneChip tone={4} icon={TriangleAlert}>
+            {off > 0n ? "Faltam" : "Sobram"} {formatBRL(off > 0n ? off : -off)}
+          </ToneChip>
+        )}
+      </div>
+      <ul className="divide-y">
+        {rows.map((row, i) => (
+          <li key={i} className="flex justify-between gap-3 py-2 text-sm">
+            <span>{row.label}</span>
+            <span className="tabular font-mono font-semibold whitespace-nowrap">
+              {formatBRL(row.cents)}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <div className="border-foreground flex justify-between gap-3 border-t-2 pt-2.5">
+        <strong className="text-[0.9375rem]">Total da fatura</strong>
+        <span
+          className="tabular font-mono font-extrabold whitespace-nowrap"
+          data-testid="fatura-total-pdf"
+        >
+          {formatBRL(invoice.total)}
+        </span>
+      </div>
+      {invoice.minimum !== null ? (
+        <div className="text-muted-foreground flex justify-between gap-3 text-[0.8125rem]">
+          <span>Pagamento mínimo · vence {fullDate(invoice.dueDate)}</span>
+          <span className="tabular font-mono whitespace-nowrap">{formatBRL(invoice.minimum)}</span>
+        </div>
+      ) : null}
+    </section>
+  );
+}
 
 export function PreviewSummary({
   kind,
@@ -93,7 +195,14 @@ const TILE: Record<
   },
 };
 
-export function ImportTiles({ counts }: { counts: Record<ImportRowState, number> }) {
+export function ImportTiles({
+  counts,
+  format = "OFX",
+}: {
+  counts: Record<ImportRowState, number>;
+  /** No PDF, "já importado" também é a mesma compra vinda do OFX */
+  format?: "OFX" | "PDF";
+}) {
   return (
     <ul aria-label="O que acontece com as linhas" className="grid gap-2.5 md:grid-cols-3">
       {(["NEW", "PLUGGY", "IMPORTED"] as const).map((state) => {
@@ -115,7 +224,11 @@ export function ImportTiles({ counts }: { counts: Record<ImportRowState, number>
               {n}
             </span>
             <strong className="text-sm">{n === 1 ? tile.one : tile.many}</strong>
-            <span className="text-muted-foreground text-xs">{tile.note}</span>
+            <span className="text-muted-foreground text-xs">
+              {state === "IMPORTED" && format === "PDF"
+                ? "o mesmo lançamento de outro arquivo"
+                : tile.note}
+            </span>
           </li>
         );
       })}
