@@ -14,8 +14,9 @@ import { APIError, betterAuth } from "better-auth";
 import { createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
-import { haveIBeenPwned, twoFactor } from "better-auth/plugins";
+import { haveIBeenPwned, jwt, twoFactor } from "better-auth/plugins";
 import { isEmailAllowed } from "./auth/allowlist";
+import { ML_TOKEN } from "./auth/ml-token-claims";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "./auth/password-policy";
 import { isRecentlyAuthenticated, isSensitiveAuthPath } from "./auth/reauth";
 import { formatDateTime } from "./dates";
@@ -29,6 +30,8 @@ const ONE_DAY = 24 * ONE_HOUR;
 
 export const auth = betterAuth({
   appName: "FinTrack",
+  // M09.4: o JWT do plugin jwt nunca vai para o navegador (só o servidor assina)
+  disabledPaths: ["/token"],
   baseURL: env.BETTER_AUTH_URL,
   secret: env.BETTER_AUTH_SECRET,
   // Outros endereços aceitos como origem das requisições (proteção contra CSRF)
@@ -212,6 +215,14 @@ export const auth = betterAuth({
       enabled: env.HIBP_CHECK === "on",
       customPasswordCompromisedMessage:
         "Esta senha já apareceu em vazamentos de dados. Escolha outra, de preferência uma frase.",
+    }),
+    // M09.4 (ADR-014): o app assina um token CURTO para chamar o serviço Python (services/ml),
+    // que confere pela chave pública em /api/auth/jwks. Chave EdDSA guardada na tabela jwks, com a
+    // parte privada cifrada pelo BETTER_AUTH_SECRET. O /token (que daria o JWT ao navegador) fica
+    // desligado em disabledPaths: só o servidor assina, pelo auth.api.signJWT (ml-token.ts).
+    jwt({
+      jwt: { issuer: ML_TOKEN.issuer, audience: ML_TOKEN.audience, expirationTime: "2m" },
+      disableSettingJwtHeader: true,
     }),
     // Deixa as Server Actions gravarem os cookies da sessão. Precisa ser o último plugin.
     nextCookies(),
