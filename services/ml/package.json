@@ -1,0 +1,12 @@
+{
+  "name": "@fintrack/ml",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Ponte do Turbo para o serviço Python (uv): o pnpm check roda também o lint e os testes daqui",
+  "scripts": {
+    "dev": "uv run --frozen uvicorn app.main:app --host 127.0.0.1 --port 8001",
+    "lint": "uv run --frozen ruff check . && uv run --frozen ruff format --check .",
+    "typecheck": "uv run --frozen python -m compileall -q app",
+    "test": "uv run --frozen pytest -q"
+  }
+}

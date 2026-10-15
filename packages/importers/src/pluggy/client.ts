@@ -19,18 +19,18 @@ export const PLUGGY_API_URL = "https://api.pluggy.ai";
  * com regex: o replace(/\/+$/) que estava aqui é quadrático com muitas "/" seguidas de outro
  * caractere (o CodeQL acusou, js/polynomial-redos).
  */
-export function normalizeBaseUrl(raw: string): string {
+export function normalizeBaseUrl(raw: string, name = "PLUGGY_API_URL"): string {
   let url: URL;
   try {
     url = new URL(raw);
   } catch {
-    throw new Error("PLUGGY_API_URL não é um endereço válido");
+    throw new Error(`${name} não é um endereço válido`);
   }
   if (url.protocol !== "https:" && url.protocol !== "http:") {
-    throw new Error("PLUGGY_API_URL precisa começar com https:// ou http://");
+    throw new Error(`${name} precisa começar com https:// ou http://`);
   }
   if (url.username || url.password) {
-    throw new Error("PLUGGY_API_URL não pode ter usuário nem senha");
+    throw new Error(`${name} não pode ter usuário nem senha`);
   }
   const path = url.pathname;
   let end = path.length;

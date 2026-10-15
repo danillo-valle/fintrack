@@ -1,0 +1,9 @@
+# O que não entra no build da imagem do serviço Python (o contexto é esta pasta)
+.venv
+**/__pycache__
+.pytest_cache
+.ruff_cache
+tests
+scripts
+package.json
+*.md

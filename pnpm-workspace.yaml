@@ -1,6 +1,8 @@
 packages:
   - "apps/*"
   - "packages/*"
+  # M09.4: o serviço Python (uv) entra no Turbo por um package.json ponte (lint, test, dev)
+  - "services/*"
 
 allowBuilds:
   lefthook: true

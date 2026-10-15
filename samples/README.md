@@ -18,4 +18,18 @@ Escritos à mão, com os bancos inventados do banco sintético (`@fintrack/impor
   fica de fora). O número do cartão vem mascarado; o teste que prova que o número inteiro é
   descartado monta o número na hora.
 
+## pdf/ (M09.4)
+
+Gerados por `services/ml/scripts/gerar_faturas.py` (reportlab, sempre os mesmos bytes), com os
+mesmos bancos inventados:
+
+- `exemplo-visa-0002.pdf`: fatura do Visa do Banco Exemplo, final 0002, vence 10/11/2026: 10
+  compras e créditos (R$ 2.050,00), IOF R$ 13,51 e juros R$ 30,00 = total R$ 2.093,51 (confere
+  ao centavo); o pagamento da fatura anterior fica de fora. Lido pelo perfil "Banco Exemplo".
+- `exemplo-visa-0002-nao-confere.pdf`: a mesma, com total R$ 2.105,91 (faltam R$ 12,40).
+- `exemplo-visa-0002-senha-1234.pdf`: a mesma, com a senha `1234` (AES-256).
+- `norte-master-0003.pdf`: um banco sem perfil (o leitor genérico), com compras de dezembro na
+  fatura de janeiro (o ano vem do vencimento).
+- `escaneada.pdf`: só imagem, sem texto (o leitor recusa com uma frase).
+
 Nenhum arquivo aqui tem sequência de 13 a 19 dígitos fora das datas (o teste confere).
