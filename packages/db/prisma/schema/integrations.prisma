@@ -6,10 +6,15 @@
 //                              └─ FinancialAccount (connectionId + externalId) a conta ligada
 //   FinancialAccount ── AccountBalance           o último saldo e limite que o banco informou
 //   AuditLog                                     quem fez o quê, quando e de onde (só acrescenta)
+//   FileImport ── Transaction (fileImportId)     um extrato enviado pela pessoa (OFX, M09.3)
 //
 // M09.1 (ADR-011): o Client Secret fica CIFRADO (AES-256-GCM) com a chave fora do banco, na
 // variável CONNECTION_SECRET_KEYS; tudo que o banco manda entra como lançamento PENDING
 // ("recebido"), fora das somas até a revisão.
+//
+// M09.3 (ADR-013): o arquivo OFX é lido na memória e DESCARTADO. Fica a impressão digital
+// (SHA-256), para avisar "este arquivo já foi importado", e um resumo (banco, final, período,
+// contagens). As linhas lidas ficam só enquanto a pessoa confere (1 hora), e saem ao importar.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Provedor de dados bancários. Por enquanto, só o Meu Pluggy (Open Finance, M09).
@@ -168,4 +173,82 @@ model AuditLog {
   @@index([householdId, createdAt(sort: Desc)])
   @@index([actorId, createdAt(sort: Desc)])
   @@map("audit_log")
+}
+
+/// O tipo de arquivo enviado (M09.3: OFX; o PDF da fatura vem no M09.4).
+enum FileImportKind {
+  OFX
+
+  @@map("file_import_kind")
+}
+
+/// PREVIEW = a pessoa está conferindo (some ao cancelar ou depois de 1 hora); IMPORTED = entrou.
+enum FileImportStatus {
+  PREVIEW
+  IMPORTED
+
+  @@map("file_import_status")
+}
+
+/// Extrato de conta (corrente ou poupança) ou fatura de cartão.
+enum FileStatementKind {
+  BANK
+  CREDIT_CARD
+
+  @@map("file_statement_kind")
+}
+
+/// Um extrato enviado pela pessoa (M09.3, ADR-013). NUNCA o arquivo: só a impressão digital e
+/// um resumo. As linhas lidas (`preview`) existem só enquanto PREVIEW.
+model FileImport {
+  id                   String            @id @default(uuid(7)) @db.Uuid
+  householdId          String            @db.Uuid
+  /// Quem enviou (nulo se a pessoa sair do FinTrack: o histórico fica)
+  userId               String?
+  /// A conta em que entrou. CHECK: obrigatória quando IMPORTED
+  accountId            String?           @db.Uuid
+  kind                 FileImportKind
+  status               FileImportStatus  @default(PREVIEW)
+  /// SHA-256 do arquivo, em hexadecimal. CHECK: 64 caracteres de 0-9 e a-f
+  sha256               String            @db.Char(64)
+  /// Nome do arquivo, como a pessoa mandou. CHECK: de 1 a 120 caracteres
+  fileName             String
+  statementKind        FileStatementKind
+  /// Nome do banco, como o arquivo traz
+  institution          String?
+  /// Código do banco (BANKID, só extrato de conta): com o final, ensina a conta da próxima vez
+  bankId               String?
+  /// Os 4 últimos dígitos da conta ou do cartão. CHECK: 4 dígitos. Nunca o número inteiro
+  accountLastFour      String?           @db.Char(4)
+  periodFrom           DateTime?         @db.Date
+  periodTo             DateTime?         @db.Date
+  /// Lançamentos lidos no arquivo, e o que foi feito com eles. CHECK: todos >= 0
+  rowCount             Int
+  createdCount         Int               @default(0)
+  pluggyCount          Int               @default(0)
+  alreadyImportedCount Int               @default(0)
+  /// Linhas que não viram lançamento (o pagamento da fatura no extrato do cartão)
+  skippedCount         Int               @default(0)
+  /// As linhas lidas, enquanto a pessoa confere. CHECK: nulo quando IMPORTED
+  preview              Json?
+  /// Até quando a conferência vale (1 hora); depois disso a linha é apagada
+  expiresAt            DateTime
+  createdAt            DateTime          @default(now())
+  /// CHECK: preenchido se, e só se, IMPORTED
+  importedAt           DateTime?
+
+  household    Household         @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user         User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  // Composta e NoAction (regra 7 da skill): conta em uso é arquivada, não apagada
+  account      FinancialAccount? @relation(fields: [accountId, householdId], references: [id, householdId], onDelete: NoAction)
+  transactions Transaction[]
+
+  // Alvo da chave composta do lançamento
+  @@unique([id, householdId])
+  // "Este arquivo já foi importado?"
+  @@index([householdId, sha256])
+  @@index([householdId, createdAt(sort: Desc)])
+  @@index([userId])
+  @@index([accountId])
+  @@map("file_import")
 }

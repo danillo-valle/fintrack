@@ -156,6 +156,8 @@ model Transaction {
   /// Par (M09.2): o seu lançamento juntado ao recebido do banco aponta para ele e fica apagado
   /// (deletedAt). "Desfazer" volta os dois. CHECK: só junto com deletedAt
   mergedIntoId              String?               @db.Uuid
+  /// O extrato (OFX) de onde a linha veio (M09.3). Só com source OFX
+  fileImportId              String?               @db.Uuid
   /// Quem lançou (nulo para o que veio de importação ou recorrência)
   createdById               String?
   createdAt                 DateTime              @default(now())
@@ -180,6 +182,8 @@ model Transaction {
   reviewedBy             User?                   @relation("TransactionReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
   mergedInto             Transaction?            @relation("Merge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
   mergedFrom             Transaction[]           @relation("Merge")
+  // Composta e NoAction: o registro do arquivo importado nunca é apagado
+  fileImport             FileImport?             @relation(fields: [fileImportId, householdId], references: [id, householdId], onDelete: NoAction)
   matchesAsReceived      TransactionMatch[]      @relation("MatchReceived")
   matchesAsOwn           TransactionMatch[]      @relation("MatchOwn")
   categorizationExamples CategorizationExample[]
@@ -199,6 +203,7 @@ model Transaction {
   @@index([transferId])
   @@index([mergedIntoId])
   @@index([reversalOfId])
+  @@index([fileImportId])
   @@map("transaction")
 }
 
