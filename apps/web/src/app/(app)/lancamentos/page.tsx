@@ -97,7 +97,11 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/lan
         ) : null}
         {totals.count} {totals.count === 1 ? "lançamento" : "lançamentos"} no filtro.{" "}
         {environmentsSentence(page.environments, parsed.walletId, page.otherMembers)} Transferências
-        aparecem na lista, mas não entram nas entradas e saídas.
+        aparecem na lista, mas não entram nas entradas e saídas.{" "}
+        {/* M09.3: o extrato .ofx do banco entra como Recebido, como o que vem do Meu Pluggy */}
+        <Link href="/lancamentos/importar" className={TEXT_LINK}>
+          Importar extrato (.ofx)
+        </Link>
       </p>
 
       <ListToolbar

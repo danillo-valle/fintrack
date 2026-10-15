@@ -109,6 +109,8 @@ model FinancialAccount {
   bankBalance       AccountBalance?
   statementCharges  StatementCharge[]
   statementPayments StatementPayment[]
+  /// Os extratos (OFX) que entraram nesta conta (M09.3)
+  fileImports       FileImport[]
 
   // Alvo das chaves compostas (accountId, householdId) de lançamentos, parcelas e
   // recorrências: ninguém usa a conta de outro grupo.

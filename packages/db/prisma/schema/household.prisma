@@ -62,6 +62,7 @@ model Household {
   invites                HouseholdInvite[]
   categorizationExamples CategorizationExample[]
   transactionMatches     TransactionMatch[]
+  fileImports            FileImport[]
 
   @@map("household")
 }

@@ -107,6 +107,10 @@ const DOMAIN_ERROR_MESSAGE: Record<DomainErrorCode, string> = {
   IMPORT_FROM_INVALID: "A data de corte vai de 12 meses atrás até hoje.",
   PROVIDER_ACCOUNT_UNKNOWN:
     "Essa conta não veio do banco agora. Recarregue a página e escolha de novo.",
+  FILE_PREVIEW_EXPIRED:
+    "Essa conferência não vale mais (passou 1 hora, foi cancelada ou já foi importada). Envie o arquivo de novo.",
+  FILE_ACCOUNT_KIND_MISMATCH:
+    "Extrato de conta entra em conta corrente ou poupança; fatura do cartão, em cartão de crédito.",
   NOT_FOUND: "Não encontramos o que você pediu.",
 };
 
@@ -164,6 +168,7 @@ export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
   "transaction.pair_rejected": "recusou um par sugerido na revisão",
   "transaction.refund_linked": "ligou um estorno à compra",
   "transaction.match_undone": "desfez um par ou um estorno",
+  "file.imported": "importou um extrato (OFX)",
 };
 
 export function auditActionLabel(action: string): string {

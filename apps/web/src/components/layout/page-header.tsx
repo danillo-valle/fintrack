@@ -7,8 +7,11 @@ type Props = {
   title: string;
   description?: React.ReactNode;
   actions?: React.ReactNode;
-  /** A página de cima, em cima do título ("Lançamentos ›"): canvas E.2 (M09.2) */
-  crumb?: { href: string; label: string };
+  /**
+   * A página de cima, em cima do título ("Lançamentos ›"): canvas E.2 (M09.2). `trail`: as
+   * páginas acima dela, só no computador ("Lançamentos · Recebidos do banco ›", canvas E.3)
+   */
+  crumb?: { href: string; label: string; trail?: string };
 };
 
 // Toda página começa com um único <h1>: é por ele que o leitor de tela se orienta.
@@ -26,6 +29,7 @@ export function PageHeader({ title, description, actions, crumb }: Props) {
               href={crumb.href}
               className={`${TEXT_LINK} text-muted-foreground inline-flex min-h-8 items-center gap-1.5`}
             >
+              {crumb.trail ? <span className="hidden md:inline">{crumb.trail} · </span> : null}
               {crumb.label}
               <ChevronRight aria-hidden className="size-3.5" />
             </Link>

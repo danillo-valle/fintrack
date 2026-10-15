@@ -100,6 +100,8 @@ export const PAGES = [
   "/lancamentos?situacao=recebidos",
   // M09.2: a revisão dos recebidos (vazia para a Ana) e a conta em Ajustes › Contas
   "/lancamentos/recebidos",
+  // M09.3: importar extrato (o envio e o histórico; a conferência tem teste próprio)
+  "/lancamentos/importar",
   "/orcamento",
   "/orcamento/fluxo",
   "/orcamento/evolucao",

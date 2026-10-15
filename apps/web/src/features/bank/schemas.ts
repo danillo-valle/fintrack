@@ -184,3 +184,14 @@ export type ReviewView = "todos" | "pares" | "sem-categoria";
 export function parseReviewView(value: unknown): ReviewView {
   return value === "pares" || value === "sem-categoria" ? value : "todos";
 }
+
+// ── Importar extrato (M09.3) ────────────────────────────────────────────────────
+
+/** "Importar N lançamentos": a conferência e a conta escolhida. */
+export const importFileSchema = z.object({
+  importId: z.uuid(),
+  accountId: z.uuid("Escolha a conta em que o arquivo entra."),
+});
+
+/** "Cancelar" a conferência. */
+export const cancelImportSchema = z.object({ importId: z.uuid() });

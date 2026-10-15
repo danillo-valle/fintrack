@@ -1,7 +1,7 @@
 // Textos em português da coleta bancária (M09.1): os códigos de erro da Pluggy e da
 // sincronização, como aparecem no aviso do formulário e no histórico de sincronizações.
 // Funções puras (sem banco): usadas no servidor e nos componentes.
-import type { ProviderErrorCode } from "@fintrack/importers";
+import type { OfxErrorCode, ProviderErrorCode } from "@fintrack/importers";
 
 const PROVIDER_MESSAGE: Record<ProviderErrorCode | "SYNC_FAILED", string> = {
   PROVIDER_AUTH_FAILED:
@@ -44,4 +44,26 @@ export function syncErrorShort(code: string | null | undefined): string {
     default:
       return "erro do FinTrack (veja o log)";
   }
+}
+
+// ── Importar extrato (M09.3) ────────────────────────────────────────────────────
+
+const OFX_MESSAGE: Record<OfxErrorCode | "OFX_EMPTY", string> = {
+  OFX_EMPTY: "Escolha o arquivo .ofx que você baixou do banco.",
+  OFX_TOO_LARGE: "O arquivo passa de 2 MB. Baixe do banco um período menor (um mês, por exemplo).",
+  OFX_NOT_RECOGNIZED:
+    "Esse arquivo não é um extrato OFX. No app ou no site do banco, procure Extrato › Exportar › OFX.",
+  OFX_NO_STATEMENT: "O arquivo é OFX, mas não traz extrato de conta nem fatura de cartão.",
+  OFX_MULTIPLE_ACCOUNTS:
+    "O arquivo traz mais de uma conta. Baixe do banco um arquivo para cada conta ou cartão.",
+  OFX_NOT_BRL: "Por enquanto, só extratos em reais.",
+  OFX_BAD_DATA:
+    "Um lançamento do arquivo tem data ou valor que não dá para ler. Baixe o arquivo de novo do banco.",
+};
+
+/** Frase para um código do leitor de OFX (o arquivo foi recusado antes de qualquer gravação). */
+export function ofxErrorMessage(code: string): string {
+  return (
+    (OFX_MESSAGE as Record<string, string>)[code] ?? "Não deu para ler o arquivo. Tente de novo."
+  );
 }
