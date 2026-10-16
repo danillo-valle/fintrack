@@ -2,3 +2,6 @@
 __pycache__/
 .pytest_cache/
 .ruff_cache/
+
+# Modelos do classificador treinados no desenvolvimento (M10.1): dados da sua máquina
+.modelos/

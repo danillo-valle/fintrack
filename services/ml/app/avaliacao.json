@@ -1,0 +1,11 @@
+{
+  "conjunto": "samples/categorizacao/rotulado.csv",
+  "exemplos_treino": 210,
+  "exemplos_teste": 90,
+  "categorias": 15,
+  "limiar": 80,
+  "minimo": 0.85,
+  "acerto": 0.9444,
+  "cobertura": 0.8778,
+  "acerto_no_limiar": 1.0
+}
