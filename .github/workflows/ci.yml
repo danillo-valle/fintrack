@@ -58,6 +58,12 @@ jobs:
         run: uv sync --frozen
         working-directory: services/ml
 
+      # M10.1 (ADR-015): o classificador no conjunto rotulado SINTÉTICO
+      # (samples/categorizacao). Falha se o acerto cair abaixo de 85 %.
+      - name: Avaliação do classificador (conjunto sintético, mínimo 85 %)
+        run: uv run --frozen python -m app.avaliar --minimo 0.85
+        working-directory: services/ml
+
       # Segredo aleatório a cada execução: nenhum segredo fixo no repositório
       - name: Gera um segredo temporário para o Better Auth
         run: |
@@ -317,6 +323,14 @@ jobs:
           code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/pdf' \
             --data-binary @samples/pdf/exemplo-visa-0002.pdf http://127.0.0.1:8001/v1/faturas)
           test "$code" = 401 || { echo "esperava 401 sem token, veio $code"; exit 1; }
+          # M10.1: sem token, o classificador também recusa (401)
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/json' \
+            -d '{}' http://127.0.0.1:8001/v1/classificador/sugerir)
+          test "$code" = 401 || { echo "classificador sem token: esperava 401, veio $code"; exit 1; }
+          # A imagem não leva dado de ninguém: a pasta dos modelos nasce vazia e o conjunto
+          # rotulado (samples/) não entra
+          docker run --rm --entrypoint sh fintrack-ml:ci -c \
+            'test -d /data/modelos && test -z "$(ls -A /data/modelos)" && ! find / -xdev -name "rotulado*" 2>/dev/null | grep -q .'
 
       - name: Mostra o log do app se algo falhou
         if: failure()

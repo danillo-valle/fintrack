@@ -117,15 +117,21 @@ services:
   # Só na rede interna "ml": sem porta, sem internet, sem banco. O app o chama em
   # http://ml:8001 (ML_SERVICE_URL no app.env); ele confere o token do app pela chave pública
   # em http://web:3000/api/auth/jwks. O PDF e a senha ficam só na memória.
+  # M10.1 (ADR-015): também o classificador de categorias. Os modelos (treinados com os
+  # lançamentos da casa) ficam SÓ no volume ml-modelos, nunca na imagem; o resto do container
+  # continua só leitura.
   ml:
     <<: *hardening
     image: ghcr.io/danillo-valle/fintrack-ml:${FINTRACK_VERSION:?o deploy define FINTRACK_VERSION}
     restart: unless-stopped
     environment:
       ML_JWKS_URL: http://web:3000/api/auth/jwks
+      ML_MODEL_DIR: /data/modelos
     read_only: true
     tmpfs:
       - /tmp
+    volumes:
+      - ml-modelos:/data/modelos
     networks: [ml]
     # O healthcheck vem da imagem (services/ml/Dockerfile: GET /health a cada 30 s)
     mem_limit: 512m
@@ -203,3 +209,6 @@ volumes:
   db-data:
   caddy-data:
   caddy-config:
+  # Os modelos do classificador (M10.1). Fora do backup: o treino da madrugada refaz tudo a
+  # partir do banco (apagar o volume só tira as sugestões do classificador até as 03:15).
+  ml-modelos:

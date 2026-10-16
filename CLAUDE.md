@@ -31,7 +31,11 @@ Projeto de portfólio construído em módulos (M00 a M12); cada módulo é uma m
 - Fatura em PDF (M09.4): serviço Python `services/ml` (FastAPI, pdfplumber, uv) só na rede interna, com
   token curto do Better Auth (JWKS); leitor genérico com perfis, senha pedida na hora e nunca guardada,
   a fatura conferida ao centavo e gravada com os encargos; mesma conferência do OFX (ADR-014)
-- Próximo módulo: IA (M10)
+- Categorização inteligente (M10.1): a cascata regras → histórico → categoria do banco → classificador
+  (scikit-learn no `services/ml`, um modelo por carteira, treino às 03:15 e "Treinar agora"), a etiqueta
+  de quem sugeriu com a confiança, "Por que essa categoria?" e Ajustes › Categorização com o percentual
+  sem IA; conjunto rotulado sintético e eval no CI (mínimo 85 %) (ADR-015)
+- Próximos: LLM local assíncrono depois das medições (M10.2) e resumo do mês (M10.3)
 
 Regras específicas do Next.js 16: @apps/web/AGENTS.md
 
@@ -47,8 +51,9 @@ Regras específicas do Next.js 16: @apps/web/AGENTS.md
 - `pnpm check` roda lint, tipos, testes e build (o mesmo que o CI)
 - `pnpm --filter @fintrack/web test` roda só os testes do app web
 - `pnpm e2e` roda os testes de ponta a ponta (sobe o app, a Pluggy de mentira e o serviço Python, se não estiverem rodando)
-- `pnpm ml:dev` sobe o serviço Python que lê o PDF da fatura em http://127.0.0.1:8001 (precisa do uv;
-  `pnpm --filter @fintrack/ml test` roda o pytest)
+- `pnpm ml:dev` sobe o serviço Python (fatura em PDF e classificador) em http://127.0.0.1:8001 (precisa do
+  uv; `pnpm --filter @fintrack/ml test` roda o pytest, `pnpm --filter @fintrack/ml eval` o eval do
+  classificador; os modelos do desenvolvimento ficam em `services/ml/.modelos`, fora do Git)
 - `pnpm pluggy:fake` sobe a Pluggy de mentira (banco sintético) em http://127.0.0.1:8787, para o `pnpm dev`
 - `bash scripts/lighthouse-a11y.sh` mede a acessibilidade com o Lighthouse (precisa do `pnpm dev`)
 - `pnpm format` formata tudo com Prettier
@@ -92,7 +97,9 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
   dinheiro exato), o leitor de OFX (`ofx/`, M09.3), o cliente do serviço de PDF (`pdf/`, M09.4) e, em
   `testing/`, o banco sintético e a Pluggy de mentira
 - `services/ml/` o serviço Python (M09.4): `app/fatura.py` (leitor), `app/perfis.py` (um perfil por banco),
-  `app/auth.py` (token pelo JWKS), `app/estrutura.py` (a estrutura de um PDF real, sem valores)
+  `app/auth.py` (token pelo JWKS), `app/estrutura.py` (a estrutura de um PDF real, sem valores); do M10.1:
+  `app/classificador.py` (modelo por carteira, trava da evidência, armazém), `app/avaliar.py` (eval e bloco do
+  README) e `scripts/gerar_rotulado.py` (o conjunto sintético em `samples/categorizacao/`)
 - `packages/db/src/` do M09.1: `connection-secret.ts` (AES-256-GCM), `connections.ts` (credenciais e ligação),
   `sync.ts` (a busca idempotente) e `statements.ts` (faturas); `packages/core/src/sync.ts` as regras puras;
   do M09.2: `packages/db/src/review.ts` (fila, par, estorno, lote, desfazer) e `packages/core/src/reconcile.ts`;
@@ -123,7 +130,8 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
 - Tudo que toca uma carteira ou o lar passa pelo crachá (`requireWalletAccess`/`requireHouseholdAccess`);
   recurso de outra pessoa responde 404. Funcionalidade nova: siga a skill `nova-feature` (e `teste-e2e`).
 - Categorização (sugestão, regras, camadas de IA): siga a skill `categorizacao`. A sugestão só lê as carteiras
-  que quem pede consegue ver; LLM nunca no caminho do lançamento.
+  que quem pede consegue ver (o classificador só pergunta aos modelos dessas carteiras); LLM nunca no caminho
+  do lançamento. Modelo treinado com dado real só no volume da produção; descrição nunca em log.
 - Variáveis de ambiente novas: no `.env.example` (sem valor real), no `src/lib/env.ts` (validação), no `globalPassThroughEnv` do `turbo.json` e no `deploy/env/app.env.example`; avise no PR que o valor de produção vai em `/srv/fintrack/app.env` antes do merge.
 - Log no servidor só pelo `logger` (`src/lib/logger.ts`), com `event`; migração para produção sempre aditiva. Siga a skill `deploy-e-operacao`.
 - Nenhum dado financeiro real, `.env` ou segredo em arquivo versionado.
