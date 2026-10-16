@@ -59,3 +59,22 @@ mantida sem um time de segurança.
   sem isso, um atacante poderia trocar de "IP" a cada tentativa.
 - Passkeys só funcionam em HTTPS ou em `localhost`: pelo IP da rede de casa, só a partir do M05.
 - O e-mail de desenvolvimento vai para o Mailpit; o provedor real entra no M05, só trocando o `.env`.
+
+## Adendo M10.0 (outubro de 2026): formulários de entrada antes do React
+
+Os formulários que usam o cliente do Better Auth no navegador (entrar, cadastro, 2FA, esqueci e
+redefinir a senha, troca de senha, códigos de backup e configurar o 2FA) enviam no `onSubmit`. Eles
+saíam do servidor sem `method`, e o navegador assume GET: um clique antes de o React ligar o
+formulário mandava e-mail, senha ou código na URL. Visto no N150, num E2E da suíte inteira:
+`GET /entrar/dois-fatores?code=…`.
+
+- **Decisão:** esses formulários usam o `ClientForm` (`components/feedback/client-form.tsx`), que sai
+  com `method="post"`. Antes do React, o envio vai no corpo para a própria página, que só se mostra de
+  novo (nada é gravado, nada vai para a URL, o histórico ou os logs). O `AuthCard` ganhou o
+  `ContentReady`, a mesma marca do `PageHeader`, para os testes esperarem o formulário ligado.
+- **Guarda:** `formularios.spec.ts` confere, sem JavaScript, que todo formulário das telas abertas e
+  do app declara o método e que senha, e-mail ou código só vão por POST; e envia entrar e o 2FA com os
+  pacotes de JavaScript barrados.
+- **Fica para depois (não é bug):** fazer esses formulários funcionarem antes do React, como Server
+  Actions chamando o `auth.api` no servidor (a reautenticação já é assim). É uma mudança de todos os
+  fluxos de entrada, que pede módulo próprio.
