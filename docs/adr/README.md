@@ -6,19 +6,20 @@ e o antigo passa a ter status "substituída por ADR-00X".
 
 Modelo para um ADR novo: copie `0001-stack-e-monorepo.md` e troque o conteúdo.
 
-| Nº  | Decisão                                                                                      | Status |
-| --- | -------------------------------------------------------------------------------------------- | ------ |
-| 001 | [Stack principal e monorepo](0001-stack-e-monorepo.md)                                       | aceita |
-| 002 | [Design system, tokens e dinheiro em centavos](0002-design-system.md)                        | aceita |
-| 003 | [Autenticação com Better Auth, Prisma 7 e 2FA](0003-autenticacao.md)                         | aceita |
-| 004 | [Modelo de dados, dinheiro e regras no banco](0004-modelo-de-dados.md)                       | aceita |
-| 005 | [Hospedagem, deploy e operação](0005-hospedagem-e-deploy.md)                                 | aceita |
-| 006 | [Lar, carteiras e autorização por recurso](0006-autorizacao-por-recurso.md)                  | aceita |
-| 007 | [Lançamentos, contas e categorização preparada para IA](0007-lancamentos-e-categorizacao.md) | aceita |
-| 008 | [Visual "Elétrico" com vidro só na moldura](0008-visual-eletrico.md)                         | aceita |
-| 009 | ["Pago por", ambientes, parcelas e despesas fixas](0009-pago-por-parcelas-e-fixas.md)        | aceita |
-| 010 | [Orçamento, painel e cache das somas](0010-orcamento-e-painel.md)                            | aceita |
-| 011 | [Coleta bancária com o Meu Pluggy](0011-coleta-bancaria.md)                                  | aceita |
-| 012 | [Revisão e reconciliação do que vem do banco](0012-revisao-e-reconciliacao.md)               | aceita |
-| 013 | [Importar extrato OFX](0013-importar-extrato.md)                                             | aceita |
-| 014 | [Fatura do cartão em PDF e o serviço Python](0014-fatura-em-pdf.md)                          | aceita |
+| Nº  | Decisão                                                                                                | Status |
+| --- | ------------------------------------------------------------------------------------------------------ | ------ |
+| 001 | [Stack principal e monorepo](0001-stack-e-monorepo.md)                                                 | aceita |
+| 002 | [Design system, tokens e dinheiro em centavos](0002-design-system.md)                                  | aceita |
+| 003 | [Autenticação com Better Auth, Prisma 7 e 2FA](0003-autenticacao.md)                                   | aceita |
+| 004 | [Modelo de dados, dinheiro e regras no banco](0004-modelo-de-dados.md)                                 | aceita |
+| 005 | [Hospedagem, deploy e operação](0005-hospedagem-e-deploy.md)                                           | aceita |
+| 006 | [Lar, carteiras e autorização por recurso](0006-autorizacao-por-recurso.md)                            | aceita |
+| 007 | [Lançamentos, contas e categorização preparada para IA](0007-lancamentos-e-categorizacao.md)           | aceita |
+| 008 | [Visual "Elétrico" com vidro só na moldura](0008-visual-eletrico.md)                                   | aceita |
+| 009 | ["Pago por", ambientes, parcelas e despesas fixas](0009-pago-por-parcelas-e-fixas.md)                  | aceita |
+| 010 | [Orçamento, painel e cache das somas](0010-orcamento-e-painel.md)                                      | aceita |
+| 011 | [Coleta bancária com o Meu Pluggy](0011-coleta-bancaria.md)                                            | aceita |
+| 012 | [Revisão e reconciliação do que vem do banco](0012-revisao-e-reconciliacao.md)                         | aceita |
+| 013 | [Importar extrato OFX](0013-importar-extrato.md)                                                       | aceita |
+| 014 | [Fatura do cartão em PDF e o serviço Python](0014-fatura-em-pdf.md)                                    | aceita |
+| 015 | [Categorização inteligente: a categoria do banco e o classificador](0015-categorizacao-inteligente.md) | aceita |

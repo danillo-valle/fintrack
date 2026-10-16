@@ -29,6 +29,7 @@ describe("o caminho de cada número até a lista (M08)", () => {
       type: "expense",
       payer: { kind: "shared" },
       received: false,
+      categorizedBy: null,
     });
   });
 

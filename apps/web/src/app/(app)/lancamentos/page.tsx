@@ -183,6 +183,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/lan
               status: item.status,
               category: item.category,
               categorizedBy: item.categorizedBy,
+              categorizationConfidence: item.categorizationConfidence,
               installment: item.installment,
               original: item.original,
               note: `${item.card ? `${item.card.nickname} final ${item.card.lastFour}` : item.account.name} · ${item.wallet.name}`,

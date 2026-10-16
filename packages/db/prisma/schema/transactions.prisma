@@ -82,6 +82,10 @@ enum CategorizationSource {
   RULE
   /// A categoria mais usada pelo lar para o mesmo comerciante
   HISTORY
+  /// A categoria que o banco mandou (Meu Pluggy), traduzida para a categoria do lar (M10.1)
+  PROVIDER
+  /// O classificador do serviço Python, com confiança de 80 % ou mais (M10.1, ADR-015)
+  CLASSIFIER
 
   @@map("categorization_source")
 }
@@ -113,6 +117,9 @@ model Transaction {
   /// Quem decidiu a categoria (M07). Opcional: os lançamentos antigos e os sem categoria ficam
   /// nulos. CHECK: só existe junto com categoryId
   categorizedBy             CategorizationSource?
+  /// A confiança (0 a 100) da camada que decidiu (M10.1): regra = 100, histórico e banco = % dos
+  /// votos, classificador = a probabilidade. CHECK: só com uma camada automática (nunca MANUAL)
+  categorizationConfidence  Int?                  @db.SmallInt
   /// Valor com sinal, em reais com 2 casas (NUMERIC(14,2)). CHECK: diferente de zero
   amount                    Decimal               @db.Decimal(14, 2)
   /// Dia do lançamento (coluna DATE)
@@ -403,4 +410,28 @@ model Recurrence {
   @@index([householdId])
   @@index([walletId])
   @@map("recurrence")
+}
+
+/// O modelo do classificador de uma carteira (M10.1, ADR-015). O modelo em si fica no volume do
+/// serviço Python (nunca no banco, no Git ou numa imagem); aqui fica só o que a tela mostra e
+/// a impressão digital do que foi usado no treino, para não treinar de novo sem mudança.
+model ClassifierModel {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  householdId   String   @db.Uuid
+  /// Um modelo por carteira: só quem vê a carteira pergunta a ele (o mesmo cuidado do histórico)
+  walletId      String   @unique @db.Uuid
+  trainedAt     DateTime
+  /// Quantos lançamentos e quantas categorias entraram no treino. CHECK: >= 20 e >= 2
+  exampleCount  Int
+  categoryCount Int      @db.SmallInt
+  /// SHA-256 (hex) dos exemplos do treino: igual ao da noite anterior = nada a treinar
+  trainingHash  String   @db.Char(64)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  wallet    Wallet    @relation(fields: [walletId, householdId], references: [id, householdId], onDelete: Cascade)
+
+  @@index([householdId])
+  @@map("classifier_model")
 }

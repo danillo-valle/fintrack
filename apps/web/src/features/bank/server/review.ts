@@ -4,6 +4,7 @@ import "server-only";
 import {
   authorizeAccountView,
   authorizeWallet,
+  explainTransaction,
   isUuid,
   pairPreview,
   prisma,
@@ -11,6 +12,7 @@ import {
 } from "@fintrack/db";
 import { AccessError, requireScope } from "@/lib/access";
 import type { Session } from "@/lib/auth";
+import { cascadeServices } from "@/lib/ml/classifier";
 import type { ReviewView } from "../schemas";
 import { categoryChoices, myConnectionGrant } from "./queries";
 
@@ -77,6 +79,32 @@ export async function getPairPage(session: Session, receivedId: string, ownId: s
   const edit = await requireScope(session, "edit");
   return pairPreview(prisma, edit, { receivedId, ownId });
 }
+
+/**
+ * "Por que essa categoria?" de um recebido (M10.1, pranchas F-Sugestoes e F-CelSugestoes): a
+ * cascata de hoje, camada por camada, vista por quem pergunta (as carteiras que ela vê, os
+ * modelos dessas carteiras). "Confirmar" só para quem edita a carteira do recebido.
+ */
+export async function getExplanationPage(session: Session, transactionId: string) {
+  const [scope, edit] = await Promise.all([
+    requireScope(session, "view"),
+    requireScope(session, "edit"),
+  ]);
+  const explanation = await explainTransaction(
+    prisma,
+    scope,
+    transactionId,
+    cascadeServices(session.user.id),
+  );
+  if (!explanation) return null;
+  const t = explanation.transaction;
+  return {
+    ...explanation,
+    canConfirm: t.pending && t.category !== null && edit.walletIds.includes(t.walletId),
+  };
+}
+
+export type ExplanationPage = NonNullable<Awaited<ReturnType<typeof getExplanationPage>>>;
 
 /**
  * A conta em Ajustes › Contas (M09.2, prancha E2-Finais): os cartões e os finais que o banco

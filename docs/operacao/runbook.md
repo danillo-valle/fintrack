@@ -229,6 +229,27 @@ sudo -u fintrack fintrack-compose logs --since 24h ml
 | "O leitor de PDF recusou o pedido"               | O token não passou (`ml.unauthorized` no log do `ml`): confira o relógio do servidor (`timedatectl`) e se o `web` responde ao JWKS |
 | Uma fatura de um banco novo não é lida           | Ajuste de perfil (skill `importador`): `python -m app.estrutura` no PDF, no seu computador; o PDF nunca vai para o servidor ou Git |
 
+## Classificador de categorias (serviço `ml`, M10.1)
+
+O mesmo container `ml` também sugere categorias. Os modelos (um por carteira, treinados com os
+lançamentos da casa) ficam SÓ no volume `fintrack-prod_ml-modelos`, montado em `/data/modelos`;
+o resto do container continua só leitura. O treino roda na fila do app todo dia às 03:15 (e no
+"Treinar agora" de Ajustes › Categorização). O volume fica fora do backup: o treino refaz tudo.
+
+```bash
+# O último treino (só contagens: carteiras treinadas, sem mudança, com poucos exemplos, falhas)
+sudo -u fintrack fintrack-compose logs --since 30h --no-log-prefix web | jq -R 'fromjson? | select(.event? == "classifier.trained")'
+# Os modelos no volume (nomes = ids das carteiras; nenhum dado legível)
+sudo -u fintrack fintrack-compose exec ml ls -la /data/modelos
+```
+
+| Situação                                         | O que fazer                                                                                                 |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| "O classificador não está ligado neste servidor" | Falta `ML_SERVICE_URL` no `app.env` (a mesma do PDF): veja a seção acima                                    |
+| "O classificador não respondeu" no Treinar agora | `fintrack-compose ps ml`; `logs ml` com `ml.train_rejected`. As outras camadas da cascata continuam valendo |
+| Treino falha com "Read-only file system"         | O volume não montou: `fintrack-compose up -d ml` (o compose do M10.1 traz o `ml-modelos`)                   |
+| Quer apagar todos os modelos                     | `fintrack-compose stop ml`, `docker volume rm fintrack-prod_ml-modelos`, `up -d ml`; voltam às 03:15        |
+
 ## Alertas
 
 | Alerta                               | Significa                                   | Primeiro passo                                    |

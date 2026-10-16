@@ -67,7 +67,8 @@ export type AuditAction =
   | "transaction.refund_linked"
   | "transaction.match_undone"
   // M09.3: extrato importado (só ids e contagens; nunca nome do arquivo, final ou valor)
-  | "file.imported";
+  | "file.imported"
+  | "classifier.trained";
 
 export type AuditEntry = {
   actorId: string | null;

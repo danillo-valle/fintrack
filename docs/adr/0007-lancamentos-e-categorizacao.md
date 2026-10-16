@@ -174,3 +174,10 @@ ADR próprio, depois de medir** no próprio servidor:
   exportação. Server Action confere a origem.
 - **Auditar todo lançamento:** milhares de linhas sem pergunta que respondam; o lançamento já tem
   `createdById` e `updatedAt`.
+
+## Adendo M10.1 (16/10/2026)
+
+A cascata ganhou a **categoria do banco** e o **classificador** (um modelo por carteira, no
+serviço Python), a coluna `categorizationConfidence` e a medida "categorizado sem IA". Decisões e
+o porquê no [ADR-015](0015-categorizacao-inteligente.md). O LLM continua para depois das
+medições da tabela acima (M10.2).

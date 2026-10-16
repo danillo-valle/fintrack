@@ -37,6 +37,7 @@ import {
 } from "@/lib/access";
 import { requireRecentAuth, requireUser } from "@/lib/auth/session";
 import { financeChanged } from "@/lib/finance-cache";
+import { cascadeServices } from "@/lib/ml/classifier";
 import type { Session } from "@/lib/auth";
 import {
   exportSchema,
@@ -73,14 +74,24 @@ async function ruleGrantIfAsked(session: Session, asked: boolean) {
 export async function suggestCategoryAction(input: {
   description: string;
   kind: "expense" | "income";
-}): Promise<Pick<CategorySuggestion, "categoryId" | "reason" | "source"> | null> {
+}): Promise<Pick<CategorySuggestion, "categoryId" | "reason" | "source" | "confidence"> | null> {
   const session = await requireUser();
   const parsed = suggestSchema.safeParse(input);
   if (!parsed.success) return null;
   const scope = await requireScope(session, "view");
-  const suggestion = await suggestCategory(prisma, scope, parsed.data);
+  const suggestion = await suggestCategory(
+    prisma,
+    scope,
+    parsed.data,
+    cascadeServices(session.user.id),
+  );
   return suggestion
-    ? { categoryId: suggestion.categoryId, reason: suggestion.reason, source: suggestion.source }
+    ? {
+        categoryId: suggestion.categoryId,
+        reason: suggestion.reason,
+        source: suggestion.source,
+        confidence: suggestion.confidence,
+      }
     : null;
 }
 
@@ -124,6 +135,7 @@ export async function createTransactionAction(
     const options = {
       scope: await requireScope(session, "view"),
       rememberRule: await ruleGrantIfAsked(session, data.rememberRule),
+      services: cascadeServices(session.user.id),
     };
     const base = {
       amount: centsToDecimal(data.amount),
@@ -197,6 +209,7 @@ export async function updateTransactionAction(
       {
         scope: await requireScope(session, "view"),
         rememberRule: await ruleGrantIfAsked(session, data.rememberRule),
+        services: cascadeServices(session.user.id),
       },
       await requestContext(),
     );

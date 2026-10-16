@@ -45,6 +45,6 @@ describe("rótulos", () => {
     // + 3 do M09.1 (credenciais, contas ligadas, busca pedida)
     // + 7 do M09.2 (confirmar, em lote, desfazer, par, recusa, estorno, desfazer o par)
     // + 1 do M09.3 (extrato importado)
-    expect(Object.keys(AUDIT_ACTION_LABEL)).toHaveLength(44);
+    expect(Object.keys(AUDIT_ACTION_LABEL)).toHaveLength(45);
   });
 });

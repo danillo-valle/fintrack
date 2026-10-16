@@ -39,13 +39,19 @@ function useReview(): Ctx {
   return value;
 }
 
+/** O que voltou de uma decisão tomada FORA da lista (um modal): o aviso e o "Desfazer" dela. */
+export type ReviewReturn = { message: string; undo: ReviewUndo; key: string };
+
 export function ReviewActions({
   children,
-  joinedMatchId,
+  returned,
 }: {
   children: ReactNode;
-  /** Voltou do "Confirmar par" (?juntado=…): mostra o aviso com "Desfazer" uma vez */
-  joinedMatchId: string | null;
+  /**
+   * Voltou do "Confirmar par" (?juntado=…) ou do "Por que essa categoria?" (?confirmado=…):
+   * mostra o aviso com "Desfazer" uma vez
+   */
+  returned: ReviewReturn | null;
 }) {
   const [state, formAction, pending] = useActionState(reviewAction, INITIAL);
   const [, startUndo] = useTransition();
@@ -78,18 +84,15 @@ export function ReviewActions({
     else toast(state.success);
   }, [state]);
 
-  const joinedShown = useRef<string | null>(null);
+  const returnedShown = useRef<string | null>(null);
   useEffect(() => {
-    if (!joinedMatchId || joinedShown.current === joinedMatchId) return;
-    joinedShown.current = joinedMatchId;
-    undoToast("Par confirmado. Ficou um lançamento só, com o id do banco.", {
-      variant: "success",
-      onUndo: () => undo({ kind: "match", matchId: joinedMatchId }),
-    });
-    // Tira o ?juntado da URL: recarregar não mostra o aviso de novo
+    if (!returned || returnedShown.current === returned.key) return;
+    returnedShown.current = returned.key;
+    undoToast(returned.message, { variant: "success", onUndo: () => undo(returned.undo) });
+    // Tira o ?juntado/?confirmado da URL: recarregar não mostra o aviso de novo
     router.replace(pathname, { scroll: false });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- uma vez por par juntado
-  }, [joinedMatchId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- uma vez por decisão
+  }, [returned?.key]);
 
   return <ReviewContext value={{ formAction, pending }}>{children}</ReviewContext>;
 }

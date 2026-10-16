@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { openPage } from "./helpers";
+import { clickAndWait, openPage, pageData } from "./helpers";
 
 const SECTIONS = [
   { path: "/", label: "Início" },
@@ -36,11 +36,12 @@ test("o primeiro Tab oferece pular direto para o conteúdo", async ({ page }) =>
 test("Novo lançamento está sempre a um toque", async ({ page }) => {
   // M08: no Orçamento do mês o canto do cabeçalho é o mês (canvas D); o Fluxo tem o botão
   await openPage(page, "/orcamento/fluxo");
-  await page
-    .getByRole("link", { name: "Novo lançamento" })
-    .filter({ visible: true })
-    .first()
-    .click();
+  // O modal é uma navegação do Next: espera a resposta da rota, não o relógio (M10.0). No
+  // servidor de desenvolvimento, a 1ª visita compila o modal e passava dos 5 s (M10.1)
+  await clickAndWait(
+    page.getByRole("link", { name: "Novo lançamento" }).filter({ visible: true }).first(),
+    pageData("/lancamentos/novo"),
+  );
   await expect(page).toHaveURL("/lancamentos/novo");
   // M07.1: dentro do app, o formulário abre em modal por cima da página (que continua atrás)
   const modal = page.getByRole("dialog", { name: "Novo lançamento" });

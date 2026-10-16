@@ -245,6 +245,8 @@ export type OwnSide = {
   description: string;
   categoryId: string | null;
   categorizedBy: string | null;
+  /** A confiança da camada que decidiu (M10.1); some quando a categoria é da pessoa */
+  categorizationConfidence?: number | null;
   notes: string | null;
   installmentGroupId: string | null;
   installmentNumber: number | null;
@@ -256,6 +258,7 @@ export type BankSide = {
   cardId: string | null;
   categoryId: string | null;
   categorizedBy: string | null;
+  categorizationConfidence?: number | null;
 };
 
 /**
@@ -272,12 +275,17 @@ export function pairedFields(bank: BankSide, own: OwnSide) {
   const categoryId = own.transferId ? null : ownCategory ? own.categoryId : bank.categoryId;
   const categorizedBy =
     categoryId === null ? null : ownCategory ? own.categorizedBy : bank.categorizedBy;
+  const categorizationConfidence =
+    categoryId === null
+      ? null
+      : ((ownCategory ? own.categorizationConfidence : bank.categorizationConfidence) ?? null);
   return {
     walletId: own.walletId,
     cardId: bank.cardId ?? own.cardId,
     description: own.description,
     categoryId,
     categorizedBy,
+    categorizationConfidence,
     notes: own.notes,
     installmentGroupId: own.installmentGroupId,
     installmentNumber: own.installmentNumber,

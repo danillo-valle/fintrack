@@ -185,6 +185,8 @@ export const PAGES = [
   "/lancamentos/recebidos",
   // M09.3: importar extrato (o envio e o histórico; a conferência tem teste próprio)
   "/lancamentos/importar",
+  // M10.1: "Por que essa categoria?" (de um lançamento já conferido da Ana: só a explicação)
+  `/lancamentos/recebidos/por-que/${ANA_FINANCE.transactionId}`,
   "/orcamento",
   "/orcamento/fluxo",
   "/orcamento/evolucao",
@@ -201,6 +203,8 @@ export const PAGES = [
   "/ajustes/contas",
   `/ajustes/contas/${ANA_FINANCE.cardAccountId}`,
   "/ajustes/categorias",
+  // M10.1: o percentual sem IA e o classificador
+  "/ajustes/categorizacao",
   "/ajustes/conexoes",
   "/ajustes/seguranca",
   ...(PRODUCTION_BUILD ? [] : ["/dev/ui"]),

@@ -10,7 +10,12 @@ import { FinalsNotice } from "@/features/bank/ui/review/finals-notice";
 import { PairCard } from "@/features/bank/ui/review/pair-card";
 import { MAIN_BUTTON, SMALL_BUTTON } from "@/features/bank/ui/review/parts";
 import { ReceivedGroup } from "@/features/bank/ui/review/received-group";
-import { ReviewActions, ReviewForm, ReviewSubmit } from "@/features/bank/ui/review/review-actions";
+import {
+  ReviewActions,
+  ReviewForm,
+  ReviewSubmit,
+  type ReviewReturn,
+} from "@/features/bank/ui/review/review-actions";
 import { SyncLine } from "@/features/bank/ui/sync-line";
 import { requireUser } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
@@ -39,12 +44,28 @@ export default async function ReviewPage({ searchParams }: PageProps<"/lancament
   const view = parseReviewView(one(params.ver));
   const open = one(params.abrir) ?? null;
   const joined = one(params.juntado) ?? null;
+  const confirmed = one(params.confirmado) ?? null;
+  // A decisão tomada num modal (o par, ou o "Por que essa categoria?") volta com o Desfazer
+  const returned: ReviewReturn | null =
+    joined && UUID.test(joined)
+      ? {
+          key: `juntado:${joined}`,
+          message: "Par confirmado. Ficou um lançamento só, com o id do banco.",
+          undo: { kind: "match", matchId: joined },
+        }
+      : confirmed && UUID.test(confirmed)
+        ? {
+            key: `confirmado:${confirmed}`,
+            message: "1 recebido confirmado. Já entra nas somas.",
+            undo: { kind: "review", ids: [confirmed] },
+          }
+        : null;
   const page = await getReviewPage(session, view);
   const { queue } = page;
   const waiting = queue.total === 1 ? "1 esperando revisão." : `${queue.total} esperando revisão.`;
 
   return (
-    <ReviewActions joinedMatchId={joined && UUID.test(joined) ? joined : null}>
+    <ReviewActions returned={returned}>
       <PageHeader
         crumb={{ href: "/lancamentos", label: "Lançamentos" }}
         title="Recebidos do banco"
@@ -75,6 +96,7 @@ export default async function ReviewPage({ searchParams }: PageProps<"/lancament
       />
       <noscript>
         {joined ? <p className="mb-4 text-sm font-semibold">Par confirmado.</p> : null}
+        {confirmed ? <p className="mb-4 text-sm font-semibold">Recebido confirmado.</p> : null}
       </noscript>
 
       {queue.total === 0 ? (

@@ -88,6 +88,7 @@ erDiagram
     Household ||--o{ CategorizationExample : "exemplos de treino (M07)"
     Category ||--o{ CategorizationExample : "corrigido para"
     Transaction |o--o{ CategorizationExample : "corrigido em"
+    Wallet ||--o| ClassifierModel : "modelo do classificador (M10.1)"
 
     Household {
         uuid id PK
@@ -187,7 +188,8 @@ erDiagram
         enum source "MANUAL | OFX | PDF | OPEN_FINANCE | BOT | RECURRENCE"
         string externalId "único por conta e origem"
         uuid transferId "dois lados"
-        enum categorizedBy "MANUAL | RULE | HISTORY (M07)"
+        enum categorizedBy "MANUAL | RULE | HISTORY (M07) | PROVIDER | CLASSIFIER (M10.1)"
+        smallint categorizationConfidence "0 a 100, da camada (M10.1)"
         timestamp deletedAt "exclusão lógica"
         char providerCardLastFour "final que o banco mandou (M09.2)"
         timestamp reviewedAt "conferido (M09.2)"
@@ -210,6 +212,14 @@ erDiagram
         uuid fromCategoryId FK "o que estava"
         enum fromSource "quem tinha decidido"
         uuid toCategoryId FK "o que a pessoa escolheu"
+    }
+    ClassifierModel {
+        uuid id PK
+        uuid householdId FK
+        uuid walletId FK "um por carteira"
+        timestamp trainedAt
+        int exampleCount "20 ou mais"
+        char trainingHash "SHA-256 dos exemplos"
     }
     CardStatement {
         uuid id PK
@@ -321,6 +331,8 @@ registro sobreviver mesmo que a pessoa ou o grupo sejam apagados.
 | Exemplo de treino é uma correção de verdade (M07)                        | CHECKs `categorization_example_change_check` e `_source_check`        |
 | Extrato importado guarda só SHA-256, o final e as contagens (M09.3)      | CHECKs de `file_import` (`_sha256_check`, `_last_four_check`...)      |
 | Só linha de origem OFX aponta para o arquivo (M09.3)                     | CHECK `transaction_file_import_check`                                 |
+| Confiança de 0 a 100 e só de camada automática (M10.1)                   | CHECK `transaction_categorization_confidence_check`                   |
+| Modelo com 20+ exemplos e 2+ categorias; SHA-256 em hex (M10.1)          | CHECKs `classifier_model_counts_check` e `_training_hash_check`       |
 
 Cada regra tem um teste em `packages/db/src/integration/`, que tenta quebrá-la contra o
 PostgreSQL de verdade (`pnpm test:integration`).
@@ -343,6 +355,15 @@ fazer o quê** é decidido no código, num ponto só: `authorizeWallet` e `autho
 - **`categorization_example`** guarda cada **correção** (a sugestão ou a categoria gravada
   trocada por outra): o conjunto rotulado do classificador e do eval do M10.
 - A cascata e o encaixe para IA estão no [ADR-007](adr/0007-lancamentos-e-categorizacao.md).
+
+## Categorização inteligente (M10.1)
+
+- A cascata ganhou a **categoria do banco** (`PROVIDER`: o texto do Meu Pluggy traduzido pelo
+  que a pessoa já escolheu para ele, ou pelo mesmo nome) e o **classificador** (`CLASSIFIER`),
+  e a coluna **`categorizationConfidence`** guarda a confiança da camada aceita.
+- **`classifier_model`** registra o modelo de cada carteira (quando treinou, quantos exemplos e
+  a impressão digital do treino). O modelo em si fica só no volume do serviço Python, nunca no
+  banco, no Git ou numa imagem. Detalhes no [ADR-015](adr/0015-categorizacao-inteligente.md).
 
 ## Pago por, parcelas e despesas fixas (M07.4)
 

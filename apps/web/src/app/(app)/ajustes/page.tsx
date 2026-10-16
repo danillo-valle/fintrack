@@ -6,6 +6,7 @@ import {
   Landmark,
   Link2,
   ShieldCheck,
+  Sparkles,
   Tags,
   type LucideIcon,
 } from "lucide-react";
@@ -42,6 +43,13 @@ const LINKS: { href: string; title: string; detail: string; icon: LucideIcon; to
     detail: "O que é cada gasto e as sugestões automáticas",
     icon: Tags,
     tone: 3,
+  },
+  {
+    href: "/ajustes/categorizacao",
+    title: "Categorização",
+    detail: "Quanto se categoriza sozinho e o classificador",
+    icon: Sparkles,
+    tone: 1,
   },
   {
     href: "/ajustes/lar",

@@ -1,4 +1,5 @@
-# Imagem de produção do serviço Python (M09.4, ADR-014): lê a fatura do cartão em PDF.
+# Imagem de produção do serviço Python (M09.4, ADR-014): lê a fatura do cartão em PDF e, desde o
+# M10.1 (ADR-015), classifica a categoria dos lançamentos.
 #
 # Quem constrói: o job "imagem" do CI (.github/workflows/ci.yml), que publica no GHCR
 # (ghcr.io/danillo-valle/fintrack-ml) a cada merge na main, junto da web e da migrate.
@@ -32,15 +33,19 @@ ARG APP_VERSION=dev
 # Etiquetas padrão OCI: o GHCR liga a imagem ao repositório (source)
 LABEL org.opencontainers.image.source="https://github.com/danillo-valle/fintrack" \
       org.opencontainers.image.title="fintrack-ml" \
-      org.opencontainers.image.description="FinTrack: serviço Python que lê a fatura em PDF" \
+      org.opencontainers.image.description="FinTrack: serviço Python (fatura em PDF e classificador)" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.revision="${APP_VERSION}"
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 WORKDIR /app
-# Usuário sem privilégios, com o mesmo uid do app web
-RUN useradd --uid 1000 --no-create-home --shell /usr/sbin/nologin ml
+# Usuário sem privilégios, com o mesmo uid do app web. /data/modelos é o ponto de montagem do
+# volume dos modelos do classificador (M10.1): nasce vazio e do usuário ml, e o Docker copia
+# esse dono para o volume novo. Nenhum modelo entra na imagem.
+RUN useradd --uid 1000 --no-create-home --shell /usr/sbin/nologin ml \
+    && mkdir -p /data/modelos && chown ml:ml /data/modelos
+ENV ML_MODEL_DIR=/data/modelos
 COPY --from=build /app/.venv /app/.venv
 COPY --from=build /app/app /app/app
 USER ml

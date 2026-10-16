@@ -32,6 +32,7 @@ import {
   isCivilDate,
   matchImportRows,
   runCascade,
+  type CategorySuggestion,
   settlementCheck,
   statementForDueDate,
   suggestImportAccount,
@@ -47,7 +48,7 @@ import type { FileInvoice, StatementFile } from "@fintrack/importers";
 import { authorizeScope, DomainError, isUuid, type AccountGrant, type WalletScope } from "./access";
 import { listUsableAccounts } from "./accounts";
 import { writeAudit, type RequestContext } from "./audit";
-import { defaultSuggesters } from "./categories";
+import { defaultSuggesters, type CascadeServices } from "./categories";
 import { Prisma, type PrismaClient } from "./generated/prisma/client";
 import { fromDbDecimal, toDbDecimal } from "./money";
 import { personalWalletsOf } from "./sync";
@@ -480,7 +481,7 @@ export type FileImportResult = {
  */
 export async function importFilePreview(
   db: PrismaClient,
-  input: { grant: AccountGrant; importId: string; now: Date },
+  input: { grant: AccountGrant; importId: string; now: Date; services?: CascadeServices },
   ctx: RequestContext,
 ): Promise<FileImportResult> {
   const { grant, importId, now } = input;
@@ -539,7 +540,18 @@ export async function importFilePreview(
 
   // A cascata vista por quem vai ver o lançamento (skill `categorizacao`)
   const viewer = destination.viewerId ?? account.holderId ?? grant.userId;
-  const suggesters = defaultSuggesters(db, await authorizeScope(db, viewer, "view"));
+  const suggesters = defaultSuggesters(
+    db,
+    await authorizeScope(db, viewer, "view"),
+    input.services,
+  );
+  // A cascata roda ANTES da transação: o classificador chama o serviço Python, e uma transação
+  // do banco não fica aberta esperando a rede (M10.1)
+  const suggestions = new Map<(typeof rows)[number], CategorySuggestion | null>();
+  for (const t of rows) {
+    const kind = t.amount < 0n ? "expense" : "income";
+    suggestions.set(t, await runCascade(suggesters, { description: t.description, kind }));
+  }
 
   return db.$transaction(async (tx) => {
     const claimed = await tx.fileImport.updateMany({
@@ -554,8 +566,7 @@ export async function importFilePreview(
     const statementId = invoice ? await saveInvoice(tx, account, invoice) : null;
     const creates: Prisma.TransactionCreateManyInput[] = [];
     for (const t of fresh) {
-      const kind = t.amount < 0n ? "expense" : "income";
-      const suggestion = await runCascade(suggesters, { description: t.description, kind });
+      const suggestion = suggestions.get(t) ?? null;
       creates.push({
         householdId: grant.account.householdId,
         walletId: destination.walletId,
@@ -564,6 +575,7 @@ export async function importFilePreview(
         method: importedMethod(account.kind, t.paymentHint, t.amount),
         categoryId: suggestion?.categoryId ?? null,
         categorizedBy: suggestion ? suggestion.source : null,
+        categorizationConfidence: suggestion?.confidence ?? null,
         amount: toDbDecimal(t.amount),
         occurredOn: dbDateFromCivil(t.occurredOn),
         description: t.description,

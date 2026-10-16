@@ -8,6 +8,7 @@ import {
   todayCivil,
   type CivilDate,
 } from "@fintrack/core";
+import { SOURCE_LABEL } from "@/lib/labels";
 import { NUMBER_LINK } from "@/lib/styles";
 import { cn } from "@/lib/utils";
 import type { PayerOption } from "../payers";
@@ -43,6 +44,7 @@ function backName(back: string) {
   if (path === "/orcamento/fluxo") return "Fluxo de caixa";
   if (path === "/orcamento/evolucao") return "Evolução";
   if (path === "/orcamento") return "Orçamento";
+  if (path === "/ajustes/categorizacao") return "Categorização";
   return "Início";
 }
 
@@ -119,6 +121,17 @@ export function ActiveFilters({
       label,
       short: label.split(" de ")[0] ?? label,
       remove: href({ de: null, ate: null }),
+    });
+  }
+  // M10.1: o número de uma camada em Ajustes › Categorização
+  if (f.categorizedBy) {
+    const name = SOURCE_LABEL[f.categorizedBy];
+    chips.push({
+      key: "quem",
+      label:
+        f.categorizedBy === "MANUAL" ? "Categoria escolhida por você" : `Categorizado por: ${name}`,
+      short: name,
+      remove: href({ quem: null }),
     });
   }
   if (f.payer) {

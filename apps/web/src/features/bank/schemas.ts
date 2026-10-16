@@ -167,6 +167,9 @@ export const undoSchema = z.discriminatedUnion("kind", [
 
 export const pairSchema = z.object({ receivedId: z.uuid(), ownId: z.uuid() });
 
+/** "Confirmar" no "Por que essa categoria?" (M10.1): o recebido e o ambiente em que ele está. */
+export const explainedConfirmSchema = z.object({ transactionId: z.uuid(), walletId: z.uuid() });
+
 /** "Cadastrar e reorganizar": o cartão de um final que o banco mandou (só os 4 dígitos). */
 export const registerFinalSchema = z.object({
   accountId: z.uuid(),

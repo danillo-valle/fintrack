@@ -2,12 +2,13 @@
 //
 // A cascata pergunta, em ordem, a quem sabe responder; a primeira resposta vence:
 //
-//   1. REGRA     "a descrição contém 'mercado' → Mercado" (CategoryRule, criada pela pessoa,
-//                inclusive a partir de uma correção: "sempre categorizar assim?")
-//   2. HISTÓRICO a categoria que o lar mais usou para o mesmo comerciante (merchantKey)
-//   …  M09: a categoria que a Pluggy devolve; M10: o classificador (scikit-learn) e, por último,
-//      um LLM numa fila assíncrona. Cada camada nova é um CategorySuggester a mais na lista:
-//      nada aqui muda (ADR-007).
+//   1. REGRA         "a descrição contém 'mercado' → Mercado" (CategoryRule, criada pela pessoa,
+//                    inclusive a partir de uma correção: "sempre categorizar assim?")
+//   2. HISTÓRICO     a categoria que o lar mais usou para o mesmo comerciante (merchantKey)
+//   3. BANCO         a categoria que o Meu Pluggy mandou, traduzida para a do lar (M10.1)
+//   4. CLASSIFICADOR o modelo do serviço Python, se a confiança chegar a 80 % (M10.1, ADR-015)
+//   …  M10.2: um LLM, só numa fila assíncrona, para o que sobrar. Cada camada é um
+//      CategorySuggester a mais na lista: quem chama não muda (ADR-007).
 //
 // Tudo que está neste arquivo é puro: recebe textos e listas, devolve a sugestão. Quem busca
 // as regras e o histórico no banco (e só nas carteiras que a pessoa pode ver) é o @fintrack/db.
@@ -157,10 +158,18 @@ export function suggestRulePattern(description: string): string | null {
 // ── Sugestão (a interface única da cascata) ─────────────────────────────────────
 
 /**
- * Quem pode sugerir uma categoria. O M07 tem as duas primeiras camadas; o M09 acrescenta
- * "PROVIDER" (a categoria da Pluggy) e o M10 "CLASSIFIER" e "LLM", como valores novos.
+ * Quem pode sugerir uma categoria: as regras e o histórico (M07), a categoria do banco e o
+ * classificador (M10.1). O LLM do M10.2 entra como valor novo.
  */
-export type SuggestionSource = "RULE" | "HISTORY";
+export type SuggestionSource = "RULE" | "HISTORY" | "PROVIDER" | "CLASSIFIER";
+
+/** As camadas, na ordem da cascata (a tela e a medida usam esta ordem). */
+export const SUGGESTION_SOURCES: readonly SuggestionSource[] = [
+  "RULE",
+  "HISTORY",
+  "PROVIDER",
+  "CLASSIFIER",
+];
 
 /**
  * Quem decidiu a categoria gravada no lançamento (coluna opcional transaction.categorizedBy):
@@ -171,7 +180,7 @@ export type CategorizationSource = "MANUAL" | SuggestionSource;
 export type CategorySuggestion = {
   categoryId: string;
   source: SuggestionSource;
-  /** Confiança de 0 a 100 (inteiro). Regra = 100; histórico = % dos votos. */
+  /** Confiança de 0 a 100 (inteiro). Regra = 100; histórico e banco = % dos votos. */
   confidence: number;
   /** Uma frase para a tela: "regra: contém 'mercado'", "histórico: 4 de 5 vezes". */
   reason: string;
@@ -179,16 +188,39 @@ export type CategorySuggestion = {
   ruleId?: string;
 };
 
-/** O que a cascata recebe. O sinal ajuda a escolher entre categoria de despesa e de receita. */
-export type SuggestionInput = { description: string; kind: "expense" | "income" };
+/**
+ * O que a cascata recebe. O sinal ajuda a escolher entre categoria de despesa e de receita; a
+ * categoria do banco só existe no que veio do Meu Pluggy (M10.1).
+ */
+export type SuggestionInput = {
+  description: string;
+  kind: "expense" | "income";
+  providerCategory?: string | null;
+};
+
+/** O que uma camada respondeu e por quê ("1 lançamento parecido (precisa de 2)"). */
+export type LayerOutcome = { suggestion: CategorySuggestion | null; detail: string };
 
 /**
  * A interface única de sugestão (padrão adaptador). Cada camada da cascata implementa isto;
- * o M10 acrescenta o classificador como mais um item da lista, sem mudar quem chama.
+ * `explain` (opcional) diz também POR QUE não sugeriu, para a tela "Por que essa categoria?".
  */
 export interface CategorySuggester {
   readonly source: SuggestionSource;
   suggest(input: SuggestionInput): Promise<CategorySuggestion | null>;
+  explain?(input: SuggestionInput): Promise<LayerOutcome>;
+}
+
+/** Monta uma camada a partir do `explain`: a sugestão é a parte "suggestion" da explicação. */
+export function suggesterFrom(
+  source: SuggestionSource,
+  explain: (input: SuggestionInput) => Promise<LayerOutcome>,
+): CategorySuggester {
+  return {
+    source,
+    explain,
+    suggest: async (input) => (await explain(input)).suggestion,
+  };
 }
 
 /** Roda as camadas em ordem e devolve a primeira sugestão. Descrição vazia: nenhuma. */
@@ -204,46 +236,93 @@ export async function runCascade(
   return null;
 }
 
+export type ExplainedLayer = LayerOutcome & {
+  source: SuggestionSource;
+  /** DECIDED: a camada que respondeu; MISSED: perguntada, sem resposta; SKIPPED: não precisou */
+  state: "DECIDED" | "MISSED" | "SKIPPED";
+};
+
+/**
+ * A cascata explicada camada por camada, para a tela "Por que essa categoria?": a mesma ordem
+ * e o mesmo resultado do runCascade; as camadas depois da que decidiu nem são perguntadas.
+ */
+export async function explainCascade(
+  suggesters: readonly CategorySuggester[],
+  input: SuggestionInput,
+): Promise<{ layers: ExplainedLayer[]; suggestion: CategorySuggestion | null }> {
+  const layers: ExplainedLayer[] = [];
+  let decided: CategorySuggestion | null = null;
+  const empty = normalizeText(input.description) === "";
+  for (const suggester of suggesters) {
+    if (decided || empty) {
+      layers.push({ source: suggester.source, state: "SKIPPED", suggestion: null, detail: "" });
+      continue;
+    }
+    const outcome = suggester.explain
+      ? await suggester.explain(input)
+      : { suggestion: await suggester.suggest(input), detail: "" };
+    decided = outcome.suggestion;
+    layers.push({ source: suggester.source, state: decided ? "DECIDED" : "MISSED", ...outcome });
+  }
+  return { layers, suggestion: decided };
+}
+
+// ── Camada 1: regras ────────────────────────────────────────────────────────────
+
+const HOW: Record<RuleMatch, string> = {
+  CONTAINS: "contém",
+  STARTS_WITH: "começa com",
+  EQUALS: "é igual a",
+};
+
+export function explainRules(
+  rules: readonly CategoryRuleLike[],
+  description: string,
+): LayerOutcome {
+  const rule = firstMatchingRule(rules, description);
+  if (!rule) {
+    return {
+      suggestion: null,
+      detail: rules.length === 0 ? "Nenhuma regra criada ainda" : "Nenhuma regra combinou",
+    };
+  }
+  const what = `${HOW[rule.match]} "${rule.pattern}"`;
+  return {
+    suggestion: {
+      categoryId: rule.categoryId,
+      source: "RULE",
+      confidence: 100,
+      reason: `regra: ${what}`,
+      ruleId: rule.id,
+    },
+    detail: `A descrição ${what}`,
+  };
+}
+
 /** Sugestão por regra: a primeira regra que combina, com confiança 100. */
 export function suggestFromRules(
   rules: readonly CategoryRuleLike[],
   description: string,
 ): CategorySuggestion | null {
-  const rule = firstMatchingRule(rules, description);
-  if (!rule) return null;
-  const how = { CONTAINS: "contém", STARTS_WITH: "começa com", EQUALS: "é igual a" }[rule.match];
-  return {
-    categoryId: rule.categoryId,
-    source: "RULE",
-    confidence: 100,
-    reason: `regra: ${how} "${rule.pattern}"`,
-    ruleId: rule.id,
-  };
+  return explainRules(rules, description).suggestion;
 }
+
+// ── Camadas 2 e 3: votos (histórico e banco) ────────────────────────────────────
 
 export type HistoryRow = { description: string; categoryId: string };
 
-/** Quantos votos e que fatia mínima o histórico precisa para sugerir. */
+/** Quantos votos e que fatia mínima o histórico (e o banco) precisam para sugerir. */
 export const HISTORY_MIN_VOTES = 2;
 export const HISTORY_MIN_SHARE = 60; // %
 
-/**
- * Sugestão pelo histórico: entre os lançamentos já categorizados com a MESMA chave de
- * comerciante, a categoria mais usada, se tiver pelo menos 2 votos e 60% deles.
- * `rows` vem do mais recente para o mais antigo: no empate, vence a usada por último.
- * Divisão inteira para a porcentagem (não é dinheiro, mas o projeto evita float por hábito).
- */
-export function suggestFromHistory(
-  rows: readonly HistoryRow[],
-  description: string,
-): CategorySuggestion | null {
-  const key = merchantKey(description);
-  if (key === "") return null;
+type Vote = { categoryId: string; count: number; total: number };
+
+/** A categoria mais votada (no empate, a que apareceu primeiro = a mais recente). */
+function tally(categoryIds: Iterable<string>): Vote | null {
   const votes = new Map<string, number>();
   let total = 0;
-  for (const row of rows) {
-    if (merchantKey(row.description) !== key) continue;
-    votes.set(row.categoryId, (votes.get(row.categoryId) ?? 0) + 1);
+  for (const categoryId of categoryIds) {
+    votes.set(categoryId, (votes.get(categoryId) ?? 0) + 1);
     total += 1;
   }
   let best: { categoryId: string; count: number } | null = null;
@@ -251,14 +330,226 @@ export function suggestFromHistory(
     // Map mantém a ordem de inserção = do mais recente; ">" deixa o mais recente no empate
     if (!best || count > best.count) best = { categoryId, count };
   }
-  if (!best || best.count < HISTORY_MIN_VOTES) return null;
-  const confidence = Math.floor((best.count * 100) / total);
-  if (confidence < HISTORY_MIN_SHARE) return null;
+  return best ? { ...best, total } : null;
+}
+
+/** Divisão inteira para a porcentagem (não é dinheiro, mas o projeto evita float por hábito). */
+const shareOf = (vote: Vote) => Math.floor((vote.count * 100) / vote.total);
+
+/** Por que os votos não bastam (ou null se bastam). `what`: [singular, plural]. */
+function weakVote(vote: Vote | null, what: readonly [string, string]): string | null {
+  if (!vote) return `Nenhum ${what[0]}`;
+  if (vote.count < HISTORY_MIN_VOTES) {
+    return vote.total === 1
+      ? `1 ${what[0]} (precisa de ${HISTORY_MIN_VOTES})`
+      : `${vote.total} ${what[1]}, cada um numa categoria (precisa de ${HISTORY_MIN_VOTES} iguais)`;
+  }
+  if (shareOf(vote) < HISTORY_MIN_SHARE) {
+    return `Os ${what[1]} estão divididos: ${vote.count} de ${vote.total} (precisa de ${HISTORY_MIN_SHARE} %)`;
+  }
+  return null;
+}
+
+const SIMILAR = [
+  "lançamento parecido nas carteiras que você vê",
+  "lançamentos parecidos nas carteiras que você vê",
+] as const;
+const CHOICES = ["escolha sua para esse texto", "escolhas suas para esse texto"] as const;
+
+/**
+ * Pelo histórico: entre os lançamentos já categorizados com a MESMA chave de comerciante, a
+ * categoria mais usada, se tiver pelo menos 2 votos e 60% deles. `rows` vem do mais recente
+ * para o mais antigo: no empate, vence a usada por último.
+ */
+export function explainHistory(rows: readonly HistoryRow[], description: string): LayerOutcome {
+  const key = merchantKey(description);
+  if (key === "") return { suggestion: null, detail: "A descrição não tem nome de comerciante" };
+  const vote = tally(
+    rows.filter((row) => merchantKey(row.description) === key).map((row) => row.categoryId),
+  );
+  const weak = weakVote(vote, SIMILAR);
+  if (weak || !vote) return { suggestion: null, detail: weak ?? "" };
   return {
-    categoryId: best.categoryId,
-    source: "HISTORY",
-    confidence,
-    reason: `histórico: ${best.count} de ${total} vezes`,
+    suggestion: {
+      categoryId: vote.categoryId,
+      source: "HISTORY",
+      confidence: shareOf(vote),
+      reason: `histórico: ${vote.count} de ${vote.total} vezes`,
+    },
+    detail: `${vote.count} de ${vote.total} lançamentos parecidos nesta categoria`,
+  };
+}
+
+export function suggestFromHistory(
+  rows: readonly HistoryRow[],
+  description: string,
+): CategorySuggestion | null {
+  return explainHistory(rows, description).suggestion;
+}
+
+export type ProviderRow = { providerCategory: string; categoryId: string };
+
+/** Confiança do banco quando só o NOME bate ("Farmácia" do banco = "Farmácia" do lar). */
+export const PROVIDER_NAME_CONFIDENCE = 80;
+
+/** "Restaurantes" e "restaurante" são o mesmo nome; "Supermercados" e "Mercado", não. */
+const sameName = (a: string, b: string) => {
+  const singular = (text: string) => matchText(text).replace(/s\b/g, "");
+  return singular(a) !== "" && singular(a) === singular(b);
+};
+
+/**
+ * Pela categoria do banco (M10.1): o banco manda um texto ("Supermercados") que não é uma
+ * categoria do lar. Duas pistas, nesta ordem:
+ *   1. o que a pessoa escolheu antes para o mesmo texto do banco (votos, como o histórico)
+ *   2. uma categoria do lar com o mesmo nome (confiança 80)
+ * `rows` vem do mais recente; `categories` são só as ativas e do tipo certo.
+ */
+export function explainProvider(
+  rows: readonly ProviderRow[],
+  providerCategory: string | null | undefined,
+  categories: readonly { id: string; name: string }[],
+): LayerOutcome {
+  const said = providerCategory?.trim();
+  if (!said) return { suggestion: null, detail: "O banco não mandou categoria" };
+  const key = matchText(said);
+  const vote = tally(
+    rows.filter((row) => matchText(row.providerCategory) === key).map((row) => row.categoryId),
+  );
+  const quoted = `"${said.slice(0, 40)}"`;
+  if (vote && !weakVote(vote, CHOICES)) {
+    return {
+      suggestion: {
+        categoryId: vote.categoryId,
+        source: "PROVIDER",
+        confidence: shareOf(vote),
+        reason: `banco: ${quoted}, ${vote.count} de ${vote.total} vezes`,
+      },
+      detail: `O banco disse ${quoted}; você escolheu esta categoria ${vote.count} de ${vote.total} vezes`,
+    };
+  }
+  const named = categories.find((category) => sameName(category.name, said));
+  if (named) {
+    return {
+      suggestion: {
+        categoryId: named.id,
+        source: "PROVIDER",
+        confidence: PROVIDER_NAME_CONFIDENCE,
+        reason: `banco: ${quoted}, mesmo nome`,
+      },
+      detail: `O banco disse ${quoted}, o mesmo nome de uma categoria sua`,
+    };
+  }
+  return {
+    suggestion: null,
+    detail: vote
+      ? `O banco disse ${quoted}, mas ${weakVote(vote, CHOICES)?.toLowerCase()}`
+      : `O banco disse ${quoted}, que ainda não está ligado a uma categoria sua`,
+  };
+}
+
+// ── Camada 4: o classificador (M10.1, ADR-015) ──────────────────────────────────
+
+/** A partir de quanto o classificador sugere. Abaixo disso: sem sugestão (M10.2: fila do LLM). */
+export const CLASSIFIER_THRESHOLD = 80;
+
+/** Uma resposta do serviço: a categoria, a confiança (0 a 100) e o modelo (id da carteira). */
+export type ClassifierCandidate = { categoryId: string; confidence: number; model: string };
+
+export type TrainingExample = {
+  description: string;
+  kind: "expense" | "income";
+  categoryId: string;
+};
+
+/**
+ * O serviço Python visto pelo resto do app (porta). Quem implementa é o app web (HTTP com o
+ * token curto); os testes usam uma porta de mentira. Nenhum método recebe o lar: só os modelos
+ * (ids das carteiras) que quem chama PODE consultar.
+ */
+export interface ClassifierPort {
+  suggest(input: {
+    models: readonly string[];
+    description: string;
+    kind: "expense" | "income";
+  }): Promise<ClassifierCandidate[]>;
+  train(input: {
+    model: string;
+    examples: readonly TrainingExample[];
+  }): Promise<{ examples: number; categories: number } | "TOO_FEW">;
+  remove(model: string): Promise<void>;
+}
+
+/**
+ * A resposta do classificador vira sugestão: a 1ª candidata que é uma categoria usável (ativa,
+ * do lar e do tipo certo), se a confiança chegar ao limiar. `candidates` null = serviço fora.
+ */
+export function explainClassifier(
+  candidates: readonly ClassifierCandidate[] | null,
+  categories: readonly { id: string; name: string }[],
+  models: number,
+): LayerOutcome {
+  if (models === 0) {
+    return { suggestion: null, detail: "Ainda sem modelo treinado nas carteiras que você vê" };
+  }
+  if (candidates === null) return { suggestion: null, detail: "O classificador não respondeu" };
+  const names = new Map(categories.map((c) => [c.id, c.name]));
+  const best = candidates.find((c) => names.has(c.categoryId));
+  if (!best) return { suggestion: null, detail: "Nenhuma categoria conhecida" };
+  const name = names.get(best.categoryId) as string;
+  if (best.confidence < CLASSIFIER_THRESHOLD) {
+    return {
+      suggestion: null,
+      detail: `${name} ficou em ${best.confidence} % (sugere a partir de ${CLASSIFIER_THRESHOLD} %)`,
+    };
+  }
+  return {
+    suggestion: {
+      categoryId: best.categoryId,
+      source: "CLASSIFIER",
+      confidence: best.confidence,
+      reason: `classificador: ${best.confidence} % de confiança`,
+    },
+    detail: `${name}, ${best.confidence} % de confiança (sugere a partir de ${CLASSIFIER_THRESHOLD} %)`,
+  };
+}
+
+// ── A medida: quem categorizou (M10.1) ──────────────────────────────────────────
+
+export type BreakdownKey = CategorizationSource | "NONE";
+/** A ordem da tela: as camadas da cascata, depois a pessoa e os sem categoria. */
+export const BREAKDOWN_ORDER: readonly BreakdownKey[] = [...SUGGESTION_SOURCES, "MANUAL", "NONE"];
+
+/** Décimos de porcentagem, arredondando metade para cima: 378 de 412 → 917 (91,7 %). */
+export function tenthsOf(part: number, total: number): number {
+  if (total <= 0) return 0;
+  return Math.floor((part * 2000 + total) / (2 * total));
+}
+
+export type Breakdown = {
+  total: number;
+  /** Categorizados por alguma camada automática SEM IA (regra, histórico, banco, classificador) */
+  automatic: number;
+  automaticTenths: number;
+  rows: { key: BreakdownKey; count: number; tenths: number }[];
+};
+
+/**
+ * O "percentual sem IA" e a parte de cada camada, a partir das contagens do banco. O total
+ * inclui os escolhidos pela pessoa e os sem categoria: a medida é o quanto a cascata resolveu
+ * sozinha, sem LLM. Lançamento antigo com categoria e sem autor conta como da pessoa.
+ */
+export function categorizationBreakdown(counts: Partial<Record<BreakdownKey, number>>): Breakdown {
+  const rows = BREAKDOWN_ORDER.map((key) => ({ key, count: counts[key] ?? 0 }));
+  const total = rows.reduce((sum, row) => sum + row.count, 0);
+  const automatic = rows
+    .filter((row) => (SUGGESTION_SOURCES as readonly string[]).includes(row.key))
+    .reduce((sum, row) => sum + row.count, 0);
+  return {
+    total,
+    automatic,
+    automaticTenths: tenthsOf(automatic, total),
+    rows: rows.map((row) => ({ ...row, tenths: tenthsOf(row.count, total) })),
   };
 }
 
@@ -272,6 +563,16 @@ export function categorizedBy(
 ): CategorizationSource | null {
   if (!chosenCategoryId) return null;
   return suggestion && suggestion.categoryId === chosenCategoryId ? suggestion.source : "MANUAL";
+}
+
+/** A confiança gravada junto (M10.1): a da camada, se a pessoa aceitou; senão, nenhuma. */
+export function categorizationConfidence(
+  chosenCategoryId: string | null,
+  suggestion: Pick<CategorySuggestion, "categoryId" | "confidence"> | null,
+): number | null {
+  return chosenCategoryId && suggestion?.categoryId === chosenCategoryId
+    ? suggestion.confidence
+    : null;
 }
 
 /**

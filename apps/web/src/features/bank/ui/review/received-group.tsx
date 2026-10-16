@@ -1,12 +1,16 @@
 // Os recebidos sem par de uma fatura (cartão) ou de uma conta (M09.2, pranchas E2-Revisao e
 // E2-CelRevisao), com "Confirmar os N com categoria" do grupo e o "Confirmar" de cada linha.
 //
-//   computador  data | descrição + cartão | categoria | ambiente | valor | Confirmar
+//   computador  data | descrição + cartão | categoria [?] | ambiente | valor | Confirmar
 //   celular     descrição ............................................ valor
 //               data · cartão
-//               [ categoria (largura toda) ]
+//               [ categoria (quase toda a largura)        ] [?]
 //               [ ambiente               ] [ Confirmar ]
+//
+// [?] (M10.1, prancha F-Sugestoes): "Por que essa categoria?", a cascata camada por camada, num
+// modal por cima da revisão. A etiqueta da categoria diz quem sugeriu e com que confiança.
 import Link from "next/link";
+import { CircleHelp } from "lucide-react";
 import type { ReceivedView, ReviewGroup } from "../../server/review";
 import { AmountText } from "@/components/money/amount-text";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -41,7 +45,7 @@ function ReceivedRow({
     : [item.wallet, ...wallets];
   return (
     <li
-      className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2.5 gap-y-2 py-3 md:grid-cols-[3rem_minmax(0,1fr)_12.5rem_6.5rem_6.5rem_6rem] md:items-center md:gap-x-3 md:py-2.5"
+      className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2.5 gap-y-2 py-3 md:grid-cols-[3rem_minmax(0,1fr)_15rem_6.5rem_6.5rem_6rem] md:items-center md:gap-x-3 md:py-2.5"
       data-testid="recebido"
     >
       <span className="text-muted-foreground tabular hidden font-mono text-[0.8125rem] md:col-start-1 md:row-start-1 md:block">
@@ -70,17 +74,34 @@ function ReceivedRow({
         arrow={false}
         className="col-start-2 row-start-1 self-start justify-self-end text-[0.9375rem] font-bold md:col-start-5 md:self-center"
       />
-      <span className="col-span-2 min-w-0 md:col-span-1 md:col-start-3 md:row-start-1">
-        {item.isTransfer ? (
-          <span className="text-muted-foreground text-sm">Transferência</span>
-        ) : item.canEdit ? (
-          <CategoryPicker
-            item={item}
-            choices={item.amount < 0n ? choices.expense : choices.income}
-            full
-          />
-        ) : (
-          <CategoryLabel category={item.category} categorizedBy={item.categorizedBy} />
+      <span className="col-span-2 flex min-w-0 items-center gap-1 md:col-span-1 md:col-start-3 md:row-start-1">
+        <span className="min-w-0 flex-1">
+          {item.isTransfer ? (
+            <span className="text-muted-foreground text-sm">Transferência</span>
+          ) : item.canEdit ? (
+            <CategoryPicker
+              item={item}
+              choices={item.amount < 0n ? choices.expense : choices.income}
+              full
+            />
+          ) : (
+            <CategoryLabel
+              category={item.category}
+              categorizedBy={item.categorizedBy}
+              confidence={item.categorizationConfidence}
+            />
+          )}
+        </span>
+        {item.isTransfer ? null : (
+          <Link
+            href={`/lancamentos/recebidos/por-que/${item.id}`}
+            scroll={false}
+            aria-label={`Por que essa categoria: ${item.description}`}
+            title="Por que essa categoria?"
+            className="text-muted-foreground hover:bg-muted focus-visible:ring-ring grid size-11 shrink-0 place-items-center rounded-xl outline-none focus-visible:ring-3 md:size-9"
+          >
+            <CircleHelp aria-hidden className="size-[1.125rem]" />
+          </Link>
         )}
       </span>
       {item.canEdit ? (

@@ -246,7 +246,23 @@ describe("pairedFields", () => {
   it("fica o seu: descrição, categoria, ambiente, observação e recorrência", () => {
     expect(
       pairedFields({ cardId: "c-0002", categoryId: "cat-x", categorizedBy: "RULE" }, ownSide),
-    ).toEqual({ ...ownSide, cardId: "c-0002" });
+    ).toEqual({ ...ownSide, cardId: "c-0002", categorizationConfidence: null });
+  });
+
+  it("a confiança acompanha quem decidiu a categoria (M10.1)", () => {
+    const bank = {
+      cardId: null,
+      categoryId: "cat-x",
+      categorizedBy: "CLASSIFIER",
+      categorizationConfidence: 92,
+    };
+    expect(pairedFields(bank, { ...ownSide, categoryId: null, categorizedBy: null })).toMatchObject(
+      { categorizedBy: "CLASSIFIER", categorizationConfidence: 92 },
+    );
+    expect(pairedFields(bank, ownSide)).toMatchObject({
+      categorizedBy: "MANUAL",
+      categorizationConfidence: null,
+    });
   });
 
   it("sem a sua categoria, fica a sugestão do recebido; sem o final do banco, o seu cartão", () => {

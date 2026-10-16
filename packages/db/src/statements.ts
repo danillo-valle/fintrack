@@ -41,6 +41,7 @@ const RECEIVED_SELECT = {
   amount: true,
   status: true,
   categorizedBy: true,
+  categorizationConfidence: true,
   providerCategory: true,
   providerInstallmentNumber: true,
   providerInstallmentCount: true,
@@ -65,6 +66,7 @@ function toReceived(row: ReceivedRow, accountWalletId: string) {
     amount: fromDbDecimal(row.amount),
     status: row.status,
     categorizedBy: row.categorizedBy,
+    categorizationConfidence: row.categorizationConfidence,
     category: row.category
       ? { id: row.category.id, name: row.category.name, parent: row.category.parent?.name ?? null }
       : null,

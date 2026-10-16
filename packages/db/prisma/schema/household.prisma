@@ -63,6 +63,7 @@ model Household {
   categorizationExamples CategorizationExample[]
   transactionMatches     TransactionMatch[]
   fileImports            FileImport[]
+  classifierModels       ClassifierModel[]
 
   @@map("household")
 }
@@ -112,6 +113,7 @@ model Wallet {
   recurrences       Recurrence[]
   connections       ProviderConnection[]
   importingCards    PaymentCard[]        @relation("CardImportWallet")
+  classifierModels  ClassifierModel[]
 
   // Alvo das chaves estrangeiras COMPOSTAS (walletId, householdId) de contas, lançamentos,
   // parcelas e recorrências: garante, no banco, que nada aponta para ambiente de outro grupo.

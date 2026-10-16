@@ -119,6 +119,7 @@ describe("filtros na URL", () => {
         type: null,
         payer: null,
         received: false,
+        categorizedBy: null,
       },
       walletId: null,
       cursor: null,
@@ -149,6 +150,7 @@ describe("filtros na URL", () => {
       type: "expense",
       payer: { kind: "shared" },
       received: false,
+      categorizedBy: null,
     });
     expect(parsed.walletId).toBe(ID);
   });
@@ -158,6 +160,28 @@ describe("filtros na URL", () => {
     expect(parsed.filters).toMatchObject({ from: "2025-10-07", to: "2026-10-07", received: true });
     expect(filtersToQuery(parsed)).toContain("situacao=recebidos");
     expect(parseFilters({ situacao: "outra" }, today).filters.received).toBe(false);
+  });
+
+  it("quem=: quem categorizou, em português, ida e volta (M10.1)", () => {
+    for (const [param, source] of [
+      ["regra", "RULE"],
+      ["historico", "HISTORY"],
+      ["banco", "PROVIDER"],
+      ["classificador", "CLASSIFIER"],
+      ["voce", "MANUAL"],
+    ] as const) {
+      const parsed = parseFilters({ quem: param }, today);
+      expect(parsed.filters.categorizedBy).toBe(source);
+      expect(filtersToQuery(parsed)).toContain(`quem=${param}`);
+    }
+    expect(parseFilters({ quem: "llm" }, today).filters.categorizedBy).toBeNull();
+  });
+
+  it("volta=/ajustes/categorizacao é aceito; outro caminho de Ajustes, não (M10.1)", () => {
+    expect(parseFilters({ volta: "/ajustes/categorizacao" }, today).back).toBe(
+      "/ajustes/categorizacao",
+    );
+    expect(parseFilters({ volta: "/ajustes/seguranca" }, today).back).toBeNull();
   });
 
   it("lixo na URL vira o padrão, nunca erro", () => {

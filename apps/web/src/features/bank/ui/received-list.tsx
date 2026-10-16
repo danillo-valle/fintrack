@@ -6,6 +6,7 @@
 //               data · US$ 48,61 · IOF na fatura
 //               [ categoria (largura toda) ]
 import { CircleDashed, Globe } from "lucide-react";
+import type { CategorizationSource } from "@fintrack/core";
 import { AmountText } from "@/components/money/amount-text";
 import { ToneChip } from "@/components/visual/tone-chip";
 import { formatBRL } from "@/lib/money";
@@ -18,7 +19,9 @@ export type ReceivedRowData = {
   amount: bigint;
   status: "PENDING" | "SCHEDULED" | "CONFIRMED";
   category: { id: string; name: string; parent: string | null } | null;
-  categorizedBy: string | null;
+  categorizedBy: CategorizationSource | null;
+  /** A confiança da camada que sugeriu (M10.1) */
+  categorizationConfidence?: number | null;
   installment: { number: number; count: number } | null;
   original: { amount: bigint; currency: string } | null;
   /** Uma frase pequena: "no ambiente Caio" (a compra do adicional), por exemplo */

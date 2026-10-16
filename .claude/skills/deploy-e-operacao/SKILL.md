@@ -25,6 +25,7 @@ Leia antes: `docs/adr/0005-hospedagem-e-deploy.md` (decisões) e `docs/operacao/
 | --------------------------------------- | ---------------------------------------------------------- |
 | Imagens (alvos `web` e `migrate`)       | `Dockerfile`, `.dockerignore`                              |
 | Produção (serviços, redes, limites)     | `deploy/compose.prod.yml`                                  |
+| Modelos do classificador (M10.1)        | volume `ml-modelos` em `/data/modelos` (fora do backup)    |
 | Porta de entrada, HSTS, IP do visitante | `deploy/caddy/Caddyfile`                                   |
 | Scripts de operação                     | `deploy/bin/` (todos usam `deploy/bin/lib.sh`)             |
 | Agendamentos                            | `deploy/systemd/*.timer`                                   |
