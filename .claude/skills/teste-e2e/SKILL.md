@@ -39,11 +39,26 @@ Referência: `apps/web/e2e/permissoes.spec.ts` (M06) e `apps/web/e2e/helpers.ts`
 - **Antes do React carregar (M08)**: o `data-hydrated` marca só a moldura; o conteúdo da página
   vem em Suspense e hidrata depois. O `openPage` espera também a marca do `ContentReady` (no
   `PageHeader`) virar "pronto", o que só acontece depois do commit (`waitForContent`); depois de
-  navegar de outro jeito (clique num link, `goBack`) e antes de digitar, chame `waitForContent(page)`.
-  Não espere pela chave `__reactFiber$`: o React a grava antes do commit. Todo `<form>` precisa
-  funcionar sem o React:
-  `formularios.spec.ts` confere o HTML de cada página de `PAGES` e envia um formulário com os
-  pacotes de JavaScript barrados.
+  navegar de outro jeito (clique num link, `goBack`, envio que troca de página) e antes de digitar,
+  chame `waitForReady(page)` (moldura + conteúdo). As telas de entrada têm a mesma marca no `AuthCard`
+  (M10.0). O `waitForContent` só conta a marca do que está à vista: uma tela guardada pelo
+  `<Activity>` (com `display: none`) não roda efeitos e pode ficar em "carregando" para sempre. Não espere pela chave `__reactFiber$`: o React a grava antes do commit. Todo `<form>`
+  precisa funcionar sem o React, ou pelo menos não vazar nada: `formularios.spec.ts` confere o HTML
+  de `PAGES` e `PUBLIC_PAGES` (todo formulário declara o método; senha, e-mail ou código só por POST)
+  e envia formulários com os pacotes de JavaScript barrados.
+- **Esperar o servidor, não o relógio (M10.0)**: aviso, URL ou lista que só mudam depois de uma
+  resposta do servidor são conferidos DEPOIS dela. Clique com `clickAndWait(botão, serverAction)`
+  (Server Action) ou `clickAndWait(botão, authEndpoint("/change-password"))` (cliente do Better
+  Auth); o `router.refresh()` que vem depois espera-se com `page.waitForResponse(pageData(caminho))`,
+  registrado ANTES do clique; navegação depois da resposta, com `page.waitForURL(...)` e
+  `waitForReady`. O `expect` fica só para o que a tela mostra quando o estado já chegou. Foi assim
+  que os três E2E que só caíam na suíte inteira do N150 foram corrigidos: o trace mostrava o pedido
+  ainda sem resposta (`status -1`) quando os 5 s do `expect` acabavam.
+- **Diagnóstico por escopo**: um teste por vez, `--trace=retain-on-failure
+--output=test-results/<nome>` (sempre dentro de `test-results/`, que o Git e o Prettier ignoram).
+  Para ver a ordem dos pedidos no trace, leia o `trace.network` do zip (método, URL, status, tempo).
+  O Playwright usa metade dos núcleos como workers: no N150 (4 núcleos) são 2; no laboratório de 2
+  núcleos, `--workers=2` já põe o dobro de carga por núcleo.
 - **Esquema de URL por lista permitida**: para conferir para onde um link ou formulário aponta, leia o
   `protocol` de `new URL(...)` e aceite só `http:`/`https:`. Nunca `startsWith("javascript:")`: o CodeQL
   acusa (js/incomplete-url-scheme-check, alta) e trava o PR, mesmo em arquivo de teste.
@@ -65,7 +80,8 @@ Referência: `apps/web/e2e/permissoes.spec.ts` (M06) e `apps/web/e2e/helpers.ts`
   página 404 **sem nenhum dado** no HTML (`page.content()` não contém o nome do recurso), igual
   à de um id inexistente. (O status sai 200 por causa do streaming; veja o ADR-006.)
 - **Nada de** `test.only`, `test.skip` sem motivo escrito, `waitForTimeout`, aumentar timeout
-  para "passar". Espere por estado visível (`toBeVisible`, `toHaveURL`).
+  ou `retries` para "passar". Espere pelo estado: a resposta do servidor (`clickAndWait`), a URL
+  (`waitForURL`), a tela ligada (`waitForReady`), e só então o que ficou visível.
 
 ## Rodar
 

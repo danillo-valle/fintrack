@@ -9,20 +9,29 @@
 //      chega ao servidor e a resposta traz o resultado da action (no pnpm dev e em produção).
 //   3. Depois de um envio, sair da tela e voltar mostra o formulário novo, sem o aviso de antes
 //      (a tela fica escondida no documento, e o ActionForm monta de novo).
+//   4. (M10.0) Nenhum formulário manda senha, e-mail ou código pela URL, nem antes do React.
 //
 // Dados sintéticos: um lar novo por teste, só com a Bia.
-import { expect, type Browser, type TestInfo } from "@playwright/test";
+import { expect, type Browser, type Page, type TestInfo } from "@playwright/test";
 import {
+  apiHeaders,
+  BASE_URL,
   createHouseholdDirect,
+  createTestUser,
   deleteHouseholds,
+  deleteUser,
+  fakeIp,
+  NO_SESSION,
   openPage,
   PAGES,
   personInNewTab,
+  PUBLIC_PAGES,
   test,
   testEmail,
 } from "./helpers";
 
 const NADA_NOVO = "Nada novo: as recorrências deste mês já estavam lançadas.";
+const SENHA = "uma frase longa so para testes";
 
 const created: string[] = [];
 test.afterEach(async () => {
@@ -40,24 +49,101 @@ async function alone(browser: Browser, testInfo: TestInfo, slug: string) {
   return person;
 }
 
+/** Como cada formulário da página sai do servidor (sem JavaScript). */
+async function formsOn(page: Page, path: string) {
+  await page.goto(path);
+  return page.locator("form").evaluateAll((forms) =>
+    forms.map((form) => ({
+      protocol: new URL(form.getAttribute("action") ?? "", location.href).protocol,
+      method: (form.getAttribute("method") ?? "").toLowerCase(),
+      sensitive: Boolean(
+        form.querySelector(
+          'input[type="password"], input[type="email"], input[autocomplete="one-time-code"]',
+        ),
+      ),
+    })),
+  );
+}
+
+/**
+ * M10.0: todo formulário declara o método, e senha, e-mail ou código só vão por POST. Sem método,
+ * o navegador usa GET: um clique antes de o React ligar o formulário punha os campos na URL.
+ */
+function expectNothingInUrl(forms: Awaited<ReturnType<typeof formsOn>>, path: string) {
+  for (const [i, form] of forms.entries()) {
+    const where = `${path}, formulário ${i + 1}`;
+    expect(form.method, `${where}: sem método (o navegador usa GET)`).not.toBe("");
+    if (form.sensitive) expect(form.method, `${where}: campo sensível por GET`).toBe("post");
+  }
+}
+
 test.describe("antes do JavaScript", () => {
   test.use({ javaScriptEnabled: false });
 
-  test("todo formulário do app sai do servidor já ligado à Server Action", async ({ page }) => {
+  test("todo formulário do app sai do servidor ligado à action e sem nada na URL", async ({
+    page,
+  }) => {
     test.slow();
     for (const path of PAGES) {
-      await page.goto(path);
+      const forms = await formsOn(page, path);
       // Lista permitida, não lista negada: o envio vai para http(s), o próprio servidor. Qualquer
       // outro esquema (o "javascript:throw…" do React, data:, vbscript:…) reprova. (Conferir por
       // "começa com javascript:" é o que o CodeQL acusa como js/incomplete-url-scheme-check.)
-      const targets = await page
-        .locator("form")
-        .evaluateAll((forms) =>
-          forms.map((f) => new URL(f.getAttribute("action") ?? "", location.href).protocol),
-        );
-      const lost = targets.filter((protocol) => protocol !== "http:" && protocol !== "https:");
+      const lost = forms.filter((f) => f.protocol !== "http:" && f.protocol !== "https:");
       expect(lost, `${path}: formulário que só funciona depois do JavaScript`).toEqual([]);
+      // A Segurança tem a troca de senha e os códigos de backup (cliente do Better Auth)
+      expectNothingInUrl(forms, path);
     }
+  });
+
+  // M10.0: os formulários que dependem do React (o cliente do Better Auth: entrar, 2FA, senha)
+  // saíam sem método. Um clique antes do React ligar o formulário (página à vista, JavaScript ainda
+  // chegando: visto no N150 com a suíte inteira) mandava e-mail, senha ou código na URL
+  // ("/entrar/dois-fatores?code=…"), que fica no histórico e nos logs. As telas do app estão no
+  // teste de cima; aqui, as de entrada.
+  test("nenhuma tela de entrada manda senha, e-mail ou código pela URL", async ({
+    browser,
+    request,
+  }, testInfo) => {
+    // Sem sessão (com a sessão da Ana, as telas de entrar redirecionariam)
+    const anonymous = await browser.newContext({
+      javaScriptEnabled: false,
+      storageState: NO_SESSION,
+    });
+    const open = await anonymous.newPage();
+    let seen = 0;
+    const check = async (target: Page, path: string) => {
+      const forms = await formsOn(target, path);
+      expectNothingInUrl(forms, path);
+      seen += forms.length;
+    };
+    for (const path of [...PUBLIC_PAGES, "/redefinir-senha?token=token-qualquer"]) {
+      await check(open, path);
+    }
+    // A tela do código só abre com o cookie de "senha certa, falta o código"
+    await anonymous.addCookies([{ name: "fintrack.two_factor", value: "qualquer", url: BASE_URL }]);
+    await check(open, "/entrar/dois-fatores");
+    await anonymous.close();
+
+    // Configurar o 2FA: uma conta ainda sem 2FA, logada pela API
+    const email = testEmail("form-metodo", testInfo.project.name);
+    await createTestUser(request, { email, password: SENHA, twoFactor: false });
+    const signIn = await request.post("/api/auth/sign-in/email", {
+      headers: apiHeaders(fakeIp()),
+      data: { email, password: SENHA },
+    });
+    expect(signIn.ok(), await signIn.text()).toBe(true);
+    const fresh = await browser.newContext({
+      javaScriptEnabled: false,
+      storageState: await request.storageState(),
+    });
+    await check(await fresh.newPage(), "/configurar-2fa");
+    await fresh.close();
+    await deleteUser(email);
+    // entrar, cadastro, esqueci, redefinir, 2FA e configurar (2 passos no mesmo HTML: 1 visível)
+    expect(seen, "poucos formulários conferidos: a lista de telas mudou?").toBeGreaterThanOrEqual(
+      6,
+    );
   });
 });
 
@@ -92,6 +178,49 @@ test("antes do React carregar, Lançar as deste mês chega ao servidor e roda a 
   expect(await answer.text()).toContain(NADA_NOVO);
   await context.close();
   await p.close();
+});
+
+test("antes do React carregar, entrar e o código do 2FA não deixam nada na URL", async ({
+  browser,
+}) => {
+  // O que o N150 mostrou no M10.0 ("/entrar/dois-fatores?code=…"), agora de propósito: a página
+  // aparece, o React não chega, e a pessoa envia. O envio vai por POST para a própria página, que só
+  // se mostra de novo; nem o e-mail, nem a senha, nem o código vão para a URL.
+  const context = await browser.newContext({
+    storageState: NO_SESSION,
+    locale: "pt-BR",
+    timezoneId: "America/Sao_Paulo",
+  });
+  await context.route("**/_next/static/**/*.js", (route) => route.abort());
+  const page = await context.newPage();
+  const sendWithoutReact = async (path: string, fill: () => Promise<void>, button: string) => {
+    await page.goto(path);
+    await expect(page.locator("html[data-hydrated]")).toHaveCount(0);
+    await fill();
+    // O envio do navegador é uma navegação da página inteira; GET ou POST, ela acontece
+    const navigation = page.waitForRequest((r) => r.isNavigationRequest());
+    await page.getByRole("button", { name: button, exact: true }).click();
+    const request = await navigation;
+    expect(request.method(), `${path}: o envio foi por GET`).toBe("POST");
+    expect((await request.response())?.status()).toBe(200);
+    expect(new URL(page.url()).search, `${path}: campos na URL`).toBe("");
+  };
+
+  await sendWithoutReact(
+    "/entrar",
+    async () => {
+      await page.getByLabel("E-mail").fill("ninguem@fintrack.test");
+      await page.getByLabel("Senha", { exact: true }).fill(SENHA);
+    },
+    "Entrar",
+  );
+  await context.addCookies([{ name: "fintrack.two_factor", value: "qualquer", url: BASE_URL }]);
+  await sendWithoutReact(
+    "/entrar/dois-fatores",
+    () => page.getByLabel("Código do app autenticador").fill("123456"),
+    "Confirmar",
+  );
+  await context.close();
 });
 
 test("depois de um envio, sair e voltar mostra o formulário sem o aviso de antes", async ({

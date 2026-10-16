@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Fingerprint, LogIn } from "lucide-react";
+import { ClientForm } from "@/components/feedback/client-form";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel, FieldSeparator } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -100,7 +101,7 @@ export function SignInForm({ next, googleEnabled, notice }: Props) {
     <>
       <FormAlert message={notice ?? null} variant="success" />
       <FormAlert id={alertId} message={error} />
-      <form onSubmit={handleSubmit} noValidate>
+      <ClientForm onSubmit={handleSubmit} noValidate>
         <FieldGroup>
           <Field data-invalid={errors.email ? true : undefined}>
             <FieldLabel htmlFor="email">E-mail</FieldLabel>
@@ -164,7 +165,7 @@ export function SignInForm({ next, googleEnabled, notice }: Props) {
             </Button>
           ) : null}
         </FieldGroup>
-      </form>
+      </ClientForm>
     </>
   );
 }

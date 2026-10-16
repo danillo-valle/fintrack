@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { UserPlus } from "lucide-react";
+import { ClientForm } from "@/components/feedback/client-form";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -61,7 +62,7 @@ export function SignUpForm() {
   return (
     <>
       <FormAlert id={alertId} message={error} />
-      <form onSubmit={handleSubmit} noValidate>
+      <ClientForm onSubmit={handleSubmit} noValidate>
         <FieldGroup>
           <Field data-invalid={errors.name ? true : undefined}>
             <FieldLabel htmlFor="name">Nome</FieldLabel>
@@ -116,7 +117,7 @@ export function SignUpForm() {
             {pending ? "Criando…" : "Criar conta"}
           </Button>
         </FieldGroup>
-      </form>
+      </ClientForm>
     </>
   );
 }

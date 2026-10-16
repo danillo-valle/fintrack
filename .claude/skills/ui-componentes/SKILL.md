@@ -191,5 +191,9 @@ O Next guarda as 3 últimas telas escondidas (`<Activity>`) em vez de desmontá-
 com aviso de sucesso usa o `ActionForm`, que monta de novo (outra `key`, `useRenewWhenHidden`) ao
 esconder depois de um envio. Nunca embrulhe a Server Action numa função antes do `<form action>`
 (nem no `useActionState`): o formulário deixa de funcionar antes do React carregar
-(`formularios.spec.ts` pega). Menu ou popover aberto fecha num `useLayoutEffect` de limpeza.
+(`formularios.spec.ts` pega). Formulário cujo envio é feito no navegador (`onSubmit` com o cliente
+do Better Auth: entrar, 2FA, senha) usa o `ClientForm` (`components/feedback/client-form.tsx`),
+que sai com `method="post"`: antes do React, o envio vai no corpo para a própria página, que só se
+mostra de novo, e nada vai para a URL (M10.0). Tela de entrada nova usa o `AuthCard`, que traz o
+`ContentReady` (a marca que os testes esperam). Menu ou popover aberto fecha num `useLayoutEffect` de limpeza.
 Estado que precisa recomeçar a cada visita vem da URL, não de `useState`.

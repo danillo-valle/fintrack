@@ -1,4 +1,5 @@
 import { Brand } from "@/components/layout/brand";
+import { ContentReady } from "@/components/layout/content-ready";
 
 type Props = {
   title: string;
@@ -9,9 +10,15 @@ type Props = {
 
 // Moldura das telas de entrada: a marca, um único <h1> e o formulário.
 // Fica fora da casca do app (sem menu): quem está aqui ainda não entrou.
+//
+// ContentReady (M10.0), o mesmo do PageHeader: as telas de entrada leem cookies e parâmetros, então
+// o conteúdo hidrata depois da moldura (o data-hydrated marca só a moldura). No N150, com a suíte
+// inteira, o teste clicava em "Confirmar" do 2FA com o formulário ainda sem o React. Com a marca, o
+// openPage e o waitForContent esperam o formulário ligado, como nas telas do app.
 export function AuthCard({ title, description, children, footer }: Props) {
   return (
     <div className="flex w-full max-w-sm flex-col gap-6">
+      <ContentReady />
       <div className="lg:hidden">
         <Brand />
       </div>

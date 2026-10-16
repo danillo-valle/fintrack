@@ -25,6 +25,7 @@ import {
   test,
   testEmail,
   todaySaoPaulo,
+  waitForReady,
 } from "./helpers";
 
 const created: string[] = [];
@@ -120,7 +121,7 @@ test.describe("o uso diário", () => {
     await expect(
       page.getByRole("heading", { level: 1, name: "Supermercado Bom Preço" }),
     ).toBeVisible();
-    await expect(page.locator("html[data-hydrated]")).toBeAttached();
+    await waitForReady(page);
     await page
       .getByLabel("Categoria")
       .filter({ visible: true })
@@ -260,7 +261,7 @@ test.describe("recorrências", () => {
     await openPage(page, "/lancamentos");
     await expect(page.getByText("Agendado")).toBeVisible();
     await page.getByRole("link", { name: "Aluguel" }).click();
-    await expect(page.locator("html[data-hydrated]")).toBeAttached();
+    await waitForReady(page);
     await page.getByRole("button", { name: "Confirmar: aconteceu" }).click();
     // A página se atualiza: a situação muda e o botão some
     await expect(page.getByRole("definition").filter({ hasText: /^Confirmado$/ })).toBeVisible();
@@ -289,11 +290,11 @@ test.describe("exportar CSV", () => {
 
     await openPage(page, "/lancamentos/exportar");
     await expect(page).toHaveURL(/\/reautenticar\?next=%2Flancamentos%2Fexportar/);
-    await expect(page.locator("html[data-hydrated]")).toBeAttached();
+    await waitForReady(page);
     await page.getByLabel("Senha", { exact: true }).fill("frase longa para testar lancamentos");
     await page.getByRole("button", { name: "Confirmar", exact: true }).click();
     await expect(page).toHaveURL(/\/lancamentos\/exportar/);
-    await expect(page.locator("html[data-hydrated]")).toBeAttached();
+    await waitForReady(page);
     await expectNoA11yViolations(page);
 
     const download = page.waitForEvent("download");

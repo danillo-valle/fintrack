@@ -117,6 +117,9 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
 - Toda página de `(app)` e toda Server Action começam com `await requireUser()`; siga a skill `auth-guard`.
 - Formulário com Server Action: a action vai direta do `useActionState` para o `<form action>`, sem função em volta
   (senão o clique antes do React carregar se perde). Use o `ActionForm`; veja a skill `ui-componentes`.
+- Formulário que só funciona com o React (envio no `onSubmit`, como o cliente do Better Auth) usa o `ClientForm`:
+  sai com `method="post"`, para um clique antes do React não pôr senha, e-mail ou código na URL (M10.0).
+  Nenhum `<form>` cru sem `action` ou `method`.
 - Tudo que toca uma carteira ou o lar passa pelo crachá (`requireWalletAccess`/`requireHouseholdAccess`);
   recurso de outra pessoa responde 404. Funcionalidade nova: siga a skill `nova-feature` (e `teste-e2e`).
 - Categorização (sugestão, regras, camadas de IA): siga a skill `categorizacao`. A sugestão só lê as carteiras

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { openPage } from "./helpers";
+import { openPage, waitForReady } from "./helpers";
 
 test("o tema escolhido é aplicado e sobrevive a um recarregamento", async ({ page }) => {
   await openPage(page, "/ajustes");
@@ -13,6 +13,6 @@ test("o tema escolhido é aplicado e sobrevive a um recarregamento", async ({ pa
   await expect(page.locator("html")).toHaveClass(/dark/);
 
   await page.reload();
-  await expect(page.locator("html[data-hydrated]")).toBeAttached();
+  await waitForReady(page);
   await expect(page.locator("html")).toHaveClass(/dark/);
 });
