@@ -4,7 +4,9 @@ import {
   test as base,
   type APIRequestContext,
   type Browser,
+  type Locator,
   type Page,
+  type Response,
 } from "@playwright/test";
 import { hashPassword } from "better-auth/crypto";
 import { generateSync } from "otplib";
@@ -13,9 +15,17 @@ import pg from "pg";
 /** Abre a página e espera o React terminar de carregar, para nada do que for digitado se perder. */
 export async function openPage(page: Page, path: string) {
   const response = await page.goto(path);
+  await waitForReady(page);
+  return response;
+}
+
+/**
+ * Espera a página que já está aberta (depois de um goto, de um link ou de um envio que navegou)
+ * ficar ligada ao React: a moldura e o conteúdo. É o fim de toda navegação antes de digitar.
+ */
+export async function waitForReady(page: Page) {
   await expect(page.locator("html[data-hydrated]")).toBeAttached();
   await waitForContent(page);
-  return response;
 }
 
 /**
@@ -27,11 +37,68 @@ export async function openPage(page: Page, path: string) {
  * lançamentos falhava assim no N150, com o outro worker rodando ao lado). O `PageHeader` traz o
  * `ContentReady`: sai do servidor com `data-content="carregando"` e um efeito troca para "pronto"
  * depois do commit. (Uma primeira versão esperava a chave `__reactFiber$` dos campos; o React a
- * grava na fase de renderização, antes do commit, e ela liberava cedo demais.) Página sem
- * `PageHeader` (as de entrar e cadastrar) não tem a marca: basta o `data-hydrated`.
+ * grava na fase de renderização, antes do commit, e ela liberava cedo demais.) As telas de entrada
+ * (entrar, 2FA, senha) têm a mesma marca no `AuthCard` desde o M10.0: antes, só o `data-hydrated`
+ * valia para elas, e no N150 o "Confirmar" do 2FA era clicado com o formulário ainda sem o React.
+ *
+ * Só conta a marca do que está à vista. As telas que o Next guarda escondidas (`<Activity>`, M08)
+ * ficam com `style="display: none"`, e numa tela escondida o efeito não roda: a tela de
+ * reautenticação, deixada para trás depois de confirmar a senha, podia guardar "carregando" para
+ * sempre (achado do M10.0 no "exportar CSV"). O `<div hidden>` em que o streaming entrega o conteúdo
+ * não usa esse estilo, então o conteúdo que ainda está chegando continua contando.
  */
 export async function waitForContent(page: Page) {
-  await page.waitForFunction(() => !document.querySelector('[data-content="carregando"]'));
+  await page.waitForFunction(
+    () =>
+      ![...document.querySelectorAll('[data-content="carregando"]')].some(
+        (marker) => !marker.closest('[style*="display: none"]'),
+      ),
+  );
+}
+
+// ── Esperar pelo servidor, não pelo relógio (M10.0) ─────────────────────────────────────────────
+//
+// Um aviso que só aparece depois de uma resposta do servidor (Server Action, endpoint do Better
+// Auth) não pode ser conferido com os 5 s do expect a partir do clique: com a suíte inteira no N150,
+// a resposta passa disso, e o teste desiste com o pedido ainda em voo (o trace mostra o POST sem
+// resposta). O certo é esperar a RESPOSTA (o estado) e só então conferir o que ela mostra. Nada de
+// timeout maior: o limite da espera continua sendo o do teste.
+
+/** Qual resposta do servidor um clique dispara. */
+export type ServerResponse = (response: Response) => boolean;
+
+/** A resposta de uma Server Action: POST com o cabeçalho Next-Action. */
+export const serverAction: ServerResponse = (response) =>
+  response.request().method() === "POST" &&
+  response.request().headers()["next-action"] !== undefined;
+
+/** A resposta de um endpoint do Better Auth que o cliente do navegador chama (POST /api/auth/…). */
+export const authEndpoint =
+  (path: `/${string}`): ServerResponse =>
+  (response) =>
+    response.request().method() === "POST" &&
+    new URL(response.url()).pathname === `/api/auth${path}`;
+
+/**
+ * A resposta do router.refresh() (ou de uma navegação do Next) para a página: GET com RSC: 1.
+ * O pré-carregamento dos links (só no build de produção) não conta: ele não muda a tela.
+ */
+export const pageData =
+  (pathname: `/${string}`): ServerResponse =>
+  (response) => {
+    const headers = response.request().headers();
+    return (
+      response.request().method() === "GET" &&
+      headers["rsc"] === "1" &&
+      headers["next-router-prefetch"] === undefined &&
+      new URL(response.url()).pathname === pathname
+    );
+  };
+
+/** Clica e espera a resposta do servidor que o clique dispara; devolve essa resposta. */
+export async function clickAndWait(target: Locator, response: ServerResponse) {
+  const [answer] = await Promise.all([target.page().waitForResponse(response), target.click()]);
+  return answer;
 }
 
 /**
@@ -46,6 +113,22 @@ export function formAlert(page: Page) {
 
 /** O Intl separa "R$" do número com um espaço não separável (U+00A0). */
 export const brl = (text: string) => text.replace(" ", " ");
+
+/**
+ * Zera um campo de valor (MoneyInput) como uma pessoa: entra no campo, deixa o componente levar o
+ * cursor para o fim, seleciona tudo e apaga. Não use `fill("")` nele (M10.0): o MoneyInput move o
+ * cursor para o fim num requestAnimationFrame ao receber o foco, e o fill faz foco, "seleciona
+ * tudo" e "apaga" seguidos. Com a máquina ocupada, esse quadro caía no meio, a seleção sumia e o
+ * apagar tirava só o último dígito (R$ 200,00 → R$ 20,00; depois de digitar 25000, R$ 2.000.250,00).
+ */
+export async function clearMoney(input: Locator) {
+  await input.focus();
+  // Os quadros rodam na ordem em que foram pedidos: quando este roda, o do foco já rodou
+  await input.evaluate(() => new Promise((done) => requestAnimationFrame(() => done(null))));
+  await input.press("ControlOrMeta+a");
+  await input.press("Backspace");
+  await expect(input).toHaveValue(brl("R$ 0,00"));
+}
 
 /**
  * Os testes estão rodando contra o build de produção (a imagem Docker do M05) em vez do
@@ -300,30 +383,37 @@ export async function createTestUser(
 }
 
 /**
- * Entra pela tela, como uma pessoa: e-mail, senha e o código do app.
+ * Entra pela tela, como uma pessoa: e-mail, senha e o código do app. Termina com a página de
+ * destino carregada e ligada ao React: cada passo espera o servidor responder e a tela seguinte
+ * hidratar (no N150, com a suíte inteira, o "Confirmar" chegava antes do formulário do 2FA e o
+ * navegador enviava o código pela URL; ver o ClientForm).
  * Cada teste usa um IP falso próprio, para o limite de tentativas não misturar testes.
  */
 export async function signInThroughUi(page: Page, email: string, password: string, secret: string) {
-  await page.context().setExtraHTTPHeaders({ "X-Forwarded-For": fakeIp() });
-  await openPage(page, "/entrar");
-  await page.getByLabel("E-mail").fill(email);
-  await page.getByLabel("Senha", { exact: true }).fill(password);
-  await page.getByRole("button", { name: "Entrar", exact: true }).click();
-  await expect(page).toHaveURL(/\/entrar\/dois-fatores/);
-  await expect(page.locator("html[data-hydrated]")).toBeAttached();
+  await startTwoFactor(page, email, password);
   await page.getByLabel("Código do app autenticador").fill(totp(secret));
-  await page.getByRole("button", { name: "Confirmar" }).click();
+  const answer = await clickAndWait(
+    page.getByRole("button", { name: "Confirmar" }),
+    authEndpoint("/two-factor/verify-totp"),
+  );
+  expect(answer.ok(), "o código do app foi recusado").toBe(true);
+  // O código certo navega por completo (navigateAfterAuthChange) para fora de /entrar
+  await page.waitForURL((url) => !url.pathname.startsWith("/entrar"));
+  await waitForReady(page);
 }
 
-/** Digita e-mail e senha em /entrar e para na tela do código (/entrar/dois-fatores). */
+/** Digita e-mail e senha em /entrar e para na tela do código (/entrar/dois-fatores), já ligada. */
 export async function startTwoFactor(page: Page, email: string, password: string) {
   await page.context().setExtraHTTPHeaders({ "X-Forwarded-For": fakeIp() });
   await openPage(page, "/entrar");
   await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Senha", { exact: true }).fill(password);
-  await page.getByRole("button", { name: "Entrar", exact: true }).click();
-  await expect(page).toHaveURL(/\/entrar\/dois-fatores/);
-  await expect(page.locator("html[data-hydrated]")).toBeAttached();
+  await clickAndWait(
+    page.getByRole("button", { name: "Entrar", exact: true }),
+    authEndpoint("/sign-in/email"),
+  );
+  await page.waitForURL(/\/entrar\/dois-fatores/);
+  await waitForReady(page);
 }
 
 /** E-mail de teste único por arquivo, teste e aparelho (desktop e celular rodam ao mesmo tempo). */

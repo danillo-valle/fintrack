@@ -15,6 +15,9 @@
 import { execFileSync } from "node:child_process";
 import { expect, type Browser, type Page, type TestInfo } from "@playwright/test";
 import {
+  brl,
+  clearMoney,
+  clickAndWait,
   createFinanceDirect,
   createHouseholdDirect,
   createTestUser,
@@ -24,6 +27,7 @@ import {
   openPage,
   personInNewTab,
   PRODUCTION_BUILD,
+  serverAction,
   signInThroughUi,
   sql,
   test,
@@ -82,9 +86,15 @@ async function expectListMatches(
  * Bruna (logada) e Caio num lar, com o ambiente Casa dos dois. Na Casa: a conta (titular Bruna)
  * e o cartão da casa (titular Caio, fecha 3, vence 10) com o "Master conjunto" de compras
  * conjuntas. Categorias: Alimentação > Mercado e Padaria; Lazer. Lançamentos neste mês (dia 1),
- * no anterior e dois meses atrás; orçado do mês anterior com o Mercado dividido.
+ * no anterior e dois meses atrás; orçado do mês anterior com o Mercado dividido (e, com
+ * `budgetThisMonth`, o mesmo orçado também neste mês, como a cópia do mês anterior deixaria).
  */
-async function household(browser: Browser, testInfo: TestInfo, slug: string) {
+async function household(
+  browser: Browser,
+  testInfo: TestInfo,
+  slug: string,
+  { budgetThisMonth = false }: { budgetThisMonth?: boolean } = {},
+) {
   const bruna = testEmail(`${slug}-bruna`, testInfo.project.name);
   const caio = testEmail(`${slug}-caio`, testInfo.project.name);
   const person = await personInNewTab(browser, bruna, "Bruna Prado", device(testInfo));
@@ -212,25 +222,27 @@ async function household(browser: Browser, testInfo: TestInfo, slug: string) {
   // O orçado do mês anterior: Mercado R$ 500 (Bruna 200, Compartilhado 300) e Lazer R$ 100
   const brunaId = (await sql<{ id: string }>('SELECT id FROM "user" WHERE email = $1', [bruna]))[0]!
     .id;
-  const budget = async (category: string, amount: string) => {
-    const [row] = await sql<{ id: string }>(
-      `INSERT INTO budget (id, "householdId", "walletId", "categoryId", month, amount, "updatedAt")
-       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, now()) RETURNING id`,
-      [home.householdId, casa, cat[category], `${last}-01`, amount],
-    );
-    return row!.id;
-  };
-  const market = await budget("Mercado", "500.00");
-  await budget("Lazer", "100.00");
-  for (const [userId, amount] of [
-    [brunaId, "200.00"],
-    [null, "300.00"],
-  ] as const) {
-    await sql(
-      `INSERT INTO budget_share (id, "householdId", "budgetId", "userId", amount, "updatedAt")
-       VALUES (gen_random_uuid(), $1, $2, $3, $4, now())`,
-      [home.householdId, market, userId, amount],
-    );
+  for (const key of budgetThisMonth ? [last, month] : [last]) {
+    const budget = async (category: string, amount: string) => {
+      const [row] = await sql<{ id: string }>(
+        `INSERT INTO budget (id, "householdId", "walletId", "categoryId", month, amount, "updatedAt")
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, now()) RETURNING id`,
+        [home.householdId, casa, cat[category], `${key}-01`, amount],
+      );
+      return row!.id;
+    };
+    const market = await budget("Mercado", "500.00");
+    await budget("Lazer", "100.00");
+    for (const [userId, amount] of [
+      [brunaId, "200.00"],
+      [null, "300.00"],
+    ] as const) {
+      await sql(
+        `INSERT INTO budget_share (id, "householdId", "budgetId", "userId", amount, "updatedAt")
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, now())`,
+        [home.householdId, market, userId, amount],
+      );
+    }
   }
   return { ...person, casa, categories: cat };
 }
@@ -292,7 +304,10 @@ test.describe("Início", () => {
 });
 
 test.describe("Orçamento", () => {
-  test("copiar do mês anterior, desfazer, dividir por pessoa e o Pago por", async ({
+  // M10.0: eram um teste só ("…dividir por pessoa e o Pago por"). Com a máquina ocupada, o teste
+  // inteiro chegava a 27–29 s dos 30 s de limite; dividido, cada parte tem o próprio lar e o
+  // próprio limite, e nenhuma conferência saiu.
+  test("copiar do mês anterior, desfazer, dividir por pessoa e a regra de nível", async ({
     browser,
   }, testInfo) => {
     const p = await household(browser, testInfo, "orcamento");
@@ -300,29 +315,34 @@ test.describe("Orçamento", () => {
     await openPage(page, `/orcamento?carteira=${p.casa}`);
     await expect(page.getByText(/Nenhuma categoria orçada/)).toBeVisible();
 
-    // Copiar: as duas categorias do mês passado, com a divisão do Mercado
+    // Copiar: as duas categorias do mês passado, com a divisão do Mercado. Cada aviso vem da
+    // resposta da Server Action: o teste espera a resposta (o estado) e só então confere o aviso
+    // (M10.0: no N150, com a suíte inteira, a resposta passava dos 5 s do expect)
     const copy = page
       .getByRole("button", { name: `Copiar de ${monthName(last)}` })
       .filter({ visible: true });
-    await copy.click();
+    await clickAndWait(copy, serverAction);
     await expect(page.getByText("Copiado do mês anterior: 2 categorias novas.")).toBeVisible();
     const rows = page.getByTestId("orcamento-linhas");
     await expect(rows.locator("li[data-category]")).toHaveCount(2);
     await expect(rows).toContainText("Compartilhado");
 
     // Desfazer: volta ao vazio
-    await page.getByRole("button", { name: "Desfazer" }).click();
+    await clickAndWait(page.getByRole("button", { name: "Desfazer" }), serverAction);
     await expect(page.getByText("Cópia desfeita.")).toBeVisible();
     await expect(page.getByText(/Nenhuma categoria orçada/)).toBeVisible();
 
     // Copiar de novo; a segunda cópia não tem o que copiar
-    await copy.click();
+    await clickAndWait(copy, serverAction);
     await expect(page.getByText("Copiado do mês anterior: 2 categorias novas.")).toBeVisible();
-    await copy.click();
+    await clickAndWait(copy, serverAction);
     await expect(page.getByText(/Nada a copiar/)).toBeVisible();
 
-    // Editar valores: a parte da Bruna sobe para R$ 250; o orçado é a soma (R$ 550)
-    await page.getByRole("link", { name: "Editar valores" }).filter({ visible: true }).click();
+    // Editar valores: a parte da Bruna sobe para R$ 250; o orçado é a soma (R$ 550). O modal é uma
+    // rota interceptada: a URL muda quando a resposta chega, e o modal vem junto com ela
+    const editar = page.getByRole("link", { name: "Editar valores" }).filter({ visible: true });
+    await editar.click();
+    await page.waitForURL(/\/orcamento\/editar/);
     const modal = page.getByRole("dialog", { name: "Editar valores" });
     await expect(modal).toBeVisible();
     await expectNoA11yViolations(page);
@@ -331,10 +351,12 @@ test.describe("Orçamento", () => {
       .selectOption({ label: "Alimentação › Mercado (já orçada)" });
     await expect(modal.getByLabel("Dividir por pessoa")).toBeChecked();
     const bruna = modal.getByLabel("Bruna", { exact: true });
-    await bruna.fill("");
+    // M10.0: zera pelo helper (o fill("") às vezes tirava só um dígito; ver clearMoney) e confere
+    // a soma inteira: o trecho /550,00/ aceitava "R$ 2.000.550,00" e o erro só aparecia no aviso
+    await clearMoney(bruna);
     await bruna.pressSequentially("25000");
-    await expect(modal.getByTestId("soma-partes")).toHaveText(/550,00/);
-    await modal.getByRole("button", { name: "Salvar" }).click();
+    await expect(modal.getByTestId("soma-partes")).toHaveText(brl("R$ 550,00"));
+    await clickAndWait(modal.getByRole("button", { name: "Salvar" }), serverAction);
     await expect(
       page.getByText("Orçado de R$ 550,00 salvo.").filter({ visible: true }),
     ).toBeVisible();
@@ -343,13 +365,27 @@ test.describe("Orçamento", () => {
     await expect(market).toContainText("550,00");
 
     // Regra de nível: Alimentação não pode ter orçado junto com o Mercado
-    await page.getByRole("link", { name: "Editar valores" }).filter({ visible: true }).click();
+    await editar.click();
+    await page.waitForURL(/\/orcamento\/editar/);
     await modal.getByLabel("Categoria", { exact: true }).selectOption({ label: "Alimentação" });
     await modal.getByLabel("Orçado no mês").pressSequentially("10000");
-    await modal.getByRole("button", { name: "Salvar" }).click();
+    await clickAndWait(modal.getByRole("button", { name: "Salvar" }), serverAction);
     await expect(modal.getByRole("alert")).toContainText(/Alimentação|categoria de cima|de baixo/);
     await modal.getByRole("button", { name: "Cancelar" }).click();
     await expect(modal).toBeHidden();
+    await p.close();
+  });
+
+  test("o gasto da linha leva à lista, e o Pago por mostra a parte de cada um", async ({
+    browser,
+  }, testInfo) => {
+    // O orçado deste mês já gravado, como a cópia do mês anterior deixa (o teste de cima prova a cópia)
+    const p = await household(browser, testInfo, "orcamento-pago", { budgetThisMonth: true });
+    const page = p.page;
+    await openPage(page, `/orcamento?carteira=${p.casa}`);
+    const rows = page.getByTestId("orcamento-linhas");
+    const market = rows.locator(`li[data-category="${p.categories["Mercado"]}"]`);
+    await expect(market).toContainText("500,00");
 
     // O gasto da linha leva à lista com o mesmo total
     await expectListMatches(page, market.getByTestId("linha-gasto"), "saidas");

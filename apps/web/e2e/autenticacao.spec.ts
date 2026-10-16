@@ -3,7 +3,9 @@ import { expect } from "@playwright/test";
 import {
   ageSessions,
   apiHeaders,
+  authEndpoint,
   clearEmails,
+  clickAndWait,
   countEmails,
   createTestUser,
   fakeIp,
@@ -11,6 +13,7 @@ import {
   linkFromEmail,
   NO_SESSION,
   openPage,
+  pageData,
   PAGES,
   signInThroughUi,
   sql,
@@ -18,6 +21,7 @@ import {
   test,
   testEmail,
   totp,
+  waitForReady,
 } from "./helpers";
 
 const PASSWORD = "uma frase longa so para testes";
@@ -106,14 +110,14 @@ test.describe("sem sessão", () => {
 
     await page.goto("/lancamentos");
     await expect(page).toHaveURL("/entrar?next=%2Flancamentos");
-    await expect(page.locator("html[data-hydrated]")).toBeAttached();
+    await waitForReady(page);
     await page.getByLabel("E-mail").fill(email);
     await page.getByLabel("Senha", { exact: true }).fill(PASSWORD);
     await page.getByRole("button", { name: "Entrar", exact: true }).click();
 
     // A senha sozinha não basta: falta o segundo fator
     await expect(page).toHaveURL(/\/entrar\/dois-fatores\?next=%2Flancamentos/);
-    await expect(page.locator("html[data-hydrated]")).toBeAttached();
+    await waitForReady(page);
     await page.getByLabel("Código do app autenticador").fill(totp(secret ?? ""));
     await page.getByRole("button", { name: "Confirmar" }).click();
 
@@ -242,7 +246,7 @@ test.describe("sem sessão", () => {
     await page.getByLabel("Senha", { exact: true }).fill(PASSWORD);
     await page.getByRole("button", { name: "Entrar", exact: true }).click();
     await expect(page).toHaveURL(/dois-fatores/);
-    await expect(page.locator("html[data-hydrated]")).toBeAttached();
+    await waitForReady(page);
     await page.getByLabel("Código do app autenticador").fill("000000");
     await page.getByRole("button", { name: "Confirmar" }).click();
     await expect(formAlert(page)).toContainText("Código incorreto");
@@ -261,7 +265,7 @@ test.describe("sem sessão", () => {
       await page.getByLabel("Senha", { exact: true }).fill(PASSWORD);
       await page.getByRole("button", { name: "Entrar", exact: true }).click();
       await expect(page).toHaveURL(/dois-fatores/);
-      await expect(page.locator("html[data-hydrated]")).toBeAttached();
+      await waitForReady(page);
       await page.getByRole("button", { name: "Usar um código de backup" }).click();
       await expect(page.getByLabel("Código de backup")).toBeFocused();
       await page.getByLabel("Código de backup").fill(code);
@@ -330,7 +334,7 @@ test.describe("sem sessão", () => {
     // Sem 2FA, nenhuma outra página abre
     await page.goto("/lancamentos");
     await expect(page).toHaveURL("/configurar-2fa");
-    await expect(page.locator("html[data-hydrated]")).toBeAttached();
+    await waitForReady(page);
 
     await page.getByLabel("Confirme sua senha").fill(PASSWORD);
     await page.getByRole("button", { name: "Continuar" }).click();
@@ -370,16 +374,26 @@ test.describe("sem sessão", () => {
 
     await openPage(page, "/esqueci-a-senha");
     await page.getByLabel("E-mail da conta").fill(email);
-    await page.getByRole("button", { name: "Enviar o link" }).click();
+    // O aviso só vem depois da resposta (o servidor manda o e-mail antes de responder): espera ela
+    await clickAndWait(
+      page.getByRole("button", { name: "Enviar o link" }),
+      authEndpoint("/request-password-reset"),
+    );
     await expect(formAlert(page)).toContainText("Se houver uma conta com este e-mail");
 
     await page.goto(await linkFromEmail(email, /Troca de senha/));
     await expect(page).toHaveURL(/\/redefinir-senha\?token=/);
-    await expect(page.locator("html[data-hydrated]")).toBeAttached();
+    await waitForReady(page);
     const nova = "outra frase longa e nova";
     await page.getByLabel("Nova senha").fill(nova);
-    await page.getByRole("button", { name: "Salvar a nova senha" }).click();
-    await expect(page).toHaveURL("/entrar?aviso=senha-trocada");
+    const reset = await clickAndWait(
+      page.getByRole("button", { name: "Salvar a nova senha" }),
+      authEndpoint("/reset-password"),
+    );
+    expect(reset.ok(), await reset.text()).toBe(true);
+    // Depois da resposta, a tela vai para /entrar (no N150, a navegação passava de 5 s)
+    await page.waitForURL("/entrar?aviso=senha-trocada");
+    await waitForReady(page);
     await expect(formAlert(page)).toHaveText("Senha trocada. Entre com a senha nova.");
 
     // Todas as sessões da conta caíram
@@ -416,16 +430,15 @@ test.describe("com sessão própria", () => {
     request,
   }, testInfo) => {
     const email = testEmail("trocar-senha", testInfo.project.name);
-    const { secret } = await createTestUser(request, { email, password: PASSWORD });
-    await sql('DELETE FROM session WHERE "userId" = (SELECT id FROM "user" WHERE email = $1)', [
-      email,
-    ]);
-    await clearEmails(email);
-
-    // "Outro aparelho" logado, que deve cair depois da troca
+    // "Outro aparelho" logado, que deve cair depois da troca. Ele entra pela API (createTestUser
+    // com o request dele loga o próprio contexto): o que este teste confere é a troca, e entrar
+    // pela tela já é conferido neste aparelho logo abaixo. (M10.0: com três entradas pela tela, o
+    // teste passava dos 30 s com a máquina ocupada.)
     const outro = await browser.newContext({ storageState: NO_SESSION });
     const outroPage = await outro.newPage();
-    await signInThroughUi(outroPage, email, PASSWORD, secret ?? "");
+    const { secret } = await createTestUser(outroPage.request, { email, password: PASSWORD });
+    await clearEmails(email);
+    await openPage(outroPage, "/");
     await expect(outroPage.getByRole("heading", { level: 1, name: "Início" })).toBeVisible();
 
     await signInThroughUi(page, email, PASSWORD, secret ?? "");
@@ -438,7 +451,8 @@ test.describe("com sessão própria", () => {
     // 1. Senha atual errada: avisa e devolve o foco para o campo da senha atual
     await senhaAtual.fill("nao e a minha senha");
     await senhaNova.fill("uma frase nova bem comprida");
-    await trocar.click();
+    const errada = await clickAndWait(trocar, authEndpoint("/change-password"));
+    expect(errada.status()).toBe(400);
     await expect(formAlert(page)).toHaveText("A senha atual não confere.");
     await expect(senhaAtual).toBeFocused();
 
@@ -452,17 +466,23 @@ test.describe("com sessão própria", () => {
     // 3. Tudo certo: troca, limpa os campos e encerra o outro aparelho
     const nova = "uma frase nova bem comprida";
     await senhaNova.fill(nova);
-    await trocar.click();
+    // A troca responde depois do e-mail de aviso; a lista de sessões muda no router.refresh() que
+    // vem em seguida. Espera as duas respostas (o estado), não o relógio
+    const listaNova = page.waitForResponse(pageData("/ajustes/seguranca"));
+    const certa = await clickAndWait(trocar, authEndpoint("/change-password"));
+    expect(certa.ok(), await certa.text()).toBe(true);
     await expect(page.getByRole("status").filter({ hasText: "Senha trocada" })).toHaveText(
       "Senha trocada. As sessões nos outros aparelhos foram encerradas.",
     );
     await expect(senhaAtual).toHaveValue("");
+    await listaNova;
     await expect(
       page.getByRole("region", { name: "Sessões ativas" }).getByRole("listitem"),
     ).toHaveCount(1);
 
     // Este aparelho continua logado; o outro caiu
     await page.reload();
+    await waitForReady(page);
     await expect(page.getByRole("heading", { level: 1, name: "Segurança" })).toBeVisible();
     await outroPage.goto("/lancamentos");
     await expect(outroPage).toHaveURL("/entrar?next=%2Flancamentos");
@@ -471,10 +491,15 @@ test.describe("com sessão própria", () => {
     const link = await linkFromEmail(email, /Sua senha do FinTrack foi trocada/);
     expect(link).toMatch(/\/esqueci-a-senha$/);
 
-    // A senha nova vale; a antiga não
-    await signInThroughUi(outroPage, email, nova, secret ?? "");
-    await expect(outroPage.getByRole("heading", { level: 1, name: "Início" })).toBeVisible();
+    // A senha nova vale; a antiga não. As duas pela API (a entrada pela tela já foi conferida no
+    // começo do teste): com a senha certa, o servidor aceita e pede o código do 2FA (200)
     await outro.close();
+    const novaVale = await request.post("/api/auth/sign-in/email", {
+      headers: apiHeaders(fakeIp()),
+      data: { email, password: nova },
+    });
+    expect(novaVale.status(), await novaVale.text()).toBe(200);
+    expect(await novaVale.json()).toMatchObject({ twoFactorRedirect: true });
     const antiga = await request.post("/api/auth/sign-in/email", {
       headers: apiHeaders(fakeIp()),
       data: { email, password: PASSWORD },
@@ -564,7 +589,7 @@ test.describe("com sessão própria", () => {
     await openPage(page, "/ajustes/seguranca");
     await page.getByRole("button", { name: "Adicionar passkey" }).click();
     await expect(page).toHaveURL("/reautenticar?next=%2Fajustes%2Fseguranca");
-    await expect(page.locator("html[data-hydrated]")).toBeAttached();
+    await waitForReady(page);
 
     // Cache Components (M08): a tela de Segurança fica escondida no documento (<Activity>);
     // os seletores pegam só o que está à vista
@@ -668,7 +693,7 @@ test.describe("com sessão própria", () => {
     await openPage(page, "/ajustes");
     await page.getByRole("button", { name: "Sair" }).click();
     await expect(page).toHaveURL("/entrar");
-    await expect(page.locator("html[data-hydrated]")).toBeAttached();
+    await waitForReady(page);
     await page.getByRole("button", { name: "Entrar com passkey" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Início" })).toBeVisible();
   });
