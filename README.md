@@ -9,7 +9,7 @@ acompanhado por uma [milestone](https://github.com/danillo-valle/fintrack/milest
 ## Stack
 
 Next.js 16 · React 19 · TypeScript · Tailwind CSS v4 · shadcn/ui · pnpm + Turborepo ·
-PostgreSQL 17 + Prisma 7 · Better Auth (2FA, passkeys) · Vitest · Playwright + axe · Python (M09)
+PostgreSQL 17 + Prisma 7 · Better Auth (2FA, passkeys) · Vitest · Playwright + axe · Python: FastAPI, pdfplumber e scikit-learn (M09, M10)
 
 ## Rodando localmente
 
@@ -38,6 +38,30 @@ docs/adr/          decisões de arquitetura
 docs/modelo-de-dados.md  diagrama das tabelas
 samples/           dados sintéticos para testes (nunca dados reais)
 ```
+
+## Categorização
+
+Cada lançamento passa por uma cascata, na ordem: as **regras** do lar, o **histórico** das
+carteiras que a pessoa vê, a **categoria do banco** (Meu Pluggy) e um **classificador**
+(scikit-learn, um modelo por carteira, treinado toda madrugada no próprio servidor). A tela
+mostra quem sugeriu e com que confiança; abaixo de 80 % o classificador não sugere
+([ADR-015](docs/adr/0015-categorizacao-inteligente.md)). Nenhuma descrição sai do servidor.
+
+Avaliação no conjunto rotulado sintético (`samples/categorizacao/rotulado.csv`), refeita pelo CI
+em todo pull request (falha abaixo do mínimo):
+
+<!-- avaliacao-classificador: início -->
+
+| Medida (conjunto sintético, 90 descrições de teste) | Resultado |
+| --------------------------------------------------- | --------- |
+| Acerto do classificador (mínimo 85,0 %)             | 94,4 %    |
+| Resolvido sem LLM (confiança ≥ 80 %)                | 87,8 %    |
+| Acerto no que foi resolvido sem LLM                 | 100,0 %   |
+
+<!-- avaliacao-classificador: fim -->
+
+O percentual real de cada casa (categorizado sem IA, por camada) fica em **Ajustes ›
+Categorização**.
 
 ## Proteções
 

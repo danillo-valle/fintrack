@@ -33,3 +33,13 @@ mesmos bancos inventados:
 - `escaneada.pdf`: só imagem, sem texto (o leitor recusa com uma frase).
 
 Nenhum arquivo aqui tem sequência de 13 a 19 dígitos fora das datas (o teste confere).
+
+## categorizacao/ (M10.1)
+
+Gerado por `services/ml/scripts/gerar_rotulado.py` (semente fixa: sempre o mesmo arquivo):
+
+- `rotulado.csv`: o conjunto rotulado do classificador, com 300 descrições **inventadas** (15
+  categorias, 20 cada; separador `;`, colunas `descricao;tipo;categoria`). Comerciantes de mentira
+  (SUPERMERC BOM PRECO, POSTO ESTRELA, STREAMFLIX...) com o ruído que os bancos põem: prefixo de
+  compra, data, parcela, número de loja, cidade, texto cortado. O eval do CI (`python -m
+app.avaliar --minimo 0.85`) treina em 70 % e mede nos outros 30 %.

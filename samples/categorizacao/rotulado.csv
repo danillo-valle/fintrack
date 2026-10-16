@@ -1,0 +1,301 @@
+descricao;tipo;categoria
+DEB SUPERMERC BOM PRECO LJ 8386 BELO HORIZONTE;expense;Mercado
+PIX MERCADINHO SAO JORGE PORTO ALEGRE;expense;Mercado
+COMPRA SUPERMERCADO FAMILIA 20;expense;Mercado
+COMPRA EMPORIO NATURAL;expense;Mercado
+PIX ATACADAO DO POVO PORTO ALEGRE;expense;Mercado
+PAG* SUPERMERC BOM PRECO PARC 03/04;expense;Mercado
+PIX SUPERMERCADO FAMILIA 19/09 SAO PAULO BR;expense;Mercado
+COMPRA EMPORIO NATURAL PARC 05/10 SAO PAULO BR;expense;Mercado
+HIPER CENTRAL;expense;Mercado
+HIPER CENTRAL SAO PAULO BR;expense;Mercado
+MERCADINHO SAO JORGE SAO PAULO BR;expense;Mercado
+PAG* HIPER CENTRAL BELO HORIZONTE;expense;Mercado
+COMPRA MERCADO DA VILA SAO PAULO BR;expense;Mercado
+ATACADAO DO POVO 21/10 SAO PAULO BR;expense;Mercado
+COMPRA CARTAO ATACADAO DO POVO PARC 08/09 PORTO ALEGRE;expense;Mercado
+SUPERMERCADO FAMILIA CURITIBA BR;expense;Mercado
+PAG* SUPERMERCADO FAMILIA LJ 3000 SAO PAULO BR;expense;Mercado
+Pag* Supermerc Bom Preco Curitiba Br;expense;Mercado
+Supermercado Familia Lj 0230;expense;Mercado
+EMPORIO NATURAL;expense;Mercado
+PAG* CHURRASCARIA GAUCHA BELO H;expense;Restaurantes
+COMPRA SUSHI KAIZEN;expense;Restaurantes
+PAG* CANTINA NONNA ROSA 22/03;expense;Restaurantes
+Pix Burguer Do Ze Parc 02/04 Sao Paulo Br;expense;Restaurantes
+RESTAURANTE SABOR CASEIRO BELO HORIZONTE;expense;Restaurantes
+RESTAURANTE SABOR CASEIRO LJ 5371 BELO HORIZONTE;expense;Restaurantes
+COMPRA RESTAURANTE SABOR CASEIRO PORTO ALEGRE;expense;Restaurantes
+COMPRA CARTAO SUSHI KAIZEN LJ 5512 SAO PAULO BR;expense;Restaurantes
+PIX RESTAURANTE SABOR CASEIRO 21/03;expense;Restaurantes
+COMPRA RESTAURANTE SABOR CASEIRO BELO HORIZONTE;expense;Restaurantes
+RESTAURANTE SABOR CASEIRO;expense;Restaurantes
+CANTINA NONNA ROSA;expense;Restaurantes
+PIZZARIA FORNO A LENHA PARC 03/04;expense;Restaurantes
+PIX CHURRASCARIA GAUCHA PARC 03/04 PORTO ALEGRE;expense;Restaurantes
+PAG* CHURRASCARIA GAUCHA;expense;Restaurantes
+DEB PIZZARIA FORNO A LENHA LJ 2990;expense;Restaurantes
+COMPRA CARTAO SUSHI KAIZEN 23/05 PORTO ALEGRE;expense;Restaurantes
+PAG* SUSHI KAIZEN BELO HORIZONTE;expense;Restaurantes
+Burguer Do Z;expense;Restaurantes
+COMIDA APP *PEDIDO;expense;Restaurantes
+PAG* PADARIA DO ;expense;Padaria
+Pix Padaria Pao Que;expense;Padaria
+DEB PADARIA DO BAIRRO PARC 01/09 SAO PAULO BR;expense;Padaria
+PIX CONFEITARIA DOCE LAR;expense;Padaria
+PIX PADARIA PAO QUENTE PARC 01/07 BELO HORIZONTE;expense;Padaria
+DEB PADARIA PAO QUENTE PARC 02/03 SAO PAULO BR;expense;Padaria
+DEB PADARIA SANTA LUZIA 02/12;expense;Padaria
+PADARIA DO BAIRRO LJ 9781 BELO HORIZONTE;expense;Padaria
+CONFEITARIA DOCE LAR PARC 07/08;expense;Padaria
+PANIFICADORA TRIGO BOM LJ 8870 BELO HORIZONTE;expense;Padaria
+COMPRA CARTAO PANIFICADORA TRIGO BOM 09/09 SAO PAULO BR;expense;Padaria
+Panificadora Trigo Bom Porto Alegre;expense;Padaria
+PAG* PADARIA SANTA LUZIA PARC 0;expense;Padaria
+CONFEITARIA DOCE LAR BELO HORIZONTE;expense;Padaria
+DEB CONFEITARIA DOCE LAR;expense;Padaria
+DEB PANIFICADORA TRIGO BOM PARC 08/12 PORTO ALEGRE;expense;Padaria
+PAG* PADARIA SANTA LUZIA ;expense;Padaria
+PIX PADARIA SANTA LUZIA BELO HORIZONTE;expense;Padaria
+PAG* PADARIA SANTA LUZIA 24/02;expense;Padaria
+PAG* PADARIA SANTA LUZIA SAO PAULO BR;expense;Padaria
+Auto Posto Primavera;expense;Combustível
+PAG* POSTO BANDEIRA AZUL PARC 11/11;expense;Combustível
+PAG* AUTO POSTO PRIMAVERA PARC 04/08 BELO HORIZONTE;expense;Combustível
+PIX POSTO CENTRAL COMBUSTIVEIS PARC 03/10 BELO HORIZONTE;expense;Combustível
+AUTO POSTO PRIMAVERA 04/09 BELO HORIZONTE;expense;Combustível
+DEB POSTO ESTRELA 10/04 PORTO ALEGRE;expense;Combustível
+Auto Posto Rodovia Sao Paulo Br;expense;Combustível
+PIX POSTO ESTRELA PARC 06/06;expense;Combustível
+COMPRA CARTAO POSTO ESTRELA BELO HORIZONTE;expense;Combustível
+POSTO BANDEIRA AZUL 03/08 CURITIBA BR;expense;Combustível
+DEB AUTO POSTO RODOVIA LJ 9201 CURITIBA BR;expense;Combustível
+PIX POSTO CENTRAL COMBUSTIVEIS PARC 04/05;expense;Combustível
+PIX POSTO BANDEIRA AZUL PORTO ALEGRE;expense;Combustível
+AUTO POSTO PRIMAVERA LJ 5390;expense;Combustível
+PAG* POSTO CENTRAL COMBUSTIVEIS 21/05;expense;Combustível
+Pag* Posto Estrela Parc 07/09 Sao Paulo Br;expense;Combustível
+DEB POSTO CENTRAL COMBUSTIVEIS 25/08 BELO HORIZONTE;expense;Combustível
+COMPRA CARTAO AUTO POSTO PRIMAVERA LJ 5415;expense;Combustível
+Pag* Posto Estrela Curitiba Br;expense;Combustível
+PIX AUTO POSTO PRIMAVERA SAO PAULO BR;expense;Combustível
+Farmacia Central Belo Horizonte;expense;Farmácia
+DEB FARMACIA POPULAR DO BAIRRO 07/08 PORTO ALEGRE;expense;Farmácia
+COMPRA CARTAO FARMACIA CENTRAL LJ 0187;expense;Farmácia
+COMPRA CARTAO DROGARI;expense;Farmácia
+FARMA BEM ESTAR 09/07;expense;Farmácia
+COMPRA DROGARIA SAUDE TOTAL CURITIBA BR;expense;Farmácia
+Pag* Drogaria Vida Lj 5359 Curitiba Br;expense;Farmácia
+COMPRA FARMACIA CENTRAL CURITIBA BR;expense;Farmácia
+PAG* FARMACIA POPULAR DO BAIRRO LJ 6553 CURIT;expense;Farmácia
+Pag* Farmacia Central Porto Alegre;expense;Farmácia
+DEB FARMA BEM ESTAR LJ 5565 CURITIBA BR;expense;Farmácia
+PAG* DROGARIA SAUDE TOTAL PORTO ALEGRE;expense;Farmácia
+COMPRA CARTAO FARMACIA CENTRAL 08/04 SAO PAULO BR;expense;Farmácia
+COMPRA CARTAO FARMA BEM ESTAR CURITIBA BR;expense;Farmácia
+DEB DROGARIA SAUDE TOTAL PARC 07/12 PORTO ALEGRE;expense;Farmácia
+DROGARIA SAUDE TOTAL;expense;Farmácia
+FARMA BEM ESTAR;expense;Farmácia
+DROGARIA SAUDE TOTAL PARC 06/10;expense;Farmácia
+FARMACIA CENTRAL SAO PAULO BR;expense;Farmácia
+Farma Bem Estar Parc 06/10 Porto Alegre;expense;Farmácia
+CLUBE DO LIVRO DIGI;expense;Assinaturas
+STREAMFLIX PARC 03/06;expense;Assinaturas
+PIX STREAMFLIX;expense;Assinaturas
+COMPRA MUSICAFY PREMIUM 06/09 SAO PAULO BR;expense;Assinaturas
+COMPRA CARTAO NUVEM DRIVE 2TB BELO HORIZONTE;expense;Assinaturas
+Compra Videomax Assinatu;expense;Assinaturas
+VIDEOMAX ASSINATURA 07/11 SAO PAULO BR;expense;Assinaturas
+CLUBE DO LIVRO DIGITAL LJ 2374 BELO HORIZONTE;expense;Assinaturas
+Pag* Nuvem Drive 2Tb Sao Paulo Br;expense;Assinaturas
+DEB NUVEM DRIVE 2TB LJ 2261;expense;Assinaturas
+COMPRA NUVEM DRIVE 2TB PARC 10/12;expense;Assinaturas
+PAG* NUVEM DRIVE 2TB;expense;Assinaturas
+Videomax Assinatura Curitiba Br;expense;Assinaturas
+COMPRA STREAMFLIX SAO PAULO BR;expense;Assinaturas
+Compra Clube Do Livro Digital Lj 2509 Curitiba Br;expense;Assinaturas
+STREAMFLIX LJ 4178;expense;Assinaturas
+STREAMFLIX CURITIBA BR;expense;Assinaturas
+COMPRA CARTAO CLUBE DO LIVRO DIGITAL PARC 04/09 SAO PAULO BR;expense;Assinaturas
+PIX NUVEM DRIVE 2TB 08/10;expense;Assinaturas
+COMPRA VIDEOMAX ASSINATURA SAO PAULO BR;expense;Assinaturas
+PIX RODA CAR *CORRIDA PORTO ALEGRE;expense;Transporte por app
+DEB RODA CAR *CORRIDA PARC 01/08 CURITIBA BR;expense;Transporte por app
+Deb Movi App *Viagem Porto Alegre;expense;Transporte por app
+MOVI APP *VIAGEM PIX SAO PAUL;expense;Transporte por app
+PAG* MOVI APP *VIAGEM;expense;Transporte por app
+PAG* MOVI APP *VIAGEM 02/04 BELO HORIZONTE;expense;Transporte por app
+COMPRA MOVI APP *VIAGEM LJ 0583 CURITIBA BR;expense;Transporte por app
+MOVI APP *VIAGEM PIX;expense;Transporte por app
+PAG* MOVI APP *VIAGEM 21/02 CURITIBA BR;expense;Transporte por app
+COMPRA MOVI APP *VIAGEM;expense;Transporte por app
+COMPRA CARTAO RODA CAR *CORRIDA LJ 0873 PORTO ALEGRE;expense;Transporte por app
+MOVI APP *VIAGEM PIX 01/07 SAO PAULO BR;expense;Transporte por app
+RODA CAR *CORRIDA 18/04 PORTO ALEGRE;expense;Transporte por app
+COMPRA RODA CAR *CORRIDA 12/02 BELO HORIZONTE;expense;Transporte por app
+COMPRA RODA CAR *CORRIDA;expense;Transporte por app
+MOVI APP *VIAGEM PIX 27/07;expense;Transporte por app
+DEB MOVI APP *VIAGEM PIX LJ 5833;expense;Transporte por app
+COMPRA CARTAO VAI JA TRANSPORTES 08/05 PORTO ALEGRE;expense;Transporte por app
+PAG* RODA CAR *CORRIDA;expense;Transporte por app
+COMPRA RODA CAR *CORRIDA 05/01 PORTO ALEGRE;expense;Transporte por app
+ENERGIA DO SUL DISTRIB LJ 4842;expense;Energia
+ENERGIA DO SUL DISTRIB 27/06 SAO PAULO BR;expense;Energia
+COMPRA ENERGIA DO SUL DISTRIB BELO HORIZONTE;expense;Energia
+Pix Energia Do Sul Distrib Lj 5131;expense;Energia
+COMPRA CARTAO COMPANHIA LUZ E FORCA CURITIBA BR;expense;Energia
+COMPRA CARTAO ENERGIA DO SUL DISTRIB BELO HORIZONTE;expense;Energia
+PIX COMPANHIA LUZ E FORCA 11/11 PORTO ALEGRE;expense;Energia
+PIX ENERGIA DO SUL DISTRIB CURITIBA BR;expense;Energia
+PAG* COMPANHIA LUZ E FORCA 20/04 CURITIBA BR;expense;Energia
+CIA ENERGETICA REGIONAL LJ 6147 BELO HORI;expense;Energia
+CIA ENERGETICA REGIONAL PORTO ALEGRE;expense;Energia
+PAG* CIA ENERGETICA REGIONAL PORTO ALEGRE;expense;Energia
+PIX ENERGIA DO SUL DISTRIB LJ 0222 SAO PAULO BR;expense;Energia
+COMPRA CARTAO ENERGIA DO SUL DISTRIB SAO PAULO BR;expense;Energia
+COMPANHIA LUZ E FORCA 06/08 PORTO ALEGRE;expense;Energia
+PIX COMPANHIA LUZ E FORCA LJ 6128;expense;Energia
+COMPRA CARTAO COMPANHIA LUZ E FORCA PARC 06/09 BELO HORIZONTE;expense;Energia
+PIX COMPANHIA LUZ E FORCA 10/01;expense;Energia
+CIA ENERGETICA REGIONAL LJ 6781;expense;Energia
+COMPRA COMPANHIA LUZ E FORCA PARC 01/04;expense;Energia
+ONDA MOVEL RECARGA PORTO ALEGRE;expense;Internet e telefone
+TELEFONIA ONDA MOVEL;expense;Internet e telefone
+CONECTA NET BANDA LARGA SAO PAULO BR;expense;Internet e telefone
+Compra Cartao Conecta Net Banda Larga Lj 5736;expense;Internet e telefone
+PAG* CONECTA NET BANDA LARGA SAO PAULO BR;expense;Internet e telefone
+CONECTA NET BANDA LARGA LJ 1357 PORTO ALEGRE;expense;Internet e telefone
+PAG* ONDA MOVEL RECARGA 27/10 PORTO ALEGRE;expense;Internet e telefone
+PAG* FIBRA VELOZ INTERNET LJ 4754 SAO PAULO BR;expense;Internet e telefone
+COMPRA TELEFONIA ONDA MOVEL 27/09 CURITIBA BR;expense;Internet e telefone
+TELEFONIA ONDA MOVEL PORTO ALEGRE;expense;Internet e telefone
+DEB FIBRA VELOZ INTERNET LJ 6952 PORTO ALEGRE;expense;Internet e telefone
+DEB FIBRA VELOZ INTERNET SAO PAULO BR;expense;Internet e telefone
+PIX CONECTA NET BANDA LARGA PARC 04/07 BELO HORIZONTE;expense;Internet e telefone
+Onda Movel Recarga Parc 01/09 Porto Alegre;expense;Internet e telefone
+FIBRA VELOZ INTERNET SAO PAULO BR;expense;Internet e telefone
+CONECTA NET BANDA LARGA 02/02;expense;Internet e telefone
+CONECTA NET BANDA LARGA 14;expense;Internet e telefone
+Pix Fibra Veloz Internet 15/09 Belo Horizonte;expense;Internet e telefone
+PIX CONECTA NET BANDA LARGA PORTO ALEGRE;expense;Internet e telefone
+TELEFONIA ONDA MOVEL LJ 2451 CURITIBA BR;expense;Internet e telefone
+PIX CALCADOS PASSO CERTO;expense;Vestuário
+COMPRA BOUTIQUE ALINHAVO;expense;Vestuário
+LOJA MODA URBANA LJ 4420 BELO HORIZONTE;expense;Vestuário
+Deb Calcados Passo Certo 26/12 Curitiba Br;expense;Vestuário
+PIX BOUTIQUE ALINHAVO 13/02;expense;Vestuário
+COMPRA CARTAO MAGAZINE ESTILO 09/02 CURITIBA BR;expense;Vestuário
+JEANS & CIA SAO PAULO BR;expense;Vestuário
+Calcados Passo Certo 18/05 Belo Horizonte;expense;Vestuário
+DEB BOUTIQUE ALINHAVO 25/03 CURITIBA BR;expense;Vestuário
+JEANS & CIA CURITIBA BR;expense;Vestuário
+DEB LOJA MODA URBANA;expense;Vestuário
+Pag* Loja Moda Urbana 15/07 Belo Horizonte;expense;Vestuário
+Pix Magazine Estilo 11/05 Curitiba Br;expense;Vestuário
+LOJA MODA URBANA PARC 02/08;expense;Vestuário
+Loja Moda Urbana;expense;Vestuário
+PAG* LOJA MODA URBANA LJ 8534 SAO PAULO BR;expense;Vestuário
+COMPRA CARTAO JEANS & CIA 27/11 PORTO ALEGRE;expense;Vestuário
+PIX BOUTIQUE ALINHAVO 21/06 CURITIBA BR;expense;Vestuário
+DEB JEANS & CIA PORT;expense;Vestuário
+PIX LOJA MODA URBANA LJ 0858 BELO HORIZONTE;expense;Vestuário
+PIX GAMES E CIA 21/06;expense;Eletrônicos
+Compra Cartao Info Mega Store Parc 04/05 Belo Ho;expense;Eletrônicos
+DEB GAMES E CIA 26/11;expense;Eletrônicos
+CELULAR TOP ACESSORIOS PARC 05/08 SAO PAULO BR;expense;Eletrônicos
+INFO MEGA STORE PARC 07/07;expense;Eletrônicos
+PAG* GAMES E CIA BELO HORIZONTE;expense;Eletrônicos
+CELULAR TOP ACESSORIOS BELO HORIZ;expense;Eletrônicos
+COMPRA CARTAO INFO MEGA STORE PORTO ALEGRE;expense;Eletrônicos
+PAG* LOJA ALFA ELETRO BELO HORIZONTE;expense;Eletrônicos
+LOJA ALFA ELETRO PARC 06/09 BELO HORIZONTE;expense;Eletrônicos
+DEB GAMES E CIA LJ 1961 BELO HORIZONTE;expense;Eletrônicos
+LOJA ALFA ELETRO 11/10 CURITIBA BR;expense;Eletrônicos
+CELULAR TOP ACESSORIOS;expense;Eletrônicos
+PAG* GAMES E CIA LJ 8484 BELO HO;expense;Eletrônicos
+Pag* Info Mega Store Sao Paulo Br;expense;Eletrônicos
+Deb Loja Alfa Eletro Lj 9153 Belo Horizonte;expense;Eletrônicos
+Loja Alfa Eletro Belo Horizonte;expense;Eletrônicos
+INFO MEGA STORE 02/01 PORTO ALEGRE;expense;Eletrônicos
+COMPRA CARTAO LOJA ALFA ELETRO PORTO ALEGRE;expense;Eletrônicos
+INFO MEGA STORE PARC 01/02;expense;Eletrônicos
+COMPRA BANHO E TOSA AU AU BELO HORIZONTE;expense;Pets
+BANHO E TOSA AU AU CURITIBA BR;expense;Pets
+PET SHOP AMIGO FIEL ;expense;Pets
+COMPRA CARTAO PET SHOP AMIGO FIEL 01/05;expense;Pets
+PIX PET SHOP AMIGO FIEL LJ 5525 CURITIBA BR;expense;Pets
+PET SHOP AMI;expense;Pets
+PET SHOP AMIGO FIEL SAO PAULO BR;expense;Pets
+BANHO E TOSA AU AU PORTO ALEGRE;expense;Pets
+COMPRA CARTAO PET SHOP AMIGO FIEL 02/03 SAO PAULO BR;expense;Pets
+BANHO E TOSA AU AU PARC 01/03 PORTO ALEGRE;expense;Pets
+PAG* PET SHOP AMIGO FIEL;expense;Pets
+DEB RACOES PATINHAS PARC 01/07 SAO PAULO BR;expense;Pets
+RACOES PATINHAS PARC 03/08 CURITIBA BR;expense;Pets
+PET SHOP AMIGO FIEL PARC 03/09 SAO PAULO BR;expense;Pets
+PIX BANHO E TOSA AU AU PORTO ALEGRE;expense;Pets
+CLINICA VET BICHO FELIZ LJ 2198 BELO HORIZONTE;expense;Pets
+CLINICA VET BICHO FELIZ;expense;Pets
+BANHO E TOSA AU AU BELO HORIZONTE;expense;Pets
+RACOES PATINHAS PARC 02/12 PORTO ALEGRE;expense;Pets
+BANHO E TOSA AU AU PARC 01/07 SAO PAULO;expense;Pets
+PAGTO SALARIO EXEMPLO SA 21/03 CURITIBA BR;income;Salário
+CRED SALARIO FOLHA SAO PAULO BR;income;Salário
+PROVENTOS EMPRESA MODELO LJ 2298 SAO P;income;Salário
+PAGTO SALARIO EXEMPLO SA 28/10 SAO PAULO BR;income;Salário
+Pagto Salario Exemplo Sa Lj 5661 Sao Paul;income;Salário
+PAGTO SALARIO EXEMPLO SA 13/12 PORTO ALEGRE;income;Salário
+PAGTO SALARIO EXEMPLO SA LJ 2073 SAO PAULO BR;income;Salário
+Cred Salario Folha;income;Salário
+CRED SALARIO FOLHA 24/12;income;Salário
+PROVENTOS EMPRESA MODELO BELO HORIZONTE;income;Salário
+PROVENTOS EMPRESA MODELO 21/02;income;Salário
+PAGTO SALARIO EXEMPLO SA 12/02 SAO PAULO BR;income;Salário
+PROVENTOS EMPRESA MODELO;income;Salário
+PAGTO SALARIO EXEMPLO SA 03/01;income;Salário
+PAGTO SALARIO EXEMPLO SA 01/03;income;Salário
+PAGTO SALARIO EXEMPLO SA CURITIBA BR;income;Salário
+PAGTO SALARIO EXEMPLO SA LJ 9297;income;Salário
+PAGTO SALARIO EXEMPLO SA SAO PAUL;income;Salário
+Cred Salario Folha Belo Horizonte;income;Salário
+PAGTO SALARIO EXEMPLO SA 07/12 PORTO ALEGRE;income;Salário
+REND PAGO APLIC AUT LJ 8722 SAO ;income;Rendimentos
+RENDIMENTO POUPANCA LJ 2808 CURITIBA BR;income;Rendimentos
+Rendimentos Cdb Lj 2496 Curitiba Br;income;Rendimentos
+RENDIMENTOS CDB;income;Rendimentos
+JUROS SOBRE CAPITAL LJ 7285 SAO PAULO BR;income;Rendimentos
+JUROS SOBRE CAPITAL 20/04 SAO PAULO BR;income;Rendimentos
+RENDIMENTOS CDB 19/07 CURIT;income;Rendimentos
+RENDIMENTO POUPANCA LJ 4341 BELO HORIZONTE;income;Rendimentos
+JUROS SOBRE CAPITAL BELO HORIZONTE;income;Rendimentos
+JUROS SOBRE CAPITAL LJ 0167 PORTO ALEGRE;income;Rendimentos
+RENDIMENTOS CDB LJ 6546 PORTO ALEGRE;income;Rendimentos
+REND PAGO APLIC AUT LJ 0437 CURITIBA BR;income;Rendimentos
+REND PAGO APLIC AUT SAO PAULO BR;income;Rendimentos
+JUROS SOBRE CAPITAL LJ 8255 PORTO ALEGRE;income;Rendimentos
+Juros Sobre Capital Porto Alegre;income;Rendimentos
+REND PAGO APLIC AUT 08/10 SAO PAULO BR;income;Rendimentos
+JUROS SOBRE CAPITAL LJ 5444;income;Rendimentos
+JUROS SOBRE CAPITAL 01/01 PORTO ALEGRE;income;Rendimentos
+JUROS SOBRE CAPITAL;income;Rendimentos
+REND PAGO APLIC AUT 01/08;income;Rendimentos
+DEVOLUCAO VALOR;income;Reembolso
+Reembolso Despesa Viagem 16/09;income;Reembolso
+Estorno Compra Lj 4366;income;Reembolso
+DEVOLUCAO VALOR LJ 6307 CURITIBA BR;income;Reembolso
+PIX RECEBIDO REEMBOLSO LJ 7775 SAO PAULO BR;income;Reembolso
+REEMBOLSO DESPESA VIAGEM 12/04 CURITIBA BR;income;Reembolso
+Devolucao Valor Lj 5750;income;Reembolso
+PIX RECEBIDO REEMBOLSO;income;Reembolso
+DEVOLUCAO VALOR PORTO ALEGRE;income;Reembolso
+ESTORNO COMPRA LJ 1469;income;Reembolso
+PIX RECEBIDO REEMBOLSO 19/05 BELO H;income;Reembolso
+Pix Recebido Reembolso Belo Horizonte;income;Reembolso
+REEMBOLSO DESPESA VIAGEM 06/01 SAO PAULO BR;income;Reembolso
+REEMBOLSO DESPESA VIAGEM LJ 8208;income;Reembolso
+DEVOLUCAO VALOR 11/03 SAO PA;income;Reembolso
+REEMBOLSO DESPESA VIAGEM LJ 1159;income;Reembolso
+REEMBOLSO DESPESA VIAGEM LJ 9384 SAO PAULO BR;income;Reembolso
+REEMBOLSO DESPESA VIAGEM LJ 0754;income;Reembolso
+REEMBOLSO DESPESA VIAGEM 10/09;income;Reembolso
+Estorno Compra 26/06 Sao Paulo Br;income;Reembolso
