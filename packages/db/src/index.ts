@@ -70,6 +70,7 @@ export * from "./wallets";
 // Lançamentos, contas, categorias e recorrências (M07). Mesma regra: crachá antes de tudo.
 export * from "./accounts";
 export * from "./categories";
+export * from "./classifier";
 export * from "./recurrences";
 export * from "./transactions";
 export * from "./installments";

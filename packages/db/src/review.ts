@@ -66,6 +66,7 @@ const RECEIVED_SELECT = {
   description: true,
   categoryId: true,
   categorizedBy: true,
+  categorizationConfidence: true,
   transferId: true,
   notes: true,
   status: true,
@@ -99,6 +100,7 @@ const OWN_SELECT = {
   deletedAt: true,
   categoryId: true,
   categorizedBy: true,
+  categorizationConfidence: true,
   notes: true,
   installmentGroupId: true,
   installmentNumber: true,
@@ -157,6 +159,7 @@ function receivedView(row: ReceivedRow, editable: ReadonlySet<string>) {
     installment: match.installment,
     category: categoryView(row.category),
     categorizedBy: row.categorizedBy,
+    categorizationConfidence: row.categorizationConfidence,
     isTransfer: row.transferId !== null,
     wallet: { id: row.walletId, name: row.wallet.name },
     account: { id: row.accountId, name: row.account.name, kind: row.account.kind },
@@ -462,6 +465,7 @@ export async function pairPreview(
         cardId: received.cardId,
         categoryId: received.categoryId,
         categorizedBy: received.categorizedBy,
+        categorizationConfidence: received.categorizationConfidence,
       },
       own,
     ),
@@ -636,6 +640,7 @@ type ReceivedBefore = {
   description: string;
   categoryId: string | null;
   categorizedBy: CategorizationSource | null;
+  categorizationConfidence: number | null;
   notes: string | null;
   installmentGroupId: string | null;
   installmentNumber: number | null;
@@ -652,6 +657,7 @@ const snapshotOf = (row: ReceivedRow): ReceivedBefore => ({
   description: row.description,
   categoryId: row.categoryId,
   categorizedBy: row.categorizedBy,
+  categorizationConfidence: row.categorizationConfidence,
   notes: row.notes,
   installmentGroupId: row.installmentGroupId,
   installmentNumber: row.installmentNumber,
@@ -707,6 +713,7 @@ export async function confirmPair(
         cardId: received.cardId,
         categoryId: received.categoryId,
         categorizedBy: received.categorizedBy,
+        categorizationConfidence: received.categorizationConfidence,
       },
       own,
     );
@@ -889,6 +896,9 @@ function parseReceivedBefore(value: Prisma.JsonValue | null): ReceivedBefore {
     cardId: str("cardId"),
     categoryId: str("categoryId"),
     categorizedBy: str("categorizedBy") as CategorizationSource | null,
+    // Desfazer de um par confirmado antes do M10.1 não tem a confiança: fica sem
+    categorizationConfidence:
+      typeof v.categorizationConfidence === "number" ? v.categorizationConfidence : null,
     notes: str("notes"),
     installmentGroupId: str("installmentGroupId"),
     installmentNumber: typeof v.installmentNumber === "number" ? v.installmentNumber : null,

@@ -40,7 +40,7 @@ import {
   type TransactionProvider,
 } from "@fintrack/importers";
 import { authorizeScope, DomainError } from "./access";
-import { defaultSuggesters } from "./categories";
+import { defaultSuggesters, type CascadeServices } from "./categories";
 import { openSecret, SecretKeyError, type SecretKeyring } from "./connection-secret";
 import type { Prisma, PrismaClient } from "./generated/prisma/client";
 import type { SyncTrigger } from "./generated/prisma/enums";
@@ -114,6 +114,8 @@ export async function runSync(
     provider: ProviderSource;
     requestedById?: string | null;
     now?: Date;
+    /** O classificador (M10.1). Sem ele, a cascata da busca usa regras, histórico e banco */
+    services?: CascadeServices;
   },
 ): Promise<SyncOutcome> {
   const now = input.now ?? new Date();
@@ -188,7 +190,11 @@ export async function runSync(
     const suggestersFor: SuggestersFor = async (viewerId) => {
       const cached = cascades.get(viewerId);
       if (cached) return cached;
-      const created = defaultSuggesters(db, await authorizeScope(db, viewerId, "view"));
+      const created = defaultSuggesters(
+        db,
+        await authorizeScope(db, viewerId, "view"),
+        input.services,
+      );
       cascades.set(viewerId, created);
       return created;
     };
@@ -551,7 +557,11 @@ async function saveTransactions(
       const kind = t.amount < 0n ? "expense" : "income";
       const destination = walletFor(card);
       const suggesters = await input.suggestersFor(destination.viewerId ?? input.ownerId);
-      const suggestion = await runCascade(suggesters, { description: incoming.description, kind });
+      const suggestion = await runCascade(suggesters, {
+        description: incoming.description,
+        kind,
+        providerCategory: t.category,
+      });
       creates.push({
         householdId: input.householdId,
         walletId: destination.walletId,
@@ -560,6 +570,7 @@ async function saveTransactions(
         method: importedMethod(account.kind, t.paymentHint, t.amount),
         categoryId: suggestion?.categoryId ?? null,
         categorizedBy: suggestion ? suggestion.source : null,
+        categorizationConfidence: suggestion?.confidence ?? null,
         amount: toDbDecimal(t.amount),
         occurredOn: dbDateFromCivil(t.occurredOn),
         description: incoming.description,

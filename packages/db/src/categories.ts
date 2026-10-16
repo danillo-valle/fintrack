@@ -5,18 +5,27 @@
 // a pessoa pode ver (WalletScope): se o histórico de uma carteira pessoal entrasse na conta, a
 // sugestão contaria à outra pessoa onde ela compra (vazamento por canal lateral, ADR-007).
 import {
+  explainCascade,
+  explainClassifier,
+  explainHistory,
+  explainProvider,
+  explainRules,
+  civilFromDbDate,
   normalizeRulePattern,
   runCascade,
-  suggestFromHistory,
-  suggestFromRules,
+  SUGGESTION_SOURCES,
+  suggesterFrom,
   type CategorySuggester,
   type CategorySuggestion,
+  type ClassifierCandidate,
+  type ClassifierPort,
   type RuleMatch,
   type SuggestionInput,
 } from "@fintrack/core";
-import { DomainError, type HouseholdGrant, type WalletScope } from "./access";
+import { DomainError, isUuid, type HouseholdGrant, type WalletScope } from "./access";
 import { writeAudit, type RequestContext } from "./audit";
 import { Prisma, type PrismaClient } from "./generated/prisma/client";
+import { fromDbDecimal } from "./money";
 
 // ── Categorias ──────────────────────────────────────────────────────────────────
 
@@ -265,27 +274,60 @@ export async function deleteRule(
   });
 }
 
-// ── A cascata: as camadas do M07 ────────────────────────────────────────────────
+// ── A cascata: as camadas ───────────────────────────────────────────────────────
 
 /** Quantos lançamentos recentes o histórico olha. Para duas pessoas, ~2 anos de compras. */
 export const HISTORY_WINDOW = 2000;
 
+const signOf = (kind: SuggestionInput["kind"]) => (kind === "expense" ? { lt: 0 } : { gt: 0 });
+const categoryKind = (kind: SuggestionInput["kind"]) => (kind === "expense" ? "EXPENSE" : "INCOME");
+
+/**
+ * Os lançamentos que valem como "voto" (histórico, banco) e como exemplo de treino: das
+ * carteiras pedidas, não excluídos, sem transferência, com categoria ativa e do mesmo sinal.
+ * Recebido do banco com a categoria que a PRÓPRIA cascata sugeriu ainda não vale: senão uma
+ * sugestão errada se reforçaria sozinha a cada busca (M09.1). Escolhido pela pessoa vale.
+ */
+export function votingWhere(
+  walletIds: readonly string[],
+  kind?: SuggestionInput["kind"],
+): Prisma.TransactionWhereInput {
+  return {
+    walletId: { in: [...walletIds] },
+    deletedAt: null,
+    transferId: null,
+    categoryId: { not: null },
+    ...(kind ? { amount: signOf(kind) } : {}),
+    category: { archivedAt: null, ...(kind ? { kind: categoryKind(kind) } : {}) },
+    NOT: { status: "PENDING", categorizedBy: { in: [...SUGGESTION_SOURCES] } },
+  };
+}
+
+/** As categorias que uma sugestão pode devolver: do lar, ativas e do tipo do lançamento. */
+async function usableCategories(
+  db: PrismaClient | Prisma.TransactionClient,
+  householdId: string,
+  kind: SuggestionInput["kind"],
+) {
+  return db.category.findMany({
+    where: { householdId, archivedAt: null, kind: categoryKind(kind) },
+    select: { id: true, name: true },
+  });
+}
+
 /** Camada 1: as regras do lar (só as de categoria ativa e do tipo certo). */
 export function ruleSuggester(db: PrismaClient, scope: WalletScope<"view">): CategorySuggester {
-  return {
-    source: "RULE",
-    async suggest(input: SuggestionInput) {
-      if (!scope.householdId) return null;
-      const rules = await db.categoryRule.findMany({
-        where: {
-          householdId: scope.householdId,
-          category: { archivedAt: null, kind: input.kind === "expense" ? "EXPENSE" : "INCOME" },
-        },
-        select: { id: true, categoryId: true, pattern: true, match: true, priority: true },
-      });
-      return suggestFromRules(rules, input.description);
-    },
-  };
+  return suggesterFrom("RULE", async (input) => {
+    if (!scope.householdId) return { suggestion: null, detail: "Sem lar" };
+    const rules = await db.categoryRule.findMany({
+      where: {
+        householdId: scope.householdId,
+        category: { archivedAt: null, kind: categoryKind(input.kind) },
+      },
+      select: { id: true, categoryId: true, pattern: true, match: true, priority: true },
+    });
+    return explainRules(rules, input.description);
+  });
 }
 
 /**
@@ -293,42 +335,110 @@ export function ruleSuggester(db: PrismaClient, scope: WalletScope<"view">): Cat
  * categorizados, não excluídos, que não são transferência e do mesmo sinal.
  */
 export function historySuggester(db: PrismaClient, scope: WalletScope<"view">): CategorySuggester {
-  return {
-    source: "HISTORY",
-    async suggest(input: SuggestionInput) {
-      if (scope.walletIds.length === 0) return null;
-      const rows = await db.transaction.findMany({
-        where: {
-          walletId: { in: [...scope.walletIds] },
-          deletedAt: null,
-          transferId: null,
-          categoryId: { not: null },
-          amount: input.kind === "expense" ? { lt: 0 } : { gt: 0 },
-          category: { archivedAt: null },
-          // Recebido do banco com a categoria que a PRÓPRIA cascata sugeriu ainda não é voto: senão
-          // uma sugestão errada se reforçaria sozinha a cada busca (M09.1)
-          NOT: { status: "PENDING", categorizedBy: { in: ["RULE", "HISTORY"] } },
-        },
-        orderBy: [{ occurredOn: "desc" }, { id: "desc" }],
-        take: HISTORY_WINDOW,
-        select: { description: true, categoryId: true },
-      });
-      return suggestFromHistory(
-        rows.flatMap((r) =>
-          r.categoryId ? [{ description: r.description, categoryId: r.categoryId }] : [],
-        ),
-        input.description,
-      );
-    },
-  };
+  return suggesterFrom("HISTORY", async (input) => {
+    if (scope.walletIds.length === 0) return explainHistory([], input.description);
+    const rows = await db.transaction.findMany({
+      where: votingWhere(scope.walletIds, input.kind),
+      orderBy: [{ occurredOn: "desc" }, { id: "desc" }],
+      take: HISTORY_WINDOW,
+      select: { description: true, categoryId: true },
+    });
+    return explainHistory(
+      rows.flatMap((r) =>
+        r.categoryId ? [{ description: r.description, categoryId: r.categoryId }] : [],
+      ),
+      input.description,
+    );
+  });
 }
 
 /**
- * As camadas, em ordem. É AQUI que o M09 (Pluggy) e o M10 (classificador) entram: mais um
- * item nesta lista, implementando CategorySuggester. Quem chama não muda.
+ * Camada 3 (M10.1): a categoria que o banco mandou, traduzida para a do lar pelo que a pessoa
+ * já escolheu para o mesmo texto do banco nas carteiras que ela VÊ, ou pelo mesmo nome.
  */
-export function defaultSuggesters(db: PrismaClient, scope: WalletScope<"view">) {
-  return [ruleSuggester(db, scope), historySuggester(db, scope)];
+export function providerSuggester(db: PrismaClient, scope: WalletScope<"view">): CategorySuggester {
+  return suggesterFrom("PROVIDER", async (input) => {
+    const said = input.providerCategory?.trim();
+    if (!said || !scope.householdId) return explainProvider([], said, []);
+    const [rows, categories] = await Promise.all([
+      scope.walletIds.length === 0
+        ? []
+        : db.transaction.findMany({
+            where: {
+              ...votingWhere(scope.walletIds, input.kind),
+              // O texto é comparado no core (sem acento e sem caixa): aqui, só os que têm
+              providerCategory: { not: null },
+            },
+            orderBy: [{ occurredOn: "desc" }, { id: "desc" }],
+            take: HISTORY_WINDOW,
+            select: { providerCategory: true, categoryId: true },
+          }),
+      usableCategories(db, scope.householdId, input.kind),
+    ]);
+    return explainProvider(
+      rows.flatMap((r) =>
+        r.categoryId && r.providerCategory
+          ? [{ providerCategory: r.providerCategory, categoryId: r.categoryId }]
+          : [],
+      ),
+      said,
+      categories,
+    );
+  });
+}
+
+/**
+ * Camada 4 (M10.1, ADR-015): o classificador do serviço Python. Pergunta SÓ aos modelos das
+ * carteiras que a pessoa vê (um modelo por carteira; a de outra pessoa nunca entra). Sem
+ * modelo treinado, nem chama o serviço. Serviço fora ou lento: segue sem esta camada (a
+ * porta devolve null), e o lançamento nunca espera por ela além do limite da porta.
+ */
+export function classifierSuggester(
+  db: PrismaClient,
+  scope: WalletScope<"view">,
+  port: ClassifierPort | null,
+): CategorySuggester {
+  return suggesterFrom("CLASSIFIER", async (input) => {
+    if (!port)
+      return { suggestion: null, detail: "O classificador não está ligado neste servidor" };
+    if (!scope.householdId || scope.walletIds.length === 0) {
+      return explainClassifier([], [], 0);
+    }
+    const models = (
+      await db.classifierModel.findMany({
+        where: { walletId: { in: [...scope.walletIds] } },
+        select: { walletId: true },
+      })
+    ).map((m) => m.walletId);
+    if (models.length === 0) return explainClassifier([], [], 0);
+    const [candidates, categories] = await Promise.all([
+      port
+        .suggest({ models, description: input.description, kind: input.kind })
+        .catch((): ClassifierCandidate[] | null => null),
+      usableCategories(db, scope.householdId, input.kind),
+    ]);
+    return explainClassifier(candidates, categories, models.length);
+  });
+}
+
+/** As camadas que dependem de fora do banco (o serviço Python). Ausente = camada desligada. */
+export type CascadeServices = { classifier?: ClassifierPort | null };
+
+/**
+ * As camadas, em ordem: regras → histórico → banco → classificador (M10.1). O LLM do M10.2 NÃO
+ * entra aqui: ele roda numa fila, depois do lançamento salvo (ADR-007). Quem chama não muda.
+ */
+export function defaultSuggesters(
+  db: PrismaClient,
+  scope: WalletScope<"view">,
+  services: CascadeServices = {},
+): CategorySuggester[] {
+  return [
+    ruleSuggester(db, scope),
+    historySuggester(db, scope),
+    providerSuggester(db, scope),
+    classifierSuggester(db, scope, services.classifier ?? null),
+  ];
 }
 
 /** A sugestão de categoria para uma descrição, pela cascata. */
@@ -336,6 +446,79 @@ export async function suggestCategory(
   db: PrismaClient,
   scope: WalletScope<"view">,
   input: SuggestionInput,
+  services: CascadeServices = {},
 ): Promise<CategorySuggestion | null> {
-  return runCascade(defaultSuggesters(db, scope), input);
+  return runCascade(defaultSuggesters(db, scope, services), input);
 }
+
+/** A cascata explicada camada por camada ("Por que essa categoria?", M10.1). */
+export async function explainCategory(
+  db: PrismaClient,
+  scope: WalletScope<"view">,
+  input: SuggestionInput,
+  services: CascadeServices = {},
+) {
+  return explainCascade(defaultSuggesters(db, scope, services), input);
+}
+
+/**
+ * "Por que essa categoria?" de um lançamento (M10.1, prancha F-Sugestoes): o que está gravado
+ * (categoria, quem decidiu, confiança) e a cascata de HOJE, camada por camada, vista por quem
+ * pergunta. Só lançamento de carteira que a pessoa vê; fora disso, null (a tela dá 404).
+ */
+export async function explainTransaction(
+  db: PrismaClient,
+  scope: WalletScope<"view">,
+  transactionId: string,
+  services: CascadeServices = {},
+) {
+  if (!isUuid(transactionId)) return null;
+  const row = await db.transaction.findFirst({
+    where: { id: transactionId, walletId: { in: [...scope.walletIds] }, deletedAt: null },
+    select: {
+      id: true,
+      walletId: true,
+      description: true,
+      amount: true,
+      occurredOn: true,
+      status: true,
+      transferId: true,
+      providerCategory: true,
+      categorizedBy: true,
+      categorizationConfidence: true,
+      category: { select: { id: true, name: true } },
+    },
+  });
+  if (!row || row.transferId) return null;
+  const kind = row.amount.isNegative() ? ("expense" as const) : ("income" as const);
+  const explained = await explainCategory(
+    db,
+    scope,
+    { description: row.description, kind, providerCategory: row.providerCategory },
+    services,
+  );
+  const suggested = explained.suggestion
+    ? await db.category.findUnique({
+        where: { id: explained.suggestion.categoryId },
+        select: { id: true, name: true },
+      })
+    : null;
+  return {
+    transaction: {
+      id: row.id,
+      walletId: row.walletId,
+      description: row.description,
+      amount: fromDbDecimal(row.amount),
+      occurredOn: civilFromDbDate(row.occurredOn),
+      pending: row.status === "PENDING",
+      category: row.category,
+      categorizedBy: row.categorizedBy,
+      confidence: row.categorizationConfidence,
+    },
+    layers: explained.layers,
+    /** O que a cascata sugere hoje (pode ser diferente do gravado: uma regra nova, um treino) */
+    suggested: suggested && explained.suggestion ? { ...suggested, ...explained.suggestion } : null,
+  };
+}
+
+export type TransactionExplanation = NonNullable<Awaited<ReturnType<typeof explainTransaction>>>;

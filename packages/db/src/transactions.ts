@@ -10,6 +10,8 @@
 import { randomUUID } from "node:crypto";
 import {
   allowedMethods,
+  categorizationConfidence,
+  type CategorizationSource,
   categorizedBy,
   civilFromDbDate,
   csvMoney,
@@ -43,7 +45,13 @@ import {
   type WalletScope,
 } from "./access";
 import { writeAudit, type RequestContext } from "./audit";
-import { assertUsableCategory, categoryNodes, createRuleTx, suggestCategory } from "./categories";
+import {
+  assertUsableCategory,
+  categoryNodes,
+  createRuleTx,
+  suggestCategory,
+  type CascadeServices,
+} from "./categories";
 import { Prisma, type PrismaClient } from "./generated/prisma/client";
 import { fromDbDecimal, toDbDecimal } from "./money";
 
@@ -68,6 +76,9 @@ export type CategorizationOptions = {
   scope: WalletScope<"view">;
   /** "Sempre categorizar assim": cria a regra a partir da correção (precisa do crachá do lar) */
   rememberRule?: { grant: HouseholdGrant<"manage_categories">; pattern?: string } | null;
+  /** As camadas que dependem do serviço Python (M10.1: o classificador). Sem elas, a cascata
+   * roda com as do banco (regras, histórico, banco) */
+  services?: CascadeServices;
 };
 
 /** Forma de pagamento e cartão conferidos contra a conta (a mesma regra do gatilho do banco). */
@@ -100,7 +111,7 @@ export async function recordCorrection(
     transactionId: string;
     description: string;
     kind: TransactionKind;
-    from: { categoryId: string | null; source: "MANUAL" | "RULE" | "HISTORY" | null };
+    from: { categoryId: string | null; source: CategorizationSource | null };
     to: string | null;
     userId: string;
   },
@@ -153,10 +164,12 @@ export async function createTransaction(
   sameHousehold(wallet, account);
   const amount = signedAmount(input.kind, input.cents);
   const { method, cardId } = resolvePayment(account, input);
-  const suggestion = await suggestCategory(db, options.scope, {
-    description: input.description,
-    kind: input.kind,
-  });
+  const suggestion = await suggestCategory(
+    db,
+    options.scope,
+    { description: input.description, kind: input.kind },
+    options.services,
+  );
 
   return db.$transaction(async (tx) => {
     const categoryId = await assertUsableCategory(
@@ -174,6 +187,7 @@ export async function createTransaction(
         method,
         categoryId,
         categorizedBy: categorizedBy(categoryId, suggestion),
+        categorizationConfidence: categorizationConfidence(categoryId, suggestion),
         amount: toDbDecimal(amount),
         occurredOn: dbDateFromCivil(input.occurredOn),
         description: input.description,
@@ -256,15 +270,17 @@ export async function updateTransaction(
   sameHousehold(target, account);
   const amount = signedAmount(input.kind, input.cents);
   const { method, cardId } = resolvePayment(account, input);
-  const suggestion = await suggestCategory(db, options.scope, {
-    description: input.description,
-    kind: input.kind,
-  });
+  const suggestion = await suggestCategory(
+    db,
+    options.scope,
+    { description: input.description, kind: input.kind },
+    options.services,
+  );
 
   await db.$transaction(async (tx) => {
     const current = await tx.transaction.findFirst({
       where: { id: grant.transaction.id, deletedAt: null },
-      select: { categoryId: true, categorizedBy: true },
+      select: { categoryId: true, categorizedBy: true, categorizationConfidence: true },
     });
     if (!current) throw new DomainError("NOT_FOUND");
     const categoryId = await assertUsableCategory(
@@ -283,6 +299,9 @@ export async function updateTransaction(
         method,
         categoryId,
         categorizedBy: unchanged ? current.categorizedBy : categorizedBy(categoryId, suggestion),
+        categorizationConfidence: unchanged
+          ? current.categorizationConfidence
+          : categorizationConfidence(categoryId, suggestion),
         amount: toDbDecimal(amount),
         occurredOn: dbDateFromCivil(input.occurredOn),
         description: input.description,
@@ -331,7 +350,7 @@ export async function setTransactionCategory(
     if (chosen === current.categoryId) return; // a mesma: nada muda (e não vira exemplo)
     await tx.transaction.update({
       where: { id: grant.transaction.id },
-      data: { categoryId: chosen, categorizedBy: "MANUAL" },
+      data: { categoryId: chosen, categorizedBy: "MANUAL", categorizationConfidence: null },
     });
     await recordCorrection(
       tx,
@@ -531,6 +550,11 @@ export type TransactionFilters = {
    * mostra o resto, e o que espera revisão fica fora da lista, dos totais e do painel (ADR-011).
    */
   received?: boolean | null;
+  /**
+   * Quem categorizou (M10.1, `?quem=`): o número de cada camada em Ajustes › Categorização leva
+   * a esta lista. MANUAL inclui as categorias antigas sem autor (como a medida conta).
+   */
+  categorizedBy?: CategorizationSource | null;
 };
 
 /**
@@ -578,6 +602,14 @@ function whereOf(
   if (f.type === "expense") and.push({ transferId: null, amount: { lt: 0 } });
   if (f.type === "income") and.push({ transferId: null, amount: { gt: 0 } });
   if (f.payer) and.push(payerWhere(f.payer));
+  if (f.categorizedBy === "MANUAL") {
+    and.push({
+      categoryId: { not: null },
+      OR: [{ categorizedBy: "MANUAL" }, { categorizedBy: null }],
+    });
+  } else if (f.categorizedBy) {
+    and.push({ categoryId: { not: null }, categorizedBy: f.categorizedBy });
+  }
   return { AND: and };
 }
 
@@ -604,6 +636,7 @@ const LIST_SELECT = {
   transferId: true,
   recurrenceId: true,
   categorizedBy: true,
+  categorizationConfidence: true,
   installmentNumber: true,
   installmentGroup: { select: { installmentCount: true } },
   wallet: { select: { id: true, name: true, kind: true } },

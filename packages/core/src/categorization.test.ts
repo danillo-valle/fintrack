@@ -3,7 +3,18 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
+  BREAKDOWN_ORDER,
+  CLASSIFIER_THRESHOLD,
+  categorizationBreakdown,
+  categorizationConfidence,
   categorizedBy,
+  explainCascade,
+  explainClassifier,
+  explainHistory,
+  explainProvider,
+  explainRules,
+  suggesterFrom,
+  tenthsOf,
   firstMatchingRule,
   isCorrection,
   merchantKey,
@@ -210,5 +221,194 @@ describe("quem categorizou e o que é correção (exemplo de treino)", () => {
     expect(isCorrection({ chosenCategoryId: "a", previousCategoryId: "a" })).toBe(false);
     expect(isCorrection({ chosenCategoryId: "a", previousCategoryId: null })).toBe(false);
     expect(isCorrection({ chosenCategoryId: null, previousCategoryId: "a" })).toBe(false);
+  });
+});
+
+// ── M10.1: banco, classificador, explicação e a medida ───────────────────────────
+
+const CATS = [
+  { id: "c-mercado", name: "Mercado" },
+  { id: "c-farmacia", name: "Farmácia" },
+  { id: "c-rest", name: "Restaurante" },
+];
+
+describe("explainProvider: a categoria do banco traduzida para a do lar", () => {
+  it("sem categoria do banco não sugere", () => {
+    expect(explainProvider([], null, CATS)).toEqual({
+      suggestion: null,
+      detail: "O banco não mandou categoria",
+    });
+  });
+
+  it("vota pelo que a pessoa escolheu antes para o mesmo texto do banco (sem acento/caixa)", () => {
+    const rows = [
+      { providerCategory: "Supermercados", categoryId: "c-mercado" },
+      { providerCategory: "SUPERMERCADOS", categoryId: "c-mercado" },
+      { providerCategory: "supermercados", categoryId: "c-farmacia" },
+      { providerCategory: "Farmácia", categoryId: "c-farmacia" },
+    ];
+    const out = explainProvider(rows, "Supermercados", CATS);
+    expect(out.suggestion).toMatchObject({
+      categoryId: "c-mercado",
+      source: "PROVIDER",
+      confidence: 66,
+    });
+    expect(out.detail).toContain("2 de 3 vezes");
+  });
+
+  it("sem votos, o mesmo nome (singular ou plural) vale com confiança 80", () => {
+    expect(explainProvider([], "Restaurantes", CATS).suggestion).toMatchObject({
+      categoryId: "c-rest",
+      confidence: 80,
+    });
+    expect(explainProvider([], "farmacia", CATS).suggestion?.categoryId).toBe("c-farmacia");
+    // "Supermercados" não é "Mercado": nada de adivinhar
+    const out = explainProvider([], "Supermercados", CATS);
+    expect(out.suggestion).toBeNull();
+    expect(out.detail).toContain("ainda não está ligado");
+  });
+
+  it("um voto só não basta, e o motivo aparece", () => {
+    const out = explainProvider(
+      [{ providerCategory: "Livrarias", categoryId: "c-mercado" }],
+      "Livrarias",
+      CATS,
+    );
+    expect(out.suggestion).toBeNull();
+    expect(out.detail).toContain("precisa de 2");
+  });
+});
+
+describe("explainClassifier: limiar de 80 e só categoria usável", () => {
+  const c = (categoryId: string, confidence: number) => ({ categoryId, confidence, model: "m" });
+
+  it("sem modelo, serviço fora, ou nada conhecido: não sugere e diz por quê", () => {
+    expect(explainClassifier([], CATS, 0).detail).toContain("sem modelo treinado");
+    expect(explainClassifier(null, CATS, 1).detail).toBe("O classificador não respondeu");
+    expect(explainClassifier([c("arquivada", 99)], CATS, 1).detail).toBe(
+      "Nenhuma categoria conhecida",
+    );
+  });
+
+  it("pula a candidata que não é usável (arquivada, outro tipo) e aplica o limiar", () => {
+    const out = explainClassifier([c("arquivada", 99), c("c-rest", 92)], CATS, 2);
+    expect(out.suggestion).toMatchObject({
+      categoryId: "c-rest",
+      source: "CLASSIFIER",
+      confidence: 92,
+    });
+    const low = explainClassifier([c("c-rest", CLASSIFIER_THRESHOLD - 1)], CATS, 1);
+    expect(low.suggestion).toBeNull();
+    expect(low.detail).toBe("Restaurante ficou em 79 % (sugere a partir de 80 %)");
+    expect(explainClassifier([c("c-rest", 80)], CATS, 1).suggestion?.confidence).toBe(80);
+  });
+});
+
+describe("explainRules / explainHistory: os motivos", () => {
+  it("regra: o que combinou, ou por que não", () => {
+    expect(explainRules([], "PADARIA").detail).toBe("Nenhuma regra criada ainda");
+    const rule = {
+      id: "r",
+      categoryId: "c",
+      pattern: "padaria",
+      match: "CONTAINS" as const,
+      priority: 1,
+    };
+    expect(explainRules([rule], "Café").detail).toBe("Nenhuma regra combinou");
+    expect(explainRules([rule], "PADARIA DO BAIRRO").detail).toBe('A descrição contém "padaria"');
+  });
+
+  it("histórico: 1 parecido só, divididos, ou sem comerciante", () => {
+    expect(explainHistory([], "123 456").detail).toBe("A descrição não tem nome de comerciante");
+    const one = explainHistory([{ description: "PADARIA X", categoryId: "a" }], "Padaria X 02/10");
+    expect(one.detail).toBe("1 lançamento parecido nas carteiras que você vê (precisa de 2)");
+    const split = explainHistory(
+      ["a", "a", "b", "b", "c"].map((categoryId) => ({ description: "PADARIA X", categoryId })),
+      "PADARIA X",
+    );
+    expect(split.suggestion).toBeNull();
+    expect(split.detail).toContain("divididos: 2 de 5");
+  });
+});
+
+describe("explainCascade: a mesma resposta do runCascade, camada por camada", () => {
+  const layer = (source: "RULE" | "HISTORY" | "PROVIDER" | "CLASSIFIER", answer: string | null) =>
+    suggesterFrom(source, async () => ({
+      suggestion: answer
+        ? { categoryId: answer, source, confidence: 90, reason: source.toLowerCase() }
+        : null,
+      detail: answer ? `decidiu ${answer}` : "não",
+    }));
+
+  it("depois da que decidiu, as outras nem são perguntadas", async () => {
+    let asked = 0;
+    const spy = suggesterFrom("CLASSIFIER", async () => {
+      asked += 1;
+      return { suggestion: null, detail: "" };
+    });
+    const out = await explainCascade(
+      [layer("RULE", null), layer("HISTORY", null), layer("PROVIDER", "c-mercado"), spy],
+      { description: "SUPERMERC", kind: "expense", providerCategory: "Supermercados" },
+    );
+    expect(out.layers.map((l) => l.state)).toEqual(["MISSED", "MISSED", "DECIDED", "SKIPPED"]);
+    expect(out.suggestion?.categoryId).toBe("c-mercado");
+    expect(asked).toBe(0);
+    const same = await runCascade(
+      [layer("RULE", null), layer("HISTORY", null), layer("PROVIDER", "c-mercado")],
+      { description: "SUPERMERC", kind: "expense" },
+    );
+    expect(same).toEqual(out.suggestion);
+  });
+
+  it("descrição vazia: nenhuma camada é perguntada", async () => {
+    const out = await explainCascade([layer("RULE", "x")], { description: "  ", kind: "expense" });
+    expect(out).toEqual({
+      layers: [expect.objectContaining({ state: "SKIPPED" })],
+      suggestion: null,
+    });
+  });
+});
+
+describe("categorizationBreakdown: o percentual sem IA", () => {
+  it("o exemplo do canvas: 378 de 412 → 91,7 %", () => {
+    const b = categorizationBreakdown({
+      RULE: 168,
+      HISTORY: 92,
+      PROVIDER: 57,
+      CLASSIFIER: 61,
+      MANUAL: 26,
+      NONE: 8,
+    });
+    expect(b).toMatchObject({ total: 412, automatic: 378, automaticTenths: 917 });
+    expect(b.rows.map((r) => r.key)).toEqual(BREAKDOWN_ORDER);
+    expect(b.rows.find((r) => r.key === "RULE")?.tenths).toBe(408);
+  });
+
+  it("vazio dá zero, sem dividir por zero", () => {
+    expect(categorizationBreakdown({})).toMatchObject({ total: 0, automaticTenths: 0 });
+  });
+
+  it("propriedade: décimos entre 0 e 1000 e meio para cima", () => {
+    expect(tenthsOf(1, 8)).toBe(125);
+    expect(tenthsOf(1, 3)).toBe(333);
+    expect(tenthsOf(2, 3)).toBe(667);
+    fc.assert(
+      fc.property(fc.nat(10_000), fc.nat(10_000), (a, b) => {
+        const total = a + b;
+        const t = tenthsOf(a, total);
+        return t >= 0 && t <= 1000 && (total === 0 || Math.abs(t * total - a * 1000) <= total);
+      }),
+    );
+  });
+});
+
+describe("categorizationConfidence: só quando a pessoa aceitou a sugestão", () => {
+  it.each([
+    ["c1", { categoryId: "c1", confidence: 92 }, 92],
+    ["c2", { categoryId: "c1", confidence: 92 }, null],
+    [null, { categoryId: "c1", confidence: 92 }, null],
+    ["c1", null, null],
+  ] as const)("%j com %j → %j", (chosen, suggestion, expected) => {
+    expect(categorizationConfidence(chosen, suggestion)).toBe(expected);
   });
 });
