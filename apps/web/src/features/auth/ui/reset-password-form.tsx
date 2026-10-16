@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { KeyRound } from "lucide-react";
+import { ClientForm } from "@/components/feedback/client-form";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { authClient } from "@/lib/auth-client";
@@ -45,7 +46,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
   return (
     <>
       <FormAlert id={alertId} message={error} />
-      <form onSubmit={handleSubmit} noValidate>
+      <ClientForm onSubmit={handleSubmit} noValidate>
         <FieldGroup>
           <Field data-invalid={errors.password ? true : undefined}>
             <FieldLabel htmlFor="password">Nova senha</FieldLabel>
@@ -70,7 +71,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
             {pending ? "Salvando…" : "Salvar a nova senha"}
           </Button>
         </FieldGroup>
-      </form>
+      </ClientForm>
     </>
   );
 }

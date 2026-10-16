@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Mail } from "lucide-react";
+import { ClientForm } from "@/components/feedback/client-form";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -50,7 +51,7 @@ export function ForgotPasswordForm() {
   return (
     <>
       <FormAlert message={error} />
-      <form onSubmit={handleSubmit} noValidate>
+      <ClientForm onSubmit={handleSubmit} noValidate>
         <FieldGroup>
           <Field data-invalid={errors.email ? true : undefined}>
             <FieldLabel htmlFor="email">E-mail da conta</FieldLabel>
@@ -71,7 +72,7 @@ export function ForgotPasswordForm() {
             {pending ? "Enviando…" : "Enviar o link"}
           </Button>
         </FieldGroup>
-      </form>
+      </ClientForm>
     </>
   );
 }

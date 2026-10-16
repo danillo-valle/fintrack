@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { KeyRound } from "lucide-react";
+import { ClientForm } from "@/components/feedback/client-form";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { authClient } from "@/lib/auth-client";
@@ -88,7 +89,7 @@ export function ChangePasswordForm() {
     <>
       <FormAlert id={alertId} message={error} />
       <FormAlert message={success} variant="success" focusOnShow />
-      <form onSubmit={handleSubmit} noValidate>
+      <ClientForm onSubmit={handleSubmit} noValidate>
         <FieldGroup>
           <Field data-invalid={errors.currentPassword ? true : undefined}>
             <FieldLabel htmlFor="current-password">Senha atual</FieldLabel>
@@ -138,7 +139,7 @@ export function ChangePasswordForm() {
             {pending ? "Trocando…" : "Trocar a senha"}
           </Button>
         </FieldGroup>
-      </form>
+      </ClientForm>
     </>
   );
 }

@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { LogIn, ShieldCheck } from "lucide-react";
+import { ClientForm } from "@/components/feedback/client-form";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -113,7 +114,7 @@ export function TwoFactorForm({ next }: { next: string }) {
   return (
     <>
       <FormAlert id={alertId} message={error} />
-      <form onSubmit={handleSubmit} noValidate>
+      <ClientForm onSubmit={handleSubmit} noValidate>
         <FieldGroup>
           <Field data-invalid={errors.code ? true : undefined}>
             <FieldLabel htmlFor="code">{text.label}</FieldLabel>
@@ -153,7 +154,7 @@ export function TwoFactorForm({ next }: { next: string }) {
             {text.switchTo}
           </Button>
         </FieldGroup>
-      </form>
+      </ClientForm>
     </>
   );
 }

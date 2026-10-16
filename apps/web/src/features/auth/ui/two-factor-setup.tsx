@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { ArrowRight, ShieldCheck } from "lucide-react";
+import { ClientForm } from "@/components/feedback/client-form";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -79,7 +80,7 @@ export function TwoFactorSetup() {
     return (
       <>
         <FormAlert message={error} />
-        <form onSubmit={confirmPassword}>
+        <ClientForm onSubmit={confirmPassword}>
           <FieldGroup>
             <Field>
               <FieldLabel htmlFor="password">Confirme sua senha</FieldLabel>
@@ -95,7 +96,7 @@ export function TwoFactorSetup() {
               {pending ? "Preparando…" : "Continuar"}
             </Button>
           </FieldGroup>
-        </form>
+        </ClientForm>
       </>
     );
   }
@@ -133,7 +134,7 @@ export function TwoFactorSetup() {
           </p>
         </details>
         <FormAlert message={error} />
-        <form onSubmit={verifyCode}>
+        <ClientForm onSubmit={verifyCode}>
           <FieldGroup>
             <Field>
               <FieldLabel htmlFor="code">Código de 6 números que aparece no app</FieldLabel>
@@ -154,7 +155,7 @@ export function TwoFactorSetup() {
               {pending ? "Conferindo…" : "Ligar o 2FA"}
             </Button>
           </FieldGroup>
-        </form>
+        </ClientForm>
       </>
     );
   }
