@@ -11,6 +11,7 @@ import {
   payerParam,
   PAYMENT_METHODS,
   TRANSFER_METHODS,
+  type CategorizationSource,
   type CivilDate,
   type PayerFilter,
   type PaymentMethod,
@@ -198,6 +199,8 @@ export type ListFilters = {
   payer: PayerFilter | null;
   /** Recebidos do banco esperando revisão (M09.1); fora disso, a lista não os mostra */
   received: boolean;
+  /** Quem categorizou (M10.1, `?quem=`): os números de Ajustes › Categorização levam aqui */
+  categorizedBy?: CategorizationSource | null;
 };
 
 export type ParsedFilters = {
@@ -212,7 +215,8 @@ export type ParsedFilters = {
  * O "volta" só aceita as telas do painel, com os parâmetros delas: nunca outro site nem outro
  * caminho (um link com ?volta=https://... não pode virar um redirecionamento aberto).
  */
-const BACK = /^\/(orcamento(\/(fluxo|evolucao))?)?(\?[A-Za-z0-9=&%._-]{0,400})?$/;
+const BACK =
+  /^\/(orcamento(\/(fluxo|evolucao))?|ajustes\/categorizacao)?(\?[A-Za-z0-9=&%._-]{0,400})?$/;
 export const backOrNull = (value: string | null) => (value && BACK.test(value) ? value : null);
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -223,6 +227,17 @@ const TYPES: Record<string, TransactionTypeFilter> = {
   receita: "income",
   transferencia: "transfer",
 };
+/** `?quem=`: quem categorizou, em português na barra de endereço (M10.1). */
+export const CATEGORIZED_BY_PARAM: Record<CategorizationSource, string> = {
+  RULE: "regra",
+  HISTORY: "historico",
+  PROVIDER: "banco",
+  CLASSIFIER: "classificador",
+  MANUAL: "voce",
+};
+const CATEGORIZED_BY: Record<string, CategorizationSource> = Object.fromEntries(
+  Object.entries(CATEGORIZED_BY_PARAM).map(([source, param]) => [param, source]),
+) as Record<string, CategorizationSource>;
 const TYPE_PARAM: Record<TransactionTypeFilter, string> = {
   expense: "despesa",
   income: "receita",
@@ -236,6 +251,8 @@ const idOrNull = (value: string | null) => (value && UUID.test(value) ? value.to
 /**
  * Lê os filtros da URL. Os nomes são em português porque aparecem na barra de endereço:
  *   /lancamentos?de=2026-10-01&ate=2026-10-31&carteira=<id>&conta=<id>&categoria=<id|sem>&q=mercado&tipo=despesa&pago=<id|compartilhado>
+ *   /lancamentos?quem=classificador   quem categorizou (M10.1): regra, historico, banco,
+ *                                     classificador ou voce
  *   /lancamentos?situacao=recebidos   os recebidos do banco que esperam revisão (M09.1); sem
  *                                     datas, os dos últimos 12 meses
  * Nada aqui é confiável: valor fora do formato é ignorado (cai no padrão), nunca vira erro.
@@ -263,6 +280,7 @@ export function parseFilters(params: SearchParams, today: CivilDate): ParsedFilt
       // A pessoa passa depois pelo escopo: filtrar por quem não está no lar só esvazia a lista
       payer: parsePayerParam(one(params.pago)),
       received,
+      categorizedBy: CATEGORIZED_BY[one(params.quem) ?? ""] ?? null,
     },
     walletId: idOrNull(one(params.carteira)),
     cursor: one(params.cursor),
@@ -286,6 +304,7 @@ export function filtersToQuery(
   if (f.type) query.set("tipo", TYPE_PARAM[f.type]);
   if (f.payer) query.set("pago", payerParam(f.payer));
   if (f.received) query.set("situacao", "recebidos");
+  if (f.categorizedBy) query.set("quem", CATEGORIZED_BY_PARAM[f.categorizedBy]);
   if (parsed.back) query.set("volta", parsed.back);
   for (const [key, value] of Object.entries(extra)) {
     if (value === null) query.delete(key);

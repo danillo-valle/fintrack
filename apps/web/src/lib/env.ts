@@ -67,10 +67,10 @@ const schema = z.object({
   // A fila de sincronização (pg-boss) roda dentro do próprio servidor do app. "off" desliga
   // (a agenda diária e o "Buscar agora" ficam parados até voltar a "on")
   SYNC_WORKER: z.enum(["on", "off"]).default("on"),
-  // ── Fatura em PDF (M09.4, ADR-014) ──
-  // Endereço do serviço Python que lê o PDF (services/ml), só na rede interna: em produção
+  // ── Fatura em PDF (M09.4, ADR-014) e classificador (M10.1, ADR-015) ──
+  // Endereço do serviço Python (services/ml), só na rede interna: em produção
   // http://ml:8001; no desenvolvimento http://127.0.0.1:8001. Sem ela, o PDF é recusado com
-  // um aviso e o OFX continua funcionando.
+  // um aviso, a cascata roda sem o classificador e o OFX continua funcionando.
   ML_SERVICE_URL: z.url({ protocol: /^https?$/ }).optional(),
 });
 

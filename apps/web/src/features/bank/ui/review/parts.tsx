@@ -1,8 +1,10 @@
 // Peças pequenas da revisão (M09.2, linha E.2 do canvas): os botões, a categoria com a origem,
 // a etiqueta do cartão e as frases. Sem estado: servem às telas do servidor e do navegador.
 import { CreditCard } from "lucide-react";
+import type { CategorizationSource } from "@fintrack/core";
 import { buttonVariants } from "@/components/ui/button";
 import { IconTile } from "@/components/visual/icon-tile";
+import { SourcePill } from "@/components/visual/source-pill";
 import { toneFor } from "@/components/visual/tone";
 import { ToneChip } from "@/components/visual/tone-chip";
 import { cn } from "@/lib/utils";
@@ -41,19 +43,15 @@ const MONTHS = [
 /** "2026-10" → "outubro" */
 export const monthName = (key: string) => MONTHS[Number.parseInt(key.slice(5, 7), 10) - 1] ?? key;
 
-const ORIGIN: Record<string, string> = {
-  MANUAL: "escolhida por você",
-  RULE: "por regra",
-  HISTORY: "pelo histórico",
-};
-
-/** [M] Mercado / escolhida por você (a categoria e quem decidiu). */
+/** [M] Mercado / [⟲ Histórico] (a categoria e quem decidiu, com a confiança, M10.1). */
 export function CategoryLabel({
   category,
   categorizedBy,
+  confidence = null,
 }: {
   category: { id: string; name: string } | null;
-  categorizedBy: string | null;
+  categorizedBy: CategorizationSource | null;
+  confidence?: number | null;
 }) {
   if (!category) return <span className="text-muted-foreground text-sm">Sem categoria</span>;
   return (
@@ -64,10 +62,10 @@ export function CategoryLabel({
         size="sm"
         className="size-7 rounded-lg text-[0.8125rem]"
       />
-      <span className="flex min-w-0 flex-col leading-tight">
+      <span className="flex min-w-0 flex-col items-start gap-1 leading-tight">
         <span className="truncate text-sm font-semibold">{category.name}</span>
         {categorizedBy ? (
-          <span className="text-muted-foreground text-xs">{ORIGIN[categorizedBy] ?? ""}</span>
+          <SourcePill source={categorizedBy} confidence={confidence} className="h-5" />
         ) : null}
       </span>
     </span>

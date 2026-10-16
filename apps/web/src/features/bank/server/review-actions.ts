@@ -29,7 +29,13 @@ import {
 } from "@/lib/access";
 import { requireUser } from "@/lib/auth/session";
 import { financeChanged } from "@/lib/finance-cache";
-import { pairSchema, registerFinalSchema, reviewSchema, undoSchema } from "../schemas";
+import {
+  explainedConfirmSchema,
+  pairSchema,
+  registerFinalSchema,
+  reviewSchema,
+  undoSchema,
+} from "../schemas";
 
 const REVIEW_PATH = "/lancamentos/recebidos";
 
@@ -158,6 +164,31 @@ export async function confirmPairAction(
   await financeChanged(session);
   refreshReviewPages();
   redirect(`${REVIEW_PATH}?juntado=${matchId}`);
+}
+
+/**
+ * "Confirmar" no "Por que essa categoria?" (M10.1): confirma o recebido com a categoria e o
+ * ambiente que ele tem. Volta para a revisão com ?confirmado=<id>, de onde o aviso oferece o
+ * "Desfazer" (o mesmo do Confirmar da linha).
+ */
+export async function confirmExplainedAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await requireUser();
+  const parsed = explainedConfirmSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success)
+    return { error: "Não deu para entender o pedido. Recarregue a página.", success: null };
+  let confirmed: string | null = null;
+  const result = await runAction(async () => {
+    const scope = await requireScope(session, "edit");
+    const { ids } = await confirmReceived(prisma, scope, parsed.data, await requestContext());
+    confirmed = ids[0] ?? null;
+  });
+  if (result.error || !confirmed) return result;
+  await financeChanged(session);
+  refreshReviewPages();
+  redirect(`${REVIEW_PATH}?confirmado=${confirmed}`);
 }
 
 /**

@@ -2,11 +2,26 @@
 
 // Server Actions de categorias e regras (M07): sessão → zod → crachá "manage_categories" do
 // lar → operação (com auditoria). As duas pessoas do lar organizam.
-import { createCategory, createRule, deleteRule, prisma, setCategoryArchived } from "@fintrack/db";
+import {
+  createCategory,
+  createRule,
+  deleteRule,
+  prisma,
+  setCategoryArchived,
+  trainNow,
+  type TrainOutcome,
+} from "@fintrack/db";
 import { revalidatePath } from "next/cache";
-import { requestContext, requireHouseholdAccess, runAction, type ActionState } from "@/lib/access";
+import {
+  requestContext,
+  requireHouseholdAccess,
+  requireScope,
+  runAction,
+  type ActionState,
+} from "@/lib/access";
 import { requireUser } from "@/lib/auth/session";
 import { financeChanged } from "@/lib/finance-cache";
+import { classifierPort } from "@/lib/ml/classifier";
 import { archiveCategorySchema, categorySchema, ruleIdSchema, ruleSchema } from "../schemas";
 
 const PAGE = "/ajustes/categorias";
@@ -88,4 +103,56 @@ export async function deleteRuleAction(
   if (!result.error) await financeChanged(session);
   revalidatePath(PAGE);
   return result;
+}
+
+// ── Classificador (M10.1) ───────────────────────────────────────────────────────
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/**
+ * "Treinar agora" (Ajustes › Categorização): treina o modelo de cada carteira que a pessoa vê,
+ * se os exemplos mudaram, e preenche os recebidos sem categoria. Não muda somas (recebido fica
+ * fora delas até confirmar): não chama financeChanged. O treino da madrugada faz o mesmo.
+ */
+export async function trainNowAction(): Promise<ActionState> {
+  const session = await requireUser();
+  const port = classifierPort(session.user.id);
+  if (!port) {
+    return { error: "O classificador não está ligado neste servidor.", success: null };
+  }
+  let outcomes: TrainOutcome[] = [];
+  const result = await runAction(async () => {
+    const grant = await requireHouseholdAccess(session, "manage_categories");
+    const scope = await requireScope(session, "view");
+    outcomes = await trainNow(prisma, port, grant, scope, await requestContext());
+  });
+  revalidatePath("/ajustes/categorizacao");
+  revalidatePath("/lancamentos/recebidos");
+  if (result.error) return result;
+  return trainingSummary(outcomes);
+}
+
+/** A frase do resultado: "Treino feito: 2 carteiras treinadas, 1 sem mudança." */
+function trainingSummary(outcomes: readonly TrainOutcome[]): ActionState {
+  const count = (status: TrainOutcome["status"]) =>
+    outcomes.filter((o) => o.status === status).length;
+  if (count("FAILED") > 0 && count("TRAINED") + count("UNCHANGED") === 0) {
+    return {
+      error: "O classificador não respondeu. Tente de novo em alguns minutos.",
+      success: null,
+    };
+  }
+  const filled = outcomes.reduce((n, o) => n + (o.status === "TRAINED" ? o.filled : 0), 0);
+  const parts = [
+    count("TRAINED") > 0
+      ? plural(count("TRAINED"), "carteira treinada", "carteiras treinadas")
+      : null,
+    count("UNCHANGED") > 0 ? `${count("UNCHANGED")} sem mudança` : null,
+    count("TOO_FEW") > 0 ? `${count("TOO_FEW")} com menos de 20 exemplos` : null,
+    filled > 0 ? plural(filled, "recebido ganhou categoria", "recebidos ganharam categoria") : null,
+  ].filter(Boolean);
+  return {
+    error: null,
+    success: parts.length > 0 ? `Treino feito: ${parts.join(", ")}.` : "Nada para treinar.",
+  };
 }

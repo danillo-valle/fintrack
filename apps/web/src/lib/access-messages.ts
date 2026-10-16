@@ -169,6 +169,7 @@ export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
   "transaction.refund_linked": "ligou um estorno à compra",
   "transaction.match_undone": "desfez um par ou um estorno",
   "file.imported": "importou um extrato (OFX)",
+  "classifier.trained": "treinou o classificador de categorias",
 };
 
 export function auditActionLabel(action: string): string {

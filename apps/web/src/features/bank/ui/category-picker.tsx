@@ -2,7 +2,8 @@
 
 // Categoria em um clique (M09.1, pranchas E-Cartao, E-CelCartao e E-CelCategoria do canvas).
 //
-//   com categoria   [M] Mercado · por regra  ›     a linha inteira abre a troca
+//   com categoria   [M] Mercado [≡ Regra]  ›       a linha inteira abre a troca (M10.1: a
+//                                                   etiqueta diz quem sugeriu e a confiança)
 //   sem categoria   [+ Escolher categoria]          botão tracejado azul (texto, ícone e borda:
 //                                                   a cor nunca é o único sinal)
 //
@@ -16,18 +17,14 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { ChevronRight, Plus, Search, X } from "lucide-react";
 import { ActionForm } from "@/components/feedback/action-form";
+import type { CategorizationSource } from "@fintrack/core";
 import { IconTile } from "@/components/visual/icon-tile";
+import { SourcePill } from "@/components/visual/source-pill";
 import { toneFor } from "@/components/visual/tone";
 import { cn } from "@/lib/utils";
 import { setCategoryAction, type CategoryState } from "../server/actions";
 
 export type CategoryChoice = { id: string; name: string; parent: string | null };
-
-const ORIGIN: Record<string, string> = {
-  RULE: "por regra",
-  HISTORY: "pelo histórico",
-  MANUAL: "escolhida por você",
-};
 
 const INITIAL: CategoryState = { error: null, success: null, categoryId: null };
 const MOST_USED = 6;
@@ -44,7 +41,8 @@ export function CategoryPicker({
     id: string;
     description: string;
     category: { id: string; name: string; parent: string | null } | null;
-    categorizedBy: string | null;
+    categorizedBy: CategorizationSource | null;
+    categorizationConfidence?: number | null;
   };
   /** As categorias do tipo do lançamento (despesa ou receita), as mais usadas primeiro */
   choices: readonly CategoryChoice[];
@@ -118,11 +116,15 @@ export function CategoryPicker({
               size="sm"
               className="size-7 rounded-lg"
             />
-            <span className="flex min-w-0 flex-col text-left leading-tight">
+            <span className="flex min-w-0 flex-col items-start gap-1 text-left leading-tight">
               <span className="truncate text-sm font-semibold">{item.category.name}</span>
-              <span className="text-muted-foreground text-xs">
-                {ORIGIN[item.categorizedBy ?? ""] ?? "categoria"}
-              </span>
+              {item.categorizedBy ? (
+                <SourcePill
+                  source={item.categorizedBy}
+                  confidence={item.categorizationConfidence ?? null}
+                  className="h-5"
+                />
+              ) : null}
             </span>
             <span className="sr-only"> · trocar categoria de {item.description}</span>
             <ChevronRight aria-hidden className="text-muted-foreground ml-auto size-4 shrink-0" />

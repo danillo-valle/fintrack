@@ -38,6 +38,7 @@ import { requireUser } from "@/lib/auth/session";
 import { env } from "@/lib/env";
 import { financeChanged } from "@/lib/finance-cache";
 import { logger } from "@/lib/logger";
+import { cascadeServices } from "@/lib/ml/classifier";
 import { INITIAL_UPLOAD_STATE, type UploadState } from "../import-state";
 import { ofxErrorMessage, pdfErrorMessage } from "../messages";
 import { cancelImportSchema, importFileSchema } from "../schemas";
@@ -161,7 +162,7 @@ export async function importFileAction(
     const grant = await requireAccountUse(session, accountId);
     const outcome = await importFilePreview(
       prisma,
-      { grant, importId, now: new Date() },
+      { grant, importId, now: new Date(), services: cascadeServices(session.user.id) },
       await requestContext(),
     );
     logger.info(

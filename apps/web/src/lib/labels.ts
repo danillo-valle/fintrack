@@ -39,6 +39,20 @@ export const CATEGORIZED_BY_LABEL: Record<CategorizationSource, string> = {
   MANUAL: "você escolheu",
   RULE: "sugerida por uma regra",
   HISTORY: "sugerida pelo histórico",
+  PROVIDER: "sugerida pela categoria do banco",
+  CLASSIFIER: "sugerida pelo classificador",
+};
+
+/**
+ * Quem sugeriu, numa palavra (M10.1, linha F do canvas): a etiqueta das listas e a tela de
+ * Ajustes › Categorização. "Banco" é a categoria do Meu Pluggy; "Você", a escolha da pessoa.
+ */
+export const SOURCE_LABEL: Record<CategorizationSource, string> = {
+  RULE: "Regra",
+  HISTORY: "Histórico",
+  PROVIDER: "Banco",
+  CLASSIFIER: "Classificador",
+  MANUAL: "Você",
 };
 
 export const RECURRENCE_KIND_LABEL = {
