@@ -181,3 +181,12 @@ A cascata ganhou a **categoria do banco** e o **classificador** (um modelo por c
 serviço Python), a coluna `categorizationConfidence` e a medida "categorizado sem IA". Decisões e
 o porquê no [ADR-015](0015-categorizacao-inteligente.md). O LLM continua para depois das
 medições da tabela acima (M10.2).
+
+## Adendo M10.2a (16/10/2026)
+
+A tabela acima virou um roteiro que roda no servidor: `services/ml/bench/medir-llm.sh` (llama.cpp
+oficial num container com teto de CPU e memória, sem swap; itens sintéticos; o `/api/health` da
+produção, a temperatura e o clock medidos em paralelo). Em vez do `llama-bench`, a latência sai dos
+`timings` do próprio llama-server com o prompt real (leitura e geração em tokens/s). O
+"impacto na produção" usa o `/api/health` (que consulta o banco); diferença de menos de 5 ms no
+p95 conta como ruído. Os números e a decisão ficam no ADR-016.

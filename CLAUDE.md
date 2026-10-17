@@ -35,7 +35,9 @@ Projeto de portfólio construído em módulos (M00 a M12); cada módulo é uma m
   (scikit-learn no `services/ml`, um modelo por carteira, treino às 03:15 e "Treinar agora"), a etiqueta
   de quem sugeriu com a confiança, "Por que essa categoria?" e Ajustes › Categorização com o percentual
   sem IA; conjunto rotulado sintético e eval no CI (mínimo 85 %) (ADR-015)
-- Próximos: LLM local assíncrono depois das medições (M10.2) e resumo do mês (M10.3)
+- Medição do LLM local (M10.2a): `services/ml/bench/` (fora da imagem) sobe o llama-server num container
+  com teto no servidor de casa e mede a tabela do ADR-007 com itens sintéticos; a decisão vem num ADR
+- Próximos: a decisão do LLM e, se aprovado, a fila (M10.2b) e o resumo do mês (M10.3)
 
 Regras específicas do Next.js 16: @apps/web/AGENTS.md
 
@@ -99,7 +101,8 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
 - `services/ml/` o serviço Python (M09.4): `app/fatura.py` (leitor), `app/perfis.py` (um perfil por banco),
   `app/auth.py` (token pelo JWKS), `app/estrutura.py` (a estrutura de um PDF real, sem valores); do M10.1:
   `app/classificador.py` (modelo por carteira, trava da evidência, armazém), `app/avaliar.py` (eval e bloco do
-  README) e `scripts/gerar_rotulado.py` (o conjunto sintético em `samples/categorizacao/`)
+  README) e `scripts/gerar_rotulado.py` (o conjunto sintético em `samples/categorizacao/`); do M10.2a:
+  `bench/` (a medição do LLM local: prompt e schema, conjuntos, monitor, relatório e `medir-llm.sh`)
 - `packages/db/src/` do M09.1: `connection-secret.ts` (AES-256-GCM), `connections.ts` (credenciais e ligação),
   `sync.ts` (a busca idempotente) e `statements.ts` (faturas); `packages/core/src/sync.ts` as regras puras;
   do M09.2: `packages/db/src/review.ts` (fila, par, estorno, lote, desfazer) e `packages/core/src/reconcile.ts`;

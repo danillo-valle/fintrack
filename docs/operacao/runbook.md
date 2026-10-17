@@ -250,6 +250,31 @@ sudo -u fintrack fintrack-compose exec ml ls -la /data/modelos
 | Treino falha com "Read-only file system"         | O volume não montou: `fintrack-compose up -d ml` (o compose do M10.1 traz o `ml-modelos`)                   |
 | Quer apagar todos os modelos                     | `fintrack-compose stop ml`, `docker volume rm fintrack-prod_ml-modelos`, `up -d ml`; voltam às 03:15        |
 
+## Medir um LLM local (M10.2a, ADR-007)
+
+A medição roda com o SEU usuário (grupo `docker`), não com o `fintrack`, e não toca na produção:
+ela só lê o `/api/health` do container `web` pelo IP dele na rede `fintrack-prod_entrada`. O
+llama-server sobe num container próprio (`fintrack-llm-medicao`) e é derrubado no fim, até com
+Ctrl+C. Modelos e resultados ficam em `~/fintrack-llm`, fora do repositório. Detalhes em
+`services/ml/bench/README.md`.
+
+```bash
+# Dentro de um tmux (a medição completa leva de 15 a 60 min por modelo)
+tmux new -s medicao
+services/ml/bench/medir-llm.sh --rapido qwen2.5-1.5b
+services/ml/bench/medir-llm.sh qwen2.5-1.5b
+# Sobrou um container de uma medição interrompida
+docker rm -f fintrack-llm-medicao
+```
+
+| Situação                                        | O que fazer                                                                                      |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| "o sha256 ... não bate com o do Hugging Face"   | O download veio corrompido (o arquivo já foi apagado): rode de novo                              |
+| "não achei o container fintrack-prod-web-1"     | A produção está no ar? `fintrack-status`. Para medir sem ela: `--sem-producao`                   |
+| "a porta 8090 já está em uso"                   | Outra medição ficou no ar: `docker rm -f fintrack-llm-medicao`                                   |
+| Muitos erros `URLError` ou `RemoteDisconnected` | O container morreu (memória?): `docker logs fintrack-llm-medicao` antes do fim; `LLM_MEMORIA=4g` |
+| A produção ficou lenta durante a medição        | Ctrl+C (grava o que já mediu e derruba o container); o relatório mostra o impacto                |
+
 ## Alertas
 
 | Alerta                               | Significa                                   | Primeiro passo                                    |
