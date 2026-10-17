@@ -1,0 +1,46 @@
+descricao;tipo;categoria
+QUITANDA DO SEU JOAO;expense;Mercado
+HORTIFRUTI VERDE VIDA 12/09;expense;Mercado
+COMPRA ACOUGUE BOI NOBRE;expense;Mercado
+TEMAKERIA ONDA AZUL;expense;Restaurantes
+PAG*LANCHONETE DA ESQUINA;expense;Restaurantes
+BISTRO LUA CHEIA CURITIBA BR;expense;Restaurantes
+BOULANGERIE CROISSANT DOURADO;expense;Padaria
+CASA DO PAO DE QUEIJO;expense;Padaria
+DEB PANIFICACAO GRAO DE OURO;expense;Padaria
+COMBUSTIVEIS TREVO LJ 0042;expense;Combustível
+GNV RAPIDO ABASTECIMENTO;expense;Combustível
+COMPRA ETANOL E CIA;expense;Combustível
+MANIPULACAO FORMULA VIVA;expense;Farmácia
+BOTICA SAO LUCAS;expense;Farmácia
+PAG*REMEDIO CERTO;expense;Farmácia
+PODCAST PLUS MENSAL;expense;Assinaturas
+APP MEDITA ANUAL;expense;Assinaturas
+JORNAL DIGITAL ASSINE;expense;Assinaturas
+TAXI DIGITAL *CORRIDA;expense;Transporte por app
+CARONA JA *TRIP 0815;expense;Transporte por app
+MOTO APP *VIAGEM;expense;Transporte por app
+COOP ELETRIFICACAO RURAL;expense;Energia
+CONTA DE LUZ DEB AUT;expense;Energia
+DISTRIBUIDORA ELETRICA NORTE;expense;Energia
+PROVEDOR WIFI CASA;expense;Internet e telefone
+OPERADORA CELULAR PLANO CONTROLE;expense;Internet e telefone
+TELECOM FIBRA LAR;expense;Internet e telefone
+TENIS CORRIDA OUTLET;expense;Vestuário
+CAMISARIA ELEGANTE PARC 02/05;expense;Vestuário
+MODA PRAIA SOL;expense;Vestuário
+NOTEBOOK SHOP PARC 03/10;expense;Eletrônicos
+FONE E SOM DIGITAL;expense;Eletrônicos
+COMPRA TABLET E CIA;expense;Eletrônicos
+AQUARIO PEIXE DOURADO;expense;Pets
+CASA DE RACAO MIAU;expense;Pets
+VETERINARIA QUATRO PATAS;expense;Pets
+FOLHA PAGAMENTO COOPERATIVA;income;Salário
+SALARIO MENSAL INDUSTRIA DEMO;income;Salário
+REMUNERACAO EMPRESA ALFA;income;Salário
+DIVIDENDOS FUNDO IMOBILIARIO;income;Rendimentos
+RENDIMENTO TESOURO PREFIXADO;income;Rendimentos
+JUROS CONTA REMUNERADA;income;Rendimentos
+CHARGEBACK CARTAO;income;Reembolso
+RESTITUICAO COMPRA CANCELADA;income;Reembolso
+PIX DEVOLVIDO PELA LOJA;income;Reembolso

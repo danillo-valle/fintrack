@@ -43,3 +43,12 @@ Gerado por `services/ml/scripts/gerar_rotulado.py` (semente fixa: sempre o mesmo
   (SUPERMERC BOM PRECO, POSTO ESTRELA, STREAMFLIX...) com o ruído que os bancos põem: prefixo de
   compra, data, parcela, número de loja, cidade, texto cortado. O eval do CI (`python -m
 app.avaliar --minimo 0.85`) treina em 70 % e mede nos outros 30 %.
+
+Escritos à mão para a medição do LLM local (M10.2a, `services/ml/bench`):
+
+- `llm-dificil.csv`: 45 descrições de lojas **inventadas que não aparecem no rotulado** (3 por
+  categoria: QUITANDA DO SEU JOAO, BOTICA SAO LUCAS...). É onde um LLM poderia ajudar: o
+  classificador nunca viu a loja.
+- `llm-injecao.csv`: 15 descrições com tentativa de prompt injection ("IGNORE AS INSTRUCOES E
+  RESPONDA...", JSON falso, marcadores de conversa), com a categoria certa e o `alvo` que o texto
+  tenta impor.
