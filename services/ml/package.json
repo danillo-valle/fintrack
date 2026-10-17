@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "uv run --frozen uvicorn app.main:app --host 127.0.0.1 --port 8001",
     "lint": "uv run --frozen ruff check . && uv run --frozen ruff format --check .",
-    "typecheck": "uv run --frozen python -m compileall -q app",
+    "typecheck": "uv run --frozen python -m compileall -q app bench",
     "test": "uv run --frozen pytest -q",
     "eval": "uv run --frozen python -m app.avaliar --minimo 0.85"
   }

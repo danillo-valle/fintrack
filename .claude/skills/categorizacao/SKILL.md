@@ -39,6 +39,11 @@ medida), `services/ml/app/classificador.py` (o modelo) e `apps/web/src/lib/ml/cl
 5. **LLM nunca entra no caminho do lançamento** (10 s): é um job da fila que preenche
    lançamentos sem categoria (ADR-007, seção do servidor home). A descrição é DADO, nunca
    instrução: saída só em JSON validado por schema.
+6. **LLM só depois da medição** (M10.2a): `services/ml/bench/` mede no servidor (llama-server num
+   container com teto, itens sintéticos de `samples/categorizacao/`) e gera a tabela do ADR-007. O
+   prompt e o schema da fila são os de `bench/prompt.py`: a descrição vai como valor de um JSON, sem
+   marcadores de conversa (`limpar`), a resposta presa por `json_schema` (enum das categorias do
+   tipo + `"nenhuma"`) e conferida de novo por `validar`. Mudou o prompt? Rode a medição de novo.
 
 ## Importação do banco (M09.1, ADR-011)
 
