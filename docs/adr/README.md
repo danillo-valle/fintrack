@@ -23,3 +23,4 @@ Modelo para um ADR novo: copie `0001-stack-e-monorepo.md` e troque o conteúdo.
 | 013 | [Importar extrato OFX](0013-importar-extrato.md)                                                       | aceita |
 | 014 | [Fatura do cartão em PDF e o serviço Python](0014-fatura-em-pdf.md)                                    | aceita |
 | 015 | [Categorização inteligente: a categoria do banco e o classificador](0015-categorizacao-inteligente.md) | aceita |
+| 016 | [LLM local: o Qwen2.5 3B, com defesa em camadas](0016-llm-local.md)                                    | aceita |

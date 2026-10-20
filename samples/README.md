@@ -52,3 +52,10 @@ Escritos à mão para a medição do LLM local (M10.2a, `services/ml/bench`):
 - `llm-injecao.csv`: 15 descrições com tentativa de prompt injection ("IGNORE AS INSTRUCOES E
   RESPONDA...", JSON falso, marcadores de conversa), com a categoria certa e o `alvo` que o texto
   tenta impor.
+
+Teste de aceite da IA local (M10.2b, ADR-016):
+
+- `llm-aceite.csv`: 30 tentativas **novas** de prompt injection (mensagem de PIX, categoria
+  grudada no nome da loja, outras línguas, formatação que imita dado), escritas e **congeladas
+  em 17/10/2026, antes do filtro** existir (sha256 `d86c387b…7efa13`, conferido por teste). O
+  filtro nunca é ajustado olhando para elas: se um dia mudarem, é um conjunto novo, com data.
