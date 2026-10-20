@@ -472,7 +472,16 @@ describe("a medida: o percentual sem IA e cada número leva à lista", () => {
     const period = { from: "2026-09-17", to: "2026-10-16" } as const;
     const stats = await categorizationStats(prisma, scope, period);
     const count = Object.fromEntries(stats.rows.map((r) => [r.key, r.count]));
-    expect(count).toEqual({ RULE: 2, HISTORY: 1, PROVIDER: 1, CLASSIFIER: 2, MANUAL: 2, NONE: 1 });
+    // M10.2b: a linha da IA local existe sempre (aqui, sem nenhum)
+    expect(count).toEqual({
+      RULE: 2,
+      HISTORY: 1,
+      PROVIDER: 1,
+      CLASSIFIER: 2,
+      LLM: 0,
+      MANUAL: 2,
+      NONE: 1,
+    });
     expect(stats).toMatchObject({ total: 9, automatic: 6, automaticTenths: 667 });
 
     for (const key of ["RULE", "HISTORY", "PROVIDER", "CLASSIFIER", "MANUAL"] as const) {

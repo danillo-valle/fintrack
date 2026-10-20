@@ -13,7 +13,9 @@ import {
   civilFromDbDate,
   normalizeRulePattern,
   runCascade,
-  SUGGESTION_SOURCES,
+  AUTOMATIC_SOURCES,
+  LOCAL_AI_BULK_SOURCES,
+  LOCAL_AI_SOURCE,
   suggesterFrom,
   type CategorySuggester,
   type CategorySuggestion,
@@ -25,6 +27,7 @@ import {
 import { DomainError, isUuid, type HouseholdGrant, type WalletScope } from "./access";
 import { writeAudit, type RequestContext } from "./audit";
 import { Prisma, type PrismaClient } from "./generated/prisma/client";
+import { localAiEnabled } from "./local-ai";
 import { fromDbDecimal } from "./money";
 
 // ── Categorias ──────────────────────────────────────────────────────────────────
@@ -299,7 +302,9 @@ export function votingWhere(
     categoryId: { not: null },
     ...(kind ? { amount: signOf(kind) } : {}),
     category: { archivedAt: null, ...(kind ? { kind: categoryKind(kind) } : {}) },
-    NOT: { status: "PENDING", categorizedBy: { in: [...SUGGESTION_SOURCES] } },
+    // Um recebido ainda pendente categorizado por qualquer camada automática (a IA local também)
+    // não vota: a sugestão errada viraria exemplo de si mesma
+    NOT: { status: "PENDING", categorizedBy: { in: [...AUTOMATIC_SOURCES] } },
   };
 }
 
@@ -486,6 +491,11 @@ export async function explainTransaction(
       providerCategory: true,
       categorizedBy: true,
       categorizationConfidence: true,
+      householdId: true,
+      source: true,
+      localAiAttempt: {
+        select: { outcome: true, proposedName: true, proposedParent: { select: { name: true } } },
+      },
       category: { select: { id: true, name: true } },
     },
   });
@@ -518,7 +528,73 @@ export async function explainTransaction(
     layers: explained.layers,
     /** O que a cascata sugere hoje (pode ser diferente do gravado: uma regra nova, um treino) */
     suggested: suggested && explained.suggestion ? { ...suggested, ...explained.suggestion } : null,
+    localAi: explainLocalAi({
+      ...row,
+      pending: row.status === "PENDING",
+      cascadeDecided: explained.suggestion !== null,
+      enabled: await localAiEnabled(db, row.householdId),
+    }),
   };
+}
+
+export type LocalAiLayerState =
+  /** A categoria gravada veio da IA local, à noite */
+  | "DECIDED"
+  /** A cascata de hoje resolve: a IA nem seria perguntada */
+  | "SKIPPED"
+  /** Lançamento feito à mão (ou recorrência): a IA nunca vê */
+  | "NOT_BULK"
+  /** A IA local está desligada no lar */
+  | "OFF"
+  /** Na fila: a IA pergunta na próxima janela da noite */
+  | "QUEUED"
+  /** A IA propôs uma categoria nova (proposal) */
+  | "NEW_CATEGORY"
+  | "NO_SUGGESTION"
+  | "BLOCKED"
+  | "INVALID"
+  /** A IA sugeriu, mas a pessoa já escolheu outra */
+  | "REPLACED"
+  /** Já conferido sem categoria, ou fora da fila por outro motivo */
+  | "DONE";
+
+/** A 5ª camada do "Por que essa categoria?" (M10.2b): o que a IA local fez com este lançamento. */
+export function explainLocalAi(row: {
+  categorizedBy: string | null;
+  categoryId?: string | null;
+  category: { id: string } | null;
+  source: string;
+  pending: boolean;
+  cascadeDecided: boolean;
+  enabled: boolean;
+  localAiAttempt: {
+    outcome: string;
+    proposedName: string | null;
+    proposedParent: { name: string } | null;
+  } | null;
+}): { state: LocalAiLayerState; proposal: { name: string; parent: string | null } | null } {
+  const none = { proposal: null };
+  if (row.categorizedBy === LOCAL_AI_SOURCE) return { state: "DECIDED", ...none };
+  if (!(LOCAL_AI_BULK_SOURCES as readonly string[]).includes(row.source)) {
+    return { state: "NOT_BULK", ...none };
+  }
+  const attempt = row.localAiAttempt;
+  if (attempt) {
+    if (attempt.outcome === "NEW_CATEGORY" && attempt.proposedName && !row.category) {
+      return {
+        state: "NEW_CATEGORY",
+        proposal: { name: attempt.proposedName, parent: attempt.proposedParent?.name ?? null },
+      };
+    }
+    if (attempt.outcome === "SUGGESTED" || attempt.outcome === "NEW_CATEGORY") {
+      return { state: "REPLACED", ...none };
+    }
+    return { state: attempt.outcome as LocalAiLayerState, ...none };
+  }
+  if (row.cascadeDecided) return { state: "SKIPPED", ...none };
+  if (!row.enabled) return { state: "OFF", ...none };
+  if (row.pending && !row.category) return { state: "QUEUED", ...none };
+  return { state: "DONE", ...none };
 }
 
 export type TransactionExplanation = NonNullable<Awaited<ReturnType<typeof explainTransaction>>>;

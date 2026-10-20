@@ -299,13 +299,22 @@ export function pairedFields(bank: BankSide, own: OwnSide) {
 /**
  * Os recebidos que o "Confirmar os N que já têm categoria" confirma: os que têm categoria e
  * NÃO têm par sugerido (confirmar um recebido com par criaria o gasto em dobro; esse a pessoa
- * decide um a um). Transferência confirma sem categoria.
+ * decide um a um). Transferência confirma sem categoria. A categoria da IA local (LLM, M10.2b)
+ * também fica de fora: ela é confirmada uma a uma, olhando (ADR-016, "nada sem a pessoa").
  */
 export function bulkConfirmable<
-  T extends { id: string; categoryId: string | null; transferId?: string | null },
+  T extends {
+    id: string;
+    categoryId: string | null;
+    transferId?: string | null;
+    categorizedBy?: string | null;
+  },
 >(rows: readonly T[], withSuggestion: ReadonlySet<string>): T[] {
   return rows.filter(
-    (r) => (r.categoryId !== null || Boolean(r.transferId)) && !withSuggestion.has(r.id),
+    (r) =>
+      (r.categoryId !== null || Boolean(r.transferId)) &&
+      r.categorizedBy !== "LLM" &&
+      !withSuggestion.has(r.id),
   );
 }
 

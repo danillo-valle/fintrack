@@ -71,6 +71,8 @@ export * from "./wallets";
 export * from "./accounts";
 export * from "./categories";
 export * from "./classifier";
+// A IA local (M10.2b, ADR-016): a fila da noite, o interruptor e a categoria nova proposta
+export * from "./local-ai";
 export * from "./recurrences";
 export * from "./transactions";
 export * from "./installments";
