@@ -12,6 +12,13 @@
   DELETE /v1/classificador/<modelo>    apaga o modelo (carteira arquivada ou poucos exemplos)
   GET    /v1/classificador/avaliacao   o resultado do conjunto sintético (app/avaliacao.json)
 
+  A IA local (M10.2b, ADR-016), só na janela da noite e só pela fila do app:
+  GET  /v1/ia/estado     {"configurada": bool, "pronta": bool} (o llama-server respondeu?)
+  POST /v1/ia/sugerir    {"descricao", "tipo", "categorias": [nomes], "maes": [as de 1º nível]}
+                         200 = {"situacao": SUGERIU|NOVA|NENHUMA|BARRADA|INVALIDA,
+                                "categoria": ..., "nova": {"nome", "mae"} ou null}
+                         503 = {"code": "LLM_UNAVAILABLE"} (fora da janela, carregando, sem URL)
+
 O PDF, a senha e as descrições nunca vão para disco nem para log: o corpo é lido na memória (sem
 multipart, que grava arquivos grandes em disco) e o log só leva códigos e contagens. Só o
 modelo treinado vai para o disco, no volume do servidor (ML_MODEL_DIR).
@@ -21,6 +28,7 @@ import base64
 import binascii
 import json
 import logging
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, Header, Request, Response
@@ -29,6 +37,7 @@ from pydantic import BaseModel, Field, ValidationError
 from starlette.concurrency import run_in_threadpool
 
 from . import classificador as clf
+from . import ia_local
 from .auth import FonteDeChaves, TokenInvalido, conferir, fonte_padrao
 from .fatura import MAX_BYTES, FaturaErro, ler_fatura
 
@@ -215,3 +224,63 @@ def avaliacao(authorization: str | None = Header(default=None)):
     if _quem(authorization) is None:
         return _erro(401, "UNAUTHORIZED")
     return json.loads(AVALIACAO.read_text(encoding="utf-8"))
+
+
+# ── A IA local (M10.2b, ADR-016) ────────────────────────────────────────────────────────────
+
+
+class PedidoIa(BaseModel):
+    descricao: str = Field(min_length=1, max_length=ia_local.MAX_DESCRICAO)
+    tipo: str = Tipo
+    categorias: list[str] = Field(min_length=1, max_length=120)
+    maes: list[str] = Field(default_factory=list, max_length=120)
+
+
+def _llm() -> str | None:
+    """O endereço do llama-server (ML_LLM_URL; em produção http://llm:8080). Sem ele, desligada."""
+    return os.environ.get("ML_LLM_URL") or None
+
+
+@app.get("/v1/ia/estado")
+async def ia_estado(authorization: str | None = Header(default=None)):
+    if _quem(authorization) is None:
+        return _erro(401, "UNAUTHORIZED")
+    base = _llm()
+    pronta = bool(base) and await run_in_threadpool(ia_local.pronto, base)
+    return {"configurada": base is not None, "pronta": pronta}
+
+
+@app.post("/v1/ia/sugerir")
+async def ia_sugerir(request: Request, authorization: str | None = Header(default=None)):
+    if _quem(authorization) is None:
+        return _erro(401, "UNAUTHORIZED")
+    pedido = _validar(PedidoIa, await _json(request))
+    if (
+        pedido is None
+        or len(set(pedido.categorias)) != len(pedido.categorias)
+        or any(
+            not 1 <= len(c) <= 80 or c in (ia_local.NENHUMA, ia_local.NOVA)
+            for c in pedido.categorias
+        )
+        or not set(pedido.maes) <= set(pedido.categorias)
+    ):
+        return _erro(422, "LLM_BAD_REQUEST")
+    base = _llm()
+    if base is None:
+        return _erro(503, "LLM_UNAVAILABLE")
+    try:
+        # Até 120 s (o 1º pedido lê o modelo do disco): numa thread, o resto do serviço segue
+        resultado = await run_in_threadpool(
+            ia_local.sugerir,
+            base,
+            pedido.descricao,
+            pedido.tipo,
+            pedido.categorias,
+            pedido.maes,
+        )
+    except ia_local.LlmIndisponivel:
+        return _erro(503, "LLM_UNAVAILABLE")
+    # Só a situação vai para o log: nunca a descrição, nunca a categoria
+    log.info("ia local", extra={"event": "ml.ia", "situacao": resultado.situacao})
+    nova = {"nome": resultado.nome, "mae": resultado.mae} if resultado.situacao == "NOVA" else None
+    return {"situacao": resultado.situacao, "categoria": resultado.categoria, "nova": nova}

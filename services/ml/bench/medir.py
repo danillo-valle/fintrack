@@ -5,12 +5,16 @@ Direto, só para depurar:
 
     uv run python -m bench.medir --url http://127.0.0.1:8090 --saida /tmp/m [--rapido]
 
+Cada item passa pelo mesmo caminho da fila de produção (app/ia_local.py): o filtro primeiro (a
+descrição com cara de instrução fica BARRADA, sem pedido ao modelo) e o prompt com a opção de
+categoria nova (M10.2b).
+
 As fases:
   1. repouso   60 s com o modelo carregado e parado: a base do /api/health e da temperatura
-  2. 1ª passada os 150 itens (teste, lojas novas, injeção), na ordem da fila: despesas e depois
-               receitas (a fila de verdade agruparia assim, para aproveitar o cache do prompt)
-  3. sustentado repete a fila até 200 pedidos: o calor e o clock sob carga contínua (ADR-007)
---rapido: 20 itens, 15 s de repouso e sem a fase 3 (só para conferir que tudo está montado).
+  2. 1ª passada os 225 itens (teste, lojas novas, injeção, categoria ausente e o aceite), na
+               ordem da fila: despesas e depois receitas (para aproveitar o cache do prompt)
+  3. sustentado repete a fila até 200 itens, se a 1ª passada tiver menos (ADR-007)
+--rapido: 30 itens, 15 s de repouso e sem a fase 3 (só para conferir que tudo está montado).
 
 Grava na pasta: itens.jsonl (cada pedido; só descrições sintéticas), amostras.jsonl, saude.jsonl,
 resumo.json e relatorio.md.
@@ -24,6 +28,8 @@ import sys
 import time
 from dataclasses import asdict
 from pathlib import Path
+
+from app import ia_local
 
 from . import cliente, conjuntos, monitor, prompt, relatorio
 
@@ -47,17 +53,48 @@ def fila(itens: list[conjuntos.Item]) -> list[conjuntos.Item]:
     return sorted(itens, key=lambda item: item.tipo != "expense")
 
 
-def pedir(url: str, item: conjuntos.Item, categorias: dict[str, list[str]]) -> dict:
-    lista = categorias[item.tipo]
-    resposta = cliente.completar(url, prompt.pedido(item.descricao, item.tipo, lista))
-    categoria = None if resposta.conteudo is None else prompt.validar(resposta.conteudo, lista)
+def _situacao(escolha: ia_local.Escolha | None) -> str:
+    if escolha is None:
+        return "INVALIDA"
+    if escolha.categoria == ia_local.NENHUMA:
+        return "NENHUMA"
+    return "NOVA" if escolha.categoria == ia_local.NOVA else "SUGERIU"
+
+
+def pedir(url: str, item: conjuntos.Item) -> dict:
+    """Um item, como a fila de produção faria: o filtro primeiro; o que passa vai ao modelo."""
+    categorias, maes = conjuntos.listas(item)
     linha = asdict(item)
+    linha.update({"sobra": item.sobra, "mae_esperada": conjuntos.mae_de(item.esperado, item.tipo)})
+    if ia_local.parece_instrucao(item.descricao):
+        linha.update(
+            {
+                "situacao": "BARRADA",
+                "categoria": None,
+                "nome_novo": None,
+                "mae_nova": None,
+                "resposta": "",
+                "json_valido": None,
+                "erro": None,
+                "ms": None,
+            }
+        )
+        linha.update(dict.fromkeys(TEMPOS))
+        return linha
+    corpo = prompt.pedido(item.descricao, item.tipo, categorias, maes)
+    resposta = cliente.completar(url, corpo)
+    escolha = (
+        None if resposta.conteudo is None else prompt.validar(resposta.conteudo, categorias, maes)
+    )
+    situacao = _situacao(escolha)
     linha.update(
         {
-            "sobra": item.sobra,
+            "situacao": situacao,
+            "categoria": escolha.categoria if situacao == "SUGERIU" and escolha else None,
+            "nome_novo": escolha.nome if escolha else None,
+            "mae_nova": escolha.mae if escolha else None,
             "resposta": (resposta.conteudo or "")[:300],
-            "categoria": categoria,
-            "json_valido": categoria is not None,
+            "json_valido": escolha is not None,
             "erro": resposta.erro,
             "ms": round(resposta.ms, 1),
         }
@@ -102,7 +139,6 @@ def medir(
         itens = conjuntos.rapido(itens)
     ordem = fila(itens)
     quantos = len(ordem) if rapido else max(total or TOTAL, len(ordem))
-    categorias = conjuntos.categorias_por_tipo()
 
     amostrador = monitor.Amostrador(container)
     amostrador.start()
@@ -119,11 +155,11 @@ def medir(
         inicio_carga = time.time()
         for n in range(quantos):
             item = ordem[n % len(ordem)]
-            linha = pedir(url, item, categorias)
+            linha = pedir(url, item)
             linha["n"], linha["rodada"] = n, n // len(ordem)
             linhas.append(linha)
             if (n + 1) % 10 == 0 or n + 1 == quantos:
-                tempos = [x["ms"] for x in linhas if x["erro"] is None]
+                tempos = [x["ms"] for x in linhas if x["erro"] is None and x["ms"] is not None]
                 p50 = relatorio.segundos(relatorio.percentil(tempos, 50))
                 mostrar(
                     f"  {n + 1:>3}/{quantos}  p50 {p50}"
