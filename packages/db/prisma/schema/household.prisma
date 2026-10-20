@@ -46,10 +46,13 @@ enum WalletRole {
 
 /// O grupo: as pessoas que podem criar ambientes juntas e compartilham as categorias.
 model Household {
-  id        String   @id @default(uuid(7)) @db.Uuid
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id               String    @id @default(uuid(7)) @db.Uuid
+  name             String
+  /// A IA local (M10.2b, ADR-016): quando foi ligada; nula = desligada (o padrão). Quem ligou e
+  /// desligou fica na auditoria (local_ai.enabled / local_ai.disabled)
+  localAiEnabledAt DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   members                HouseholdMember[]
   wallets                Wallet[]
@@ -64,6 +67,7 @@ model Household {
   transactionMatches     TransactionMatch[]
   fileImports            FileImport[]
   classifierModels       ClassifierModel[]
+  localAiAttempts        LocalAiAttempt[]
 
   @@map("household")
 }
