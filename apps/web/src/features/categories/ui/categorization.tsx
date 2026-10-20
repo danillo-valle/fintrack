@@ -325,7 +325,12 @@ export function LocalAiCard({ page, now }: { page: CategorizationPage; now: Date
           O serviço Python não está ligado neste servidor
         </span>
       )}
-      <ToneChip tone={4} icon={CircleAlert} className="self-start">
+      {/* Texto longo para a largura do celular: a etiqueta quebra a linha em vez de vazar do cartão */}
+      <ToneChip
+        tone={4}
+        icon={CircleAlert}
+        className="h-auto min-h-6 self-start py-1 whitespace-normal"
+      >
         Qwen2.5 3B, medido no servidor de casa (ADR-016)
       </ToneChip>
     </section>
