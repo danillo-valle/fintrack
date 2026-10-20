@@ -1,6 +1,6 @@
 ---
 name: categorizacao
-description: A cascata de categorização do FinTrack (regras → histórico → categoria do banco → classificador; LLM no M10.2), categorizedBy e a confiança, os exemplos de treino, o modelo por carteira e o eval. Use ao mexer em sugestão de categoria, regras, correções, importação que precisa de categoria, no classificador do services/ml, no conjunto rotulado ou ao acrescentar uma camada de IA.
+description: A cascata de categorização do FinTrack (regras → histórico → categoria do banco → classificador → IA local à noite, M10.2b), categorizedBy e a confiança, os exemplos de treino, o modelo por carteira e o eval. Use ao mexer em sugestão de categoria, regras, correções, importação que precisa de categoria, no classificador do services/ml, no conjunto rotulado ou ao acrescentar uma camada de IA.
 ---
 
 # Categorização (cascata)
@@ -26,7 +26,7 @@ medida), `services/ml/app/classificador.py` (o modelo) e `apps/web/src/lib/ml/cl
    `categorization_example` (de onde, quem tinha decidido, para onde). "Sempre categorizar assim"
    cria a regra na mesma transação.
 
-## Acrescentar uma camada (M10.2: o LLM)
+## Acrescentar uma camada
 
 1. Valor novo no enum `CategorizationSource` (migração aditiva, skill `prisma-migration`; CHECK novo
    não pode usar o valor recém-criado na mesma migração) e na union `SuggestionSource` do core
@@ -41,9 +41,28 @@ medida), `services/ml/app/classificador.py` (o modelo) e `apps/web/src/lib/ml/cl
    instrução: saída só em JSON validado por schema.
 6. **LLM só depois da medição** (M10.2a): `services/ml/bench/` mede no servidor (llama-server num
    container com teto, itens sintéticos de `samples/categorizacao/`) e gera a tabela do ADR-007. O
-   prompt e o schema da fila são os de `bench/prompt.py`: a descrição vai como valor de um JSON, sem
-   marcadores de conversa (`limpar`), a resposta presa por `json_schema` (enum das categorias do
-   tipo + `"nenhuma"`) e conferida de novo por `validar`. Mudou o prompt? Rode a medição de novo.
+   prompt e o schema da fila são os de `app/ia_local.py` (o `bench/prompt.py` só reexporta): a
+   descrição vai como valor de um JSON, sem marcadores de conversa (`limpar`), a resposta presa por
+   `json_schema` (enum das categorias do tipo + `"nenhuma"`, ou a categoria nova) e conferida de
+   novo por `validar`. Mudou o prompt? Rode a medição de novo.
+
+## A IA local (M10.2b, ADR-016)
+
+Código: `packages/core/src/local-ai.ts` (a janela, o teto, o nome proposto), `packages/db/src/local-ai.ts`
+(a fila, a noite, o interruptor, a medida, o "Criar e aplicar"), `services/ml/app/ia_local.py` (o
+prompt, o schema, o filtro `parece_instrucao`) e `apps/web/src/lib/ml/local-ai.ts` (a porta HTTP).
+
+- **Não é camada síncrona**: não está em `defaultSuggesters`. A fila `local-ai-nightly`
+  (`jobs.ts`) roda `runLocalAiNight` na janela; o "Por que" mostra a 5ª camada por `explainLocalAi`.
+- **Só cargas do banco** (`LOCAL_AI_BULK_SOURCES`: OPEN_FINANCE, OFX, PDF); lançamento manual nunca.
+- A fila é uma consulta (`localAiQueueWhere`): pendente, sem categoria, sem par, sem transferência,
+  sem linha em `local_ai_attempt`, lar com `localAiEnabledAt`. Uma linha por recebido, para sempre.
+- Grava com UPDATE condicional (ainda pendente e sem categoria): a escolha da pessoa vence.
+- `categorizedBy = "LLM"` fica **fora do lote** (`bulkConfirmable`, `group.confirmable`): uma a uma.
+- Categoria nova: a IA só propõe (`NEW_CATEGORY`, nome e mãe na `local_ai_attempt`); quem cria é a
+  pessoa com o crachá `manage_categories` (`applyLocalAiProposal`). Nome trocado = `MANUAL`.
+- Mudou o prompt, o schema, o filtro, o modelo ou os argumentos? Meça de novo (`services/ml/bench`)
+  e passe o aceite das 30 injeções congeladas (`samples/categorizacao/llm-aceite.csv`, até 3).
 
 ## Importação do banco (M09.1, ADR-011)
 

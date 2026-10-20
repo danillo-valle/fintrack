@@ -327,6 +327,10 @@ jobs:
           code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/json' \
             -d '{}' http://127.0.0.1:8001/v1/classificador/sugerir)
           test "$code" = 401 || { echo "classificador sem token: esperava 401, veio $code"; exit 1; }
+          # M10.2b: sem token, a IA local também recusa (401), antes de olhar o pedido
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/json' \
+            -d '{}' http://127.0.0.1:8001/v1/ia/sugerir)
+          test "$code" = 401 || { echo "IA local sem token: esperava 401, veio $code"; exit 1; }
           # A imagem não leva dado de ninguém: a pasta dos modelos nasce vazia e o conjunto
           # rotulado (samples/) não entra
           docker run --rm --entrypoint sh fintrack-ml:ci -c \
