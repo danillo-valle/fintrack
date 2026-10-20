@@ -170,6 +170,9 @@ export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
   "transaction.match_undone": "desfez um par ou um estorno",
   "file.imported": "importou um extrato (OFX)",
   "classifier.trained": "treinou o classificador de categorias",
+  "local_ai.enabled": "ligou a IA local",
+  "local_ai.disabled": "desligou a IA local",
+  "local_ai.proposal_applied": "criou e aplicou uma categoria proposta pela IA local",
 };
 
 export function auditActionLabel(action: string): string {

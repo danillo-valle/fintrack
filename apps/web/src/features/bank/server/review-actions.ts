@@ -6,6 +6,7 @@
 //
 // Toda confirmação muda as somas (o recebido passa a contar): chama financeChanged.
 import {
+  applyLocalAiProposal,
   authorizeAccountView,
   confirmBulk,
   confirmPair,
@@ -22,12 +23,14 @@ import { redirect } from "next/navigation";
 import {
   AccessError,
   requestContext,
+  requireHouseholdAccess,
   requireScope,
   requireWalletAccess,
   runAction,
   type ActionState,
 } from "@/lib/access";
 import { requireUser } from "@/lib/auth/session";
+import { localAiProposalSchema } from "@/features/categories/schemas";
 import { financeChanged } from "@/lib/finance-cache";
 import {
   explainedConfirmSchema,
@@ -249,4 +252,34 @@ export async function registerFinalAction(
   revalidatePath("/ajustes/contas");
   refreshReviewPages();
   redirect(`/ajustes/contas/${input.accountId}?movidos=${moved}`);
+}
+
+/**
+ * "Criar e aplicar" (M10.2b, pranchas F2-Recebidos e F2-CelCriar): cria a categoria que a IA
+ * local propôs, com o nome e a mãe que a pessoa deixou, e aplica nos recebidos com a mesma
+ * proposta. Só quem mexe nas categorias do lar. Os recebidos continuam esperando o Confirmar
+ * (as somas não mudam), mas a lista de categorias sim: chama financeChanged. Deu certo: volta
+ * para a revisão com o aviso.
+ */
+export async function applyLocalAiProposalAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await requireUser();
+  const parsed = localAiProposalSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Confira o nome.", success: null };
+  }
+  let done: { categoryId: string; applied: number } | null = null;
+  const result = await runAction(async () => {
+    const grant = await requireHouseholdAccess(session, "manage_categories");
+    const scope = await requireScope(session, "edit");
+    done = await applyLocalAiProposal(prisma, grant, scope, parsed.data, await requestContext());
+  });
+  if (result.error || !done) return result;
+  const { categoryId, applied } = done;
+  await financeChanged(session);
+  refreshReviewPages();
+  revalidatePath("/ajustes/categorias");
+  redirect(`${REVIEW_PATH}?criada=${categoryId}&aplicados=${applied}`);
 }

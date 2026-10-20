@@ -3,10 +3,14 @@
 //
 //   bank-sync         uma busca de UMA conexão. singletonKey = id da conexão: nunca duas
 //                     buscas da mesma conexão na fila ao mesmo tempo (política "stately")
-//   bank-sync-daily   a agenda: todo dia às 06:47 (São Paulo), depois do backup das 03:30,
-//                     põe na fila uma busca de cada conexão pronta
+//   bank-sync-daily   a agenda: todo dia às 04:30 (São Paulo), depois do backup das 03:30,
+//                     põe na fila uma busca de cada conexão pronta (era 06:47 até o M10.2b:
+//                     mudou para a IA local ter a carga da noite a tempo)
 //   classifier-train-daily  (M10.1, ADR-015) todo dia às 03:15: treina o classificador de cada
 //                     carteira cujos exemplos mudaram e preenche os recebidos sem categoria
+//   local-ai-nightly  (M10.2b, ADR-016) a cada 10 min das 04:00 às 06:50, mas só trabalha na
+//                     janela 04:45–06:40: pergunta à IA local pelo que as cargas deixaram sem
+//                     categoria. Fora da janela, ou com a IA fora do ar, não faz nada
 //
 // Quem pede: o botão "Buscar agora" (Server Action) e a agenda. Quem executa: o worker, que
 // sobe junto com o servidor do app (instrumentation.ts) quando SYNC_WORKER=on. A busca nunca
@@ -19,24 +23,30 @@ import {
   connectionsDueForSync,
   describeOutcome,
   prisma,
+  runLocalAiNight,
   runSync,
   trainWallets,
   walletsForTraining,
 } from "@fintrack/db";
+import { inLocalAiWindow, localAiWindowEnd } from "@fintrack/core";
 import { PgBoss } from "pg-boss";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { cascadeServices, classifierPort, QUEUE_SUBJECT } from "@/lib/ml/classifier";
+import { localAiPort } from "@/lib/ml/local-ai";
 import { pluggyFor } from "./provider";
 
 export const SYNC_QUEUE = "bank-sync";
 export const DAILY_QUEUE = "bank-sync-daily";
-/** 06:47 em São Paulo: depois do backup (03:30) e do Meu Pluggy atualizar os bancos (madrugada) */
-export const DAILY_CRON = "47 6 * * *";
+/** 04:30 em São Paulo: depois do backup (03:30), e antes da IA local subir (04:40) */
+export const DAILY_CRON = "30 4 * * *";
 export const TIME_ZONE = "America/Sao_Paulo";
 export const CLASSIFIER_QUEUE = "classifier-train-daily";
 /** 03:15 em São Paulo: a casa dorme, e o treino termina antes do backup das 03:30 */
 export const CLASSIFIER_CRON = "15 3 * * *";
+export const LOCAL_AI_QUEUE = "local-ai-nightly";
+/** A cada 10 min das 04:00 às 06:50; a tarefa confere a janela (04:45–06:40) antes de trabalhar */
+export const LOCAL_AI_CRON = "*/10 4-6 * * *";
 const RETRIABLE = new Set(["PROVIDER_UNAVAILABLE", "PROVIDER_RATE_LIMITED", "SYNC_FAILED"]);
 
 export type SyncJob = {
@@ -71,6 +81,10 @@ export function jobs(): Promise<PgBoss> {
     if (!existing.has(DAILY_QUEUE)) await boss.createQueue(DAILY_QUEUE, { policy: "stately" });
     if (!existing.has(CLASSIFIER_QUEUE)) {
       await boss.createQueue(CLASSIFIER_QUEUE, { policy: "stately", expireInSeconds: 60 * 60 });
+    }
+    if (!existing.has(LOCAL_AI_QUEUE)) {
+      // Uma rodada por vez; ela mesma para às 06:40 (o pg-boss só corta depois de 2 h)
+      await boss.createQueue(LOCAL_AI_QUEUE, { policy: "stately", expireInSeconds: 2 * 60 * 60 });
     }
     return boss;
   })();
@@ -132,6 +146,29 @@ export async function processClassifierTraining(now: Date = new Date()): Promise
   );
 }
 
+/**
+ * Uma rodada da IA local (a cada 10 min na madrugada). Fora da janela, sem o serviço, ou com o
+ * llama-server fora do ar: não faz nada. Para às 06:40 (o container desce às 06:45). Só
+ * contagens no log: nenhuma descrição, nenhum nome de categoria.
+ */
+export async function processLocalAiNight(now: Date = new Date()): Promise<void> {
+  if (!inLocalAiWindow(now)) return;
+  const port = localAiPort(QUEUE_SUBJECT);
+  if (!port) return;
+  const night = await runLocalAiNight(prisma, port, { deadline: localAiWindowEnd(now) });
+  logger.info(
+    {
+      event: "local_ai.night",
+      status: night.status,
+      households: night.households,
+      asked: night.asked,
+      applied: night.applied,
+      ...night.outcomes,
+    },
+    "rodada da IA local",
+  );
+}
+
 /** Liga o worker e a agenda diária (uma vez por processo). */
 export function startSyncWorker(): Promise<void> {
   globalForBoss.fintrackWorker ??= (async () => {
@@ -147,14 +184,17 @@ export function startSyncWorker(): Promise<void> {
     await boss.schedule(DAILY_QUEUE, DAILY_CRON, null, { tz: TIME_ZONE });
     await boss.work(CLASSIFIER_QUEUE, async () => processClassifierTraining());
     await boss.schedule(CLASSIFIER_QUEUE, CLASSIFIER_CRON, null, { tz: TIME_ZONE });
+    await boss.work(LOCAL_AI_QUEUE, async () => processLocalAiNight());
+    await boss.schedule(LOCAL_AI_QUEUE, LOCAL_AI_CRON, null, { tz: TIME_ZONE });
     logger.info(
       {
         event: "sync.worker_started",
         cron: DAILY_CRON,
         classifierCron: CLASSIFIER_CRON,
+        localAiCron: LOCAL_AI_CRON,
         tz: TIME_ZONE,
       },
-      "fila de sincronização e do classificador ligada",
+      "fila de sincronização, do classificador e da IA local ligada",
     );
   })();
   return globalForBoss.fintrackWorker;

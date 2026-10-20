@@ -40,7 +40,8 @@ function useReview(): Ctx {
 }
 
 /** O que voltou de uma decisão tomada FORA da lista (um modal): o aviso e o "Desfazer" dela. */
-export type ReviewReturn = { message: string; undo: ReviewUndo; key: string };
+/** undo null: não há o que desfazer (M10.2b: a categoria criada pelo "Criar e aplicar") */
+export type ReviewReturn = { message: string; undo: ReviewUndo | null; key: string };
 
 export function ReviewActions({
   children,
@@ -88,7 +89,9 @@ export function ReviewActions({
   useEffect(() => {
     if (!returned || returnedShown.current === returned.key) return;
     returnedShown.current = returned.key;
-    undoToast(returned.message, { variant: "success", onUndo: () => undo(returned.undo) });
+    const what = returned.undo;
+    if (what) undoToast(returned.message, { variant: "success", onUndo: () => undo(what) });
+    else toast.success(returned.message);
     // Tira o ?juntado/?confirmado da URL: recarregar não mostra o aviso de novo
     router.replace(pathname, { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- uma vez por decisão

@@ -6,9 +6,11 @@
 //   [⟲] 2 · Histórico       1 lançamento parecido nas carteiras que você vê (precisa de 2)
 //   [🏛] 3 · Banco           O banco não mandou categoria
 //   [▣] 4 · Classificador   Decidiu · Restaurantes, 92 % de confiança (sugere a partir de 80 %)
+//   [✦] 5 · IA local        (M10.2b, prancha F2-PorQue) na fila, propôs "Academia", desligada...
 //
 // Igual no modal e na página inteira. O formulário do "Confirmar" é o ExplanationConfirmForm.
-import type { SuggestionSource } from "@fintrack/core";
+import { Sparkles } from "lucide-react";
+import { LOCAL_AI_WINDOW_TEXT, type SuggestionSource } from "@fintrack/core";
 import type { ExplanationPage } from "../../server/review";
 import { SOURCE_ICON, SourcePill } from "@/components/visual/source-pill";
 import { SOURCE_LABEL } from "@/lib/labels";
@@ -22,6 +24,38 @@ const LAYER_NAME: Record<SuggestionSource, string> = {
   PROVIDER: "Banco",
   CLASSIFIER: "Classificador",
 };
+
+type LocalAiLayer = ExplanationPage["localAi"];
+
+/** O que a 5ª camada diz (a IA local, que só trabalha à noite, numa fila). */
+function localAiDetail(layer: LocalAiLayer, category: string | null): string {
+  switch (layer.state) {
+    case "DECIDED":
+      return `${category ?? "A categoria"}, à noite. Ela só escolhe entre as categorias da casa`;
+    case "SKIPPED":
+      return "Não precisou";
+    case "NOT_BULK":
+      return "Lançamento feito à mão: a IA local nunca vê";
+    case "OFF":
+      return "Desligada no lar (Ajustes › Categorização)";
+    case "QUEUED":
+      return `Na fila: olha à noite, ${LOCAL_AI_WINDOW_TEXT}`;
+    case "NEW_CATEGORY":
+      return layer.proposal
+        ? `Nenhuma da casa serviu: propôs criar ${layer.proposal.name}${layer.proposal.parent ? `, em ${layer.proposal.parent}` : ""}`
+        : "Propôs uma categoria nova";
+    case "NO_SUGGESTION":
+      return "Olhou à noite e não achou uma categoria da casa";
+    case "BLOCKED":
+      return "Barrada: a descrição tem cara de instrução e não foi para a IA";
+    case "INVALID":
+      return "A resposta veio fora do formato e foi descartada";
+    case "REPLACED":
+      return "Sugeriu à noite, mas a categoria foi trocada depois";
+    default:
+      return "Não vai olhar: o recebido já foi resolvido";
+  }
+}
 
 /** O título: "Por que Restaurantes?" ou, sem categoria, "Por que ficou sem categoria?" */
 export function explanationTitle(page: ExplanationPage) {
@@ -113,10 +147,47 @@ export function ExplanationBody({ page }: { page: ExplanationPage }) {
             </li>
           );
         })}
+        <li
+          data-state={page.localAi.state}
+          data-testid="camada-ia-local"
+          className={cn(
+            "grid grid-cols-[2rem_minmax(0,1fr)] gap-2.5 p-2.5",
+            page.localAi.state === "DECIDED"
+              ? "rounded-xl bg-[color-mix(in_srgb,var(--chart-1)_14%,transparent)]"
+              : "border-t",
+          )}
+        >
+          <span
+            className={cn(
+              "bg-muted grid size-8 place-items-center rounded-[0.5625rem]",
+              page.localAi.state === "DECIDED" ? "text-chart-1-ink" : "text-muted-foreground",
+            )}
+          >
+            <Sparkles aria-hidden className="size-4" />
+          </span>
+          <span className="flex min-w-0 flex-col gap-0.5">
+            <span className="flex items-baseline justify-between gap-2">
+              <strong
+                className={cn(
+                  "text-sm",
+                  page.localAi.state === "DECIDED" ? "font-bold" : "font-semibold",
+                )}
+              >
+                {page.layers.length + 1} · IA local
+              </strong>
+              {page.localAi.state === "DECIDED" ? (
+                <span className="text-chart-1-ink text-xs font-bold">Decidiu</span>
+              ) : null}
+            </span>
+            <span className="text-muted-foreground text-[0.8125rem]">
+              {localAiDetail(page.localAi, t.category?.name ?? null)}
+            </span>
+          </span>
+        </li>
       </ol>
       <p className="text-muted-foreground text-[0.8125rem]">
-        Confirmar ou corrigir vira exemplo de treino. A descrição do lançamento não sai do servidor
-        de casa.
+        A IA local é a última camada: só para o que veio do banco e ninguém resolveu. Confirmar ou
+        corrigir vira exemplo de treino. A descrição do lançamento não sai do servidor de casa.
       </p>
     </div>
   );

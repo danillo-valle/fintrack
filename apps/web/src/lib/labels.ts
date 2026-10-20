@@ -41,6 +41,7 @@ export const CATEGORIZED_BY_LABEL: Record<CategorizationSource, string> = {
   HISTORY: "sugerida pelo histórico",
   PROVIDER: "sugerida pela categoria do banco",
   CLASSIFIER: "sugerida pelo classificador",
+  LLM: "sugerida pela IA local",
 };
 
 /**
@@ -52,6 +53,7 @@ export const SOURCE_LABEL: Record<CategorizationSource, string> = {
   HISTORY: "Histórico",
   PROVIDER: "Banco",
   CLASSIFIER: "Classificador",
+  LLM: "IA local",
   MANUAL: "Você",
 };
 
