@@ -1,0 +1,13 @@
+# Todo dia às 06:45 (horário de Brasília): o fim da janela da noite. Persistent=true: se o
+# servidor estava desligado nessa hora, desliga assim que ele voltar (o container não sobe
+# sozinho num reinício: restart "no" no compose).
+# Ligar:  sudo systemctl enable --now fintrack-llm-desligar.timer
+[Unit]
+Description=FinTrack: desliga a IA local às 06:45
+
+[Timer]
+OnCalendar=*-*-* 06:45:00 America/Sao_Paulo
+Persistent=true
+
+[Install]
+WantedBy=timers.target

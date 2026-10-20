@@ -1,0 +1,19 @@
+# Liga a IA local para a janela da noite (deploy/bin/fintrack-llm ligar, M10.2b, ADR-016).
+# Ver o histórico:  journalctl -u fintrack-llm-ligar --since "7 days ago"
+[Unit]
+Description=FinTrack: liga a IA local (janela da noite)
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=fintrack
+Group=fintrack
+Environment=FINTRACK_HOME=/srv/fintrack
+ExecStart=/srv/fintrack/repo/deploy/bin/fintrack-llm ligar
+# Subir o container e carregar o modelo de 2 GB do disco cabe com folga em 10 minutos
+TimeoutStartSec=10min
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full

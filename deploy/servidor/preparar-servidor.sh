@@ -59,7 +59,7 @@ for pair in "compose.env.example:.env" "app.env.example:app.env" "operacao.env.e
 done
 
 say "5/5 Atalhos e unidades do systemd"
-for cmd in fintrack-compose fintrack-status fintrack-definir fintrack-deploy fintrack-backup fintrack-restore-test fintrack-restore-prod; do
+for cmd in fintrack-compose fintrack-status fintrack-definir fintrack-deploy fintrack-backup fintrack-restore-test fintrack-restore-prod fintrack-llm; do
   ln -sfn "$HOME_DIR/repo/deploy/bin/$cmd" "/usr/local/bin/$cmd"
 done
 # As unidades são COPIADAS (e não ligadas ao repo): um commit novo não muda o que roda como
