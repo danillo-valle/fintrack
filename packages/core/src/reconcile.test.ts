@@ -294,6 +294,14 @@ describe("bulkConfirmable", () => {
     ];
     expect(bulkConfirmable(rows, new Set(["c"])).map((r) => r.id)).toEqual(["a", "d"]);
   });
+
+  it("a categoria da IA local nunca vai no lote: é confirmada uma a uma (ADR-016)", () => {
+    const rows = [
+      { id: "a", categoryId: "cat", categorizedBy: "CLASSIFIER" },
+      { id: "b", categoryId: "cat", categorizedBy: "LLM" },
+    ];
+    expect(bulkConfirmable(rows, new Set()).map((r) => r.id)).toEqual(["a"]);
+  });
 });
 
 describe("cardForLastFour", () => {

@@ -158,8 +158,9 @@ export function suggestRulePattern(description: string): string | null {
 // ── Sugestão (a interface única da cascata) ─────────────────────────────────────
 
 /**
- * Quem pode sugerir uma categoria: as regras e o histórico (M07), a categoria do banco e o
- * classificador (M10.1). O LLM do M10.2 entra como valor novo.
+ * Quem pode sugerir uma categoria NA HORA (a cascata síncrona): as regras e o histórico (M07), a
+ * categoria do banco e o classificador (M10.1). A IA local (M10.2b) não está aqui: ela roda numa
+ * fila, à noite (local-ai.ts), e grava "LLM" como autor.
  */
 export type SuggestionSource = "RULE" | "HISTORY" | "PROVIDER" | "CLASSIFIER";
 
@@ -173,9 +174,16 @@ export const SUGGESTION_SOURCES: readonly SuggestionSource[] = [
 
 /**
  * Quem decidiu a categoria gravada no lançamento (coluna opcional transaction.categorizedBy):
- * a pessoa (MANUAL) ou a camada da cascata cuja sugestão a pessoa aceitou sem mudar.
+ * a pessoa (MANUAL), a camada da cascata cuja sugestão a pessoa aceitou sem mudar, ou a IA local
+ * (LLM, M10.2b), que só aparece em recebidos das cargas do banco.
  */
-export type CategorizationSource = "MANUAL" | SuggestionSource;
+export type CategorizationSource = "MANUAL" | SuggestionSource | "LLM";
+
+/**
+ * Os autores AUTOMÁTICOS (todas as camadas, inclusive a IA local). Um recebido ainda PENDING
+ * categorizado por um deles não vota no histórico nem treina o classificador (votingWhere).
+ */
+export const AUTOMATIC_SOURCES: readonly CategorizationSource[] = [...SUGGESTION_SOURCES, "LLM"];
 
 export type CategorySuggestion = {
   categoryId: string;
@@ -517,8 +525,13 @@ export function explainClassifier(
 // ── A medida: quem categorizou (M10.1) ──────────────────────────────────────────
 
 export type BreakdownKey = CategorizationSource | "NONE";
-/** A ordem da tela: as camadas da cascata, depois a pessoa e os sem categoria. */
-export const BREAKDOWN_ORDER: readonly BreakdownKey[] = [...SUGGESTION_SOURCES, "MANUAL", "NONE"];
+/** A ordem da tela: as camadas da cascata, a IA local, a pessoa e os sem categoria. */
+export const BREAKDOWN_ORDER: readonly BreakdownKey[] = [
+  ...SUGGESTION_SOURCES,
+  "LLM",
+  "MANUAL",
+  "NONE",
+];
 
 /** Décimos de porcentagem, arredondando metade para cima: 378 de 412 → 917 (91,7 %). */
 export function tenthsOf(part: number, total: number): number {
@@ -528,7 +541,8 @@ export function tenthsOf(part: number, total: number): number {
 
 export type Breakdown = {
   total: number;
-  /** Categorizados por alguma camada automática SEM IA (regra, histórico, banco, classificador) */
+  /** Categorizados por alguma camada automática SEM IA (regra, histórico, banco, classificador).
+   * A IA local (LLM) conta no total, mas não aqui: é o "percentual sem IA". */
   automatic: number;
   automaticTenths: number;
   rows: { key: BreakdownKey; count: number; tenths: number }[];

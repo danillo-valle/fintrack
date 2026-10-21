@@ -89,6 +89,8 @@ erDiagram
     Category ||--o{ CategorizationExample : "corrigido para"
     Transaction |o--o{ CategorizationExample : "corrigido em"
     Wallet ||--o| ClassifierModel : "modelo do classificador (M10.1)"
+    Transaction ||--o| LocalAiAttempt : "o que a IA local respondeu (M10.2b)"
+    Category |o--o{ LocalAiAttempt : "mãe da categoria nova proposta"
 
     Household {
         uuid id PK
@@ -188,7 +190,7 @@ erDiagram
         enum source "MANUAL | OFX | PDF | OPEN_FINANCE | BOT | RECURRENCE"
         string externalId "único por conta e origem"
         uuid transferId "dois lados"
-        enum categorizedBy "MANUAL | RULE | HISTORY (M07) | PROVIDER | CLASSIFIER (M10.1)"
+        enum categorizedBy "MANUAL | RULE | HISTORY (M07) | PROVIDER | CLASSIFIER (M10.1) | LLM (M10.2b)"
         smallint categorizationConfidence "0 a 100, da camada (M10.1)"
         timestamp deletedAt "exclusão lógica"
         char providerCardLastFour "final que o banco mandou (M09.2)"
@@ -220,6 +222,14 @@ erDiagram
         timestamp trainedAt
         int exampleCount "20 ou mais"
         char trainingHash "SHA-256 dos exemplos"
+    }
+    LocalAiAttempt {
+        uuid transactionId PK "um por recebido"
+        uuid householdId FK
+        enum outcome "SUGGESTED | NEW_CATEGORY | NO_SUGGESTION | BLOCKED | INVALID"
+        string proposedName "categoria nova: 1 a 3 palavras, só letras"
+        uuid proposedParentId FK "a mãe proposta"
+        timestamp attemptedAt
     }
     CardStatement {
         uuid id PK
@@ -309,30 +319,31 @@ registro sobreviver mesmo que a pessoa ou o grupo sejam apagados.
 
 ## As travas que moram no banco
 
-| Regra                                                                    | Onde                                                                  |
-| ------------------------------------------------------------------------ | --------------------------------------------------------------------- |
-| O mesmo lançamento importado entra uma vez só                            | único `(accountId, source, externalId)`                               |
-| Conta, ambiente, categoria e parcela de um lançamento são do mesmo grupo | chaves compostas com `householdId`                                    |
-| O cartão é da conta do lançamento; a fatura também                       | chaves compostas `(cardId, accountId)`, `(statementId, accountId)`    |
-| Só quem é do grupo entra num ambiente do grupo                           | chave `(householdId, userId)` → `household_member`                    |
-| Cartão guarda só os 4 últimos dígitos                                    | CHECK `payment_card_last_four_check`                                  |
-| Crédito só em cartão; vale só em vale-refeição; fatura só em cartão      | gatilho `transaction_method_matches_account`                          |
-| Valor nunca é zero; importado sempre tem `externalId`                    | CHECKs de `transaction`                                               |
-| Cartão tem fechamento e vencimento; as outras contas, não                | CHECK `financial_account_card_days_check`                             |
-| Mês de orçamento e de fatura guardado como dia 1                         | CHECKs de `budget` e `card_statement`                                 |
-| Parte do orçado nunca negativa; um Compartilhado só por orçado (M08)     | CHECK `budget_share_amount_check` e índice `budget_share_shared_once` |
-| Parte só para quem é do lar; quem sai perde a parte (M08)                | chave `(householdId, userId)` → `household_member`, em cascata        |
-| A auditoria só acrescenta                                                | gatilho `audit_log_append_only`                                       |
-| Convite guarda só o hash do segredo; e-mail em minúsculas (M06)          | CHECKs `household_invite_token_hash_check` e `_email_check`           |
-| Convite não é aceito e cancelado ao mesmo tempo; prazo depois da criação | CHECKs `household_invite_state_check` e `_expiry_check`               |
-| Nome de lar e de carteira com 1 a 60 caracteres (M06)                    | CHECKs `household_name_length_check` e `wallet_name_length_check`     |
-| "Quem categorizou" só existe com categoria (M07)                         | CHECK `transaction_categorized_by_check`                              |
-| Transferência não tem categoria (M07)                                    | CHECK `transaction_transfer_category_check`                           |
-| Exemplo de treino é uma correção de verdade (M07)                        | CHECKs `categorization_example_change_check` e `_source_check`        |
-| Extrato importado guarda só SHA-256, o final e as contagens (M09.3)      | CHECKs de `file_import` (`_sha256_check`, `_last_four_check`...)      |
-| Só linha de origem OFX aponta para o arquivo (M09.3)                     | CHECK `transaction_file_import_check`                                 |
-| Confiança de 0 a 100 e só de camada automática (M10.1)                   | CHECK `transaction_categorization_confidence_check`                   |
-| Modelo com 20+ exemplos e 2+ categorias; SHA-256 em hex (M10.1)          | CHECKs `classifier_model_counts_check` e `_training_hash_check`       |
+| Regra                                                                         | Onde                                                                  |
+| ----------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| O mesmo lançamento importado entra uma vez só                                 | único `(accountId, source, externalId)`                               |
+| Conta, ambiente, categoria e parcela de um lançamento são do mesmo grupo      | chaves compostas com `householdId`                                    |
+| O cartão é da conta do lançamento; a fatura também                            | chaves compostas `(cardId, accountId)`, `(statementId, accountId)`    |
+| Só quem é do grupo entra num ambiente do grupo                                | chave `(householdId, userId)` → `household_member`                    |
+| Cartão guarda só os 4 últimos dígitos                                         | CHECK `payment_card_last_four_check`                                  |
+| Crédito só em cartão; vale só em vale-refeição; fatura só em cartão           | gatilho `transaction_method_matches_account`                          |
+| Valor nunca é zero; importado sempre tem `externalId`                         | CHECKs de `transaction`                                               |
+| Cartão tem fechamento e vencimento; as outras contas, não                     | CHECK `financial_account_card_days_check`                             |
+| Mês de orçamento e de fatura guardado como dia 1                              | CHECKs de `budget` e `card_statement`                                 |
+| Parte do orçado nunca negativa; um Compartilhado só por orçado (M08)          | CHECK `budget_share_amount_check` e índice `budget_share_shared_once` |
+| Parte só para quem é do lar; quem sai perde a parte (M08)                     | chave `(householdId, userId)` → `household_member`, em cascata        |
+| A auditoria só acrescenta                                                     | gatilho `audit_log_append_only`                                       |
+| Convite guarda só o hash do segredo; e-mail em minúsculas (M06)               | CHECKs `household_invite_token_hash_check` e `_email_check`           |
+| Convite não é aceito e cancelado ao mesmo tempo; prazo depois da criação      | CHECKs `household_invite_state_check` e `_expiry_check`               |
+| Nome de lar e de carteira com 1 a 60 caracteres (M06)                         | CHECKs `household_name_length_check` e `wallet_name_length_check`     |
+| "Quem categorizou" só existe com categoria (M07)                              | CHECK `transaction_categorized_by_check`                              |
+| Transferência não tem categoria (M07)                                         | CHECK `transaction_transfer_category_check`                           |
+| Exemplo de treino é uma correção de verdade (M07)                             | CHECKs `categorization_example_change_check` e `_source_check`        |
+| Extrato importado guarda só SHA-256, o final e as contagens (M09.3)           | CHECKs de `file_import` (`_sha256_check`, `_last_four_check`...)      |
+| Só linha de origem OFX aponta para o arquivo (M09.3)                          | CHECK `transaction_file_import_check`                                 |
+| Confiança de 0 a 100 e só de camada automática (M10.1)                        | CHECK `transaction_categorization_confidence_check`                   |
+| Modelo com 20+ exemplos e 2+ categorias; SHA-256 em hex (M10.1)               | CHECKs `classifier_model_counts_check` e `_training_hash_check`       |
+| Proposta de categoria nova só num NEW_CATEGORY, com o nome no padrão (M10.2b) | CHECKs `local_ai_attempt_proposal_check` e `_proposed_name_check`     |
 
 Cada regra tem um teste em `packages/db/src/integration/`, que tenta quebrá-la contra o
 PostgreSQL de verdade (`pnpm test:integration`).
@@ -364,6 +375,16 @@ fazer o quê** é decidido no código, num ponto só: `authorizeWallet` e `autho
 - **`classifier_model`** registra o modelo de cada carteira (quando treinou, quantos exemplos e
   a impressão digital do treino). O modelo em si fica só no volume do serviço Python, nunca no
   banco, no Git ou numa imagem. Detalhes no [ADR-015](adr/0015-categorizacao-inteligente.md).
+
+## IA local (M10.2b)
+
+- **`LLM`** em `categorizedBy`: a categoria veio da IA local, à noite, num recebido de uma carga
+  do banco. Vale quando a pessoa confirma (e não entra no "Confirmar os N" em lote).
+- **`local_ai_attempt`** tem uma linha por recebido que a IA já viu: o que ela respondeu e, numa
+  categoria nova proposta, o nome e a mãe. A fila não é tabela: é o recebido de carga, pendente,
+  sem categoria e **sem linha aqui**, num lar com **`household.localAiEnabledAt`** preenchido (o
+  interruptor; quem liga e desliga fica na auditoria). Detalhes no
+  [ADR-016](adr/0016-llm-local.md).
 
 ## Pago por, parcelas e despesas fixas (M07.4)
 

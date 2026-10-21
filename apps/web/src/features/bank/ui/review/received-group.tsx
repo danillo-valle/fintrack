@@ -9,14 +9,21 @@
 //
 // [?] (M10.1, prancha F-Sugestoes): "Por que essa categoria?", a cascata camada por camada, num
 // modal por cima da revisão. A etiqueta da categoria diz quem sugeriu e com que confiança.
+//
+// M10.2b (pranchas F2-Recebidos e F2-CelRecebidos): embaixo da categoria, a linha da IA local:
+//   na fila     [┆ Na fila da IA] aguardando a IA, que olha de madrugada
+//   proposta    [✦ IA local · nova] Criar “Academia”? em Saúde       [Criar e aplicar]
+// O "Criar e aplicar" abre o modal (rota /criar/[id]) e só aparece para quem mexe nas
+// categorias do lar e edita a carteira do recebido.
 import Link from "next/link";
-import { CircleHelp } from "lucide-react";
+import { CircleHelp, Clock, Sparkles } from "lucide-react";
+import { LOCAL_AI_WINDOW_TEXT } from "@fintrack/core";
 import type { ReceivedView, ReviewGroup } from "../../server/review";
 import { AmountText } from "@/components/money/amount-text";
 import { NativeSelect } from "@/components/ui/native-select";
 import { TEXT_LINK } from "@/lib/styles";
 import { CategoryPicker, type CategoryChoice } from "../category-picker";
-import { CardChip, CategoryLabel, dayMonth, monthName, SMALL_BUTTON } from "./parts";
+import { CardChip, CategoryLabel, dayMonth, monthName, SMALL_BUTTON, SMALL_PRIMARY } from "./parts";
 import { ReviewForm, ReviewSubmit } from "./review-actions";
 
 /** Quantas linhas cada grupo mostra antes do "Ver os outros N". */
@@ -31,14 +38,63 @@ export function groupTitle(group: Pick<ReviewGroup, "accountName" | "statementMo
 type Choices = { expense: readonly CategoryChoice[]; income: readonly CategoryChoice[] };
 type Wallet = { id: string; name: string };
 
+/** A linha da IA local embaixo da categoria (na fila, ou a proposta de categoria nova). */
+function LocalAiLine({ item, canCreate }: { item: ReceivedView; canCreate: boolean }) {
+  const { queued, proposal } = item.localAi;
+  if (proposal) {
+    return (
+      <div
+        className="border-chart-1 col-span-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 rounded-xl border bg-[color-mix(in_srgb,var(--chart-1)_10%,transparent)] px-3 py-2 md:col-span-2 md:col-start-2 md:row-start-2"
+        data-testid="proposta-ia"
+      >
+        <span className="text-chart-1-ink inline-flex h-6 items-center gap-1.5 rounded-full border border-current px-2 text-xs font-semibold">
+          <Sparkles aria-hidden className="size-3.5" />
+          IA local · nova
+        </span>
+        <span className="min-w-0 flex-1 text-sm">
+          <strong className="text-chart-1-ink">Criar “{proposal.name}”?</strong>{" "}
+          <span className="text-muted-foreground">
+            {proposal.parent ? `em ${proposal.parent.name} · ` : ""}nenhuma da casa serviu
+          </span>
+        </span>
+        {canCreate ? (
+          <Link
+            href={`/lancamentos/recebidos/criar/${item.id}`}
+            scroll={false}
+            aria-label={`Criar e aplicar ${proposal.name}: ${item.description}`}
+            className={SMALL_PRIMARY}
+          >
+            Criar e aplicar
+          </Link>
+        ) : null}
+      </div>
+    );
+  }
+  if (!queued) return null;
+  return (
+    <p
+      className="text-muted-foreground col-span-2 flex flex-wrap items-center gap-2 text-[0.8125rem] md:col-span-2 md:col-start-2 md:row-start-2"
+      data-testid="na-fila-ia"
+    >
+      <span className="border-chart-4-ink text-chart-4-ink inline-flex h-6 items-center gap-1.5 rounded-full border-[1.5px] border-dashed px-2 text-xs font-semibold">
+        <Clock aria-hidden className="size-3.5" />
+        Na fila da IA
+      </span>
+      Aguardando a IA local, que olha à noite, {LOCAL_AI_WINDOW_TEXT}
+    </p>
+  );
+}
+
 function ReceivedRow({
   item,
   choices,
   wallets,
+  canManageCategories,
 }: {
   item: ReceivedView;
   choices: Choices;
   wallets: readonly Wallet[];
+  canManageCategories: boolean;
 }) {
   const walletOptions = wallets.some((w) => w.id === item.wallet.id)
     ? wallets
@@ -135,6 +191,7 @@ function ReceivedRow({
           {item.wallet.name}
         </span>
       )}
+      <LocalAiLine item={item} canCreate={canManageCategories && item.canEdit} />
     </li>
   );
 }
@@ -145,12 +202,15 @@ export function ReceivedGroup({
   wallets,
   expanded,
   expandHref,
+  canManageCategories = false,
 }: {
   group: ReviewGroup;
   choices: Choices;
   wallets: readonly Wallet[];
   expanded: boolean;
   expandHref: string;
+  /** M10.2b: mostra o "Criar e aplicar" da categoria que a IA local propôs */
+  canManageCategories?: boolean;
 }) {
   const id = `grupo-${group.key.replace(":", "-")}`;
   const shown = expanded ? group.items : group.items.slice(0, GROUP_PREVIEW);
@@ -195,7 +255,13 @@ export function ReceivedGroup({
       </div>
       <ul aria-label={`Recebidos sem par: ${title}`} className="divide-y border-t md:border-t-0">
         {shown.map((item) => (
-          <ReceivedRow key={item.id} item={item} choices={choices} wallets={wallets} />
+          <ReceivedRow
+            key={item.id}
+            item={item}
+            choices={choices}
+            wallets={wallets}
+            canManageCategories={canManageCategories}
+          />
         ))}
       </ul>
       {hidden > 0 ? (

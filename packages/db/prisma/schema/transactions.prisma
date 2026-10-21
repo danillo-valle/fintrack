@@ -86,6 +86,9 @@ enum CategorizationSource {
   PROVIDER
   /// O classificador do serviço Python, com confiança de 80 % ou mais (M10.1, ADR-015)
   CLASSIFIER
+  /// A IA local (M10.2b, ADR-016): o Qwen2.5 3B na janela da noite, só nos recebidos das cargas
+  /// do banco e só depois de todas as outras camadas. Vale quando a pessoa confirma
+  LLM
 
   @@map("categorization_source")
 }
@@ -191,6 +194,8 @@ model Transaction {
   mergedFrom             Transaction[]           @relation("Merge")
   // Composta e NoAction: o registro do arquivo importado nunca é apagado
   fileImport             FileImport?             @relation(fields: [fileImportId, householdId], references: [id, householdId], onDelete: NoAction)
+  /// O que a IA local respondeu sobre este recebido (M10.2b): no máximo uma vez
+  localAiAttempt         LocalAiAttempt?
   matchesAsReceived      TransactionMatch[]      @relation("MatchReceived")
   matchesAsOwn           TransactionMatch[]      @relation("MatchOwn")
   categorizationExamples CategorizationExample[]
@@ -434,4 +439,43 @@ model ClassifierModel {
 
   @@index([householdId])
   @@map("classifier_model")
+}
+
+/// O que a IA local respondeu sobre um recebido (M10.2b, ADR-016).
+enum LocalAiOutcome {
+  /// Escolheu uma categoria da lista: ela foi gravada no recebido (categorizedBy LLM)
+  SUGGESTED
+  /// Propôs uma categoria nova (nome e mãe): fica esperando o "Criar e aplicar" da pessoa
+  NEW_CATEGORY
+  /// Respondeu "nenhuma": não dá para saber
+  NO_SUGGESTION
+  /// O filtro barrou (a descrição tinha cara de instrução): nem foi ao modelo
+  BLOCKED
+  /// A resposta saiu do schema (descartada)
+  INVALID
+
+  @@map("local_ai_outcome")
+}
+
+/// Uma linha por recebido que a IA local já viu (M10.2b, ADR-016): é o que tira o recebido da
+/// fila ("Na fila da IA" = recebido de carga, sem categoria e SEM linha aqui) e o que a tela de
+/// Ajustes conta da última noite. A descrição nunca é guardada aqui: ela já está no lançamento.
+model LocalAiAttempt {
+  transactionId    String         @id @db.Uuid
+  householdId      String         @db.Uuid
+  outcome          LocalAiOutcome
+  /// A categoria nova proposta (só NEW_CATEGORY). CHECK: de 2 a 30 caracteres, só letras e
+  /// espaços (o mesmo padrão que o schema da IA impõe)
+  proposedName     String?
+  /// A mãe da categoria nova (só NEW_CATEGORY; nula = primeiro nível)
+  proposedParentId String?        @db.Uuid
+  attemptedAt      DateTime       @default(now())
+
+  household      Household   @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  transaction    Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  // Composta e NoAction: a mãe é do mesmo lar; categoria é arquivada, nunca apagada
+  proposedParent Category?   @relation("LocalAiProposedParent", fields: [proposedParentId, householdId], references: [id, householdId], onDelete: NoAction)
+
+  @@index([householdId, attemptedAt])
+  @@map("local_ai_attempt")
 }

@@ -1,0 +1,13 @@
+# Todo dia às 04:40 (horário de Brasília): depois do treino do classificador (03:15), do backup
+# (03:30) e da busca do Meu Pluggy (04:30). A fila do app pergunta à IA das 04:45 às 06:40.
+# Persistent=false: se o servidor estava desligado nessa hora, a IA NÃO liga de dia.
+# Ligar:  sudo systemctl enable --now fintrack-llm-ligar.timer
+[Unit]
+Description=FinTrack: liga a IA local às 04:40
+
+[Timer]
+OnCalendar=*-*-* 04:40:00 America/Sao_Paulo
+Persistent=false
+
+[Install]
+WantedBy=timers.target

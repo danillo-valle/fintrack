@@ -8,6 +8,7 @@ export * from "./dates";
 export * from "./card";
 export * from "./access";
 export * from "./categorization";
+export * from "./local-ai";
 export * from "./transactions";
 export * from "./csv";
 export * from "./payer";

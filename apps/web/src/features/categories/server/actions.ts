@@ -8,6 +8,7 @@ import {
   deleteRule,
   prisma,
   setCategoryArchived,
+  setLocalAi,
   trainNow,
   type TrainOutcome,
 } from "@fintrack/db";
@@ -22,7 +23,13 @@ import {
 import { requireUser } from "@/lib/auth/session";
 import { financeChanged } from "@/lib/finance-cache";
 import { classifierPort } from "@/lib/ml/classifier";
-import { archiveCategorySchema, categorySchema, ruleIdSchema, ruleSchema } from "../schemas";
+import {
+  archiveCategorySchema,
+  categorySchema,
+  localAiSwitchSchema,
+  ruleIdSchema,
+  ruleSchema,
+} from "../schemas";
 
 const PAGE = "/ajustes/categorias";
 
@@ -155,4 +162,30 @@ function trainingSummary(outcomes: readonly TrainOutcome[]): ActionState {
     error: null,
     success: parts.length > 0 ? `Treino feito: ${parts.join(", ")}.` : "Nada para treinar.",
   };
+}
+
+// ── IA local (M10.2b, ADR-016) ──────────────────────────────────────────────────
+
+/**
+ * O interruptor (Ajustes › Categorização): liga ou desliga a IA local do lar. Só quem mexe nas
+ * categorias do lar. Não muda somas nem categorias: a próxima noite é que trabalha.
+ */
+export async function setLocalAiAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await requireUser();
+  const parsed = localAiSwitchSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return invalid(parsed.error);
+  const enabled = parsed.data.enabled === "true";
+  const result = await runAction(async () => {
+    const grant = await requireHouseholdAccess(session, "manage_categories");
+    await setLocalAi(prisma, grant, enabled, await requestContext());
+    return enabled
+      ? "IA local ligada. Ela trabalha na próxima madrugada."
+      : "IA local desligada. O que já sugeriu continua esperando o seu Confirmar.";
+  });
+  revalidatePath("/ajustes/categorizacao");
+  revalidatePath("/lancamentos/recebidos");
+  return result;
 }

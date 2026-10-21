@@ -2,7 +2,7 @@
 # Versões exatas no uv.lock; `uv sync` instala exatamente elas.
 [project]
 name = "fintrack-ml"
-version = "0.10.1"
+version = "0.10.2"
 description = "Leitor de faturas em PDF do FinTrack (FastAPI + pdfplumber)"
 requires-python = ">=3.13"
 dependencies = [

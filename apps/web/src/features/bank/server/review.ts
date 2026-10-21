@@ -1,16 +1,18 @@
 // Leituras da revisão dos recebidos (M09.2, linha E.2 do canvas). Tudo parte do escopo de quem
 // está logado: a fila mostra o que a pessoa vê; pares, estornos e "Confirmar" só onde ela edita.
 import "server-only";
+import { canInHousehold } from "@fintrack/core";
 import {
   authorizeAccountView,
   authorizeWallet,
   explainTransaction,
   isUuid,
+  localAiProposalPreview,
   pairPreview,
   prisma,
   reviewQueue,
 } from "@fintrack/db";
-import { AccessError, requireScope } from "@/lib/access";
+import { AccessError, requireHouseholdAccess, requireScope } from "@/lib/access";
 import type { Session } from "@/lib/auth";
 import { cascadeServices } from "@/lib/ml/classifier";
 import type { ReviewView } from "../schemas";
@@ -37,7 +39,7 @@ export async function getReviewPage(session: Session, view: ReviewView) {
     requireScope(session, "view"),
     requireScope(session, "edit"),
   ]);
-  const [queue, categories, wallets, sync] = await Promise.all([
+  const [queue, categories, wallets, sync, canManageCategories] = await Promise.all([
     reviewQueue(prisma, scope, edit),
     categoryChoices(session),
     prisma.wallet.findMany({
@@ -46,6 +48,7 @@ export async function getReviewPage(session: Session, view: ReviewView) {
       select: { id: true, name: true },
     }),
     syncInfo(session),
+    canManageCategoriesOf(session),
   ]);
   // O filtro só escolhe o que aparece; os números do topo são sempre os da fila inteira
   const groups =
@@ -57,19 +60,47 @@ export async function getReviewPage(session: Session, view: ReviewView) {
             items:
               view === "sem-categoria"
                 ? g.items.filter((i) => !i.category && !i.isTransfer)
-                : g.items,
+                : view === "fila-ia"
+                  ? g.items.filter((i) => i.localAi.queued)
+                  : g.items,
           }))
           .filter((g) => g.items.length > 0);
   return {
     queue,
     view,
-    pairs: view === "sem-categoria" ? [] : queue.pairs,
+    pairs: view === "sem-categoria" || view === "fila-ia" ? [] : queue.pairs,
     groups,
     categories,
     wallets,
     sync,
+    /** M10.2b: o "Criar e aplicar" da categoria nova só aparece para quem mexe nas categorias */
+    canManageCategories,
   };
 }
+
+/** Quem pode criar categoria no lar (o "Criar e aplicar" da IA local). */
+async function canManageCategoriesOf(session: Session) {
+  try {
+    const grant = await requireHouseholdAccess(session, "view");
+    return canInHousehold(grant.role, "manage_categories");
+  } catch (error) {
+    if (error instanceof AccessError) return false;
+    throw error;
+  }
+}
+
+/**
+ * "Criar e aplicar" a categoria que a IA local propôs (M10.2b, pranchas F2-Recebidos e
+ * F2-CelCriar). null = não há proposta (já resolvida, carteira que a pessoa não edita) ou a
+ * pessoa não mexe nas categorias do lar.
+ */
+export async function getProposalPage(session: Session, transactionId: string) {
+  if (!isUuid(transactionId) || !(await canManageCategoriesOf(session))) return null;
+  const edit = await requireScope(session, "edit");
+  return localAiProposalPreview(prisma, edit, transactionId);
+}
+
+export type ProposalPage = NonNullable<Awaited<ReturnType<typeof getProposalPage>>>;
 
 export type ReviewPage = Awaited<ReturnType<typeof getReviewPage>>;
 

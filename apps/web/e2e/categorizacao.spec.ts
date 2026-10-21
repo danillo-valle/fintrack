@@ -178,10 +178,12 @@ test("recebidos: quem sugeriu, por quê, treinar agora e confirmar pelo modal", 
   const dialog = page.getByRole("dialog", { name: "Por que ficou sem categoria?" });
   await expect(dialog).toBeVisible();
   const steps = dialog.getByRole("list", { name: "As camadas da cascata, em ordem" });
-  await expect(steps.getByRole("listitem")).toHaveCount(4);
+  // M10.2b: a 5ª camada é a IA local (desligada neste lar)
+  await expect(steps.getByRole("listitem")).toHaveCount(5);
   await expect(steps.getByRole("listitem").nth(3)).toContainText(
     "Ainda sem modelo treinado nas carteiras que você vê",
   );
+  await expect(steps.getByRole("listitem").nth(4)).toContainText("Desligada no lar");
   await expectNoA11yViolations(page);
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
@@ -283,6 +285,24 @@ test("Ajustes › Categorização: o percentual sem IA e cada número leva à li
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );
   expect(overflow).toBeLessThanOrEqual(0);
+  // M10.2b: na tela mais estreita que a WCAG pede (320 px), nada passa da largura e nada do cartão IA
+  // local passa da margem de dentro dele (no N150, com a fonte de verdade, a etiqueta do modelo
+  // vazava 6 px da tela; aqui a mesma etiqueta vaza a 320 px)
+  const size = page.viewportSize()!;
+  await page.setViewportSize({ width: 320, height: size.height });
+  const narrow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(narrow).toBeLessThanOrEqual(0);
+  const inside = await page.getByTestId("cartao-ia-local").evaluate((card) => {
+    const edge =
+      card.getBoundingClientRect().right - Number.parseFloat(getComputedStyle(card).paddingRight);
+    return [...card.querySelectorAll("*")].every(
+      (e) => e.getBoundingClientRect().right <= edge + 0.5,
+    );
+  });
+  expect(inside).toBe(true);
+  await page.setViewportSize(size);
 
   // O "2" do classificador leva à lista dos 2, com o filtro à vista e o caminho de volta
   await page.getByRole("link", { name: "2 lançamentos: Classificador" }).click();

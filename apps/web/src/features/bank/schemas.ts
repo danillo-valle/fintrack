@@ -183,9 +183,10 @@ export const registerFinalSchema = z.object({
 });
 
 /** O filtro da revisão (?ver=pares | sem-categoria). */
-export type ReviewView = "todos" | "pares" | "sem-categoria";
+/** M10.2b: "fila-ia" = os que a IA local ainda vai olhar na próxima madrugada. */
+export type ReviewView = "todos" | "pares" | "sem-categoria" | "fila-ia";
 export function parseReviewView(value: unknown): ReviewView {
-  return value === "pares" || value === "sem-categoria" ? value : "todos";
+  return value === "pares" || value === "sem-categoria" || value === "fila-ia" ? value : "todos";
 }
 
 // ── Importar extrato (M09.3) ────────────────────────────────────────────────────

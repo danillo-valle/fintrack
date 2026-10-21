@@ -14,9 +14,10 @@
 #
 # Nada aqui lê o banco nem lançamentos reais. O modelo fica fora do repositório.
 #
-# Ajustes (variáveis de ambiente): LLM_CPUS (padrão 2), LLM_THREADS (padrão = LLM_CPUS),
-# LLM_MEMORIA (3g), LLM_CONTEXTO (2048), LLAMA_IMAGEM (ghcr.io/ggml-org/llama.cpp:server),
-# FINTRACK_LLM_DIR (~/fintrack-llm).
+# Desde o M10.2b, a imagem (pelo digest) e os argumentos do llama-server são os de PRODUÇÃO, lidos
+# do deploy/compose.prod.yml (bench/producao.py): mede-se o que roda à noite.
+# Ajustes (variáveis de ambiente): LLM_CPUS (padrão 2), LLM_MEMORIA (3g), LLAMA_IMAGEM (a do
+# compose) e FINTRACK_LLM_DIR (~/fintrack-llm).
 set -euo pipefail
 
 CONTAINER=fintrack-llm-medicao
@@ -53,10 +54,10 @@ done
 docker info >/dev/null 2>&1 || erro "o Docker não respondeu (o seu usuário está no grupo docker?)"
 
 CPUS="${LLM_CPUS:-2}"
-THREADS="${LLM_THREADS:-$CPUS}"
 MEMORIA="${LLM_MEMORIA:-3g}"
-CONTEXTO="${LLM_CONTEXTO:-2048}"
-IMAGEM="${LLAMA_IMAGEM:-ghcr.io/ggml-org/llama.cpp:server}"
+IMAGEM="${LLAMA_IMAGEM:-$(cd "$ML" && uv run --frozen python -m bench.producao --imagem)}"
+mapfile -t ARGS < <(cd "$ML" && uv run --frozen python -m bench.producao /models/modelo.gguf)
+THREADS="${ARGS[$(( $(printf '%s\n' "${ARGS[@]}" | grep -nx -- -t | cut -d: -f1) ))]}"
 BASE="${FINTRACK_LLM_DIR:-$HOME/fintrack-llm}"
 case "$BASE" in
   "$ML"* | "$(dirname "$(dirname "$ML")")"*) erro "FINTRACK_LLM_DIR não pode ficar dentro do repositório" ;;
@@ -92,8 +93,7 @@ docker run -d --name "$CONTAINER" \
   -v "$BASE/modelos/$arquivo:/models/modelo.gguf:ro" \
   -p "127.0.0.1:$PORTA:8080" \
   "$digest" \
-  -m /models/modelo.gguf --host 0.0.0.0 --port 8080 \
-  -t "$THREADS" -c "$CONTEXTO" -np 1 --offline --no-webui >/dev/null
+  "${ARGS[@]}" >/dev/null
 cid=$(docker inspect --format '{{.Id}}' "$CONTAINER")
 
 saude=()

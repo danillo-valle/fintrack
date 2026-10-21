@@ -186,8 +186,9 @@ histórico). Guarde o valor novo também no gerenciador de senhas.
 
 ## Busca do banco (Meu Pluggy, M09.1)
 
-A busca roda dentro do container `web` (fila pg-boss no próprio Postgres): todo dia às 06:47 e
-quando alguém aperta "Buscar agora". Cada execução fica em Ajustes › Conexões bancárias ›
+A busca roda dentro do container `web` (fila pg-boss no próprio Postgres): todo dia às 04:30
+(era 06:47 até o M10.2b: a IA local precisa da carga a tempo) e quando alguém aperta "Buscar
+agora". Cada execução fica em Ajustes › Conexões bancárias ›
 Sincronizações, com o resultado escrito.
 
 ```bash
@@ -201,7 +202,7 @@ sudo -u fintrack fintrack-compose exec db psql -U fintrack -c \
 | Situação                                                    | O que fazer                                                                                                                                                                                       |
 | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | "a Pluggy recusou o Client Secret"                          | A pessoa trocou o Client Secret no painel da Pluggy: ela salva as credenciais de novo no app                                                                                                      |
-| "a Pluggy não respondeu" / "a Pluggy pediu uma pausa"       | Nada: a fila tenta de novo duas vezes, e amanhã às 06:47 também                                                                                                                                   |
+| "a Pluggy não respondeu" / "a Pluggy pediu uma pausa"       | Nada: a fila tenta de novo duas vezes, e amanhã às 04:30 também                                                                                                                                   |
 | Nenhuma busca desde ontem, sem erro                         | `sync.worker_failed` no log? Confira se o `web` está de pé (`fintrack-status`) e se `SYNC_WORKER` não está `off` no `app.env`                                                                     |
 | Aviso "o servidor ainda não tem a chave"                    | Falta `CONNECTION_SECRET_KEYS` no `app.env`: veja "Trocar um segredo"                                                                                                                             |
 | Chave perdida (servidor refeito sem a cópia do gerenciador) | `sudo -u fintrack fintrack-definir app.env CONNECTION_SECRET_KEYS --gerar-chave 2` (uma versão que a perdida não usava), reinicie o `web` e peça a cada pessoa que digite o Client Secret de novo |
@@ -274,6 +275,35 @@ docker rm -f fintrack-llm-medicao
 | "a porta 8090 já está em uso"                   | Outra medição ficou no ar: `docker rm -f fintrack-llm-medicao`                                   |
 | Muitos erros `URLError` ou `RemoteDisconnected` | O container morreu (memória?): `docker logs fintrack-llm-medicao` antes do fim; `LLM_MEMORIA=4g` |
 | A produção ficou lenta durante a medição        | Ctrl+C (grava o que já mediu e derruba o container); o relatório mostra o impacto                |
+
+## IA local (serviço `llm`, M10.2b, ADR-016)
+
+O Qwen2.5 3B roda no llama-server, num container `llm` que só existe na janela da noite: o
+timer `fintrack-llm-ligar` sobe às 04:40 e o `fintrack-llm-desligar` derruba às 06:45. Ele fica
+numa rede interna (`llm`) que só o `ml` alcança; o app pergunta ao `ml`, nunca ao `llm`. A fila
+`local-ai-nightly` do app trabalha das 04:45 às 06:40, até 200 recebidos por lar por noite, só no
+que veio do banco (Meu Pluggy, OFX, PDF) e ficou sem categoria. Nada vale sem a pessoa confirmar;
+categoria nova só com o "Criar e aplicar". Começa desligada em cada lar (Ajustes › Categorização).
+
+```bash
+# O que está instalado e se está no ar (e os timers)
+sudo -u fintrack fintrack-llm estado
+# A última noite (só contagens: com categoria, nova, nenhuma, barrada, inválida)
+sudo -u fintrack fintrack-compose logs --since 30h --no-log-prefix web | jq -R 'fromjson? | select(.event? == "local_ai.night")'
+# Prova, na configuração de produção, que a resposta sai no schema e o texto não vai para o log
+sudo -u fintrack fintrack-llm testar
+```
+
+| Situação                                 | O que fazer                                                                                                    |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `status: UNAVAILABLE` toda noite         | `systemctl list-timers 'fintrack-llm-*'`; `journalctl -u fintrack-llm-ligar --since yesterday`                 |
+| "modelo ausente ou diferente do medido"  | `sudo -u fintrack fintrack-llm instalar` (baixa de novo e confere o sha256)                                    |
+| "o llm não ficou pronto em 300s"         | `docker logs` do llm; memória? O container tem 3 GB. `LLM_ESPERA=600 fintrack-llm ligar` para ver de novo      |
+| `testar` diz que o texto apareceu no log | Não ligue a IA em nenhum lar: `fintrack-llm desligar`, e registre o caso (o ADR-016 diz que isso não acontece) |
+| O site ficou lento de madrugada          | Ele tem 2 CPUs com prioridade baixa (`cpu_shares` 256). Desligue a IA no lar ou pare os timers (abaixo)        |
+| Parar a IA local sem derrubar nada       | `sudo systemctl disable --now fintrack-llm-ligar.timer`; `sudo -u fintrack fintrack-llm desligar`              |
+
+Trocar o modelo, a imagem ou os argumentos é medir de novo (`services/ml/bench`, ADR-016).
 
 ## Alertas
 

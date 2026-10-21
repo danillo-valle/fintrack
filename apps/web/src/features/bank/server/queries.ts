@@ -41,7 +41,7 @@ export async function myConnectionGrant(session: Session): Promise<ConnectionGra
   return access.ok ? access.grant : null;
 }
 
-/** A próxima busca agendada (06:47 em São Paulo), para a tela dizer "Amanhã, 06:47". */
+/** A próxima busca agendada (04:30 em São Paulo), para a tela dizer "Amanhã, 04:30". */
 export function nextScheduledRun(now: Date = new Date()): { day: CivilDate; time: string } {
   const [minute, hour] = DAILY_CRON.split(" ").map((n) => Number.parseInt(n, 10)) as [
     number,

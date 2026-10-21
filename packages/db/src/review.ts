@@ -24,6 +24,7 @@ import {
   civilFromDbDate,
   dbDateFromCivil,
   importWalletFor,
+  LOCAL_AI_BULK_SOURCES,
   pairCandidate,
   pairedFields,
   pairKey,
@@ -42,6 +43,7 @@ import {
 import { DomainError, type WalletScope } from "./access";
 import { writeAudit, type RequestContext } from "./audit";
 import type { Prisma, PrismaClient } from "./generated/prisma/client";
+import { localAiEnabled } from "./local-ai";
 import type { CategorizationSource } from "./generated/prisma/enums";
 import { fromDbDecimal, toDbDecimal } from "./money";
 import { personalWalletsOf, rerouteWallet } from "./sync";
@@ -78,6 +80,15 @@ const RECEIVED_SELECT = {
   providerInstallmentNumber: true,
   providerInstallmentCount: true,
   providerCardLastFour: true,
+  source: true,
+  // M10.2b: o que a IA local respondeu (a proposta de categoria nova fica aqui)
+  localAiAttempt: {
+    select: {
+      outcome: true,
+      proposedName: true,
+      proposedParent: { select: { id: true, name: true } },
+    },
+  },
   wallet: { select: { name: true } },
   category: { select: { id: true, name: true, parent: { select: { name: true } } } },
   card: { select: { lastFour: true, isAdditional: true, holder: { select: { name: true } } } },
@@ -149,7 +160,24 @@ const categoryView = (c: ReceivedRow["category"]) =>
 
 export type ReceivedView = ReturnType<typeof receivedView>;
 
-function receivedView(row: ReceivedRow, editable: ReadonlySet<string>) {
+/**
+ * A IA local num recebido (M10.2b): na fila (lar com a IA ligada, veio de uma carga, sem
+ * categoria e ainda não visto) e a categoria nova proposta, enquanto o recebido segue sem
+ * categoria.
+ */
+function localAiView(row: ReceivedRow, aiOn: boolean) {
+  const attempt = row.localAiAttempt;
+  const fromBulk = (LOCAL_AI_BULK_SOURCES as readonly string[]).includes(row.source);
+  return {
+    queued: aiOn && fromBulk && !attempt && row.categoryId === null && row.transferId === null,
+    proposal:
+      attempt?.outcome === "NEW_CATEGORY" && attempt.proposedName && row.categoryId === null
+        ? { name: attempt.proposedName, parent: attempt.proposedParent }
+        : null,
+  };
+}
+
+function receivedView(row: ReceivedRow, editable: ReadonlySet<string>, aiOn = false) {
   const match = receivedForMatch(row);
   return {
     id: row.id,
@@ -176,6 +204,7 @@ function receivedView(row: ReceivedRow, editable: ReadonlySet<string>) {
       ? civilFromDbDate(row.statement.referenceMonth).slice(0, 7)
       : null,
     canEdit: editable.has(row.walletId),
+    localAi: localAiView(row, aiOn),
   };
 }
 
@@ -332,7 +361,7 @@ export async function reviewQueue(
     status: "PENDING",
     deletedAt: null,
   } satisfies Prisma.TransactionWhereInput;
-  const [total, rows] = await Promise.all([
+  const [total, rows, aiOn] = await Promise.all([
     walletIds.length === 0 ? 0 : db.transaction.count({ where }),
     walletIds.length === 0
       ? []
@@ -342,6 +371,7 @@ export async function reviewQueue(
           take: REVIEW_QUEUE_LIMIT,
           select: RECEIVED_SELECT,
         }),
+    localAiEnabled(db, scope.householdId),
   ]);
   const { suggestions, rows: ownRows } = await suggestionsFor(db, editScope.walletIds, rows);
   const byId = new Map(rows.map((r) => [r.id, r]));
@@ -353,7 +383,7 @@ export async function reviewQueue(
           {
             kind: s.kind,
             daysApart: s.daysApart,
-            received: receivedView(r, editable),
+            received: receivedView(r, editable, aiOn),
             own: ownView(o),
           },
         ]
@@ -382,13 +412,14 @@ export async function reviewQueue(
       };
       groups.set(key, group);
     }
-    const view = receivedView(row, editable);
+    const view = receivedView(row, editable, aiOn);
     group.items.push(view);
     if (view.category || view.isTransfer) group.withCategory += 1;
   }
   for (const group of groups.values()) {
+    // A categoria da IA local não entra no lote (bulkConfirmable): confirmada uma a uma
     group.confirmable = group.items.filter(
-      (i) => i.canEdit && (i.category !== null || i.isTransfer),
+      (i) => i.canEdit && (i.category !== null || i.isTransfer) && i.categorizedBy !== "LLM",
     ).length;
   }
 
@@ -414,6 +445,9 @@ export async function reviewQueue(
     groups: [...groups.values()],
     confirmable,
     uncategorized: rows.filter((r) => r.categoryId === null && r.transferId === null).length,
+    /** M10.2b: a IA local está ligada no lar, e quantos destes estão na fila dela */
+    localAiOn: aiOn,
+    localAiQueued: rows.filter((r) => localAiView(r, aiOn).queued).length,
     finals,
   };
 }

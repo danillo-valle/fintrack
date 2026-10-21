@@ -4,16 +4,23 @@
 //   │ 66,7 %                                │  ≡ Regras ............... 168   40,8 %
 //   │ 6 de 9 lançamentos dos últimos 30 dias│  ⟲ Histórico ............  92   22,3 %
 //   └───────────────────────────────────────┘  ...
-//   ┌ Classificador ───────────────┐ ┌ IA local ─────────────────────┐
-//   │ treinado, acerto, limiar      │ │ ainda não existe (M10.2)      │
-//   └───────────────────────────────┘ └───────────────────────────────┘
+//   ┌ Classificador ───────────────┐ ┌ IA local ──────────────── [◯━] ┐
+//   │ treinado, acerto, limiar      │ │ janela, fila, última noite     │
+//   └───────────────────────────────┘ └────────────────────────────────┘
+//   (o cartão IA local é do M10.2b, prancha F2-IaLocal)
 //
 // Cada número de camada leva à lista dos lançamentos que ela categorizou (?quem=), como os
 // números do painel (M08). A barra é um desenho (role="img" com o texto inteiro); a lista ao
 // lado diz o mesmo em texto: a cor nunca é o único sinal.
 import Link from "next/link";
 import { Check, CircleAlert } from "lucide-react";
-import { CLASSIFIER_THRESHOLD, type BreakdownKey, type CategorizationSource } from "@fintrack/core";
+import {
+  CLASSIFIER_THRESHOLD,
+  LOCAL_AI_NIGHT_LIMIT,
+  LOCAL_AI_WINDOW_TEXT,
+  type BreakdownKey,
+  type CategorizationSource,
+} from "@fintrack/core";
 import type { CategorizationPage } from "../server/categorization";
 import { SOURCE_ICON } from "@/components/visual/source-pill";
 import { SoftPanel } from "@/components/visual/summary";
@@ -21,6 +28,7 @@ import { ToneChip } from "@/components/visual/tone-chip";
 import { formatDate } from "@/lib/dates";
 import { NUMBER_LINK } from "@/lib/styles";
 import { cn } from "@/lib/utils";
+import { LocalAiSwitch } from "./local-ai-switch";
 import { TrainButton } from "./train-button";
 
 const BACK = "/ajustes/categorizacao";
@@ -33,6 +41,7 @@ const NAME: Record<BreakdownKey, string> = {
   HISTORY: "Histórico",
   PROVIDER: "Banco (Meu Pluggy)",
   CLASSIFIER: "Classificador",
+  LLM: "IA local",
   MANUAL: "Você escolheu",
   NONE: "Sem categoria",
 };
@@ -42,6 +51,7 @@ const QUEM: Record<CategorizationSource, string> = {
   HISTORY: "historico",
   PROVIDER: "banco",
   CLASSIFIER: "classificador",
+  LLM: "ia",
   MANUAL: "voce",
 };
 
@@ -51,6 +61,7 @@ const FILL: Record<BreakdownKey, string> = {
   HISTORY: "bg-chart-1",
   PROVIDER: "bg-chart-4",
   CLASSIFIER: "hatch [--tone:var(--chart-1)]",
+  LLM: "hatch [--tone:var(--chart-3)]",
   MANUAL: "bg-chart-2",
   NONE: "bg-muted-foreground/35",
 };
@@ -242,34 +253,85 @@ export function ClassifierCard({ page, now }: { page: CategorizationPage; now: D
   );
 }
 
-export function LocalAiCard() {
+const n = (value: number) => <span className="tabular font-mono font-bold">{value}</span>;
+
+/** O cartão IA local (M10.2b, prancha F2-IaLocal): o interruptor, a janela e a última noite. */
+export function LocalAiCard({ page, now }: { page: CategorizationPage; now: Date }) {
+  const { localAi } = page;
+  const on = localAi.enabledAt !== null;
+  const night = localAi.lastNight;
   return (
     <section
       aria-labelledby="ia-local"
       className="bg-card flex flex-col gap-3.5 rounded-[1.125rem] border p-4 md:p-5"
+      data-testid="cartao-ia-local"
     >
-      <div className="flex flex-col gap-0.5">
-        <h2 id="ia-local" className="text-lg font-extrabold tracking-tight md:text-xl">
-          IA local
-        </h2>
-        <span className="text-muted-foreground text-sm font-bold">Ainda não existe</span>
+      <div className="flex items-start justify-between gap-3.5">
+        <div className="flex flex-col gap-0.5">
+          <h2 id="ia-local" className="text-lg font-extrabold tracking-tight md:text-xl">
+            IA local
+          </h2>
+          <span
+            className={cn("text-sm font-bold", on ? "text-income" : "text-muted-foreground")}
+            data-testid="ia-local-estado"
+          >
+            {localAi.enabledAt ? `Ligada desde ${formatDate(localAi.enabledAt)}` : "Desligada"}
+          </span>
+        </div>
+        {page.canManage && page.configured ? <LocalAiSwitch on={on} labelledBy="ia-local" /> : null}
       </div>
       <p className="text-sm">
-        O que as regras, o histórico, o banco e o classificador não resolvem fica sem sugestão, para
-        você escolher.
+        {on ? (
+          <>
+            Roda à noite, {LOCAL_AI_WINDOW_TEXT}, até {LOCAL_AI_NIGHT_LIMIT} lançamentos por noite,
+            só no que veio do banco. Na fila agora: {n(localAi.queued)}.
+          </>
+        ) : (
+          "O que as regras, o histórico, o banco e o classificador não resolvem fica sem sugestão, para você escolher."
+        )}
       </p>
       <ul className="flex flex-col gap-2 text-sm">
-        <li className="flex gap-2">
-          <Check aria-hidden className="text-income mt-0.5 size-[1.125rem] shrink-0" />
-          Se vier, roda no servidor de casa: a descrição do lançamento não sai dele
-        </li>
-        <li className="flex gap-2">
-          <Check aria-hidden className="text-income mt-0.5 size-[1.125rem] shrink-0" />
-          Nunca no caminho do lançamento: só numa fila, à noite, depois de salvo
-        </li>
+        {[
+          "Roda no servidor de casa: a descrição do lançamento não sai dele",
+          `Custo: R$ 0,00. Sem API paga, não há teto em reais; o limite é de uso (${LOCAL_AI_NIGHT_LIMIT} por noite)`,
+          "Responde só uma categoria da sua lista, ou propõe uma nova; nada é criado nem confirmado sem você",
+          "Lançamento feito à mão nunca vai para a IA",
+        ].map((text) => (
+          <li key={text} className="flex gap-2">
+            <Check aria-hidden className="text-income mt-0.5 size-[1.125rem] shrink-0" />
+            {text}
+          </li>
+        ))}
       </ul>
-      <ToneChip tone={4} icon={CircleAlert} className="self-start">
-        Só depois da medição no servidor (M10.2)
+      {night ? (
+        <div
+          className="bg-muted/50 flex flex-col gap-1.5 rounded-[0.875rem] border px-3.5 py-3 text-sm"
+          data-testid="ia-local-noite"
+        >
+          <strong>Última noite ({trainedLabel(night.at, now)})</strong>
+          <span>
+            {n(night.outcomes.SUGGESTED)} com categoria · {n(night.outcomes.NEW_CATEGORY)}{" "}
+            {night.outcomes.NEW_CATEGORY === 1
+              ? "categoria nova proposta"
+              : "categorias novas propostas"}{" "}
+            · {n(night.outcomes.NO_SUGGESTION + night.outcomes.INVALID)} sem resposta ·{" "}
+            {n(night.outcomes.BLOCKED)} {night.outcomes.BLOCKED === 1 ? "barrada" : "barradas"}{" "}
+            (texto com cara de instrução)
+          </span>
+        </div>
+      ) : null}
+      {page.configured ? null : (
+        <span className="text-muted-foreground text-[0.8125rem]">
+          O serviço Python não está ligado neste servidor
+        </span>
+      )}
+      {/* Texto longo para a largura do celular: a etiqueta quebra a linha em vez de vazar do cartão */}
+      <ToneChip
+        tone={4}
+        icon={CircleAlert}
+        className="h-auto min-h-6 self-start py-1 whitespace-normal"
+      >
+        Qwen2.5 3B, medido no servidor de casa (ADR-016)
       </ToneChip>
     </section>
   );

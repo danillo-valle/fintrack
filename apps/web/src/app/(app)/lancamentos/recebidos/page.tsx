@@ -45,6 +45,8 @@ export default async function ReviewPage({ searchParams }: PageProps<"/lancament
   const open = one(params.abrir) ?? null;
   const joined = one(params.juntado) ?? null;
   const confirmed = one(params.confirmado) ?? null;
+  const created = one(params.criada) ?? null;
+  const applied = Number.parseInt(one(params.aplicados) ?? "", 10);
   // A decisão tomada num modal (o par, ou o "Por que essa categoria?") volta com o Desfazer
   const returned: ReviewReturn | null =
     joined && UUID.test(joined)
@@ -59,9 +61,19 @@ export default async function ReviewPage({ searchParams }: PageProps<"/lancament
             message: "1 recebido confirmado. Já entra nas somas.",
             undo: { kind: "review", ids: [confirmed] },
           }
-        : null;
+        : created && UUID.test(created)
+          ? {
+              key: `criada:${created}`,
+              message: `Categoria aplicada em ${applied === 1 ? "1 recebido" : `${Number.isFinite(applied) ? applied : 0} recebidos`}. Falta o seu Confirmar.`,
+              undo: null,
+            }
+          : null;
   const page = await getReviewPage(session, view);
   const { queue } = page;
+  // A categoria da IA local fica fora do "Confirmar os N" (M10.2b): a tela diz isso
+  const hasLlm = queue.groups.some((g) =>
+    g.items.some((i) => i.categorizedBy === "LLM" && i.category !== null),
+  );
   const waiting = queue.total === 1 ? "1 esperando revisão." : `${queue.total} esperando revisão.`;
 
   return (
@@ -97,6 +109,9 @@ export default async function ReviewPage({ searchParams }: PageProps<"/lancament
       <noscript>
         {joined ? <p className="mb-4 text-sm font-semibold">Par confirmado.</p> : null}
         {confirmed ? <p className="mb-4 text-sm font-semibold">Recebido confirmado.</p> : null}
+        {created ? (
+          <p className="mb-4 text-sm font-semibold">Categoria criada e aplicada.</p>
+        ) : null}
       </noscript>
 
       {queue.total === 0 ? (
@@ -132,26 +147,45 @@ export default async function ReviewPage({ searchParams }: PageProps<"/lancament
                   count: queue.uncategorized,
                   active: view === "sem-categoria",
                 },
+                // M10.2b: só com a IA local ligada no lar (prancha F2-Recebidos)
+                ...(queue.localAiOn
+                  ? [
+                      {
+                        href: hrefFor("fila-ia"),
+                        label: "Na fila da IA",
+                        shortLabel: "Fila da IA",
+                        count: queue.localAiQueued,
+                        active: view === "fila-ia",
+                      },
+                    ]
+                  : []),
               ]}
             />
             {queue.confirmable > 0 ? (
-              <ReviewForm intent="bulk" fields={{}} className="grid md:block">
-                <ReviewSubmit className={MAIN_BUTTON}>
-                  <Check aria-hidden className="size-[1.125rem]" />
-                  {queue.confirmable === 1 ? (
-                    "Confirmar o que já tem categoria"
-                  ) : (
-                    <>
-                      <span className="md:hidden">
-                        Confirmar os {queue.confirmable} com categoria
-                      </span>
-                      <span className="hidden md:inline">
-                        Confirmar os {queue.confirmable} que já têm categoria
-                      </span>
-                    </>
-                  )}
-                </ReviewSubmit>
-              </ReviewForm>
+              <div className="flex flex-col gap-1.5 md:flex-row md:items-center md:gap-2.5">
+                {hasLlm ? (
+                  <span className="text-muted-foreground order-last text-[0.8125rem] md:order-first md:max-w-56 md:text-right">
+                    A da IA local você confirma uma a uma
+                  </span>
+                ) : null}
+                <ReviewForm intent="bulk" fields={{}} className="grid md:block">
+                  <ReviewSubmit className={MAIN_BUTTON}>
+                    <Check aria-hidden className="size-[1.125rem]" />
+                    {queue.confirmable === 1 ? (
+                      "Confirmar o que já tem categoria"
+                    ) : (
+                      <>
+                        <span className="md:hidden">
+                          Confirmar os {queue.confirmable} com categoria
+                        </span>
+                        <span className="hidden md:inline">
+                          Confirmar os {queue.confirmable} que já têm categoria
+                        </span>
+                      </>
+                    )}
+                  </ReviewSubmit>
+                </ReviewForm>
+              </div>
             ) : null}
           </div>
 
@@ -179,12 +213,17 @@ export default async function ReviewPage({ searchParams }: PageProps<"/lancament
               wallets={page.wallets}
               expanded={open === group.key}
               expandHref={`${hrefFor(view, group.key)}#grupo-${group.key.replace(":", "-")}`}
+              canManageCategories={page.canManageCategories}
             />
           ))}
 
           {view !== "todos" && page.pairs.length === 0 && page.groups.length === 0 ? (
             <p className="text-muted-foreground text-sm">
-              {view === "pares" ? "Nenhum par sugerido agora." : "Todos já têm categoria."}
+              {view === "pares"
+                ? "Nenhum par sugerido agora."
+                : view === "fila-ia"
+                  ? "Nada na fila da IA local agora."
+                  : "Todos já têm categoria."}
             </p>
           ) : null}
           {queue.truncated ? (

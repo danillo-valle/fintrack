@@ -370,6 +370,20 @@ describe("explainCascade: a mesma resposta do runCascade, camada por camada", ()
 });
 
 describe("categorizationBreakdown: o percentual sem IA", () => {
+  it("a IA local entra no total e na lista, mas não no percentual sem IA (canvas F)", () => {
+    const b = categorizationBreakdown({
+      RULE: 168,
+      HISTORY: 92,
+      PROVIDER: 57,
+      CLASSIFIER: 61,
+      LLM: 26,
+      NONE: 8,
+    });
+    expect(b).toMatchObject({ total: 412, automatic: 378, automaticTenths: 917 });
+    expect(b.rows.find((r) => r.key === "LLM")).toEqual({ key: "LLM", count: 26, tenths: 63 });
+    expect(BREAKDOWN_ORDER.indexOf("LLM")).toBe(BREAKDOWN_ORDER.indexOf("CLASSIFIER") + 1);
+  });
+
   it("o exemplo do canvas: 378 de 412 → 91,7 %", () => {
     const b = categorizationBreakdown({
       RULE: 168,

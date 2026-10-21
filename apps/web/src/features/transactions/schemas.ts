@@ -233,6 +233,7 @@ export const CATEGORIZED_BY_PARAM: Record<CategorizationSource, string> = {
   HISTORY: "historico",
   PROVIDER: "banco",
   CLASSIFIER: "classificador",
+  LLM: "ia",
   MANUAL: "voce",
 };
 const CATEGORIZED_BY: Record<string, CategorizationSource> = Object.fromEntries(

@@ -26,3 +26,16 @@ export const ruleSchema = z.object({
 });
 
 export const ruleIdSchema = z.object({ ruleId: z.uuid() });
+
+/** O interruptor da IA local (M10.2b): o estado que o botão pede. */
+export const localAiSwitchSchema = z.object({ enabled: z.enum(["true", "false"]) });
+
+/** "Criar e aplicar" (M10.2b): a pessoa pode trocar o nome e a mãe que a IA propôs. */
+export const localAiProposalSchema = z.object({
+  transactionId: z.uuid(),
+  name: z.string().trim().min(1, "Dê um nome à categoria.").max(60, "Use no máximo 60 caracteres."),
+  parentId: z
+    .union([z.literal(""), z.uuid()])
+    .default("")
+    .transform((v) => v || null),
+});

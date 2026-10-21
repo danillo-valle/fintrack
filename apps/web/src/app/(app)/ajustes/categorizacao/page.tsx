@@ -56,7 +56,7 @@ export default async function CategorizationSettingsPage() {
         </section>
         <div className="grid items-start gap-4 md:grid-cols-2">
           <ClassifierCard page={page} now={new Date()} />
-          <LocalAiCard />
+          <LocalAiCard page={page} now={new Date()} />
         </div>
       </div>
     </>

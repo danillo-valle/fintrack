@@ -37,7 +37,11 @@ Projeto de portfólio construído em módulos (M00 a M12); cada módulo é uma m
   sem IA; conjunto rotulado sintético e eval no CI (mínimo 85 %) (ADR-015)
 - Medição do LLM local (M10.2a): `services/ml/bench/` (fora da imagem) sobe o llama-server num container
   com teto no servidor de casa e mede a tabela do ADR-007 com itens sintéticos; a decisão vem num ADR
-- Próximos: a decisão do LLM e, se aprovado, a fila (M10.2b) e o resumo do mês (M10.3)
+- IA local (M10.2b, ADR-016): Qwen2.5 3B no llama-server, container `llm` só das 04:40 às 06:45
+  (timers `fintrack-llm-*`), rede interna que só o `ml` alcança; fila `local-ai-nightly` das 04:45
+  às 06:40, até 200 por lar por noite, só nas cargas do banco que ficaram sem categoria; filtro antes
+  do LLM, resposta presa por schema; propõe categoria nova ("Criar e aplicar"); desligada por padrão
+- Próximo: o resumo do mês (M10.3)
 
 Regras específicas do Next.js 16: @apps/web/AGENTS.md
 

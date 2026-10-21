@@ -127,14 +127,52 @@ services:
     environment:
       ML_JWKS_URL: http://web:3000/api/auth/jwks
       ML_MODEL_DIR: /data/modelos
+      # M10.2b (ADR-016): a IA local. Só o ml fala com ela, e só na janela da noite
+      ML_LLM_URL: http://llm:8080
     read_only: true
     tmpfs:
       - /tmp
     volumes:
       - ml-modelos:/data/modelos
-    networks: [ml]
+    # llm (M10.2b): a rede interna onde o ml (e só ele) alcança o llama-server
+    networks: [ml, llm]
     # O healthcheck vem da imagem (services/ml/Dockerfile: GET /health a cada 30 s)
     mem_limit: 512m
+    logging: *logging
+
+  # ── A IA local: o llama-server com o Qwen2.5 3B (M10.2b, ADR-016) ──────────────────────
+  # Só na janela da noite. O perfil "ia" faz o "up" do deploy ignorar este serviço; quem liga
+  # (04:40) e desliga (06:45) é o fintrack-llm, chamado pelos timers do systemd. restart "no":
+  # se o servidor reiniciar de dia, ele não volta sozinho.
+  #   - só na rede interna "llm", junto com o ml: sem porta, sem internet (e --offline);
+  #   - sem a interface web (--no-webui) e sem o /slots (--no-slots); o log padrão do
+  #     llama-server não grava o texto do prompt (fintrack-llm testar prova);
+  #   - 2 núcleos, prioridade abaixo da produção (cpu_shares 256; o padrão é 1024), 3 GiB sem
+  #     swap: se faltar memória ele morre, em vez de empurrar o app para o swap;
+  #   - o cache de prompts do llama-server fica na memória, com teto de 512 MiB (o padrão é
+  #     8 GiB, mais que o container tem);
+  #   - o modelo (2 GB) fica fora da imagem, no disco do servidor, só leitura.
+  # Imagem (digest) e modelo presos ao que foi medido no M10.2a: trocar = medir de novo.
+  # O command fica numa linha só: a medição (services/ml/bench) e o teste tests/test_ia_local.py
+  # leem daqui os argumentos, para medir e testar exatamente a configuração de produção.
+  llm:
+    <<: *hardening
+    image: ghcr.io/ggml-org/llama.cpp@sha256:f41d47eee678c02656eefc9ed8cce76cab584aa7032805eeef0e6639fcfda485
+    profiles: [ia]
+    restart: "no"
+    user: "65534:65534"
+    # prettier-ignore
+    command: ["-m", "/models/qwen2.5-3b-instruct-q4_k_m.gguf", "--host", "0.0.0.0", "--port", "8080", "-t", "2", "-c", "2048", "-np", "1", "--cache-ram", "512", "--offline", "--no-webui", "--no-slots"]
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - /srv/fintrack/llm/modelos:/models:ro
+    networks: [llm]
+    cpus: 2
+    cpu_shares: 256
+    mem_limit: 3g
+    memswap_limit: 3g
     logging: *logging
 
   # ── Caddy: a porta de entrada dentro do servidor ───────────────────────────────────────
@@ -201,6 +239,9 @@ networks:
     internal: true
   ml:
     # Também sem rota para fora: só o app e o serviço Python (M09.4)
+    internal: true
+  llm:
+    # Sem rota para fora: só o serviço Python e o llama-server (M10.2b)
     internal: true
 
 volumes:

@@ -126,6 +126,11 @@ Combinado com o Danillo antes do código (11/10/2026):
 - Riscos: mudança no formato da API da Pluggy (o adaptador valida e falha com
   `BAD_RESPONSE`, sem gravar nada); perda da chave (digitar o Client Secret de novo).
 
+## Adendo M10.2b (17/10/2026)
+
+A busca diária passou de 06:47 para **04:30** (cron `30 4 * * *`), combinado com o Danillo:
+depois do backup das 03:30, e a tempo de a IA local (ADR-016) olhar a carga entre 04:45 e 06:45.
+
 ## Alternativas consideradas
 
 - **Webhooks da Pluggy**: exigem URL pública recebendo chamadas e não trazem ganho com

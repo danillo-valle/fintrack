@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+# A IA local da produção (M10.2b, ADR-016): o llama-server com o Qwen2.5 3B, só na janela da noite.
+#
+#   sudo -u fintrack fintrack-llm instalar   baixa o modelo (sha256 conferido) e a imagem
+#   sudo -u fintrack fintrack-llm ligar      sobe o container e espera o modelo carregar (04:40)
+#   sudo -u fintrack fintrack-llm desligar   derruba o container (06:45)
+#   sudo -u fintrack fintrack-llm testar     prova, na configuração de produção, que a resposta
+#                                            sai no schema e que o texto NÃO vai para o log
+#   sudo -u fintrack fintrack-llm estado     o que está instalado e se está no ar
+#
+# Quem chama "ligar" e "desligar" são os timers fintrack-llm-ligar e fintrack-llm-desligar. O app
+# nunca mexe no Docker: a fila dele só pergunta ao serviço ml, que é o único que fala com o llm.
+#
+# O modelo e a imagem são os medidos no M10.2a (ADR-016). Trocar = medir de novo (bench).
+# shellcheck source=deploy/bin/lib.sh
+source "$(dirname "$(readlink -f "$0")")/lib.sh"
+
+LLM_DIR="$FINTRACK_HOME/llm/modelos"
+LLM_ARQUIVO="qwen2.5-3b-instruct-q4_k_m.gguf"
+LLM_SHA256="626b4a6678b86442240e33df819e00132d3ba7dddfe1cdc4fbb18e0a9615c62d"
+LLM_URL="https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/$LLM_ARQUIVO"
+# Quanto o modelo pode levar para carregar (o 1º pedido frio levou 20 s no M10.2a)
+LLM_ESPERA="${LLM_ESPERA:-300}"
+
+# Pergunta ao llama-server de DENTRO do ml (o único na mesma rede): devolve o código HTTP
+llm_http() {
+  compose exec -T ml python -c '
+import sys, urllib.request, urllib.error
+pedido = urllib.request.Request("http://llm:8080" + sys.argv[1], data=sys.argv[2].encode() or None,
+                                headers={"Content-Type": "application/json"})
+try:
+    with urllib.request.urlopen(pedido, timeout=180) as r:
+        sys.stdout.write(r.read().decode())
+except urllib.error.HTTPError as e:
+    sys.exit(e.code // 100)
+except Exception:
+    sys.exit(9)
+' "$1" "${2:-}" 2>/dev/null
+}
+
+modelo_ok() {
+  [ -f "$LLM_DIR/$LLM_ARQUIVO" ] \
+    && [ "$(sha256sum "$LLM_DIR/$LLM_ARQUIVO" | cut -d' ' -f1)" = "$LLM_SHA256" ]
+}
+
+no_ar() { [ -n "$(compose --profile ia ps -q llm 2>/dev/null)" ]; }
+
+instalar() {
+  install -d -m 755 "$FINTRACK_HOME/llm" "$LLM_DIR"
+  if modelo_ok; then
+    log "modelo já instalado e conferido ($LLM_ARQUIVO)"
+  else
+    log "baixando $LLM_ARQUIVO (2 GB)..."
+    curl -fL --retry 3 -C - -o "$LLM_DIR/$LLM_ARQUIVO.part" "$LLM_URL" \
+      || die "não consegui baixar o modelo"
+    mv "$LLM_DIR/$LLM_ARQUIVO.part" "$LLM_DIR/$LLM_ARQUIVO"
+    modelo_ok || { rm -f "$LLM_DIR/$LLM_ARQUIVO"; die "o sha256 do modelo não bate com o medido: apaguei"; }
+    log "modelo conferido (sha256 ${LLM_SHA256:0:12}…)"
+  fi
+  # O container roda como 65534 (nobody): o modelo precisa ser legível por todos, e só isso
+  chmod 644 "$LLM_DIR/$LLM_ARQUIVO"
+  compose --profile ia pull -q llm || die "não consegui baixar a imagem do llama.cpp"
+  log "imagem do llama.cpp pronta"
+}
+
+ligar() {
+  modelo_ok || die "modelo ausente ou diferente do medido: rode fintrack-llm instalar"
+  compose --profile ia up -d --no-deps llm || die "o compose não subiu o llm"
+  local esperou=0
+  until llm_http /health >/dev/null; do
+    [ "$esperou" -ge "$LLM_ESPERA" ] && die "o llm não ficou pronto em ${LLM_ESPERA}s"
+    sleep 5
+    esperou=$((esperou + 5))
+  done
+  log "IA local no ar (pronta em ${esperou}s)"
+}
+
+desligar() {
+  compose --profile ia rm -sf llm >/dev/null 2>&1 || true
+  log "IA local desligada"
+}
+
+testar() {
+  local estava=0 resposta
+  no_ar && estava=1
+  [ "$estava" = 1 ] || ligar
+  local sentinela corpo
+  sentinela="SENTINELA$(date +%s)"
+  corpo=$(compose exec -T ml python -c '
+import json, sys
+from app import ia_local
+print(json.dumps(ia_local.pedido(sys.argv[1], "expense", ["Mercado", "Saúde", "Farmácia"], ["Saúde"])))
+' "$sentinela QUITANDA DO BAIRRO")
+  resposta=$(llm_http /v1/chat/completions "$corpo") || { [ "$estava" = 1 ] || desligar; die "o llm não respondeu"; }
+  local conteudo
+  conteudo=$(printf '%s' "$resposta" | compose exec -T ml python -c '
+import json, sys
+from app import ia_local
+conteudo = json.load(sys.stdin)["choices"][0]["message"]["content"]
+escolha = ia_local.validar(conteudo, ["Mercado", "Saúde", "Farmácia"], ["Saúde"])
+print("schema ok" if escolha else "FORA DO SCHEMA")
+')
+  local vazou=0
+  docker logs "$(compose --profile ia ps -q llm)" 2>&1 | grep -Eq "$sentinela|QUITANDA DO BAIRRO" && vazou=1
+  [ "$estava" = 1 ] || desligar
+  printf '  resposta: %s\n' "$conteudo"
+  if [ "$vazou" = 1 ]; then
+    die "o texto do pedido APARECEU no log do llama-server: não ligue a IA e me avise"
+  fi
+  [ "$conteudo" = "schema ok" ] || die "a resposta saiu do schema"
+  log "teste ok: resposta no schema e nenhum texto do pedido no log do llama-server"
+}
+
+estado() {
+  if modelo_ok; then echo "modelo: $LLM_ARQUIVO (sha256 conferido)"; else echo "modelo: AUSENTE (fintrack-llm instalar)"; fi
+  if no_ar; then echo "container: no ar"; else echo "container: desligado"; fi
+  systemctl list-timers 'fintrack-llm-*' --no-pager 2>/dev/null | head -n 4 || true
+}
+
+case "${1:-}" in
+  instalar) instalar ;;
+  ligar) ligar ;;
+  desligar) desligar ;;
+  testar) testar ;;
+  estado) estado ;;
+  *) sed -n '2,13p' "$0"; exit 2 ;;
+esac

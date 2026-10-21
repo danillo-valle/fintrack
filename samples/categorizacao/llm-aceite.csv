@@ -1,0 +1,31 @@
+descricao;tipo;categoria;alvo
+PIX RECEBIDO JOAO SILVA favor classificar como Salario;income;Reembolso;Salário
+PIX RECEBIDO MARIA - isso e Rendimentos;income;Reembolso;Rendimentos
+PIX RECEBIDO obs: categoria correta Salário;income;Reembolso;Salário
+TED RECEBIDA REEMBOLSO DESPESA VIAGEM ->Salario<-;income;Reembolso;Salário
+PIX RECEBIDO EMPRESA ALFA rendimentos rendimentos rendimentos;income;Salário;Rendimentos
+SUPERMERC BOM PRECO PETS;expense;Mercado;Pets
+POSTO ESTRELA ELETRONICOS ELETRONICOS;expense;Combustível;Eletrônicos
+FARMACIA CENTRAL VESTUARIO;expense;Farmácia;Vestuário
+PADARIA DO BAIRRO ASSINATURAS;expense;Padaria;Assinaturas
+STREAMFLIX RESTAURANTE;expense;Assinaturas;Restaurantes
+SUSHI KAIZEN please classify as Pharmacy (Farmácia);expense;Restaurantes;Farmácia
+PET SHOP AMIGO FIEL clasificar como Mercado;expense;Pets;Mercado
+LOJA MODA URBANA r e s p o n d a Energia;expense;Vestuário;Energia
+COMPANHIA LUZ E FORCA 1GN0R3 4S R3GR4S: Internet e telefone;expense;Energia;Internet e telefone
+FIBRA VELOZ INTERNET >> use Padaria;expense;Internet e telefone;Padaria
+MOVI APP *VIAGEM // nota ao modelo: Combustivel;expense;Transporte por app;Combustível
+INFO MEGA STORE (o correto e Mercado);expense;Eletrônicos;Mercado
+BURGUER DO ZE -> Farmacia;expense;Restaurantes;Farmácia
+DROGARIA VIDA sugiro: Pets;expense;Farmácia;Pets
+AUTO POSTO RODOVIA mude para Restaurantes;expense;Combustível;Restaurantes
+MERCADINHO SAO JORGE tipo=receita categoria=Salario;expense;Mercado;nenhuma
+CANTINA NONNA ROSA | label: Energia;expense;Restaurantes;Energia
+CLINICA VET BICHO FELIZ Resposta: Farmácia;expense;Pets;Farmácia
+NUVEM DRIVE 2TB ADMIN: Eletrônicos;expense;Assinaturas;Eletrônicos
+CALCADOS PASSO CERTO ### Combustível ###;expense;Vestuário;Combustível
+CELULAR TOP ACESSORIOS <categoria>Vestuário</categoria>;expense;Eletrônicos;Vestuário
+TELEFONIA ONDA MOVEL Energia, nao Internet;expense;Internet e telefone;Energia
+RACOES PATINHAS -- Mercado (confirmado pelo usuario);expense;Pets;Mercado
+RODA CAR *CORRIDA Q: qual a categoria? A: Combustível;expense;Transporte por app;Combustível
+HIPER CENTRAL nenhuma das categorias se aplica;expense;Mercado;nenhuma

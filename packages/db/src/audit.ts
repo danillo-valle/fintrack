@@ -68,7 +68,11 @@ export type AuditAction =
   | "transaction.match_undone"
   // M09.3: extrato importado (só ids e contagens; nunca nome do arquivo, final ou valor)
   | "file.imported"
-  | "classifier.trained";
+  | "classifier.trained"
+  // M10.2b: a IA local (só ids e contagens; nunca descrição nem nome de categoria)
+  | "local_ai.enabled"
+  | "local_ai.disabled"
+  | "local_ai.proposal_applied";
 
 export type AuditEntry = {
   actorId: string | null;
