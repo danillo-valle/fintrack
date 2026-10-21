@@ -8,7 +8,7 @@ test("o Início mostra o mesmo gasto do mês que a lista de lançamentos", async
   // M08: o Início virou o painel (canvas D). O "Gasto até hoje" leva à lista do mês até hoje,
   // que soma o mesmo valor (painel.spec.ts confere todos os números)
   await openPage(page, "/");
-  await expect(page.getByRole("region", { name: /^Resumo de / })).toBeVisible();
+  await expect(page.getByRole("region", { name: /^Números de / })).toBeVisible();
   const link = page.getByTestId("inicio-gasto").getByRole("link");
   const cents = BigInt((await link.getAttribute("data-cents")) ?? "x");
   await link.click();

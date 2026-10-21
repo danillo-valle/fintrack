@@ -254,7 +254,7 @@ test.describe("Início", () => {
     const p = await household(browser, testInfo, "inicio");
     const page = p.page;
     await openPage(page, "/");
-    await expect(page.getByRole("region", { name: /^Resumo de / })).toBeVisible();
+    await expect(page.getByRole("region", { name: /^Números de / })).toBeVisible();
     await expectNoA11yViolations(page);
 
     // Gasto até hoje: 100 + 60 + 15,50
