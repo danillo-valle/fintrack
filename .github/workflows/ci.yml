@@ -48,7 +48,7 @@ jobs:
 
       # M09.4: o serviço Python (services/ml), gerenciado pelo uv com as versões do uv.lock
       - name: Instala o uv (o Python do serviço que lê o PDF)
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           version: "0.11.32"
           enable-cache: true
@@ -159,7 +159,7 @@ jobs:
 
       # M09.4: o serviço Python (services/ml), gerenciado pelo uv com as versões do uv.lock
       - name: Instala o uv (o Python do serviço que lê o PDF)
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           version: "0.11.32"
           enable-cache: true
