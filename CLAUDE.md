@@ -41,7 +41,10 @@ Projeto de portfólio construído em módulos (M00 a M12); cada módulo é uma m
   (timers `fintrack-llm-*`), rede interna que só o `ml` alcança; fila `local-ai-nightly` das 04:45
   às 06:40, até 200 por lar por noite, só nas cargas do banco que ficaram sem categoria; filtro antes
   do LLM, resposta presa por schema; propõe categoria nova ("Criar e aplicar"); desligada por padrão
-- Próximo: o resumo do mês (M10.3)
+- Resumo do mês (M10.3, ADR-017): no topo do Início, até três observações por regras puras
+  (`packages/core/src/month-summary.ts`: orçado que estoura, acima do costume, conta fixa nova), na
+  hora, no cache do M08; do dia 1 ao 5, o mês anterior fechado; cada número leva à lista
+- Próximo: M11 (conforme o roteiro)
 
 Regras específicas do Next.js 16: @apps/web/AGENTS.md
 

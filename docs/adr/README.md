@@ -24,3 +24,4 @@ Modelo para um ADR novo: copie `0001-stack-e-monorepo.md` e troque o conteúdo.
 | 014 | [Fatura do cartão em PDF e o serviço Python](0014-fatura-em-pdf.md)                                    | aceita |
 | 015 | [Categorização inteligente: a categoria do banco e o classificador](0015-categorizacao-inteligente.md) | aceita |
 | 016 | [LLM local: o Qwen2.5 3B, com defesa em camadas](0016-llm-local.md)                                    | aceita |
+| 017 | [O resumo do mês: três observações por regras, sem IA](0017-resumo-do-mes.md)                          | aceita |
