@@ -17,6 +17,7 @@ import {
   listBudgets,
   prisma,
   recurrencePlans,
+  recurrencesStartedIn,
   spendingRows,
   type WalletScope,
 } from "@fintrack/db";
@@ -45,6 +46,13 @@ export async function cachedRecurrences(scope: WalletScope<"view">, months: Mont
   "use cache";
   tagged(scope);
   return recurrencePlans(prisma, scope, months);
+}
+
+/** As contas fixas e assinaturas que começaram no mês (o resumo do mês, M10.3). */
+export async function cachedNewRecurrences(scope: WalletScope<"view">, month: MonthKey) {
+  "use cache";
+  tagged(scope);
+  return recurrencesStartedIn(prisma, scope, month);
 }
 
 /** Os orçados do escopo num intervalo de meses, com a divisão. */

@@ -11,6 +11,7 @@ import { getHomeDashboard } from "@/features/budget/server/queries";
 import { EnvironmentRow } from "@/features/budget/ui/environment-row";
 import { GroupSpendingChart, GroupSpendingTable } from "@/features/budget/ui/group-spending";
 import { BudgetAlerts, CashFlowMini, Panel } from "@/features/budget/ui/home-panels";
+import { MonthSummary } from "@/features/budget/ui/month-summary";
 import { ViewToggle } from "@/features/budget/ui/view-toggle";
 import { getBankHome } from "@/features/bank/server/queries";
 import { BankAccountCards } from "@/features/bank/ui/bank-accounts";
@@ -84,6 +85,9 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
           hrefFor={(walletId) => `/${budgetQuery({ walletId, view: home.view })}`}
         />
 
+        {/* M10.3: o resumo do mês, logo abaixo do ambiente (linha F.3 do canvas) */}
+        <MonthSummary summary={home.summaryOfMonth} />
+
         {bank && bank.accounts.length > 0 ? (
           <section aria-labelledby="contas-e-cartoes" className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -107,7 +111,8 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
         ) : null}
 
         <SummaryGrid
-          label={`Resumo de ${home.monthLabel}`}
+          // M10.3: "Resumo de outubro" agora é o resumo em observações; este é o dos números
+          label={`Números de ${home.monthLabel}`}
           className="md:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]"
         >
           <HighlightCard

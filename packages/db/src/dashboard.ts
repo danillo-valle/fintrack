@@ -18,6 +18,7 @@ import {
   type CashAccount,
   type CivilDate,
   type MonthKey,
+  type NewRecurrence,
   type ScheduledRecurrence,
   type SpendingNature,
   type SpendingRow,
@@ -262,4 +263,46 @@ export async function scopeAccounts(db: PrismaClient, scope: WalletScope<"view">
     orderBy: { name: "asc" },
     select: { id: true, name: true, kind: true, closingDay: true, dueDay: true, walletId: true },
   });
+}
+
+/**
+ * O resumo do mês (M10.3): as contas fixas e assinaturas de despesa do escopo que começaram no
+ * mês. Arquivadas não entram (quem arquivou desistiu dela).
+ */
+export async function recurrencesStartedIn(
+  db: PrismaClient,
+  scope: WalletScope<"view">,
+  month: MonthKey,
+): Promise<NewRecurrence[]> {
+  const recurrences = await db.recurrence.findMany({
+    where: {
+      walletId: { in: walletIdsOf(scope) },
+      archivedAt: null,
+      kind: { in: ["FIXED_BILL", "SUBSCRIPTION"] },
+      amount: { lt: 0 },
+      startsOn: {
+        gte: dbDateFromCivil(firstDayOf(month)),
+        lte: dbDateFromCivil(dayOfMonth(month, 31)),
+      },
+    },
+    orderBy: [{ startsOn: "asc" }, { id: "asc" }],
+    select: {
+      id: true,
+      kind: true,
+      walletId: true,
+      categoryId: true,
+      description: true,
+      amount: true,
+      startsOn: true,
+    },
+  });
+  return recurrences.map((r) => ({
+    id: r.id,
+    kind: r.kind === "SUBSCRIPTION" ? "SUBSCRIPTION" : "FIXED_BILL",
+    walletId: r.walletId,
+    categoryId: r.categoryId,
+    description: r.description,
+    monthly: -fromDbDecimal(r.amount),
+    startsOn: civilFromDbDate(r.startsOn),
+  }));
 }
