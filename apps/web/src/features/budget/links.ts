@@ -30,6 +30,8 @@ export type ListLink = {
   type?: TransactionTypeFilter | null;
   /** A tela de onde se veio (a lista mostra "Voltar para Orçamento · Mercado") */
   back?: string | null;
+  /** Busca na descrição (M10.3: os lançamentos de uma conta fixa nova) */
+  text?: string | null;
 };
 
 /** O endereço da lista de lançamentos com os filtros pedidos. */
@@ -47,7 +49,7 @@ export function transactionsHref(link: ListLink): string {
       to: link.to,
       accountId: link.accountId ?? null,
       categoryId: link.categoryId ?? null,
-      text: null,
+      text: link.text ?? null,
       type: link.type ?? null,
       payer,
       // O painel soma só o que foi conferido: a lista que ele abre é a mesma (sem os recebidos)

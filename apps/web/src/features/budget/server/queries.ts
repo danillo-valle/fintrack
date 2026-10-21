@@ -21,6 +21,7 @@ import {
   monthlySeries,
   monthOf,
   monthPhase,
+  monthSummary,
   monthsBefore,
   monthsEndingAt,
   monthsStartingAt,
@@ -32,12 +33,14 @@ import {
   spendingByGroup,
   subtreeOf,
   sumCents,
+  summaryPeriod,
   todayCivil,
   type BudgetStatus,
   type CashMovement,
   type CategoryNode,
   type CivilDate,
   type MonthKey,
+  type Observation,
   type PayerFilter,
   type PendingRow,
   type Projection,
@@ -63,6 +66,7 @@ import {
   cachedBudgets,
   cachedCash,
   cachedCategoryTree,
+  cachedNewRecurrences,
   cachedRecurrences,
   cachedSpending,
 } from "./data";
@@ -252,12 +256,18 @@ export async function getHomeDashboard(session: Session, params: SearchParams) {
   const back = `/${budgetQuery({ walletId: parsed.walletId, view: parsed.view })}`;
   const listHref = (link: ListLink) => transactionsHref({ ...link, back });
   const month = monthOf(today);
-  const first = monthsBefore(month, 6)[0] as MonthKey;
-  const [rows, plans, budgets, cash] = await Promise.all([
+  // M10.3: o resumo pode ser do mês anterior (até o dia 5), com os 6 meses antes dele
+  const period = summaryPeriod(today);
+  const first = monthsBefore(period.month, 6)[0] as MonthKey;
+  const [rows, plans, budgets, cash, summaryBudgets, newRecurrences] = await Promise.all([
     cachedSpending(scope, first, addMonthsToKey(month, 5), today),
     cachedRecurrences(scope, monthsStartingAt(month, 6)),
     cachedBudgets(scope, month, month),
     cachedCash(scope, monthSpan(month).from, monthSpan(addMonthsToKey(month, 5)).to),
+    period.month === month
+      ? Promise.resolve(null)
+      : cachedBudgets(scope, period.month, period.month),
+    cachedNewRecurrences(scope, period.month),
   ]);
   const pending = pendingRows(plans, [month], today);
   const slice: Slice = {};
@@ -369,6 +379,163 @@ export async function getHomeDashboard(session: Session, params: SearchParams) {
     alerts,
     withinCount: rowsOfBudget.length - alerts.length,
     cashflow: cashFlowMonths(ctx, cash, plans, monthsStartingAt(month, 6)),
+    summaryOfMonth: summaryView(
+      ctx,
+      listHref,
+      monthSummary({
+        month: period.month,
+        mode: period.mode,
+        today,
+        rows,
+        pending: period.month === month ? pending : [],
+        budgets: summaryBudgets ?? budgets,
+        nodes: ctx.tree,
+        recurrences: newRecurrences,
+      }),
+    ),
+  };
+}
+
+// ── Início: o resumo do mês (M10.3, linha F.3 do canvas) ───────────────────────
+
+/** Um pedaço da frase de uma observação: texto, ou um número que leva à lista. */
+export type SummarySegment =
+  { text: string } | { cents: bigint; href: string; emphasis?: "strong" | "expense" };
+
+export type ObservationView = {
+  key: string;
+  kind: Observation["kind"];
+  title: string;
+  segments: SummarySegment[];
+};
+
+export type SummaryView = {
+  month: MonthKey;
+  closed: boolean;
+  /** "Resumo de outubro" */
+  title: string;
+  /** "Com os lançamentos confirmados até agora" ou "Setembro fechado · o de outubro aparece no dia 6" */
+  subtitle: string;
+  observations: ObservationView[];
+  /** A frase do que não apareceu (só quando há menos de três), ou null */
+  missing: string | null;
+};
+
+const ddmm = (date: CivilDate) => `${date.slice(8, 10)}/${date.slice(5, 7)}`;
+const lower = (month: MonthKey) => monthName.format(at(month));
+
+const ABSENT_TEXT: Record<Observation["kind"], { current: string; closed: string }> = {
+  OVER_BUDGET: { current: "nenhum orçado deve estourar", closed: "nenhum orçado estourou" },
+  ABOVE_USUAL: {
+    current: "nenhuma categoria está acima do costume",
+    closed: "nenhuma categoria ficou acima do costume",
+  },
+  NEW_RECURRING: {
+    current: "nenhuma conta fixa nova este mês",
+    closed: "nenhuma conta fixa nova no mês",
+  },
+};
+
+function summaryView(
+  ctx: Context,
+  listHref: (link: ListLink) => string,
+  summary: ReturnType<typeof monthSummary>,
+): SummaryView {
+  const { month } = summary;
+  const closed = summary.mode === "closed";
+  const span = monthSpan(month);
+  const budgetHref = (walletId: string) => `/orcamento${budgetQuery({ walletId, month })}`;
+  const observations = summary.observations.map((o): ObservationView => {
+    if (o.kind === "OVER_BUDGET") {
+      const list = listHref({
+        ...span,
+        walletId: o.walletId,
+        categoryId: o.categoryId,
+        type: "expense",
+      });
+      const name = ctx.names.category.get(o.categoryId) ?? "Categoria";
+      const wallet = ctx.names.wallet.get(o.walletId) ?? "Ambiente";
+      return {
+        key: `over:${o.walletId}:${o.categoryId}`,
+        kind: o.kind,
+        title: `${name}, no ambiente ${wallet}, ${closed ? "passou do orçado" : "deve passar do orçado"}`,
+        segments: [
+          { text: closed ? "Gasto " : "Previsto " },
+          { cents: o.amount, href: list, emphasis: "strong" },
+          { text: " de " },
+          { cents: o.budget, href: budgetHref(o.walletId) },
+          { text: closed ? ": passou " : ": passa " },
+          { cents: o.by, href: budgetHref(o.walletId), emphasis: "expense" },
+        ],
+      };
+    }
+    if (o.kind === "ABOVE_USUAL") {
+      const first = o.months6[0] as MonthKey;
+      const last = o.months6.at(-1) as MonthKey;
+      const link = (s: { from: CivilDate; to: CivilDate }) =>
+        listHref({
+          walletId: ctx.parsed.walletId,
+          ...s,
+          categoryId: o.categoryId,
+          type: "expense",
+        });
+      return {
+        key: `above:${o.categoryId}`,
+        kind: o.kind,
+        title: `${ctx.names.category.get(o.categoryId) ?? "Categoria"} acima do costume`,
+        segments: [
+          { text: closed ? "No mês, " : "Até hoje " },
+          {
+            cents: o.spent,
+            href: link(closed ? span : monthToDate(month, ctx.today)),
+            emphasis: "strong",
+          },
+          { text: `, ${o.percent} % acima da média de 6 meses (` },
+          { cents: o.average, href: link(monthsSpan(first, last)) },
+          { text: ")" },
+        ],
+      };
+    }
+    const r = o.recurrence;
+    return {
+      key: `rec:${r.id}`,
+      kind: o.kind,
+      title: r.kind === "SUBSCRIPTION" ? "Uma assinatura nova" : "Uma conta fixa nova",
+      segments: [
+        { text: `${r.description}, ` },
+        {
+          cents: r.monthly,
+          href: listHref({
+            walletId: r.walletId,
+            from: r.startsOn,
+            to: span.to,
+            text: r.description,
+            type: "expense",
+          }),
+          emphasis: "strong",
+        },
+        { text: ` por mês, desde ${ddmm(r.startsOn)}. Em 12 meses: ` },
+        { cents: o.yearly, href: "/lancamentos/recorrencias" },
+      ],
+    };
+  });
+  const missingKinds = summary.absent.map((k) => ABSENT_TEXT[k][closed ? "closed" : "current"]);
+  const name = lower(month);
+  const next = lower(addMonthsToKey(month, 1));
+  return {
+    month,
+    closed,
+    title: `Resumo de ${name}`,
+    subtitle: closed
+      ? `${name.charAt(0).toUpperCase()}${name.slice(1)} fechado · o de ${next} aparece no dia 6`
+      : "Com os lançamentos confirmados até agora",
+    observations,
+    missing:
+      observations.length === 0
+        ? `Nada fora do costume em ${name}${closed ? "" : " até agora"}.`
+        : observations.length < 3 && missingKinds.length > 0
+          ? `Só aparece o que foge do costume: ${list.format(missingKinds)}.`
+          : null,
   };
 }
 
