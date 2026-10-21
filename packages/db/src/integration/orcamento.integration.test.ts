@@ -13,7 +13,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { authorizeScope, authorizeWallet, DomainError, type WalletGrant } from "../access";
 import { copyBudgets, listBudgets, setBudget, undoCopyBudgets } from "../budgets";
-import { cashRows, recurrencePlans, spendingRows } from "../dashboard";
+import { cashRows, recurrencePlans, recurrencesStartedIn, spendingRows } from "../dashboard";
 import { removeHouseholdMember } from "../households";
 import { listTransactions, sumTransactions } from "../transactions";
 import { authorizeHousehold } from "../access";
@@ -453,5 +453,73 @@ describe("agregações do painel", () => {
     });
     expect(rows.some((r) => r.walletId === h.holderWallet.id)).toBe(false);
     expect(rows.some((r) => r.walletId === h.home.id)).toBe(true);
+  });
+});
+
+describe("resumo do mês (M10.3)", () => {
+  it("contas fixas e assinaturas novas: só despesa, começada no mês, ativa, no escopo", async () => {
+    const make = (data: {
+      description: string;
+      kind: "FIXED_BILL" | "SUBSCRIPTION" | "INCOME";
+      amount: string;
+      startsOn: string;
+      walletId?: string;
+      accountId?: string;
+      archived?: boolean;
+    }) =>
+      prisma.recurrence.create({
+        data: {
+          householdId: h.householdId,
+          walletId: data.walletId ?? h.home.id,
+          accountId: data.accountId ?? h.checking.id,
+          categoryId: cats.moradia,
+          kind: data.kind,
+          method: "PIX",
+          description: data.description,
+          amount: data.amount,
+          dayOfMonth: 11,
+          startsOn: new Date(`${data.startsOn}T00:00:00Z`),
+          archivedAt: data.archived ? new Date() : null,
+        },
+      });
+    await make({
+      description: "STREAMFLIX",
+      kind: "SUBSCRIPTION",
+      amount: "-39.90",
+      startsOn: "2026-10-11",
+    });
+    await make({
+      description: "ACADEMIA",
+      kind: "FIXED_BILL",
+      amount: "-119.90",
+      startsOn: "2026-10-01",
+    });
+    await make({
+      description: "ANTIGA",
+      kind: "FIXED_BILL",
+      amount: "-50",
+      startsOn: "2026-09-30",
+    });
+    await make({ description: "SALARIO", kind: "INCOME", amount: "5000", startsOn: "2026-10-05" });
+    await make({
+      description: "DESISTI",
+      kind: "SUBSCRIPTION",
+      amount: "-9.90",
+      startsOn: "2026-10-02",
+      archived: true,
+    });
+    await make({
+      description: "DELA",
+      kind: "SUBSCRIPTION",
+      amount: "-29.90",
+      startsOn: "2026-10-03",
+      walletId: h.partnerWallet.id,
+      accountId: h.voucher.id,
+    });
+    const found = await recurrencesStartedIn(prisma, await scopeOf(h.holder.id), "2026-10");
+    expect(found.map((r) => [r.description, r.kind, r.monthly, r.startsOn])).toEqual([
+      ["ACADEMIA", "FIXED_BILL", brl("119.90"), "2026-10-01"],
+      ["STREAMFLIX", "SUBSCRIPTION", brl("39.90"), "2026-10-11"],
+    ]);
   });
 });

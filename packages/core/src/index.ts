@@ -14,6 +14,7 @@ export * from "./csv";
 export * from "./payer";
 export * from "./budget";
 export * from "./dashboard";
+export * from "./month-summary";
 export * from "./cashflow";
 export * from "./sync";
 export * from "./reconcile";
