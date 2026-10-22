@@ -1,0 +1,219 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// O bot de lançamento pelo WhatsApp (M11, ADR-018)
+//
+//   BotLink        o número de WhatsApp de uma pessoa: só o HMAC (para achar quem mandou) e os
+//                  4 últimos dígitos (para a tela). O número inteiro nunca é gravado
+//   BotLinkCode    o código de uso único que a pessoa gera na web e manda pelo WhatsApp
+//   BotPreference  o ambiente, a conta e o cartão que o bot usa quando a mensagem não diz
+//   BotMessage     cada mensagem que chegou pelo webhook, uma vez só (wamid). O texto fica
+//                  CIFRADO só até ser lido e é apagado em seguida
+//   BotDraft       o lançamento proposto: vira lançamento de verdade só no "Confirmar"
+//   BotReplyCount  quantas respostas o número do bot mandou no mês (a cota grátis da Meta)
+//
+// O vínculo, o código, a preferência e o rascunho pertencem à pessoa DENTRO do lar (chave
+// composta com household_member): sair do lar apaga tudo isso junto. A mensagem não tem chave
+// estrangeira de propósito (como a auditoria): é o registro do que chegou, e some em 90 dias.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// O número de WhatsApp vinculado a uma pessoa. Um número por pessoa e uma pessoa por número.
+model BotLink {
+  userId        String   @id
+  householdId   String   @db.Uuid
+  /// HMAC-SHA256 do número (só dígitos, com o país), com uma chave derivada do segredo do app.
+  /// CHECK: 64 caracteres hexadecimais
+  phoneHash     String   @unique @db.Char(64)
+  /// Os 4 últimos dígitos, para a tela ("final 0001"). CHECK: 4 dígitos
+  phoneLastFour String   @db.Char(4)
+  linkedAt      DateTime @default(now())
+
+  member HouseholdMember @relation(fields: [householdId, userId], references: [householdId, userId], onDelete: Cascade)
+
+  @@unique([householdId, userId])
+  @@map("bot_link")
+}
+
+/// O código que liga um número a uma pessoa: vale 10 minutos e uma vez só. Gerar outro apaga o
+/// anterior. A busca é pelo SHA-256; o código cifrado existe só para a tela de quem gerou mostrá-lo
+/// de novo enquanto espera (é apagado no uso).
+model BotLinkCode {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  householdId String    @db.Uuid
+  userId      String
+  /// SHA-256 do código de 6 dígitos. CHECK: 64 caracteres hexadecimais
+  codeHash    String    @db.Char(64)
+  /// O código cifrado (AES-256-GCM, o id como AAD), para a tela. CHECK: usado = sem código
+  codeSealed  Bytes?
+  expiresAt   DateTime
+  /// Quando foi usado (o vínculo nasceu). CHECK: antes de vencer
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  member HouseholdMember @relation(fields: [householdId, userId], references: [householdId, userId], onDelete: Cascade)
+
+  @@index([householdId, userId])
+  @@index([codeHash])
+  @@map("bot_link_code")
+}
+
+/// O que o bot usa quando a mensagem não diz. Sem chaves estrangeiras de propósito: cada uso
+/// confere de novo o crachá (a pessoa pode ter perdido o acesso), e um padrão que não vale mais
+/// vira pergunta, nunca erro.
+model BotPreference {
+  userId         String   @id
+  householdId    String   @db.Uuid
+  /// O ambiente padrão (WalletGrant "edit" conferido a cada uso)
+  walletId       String?  @db.Uuid
+  /// A conta do débito e do pix (corrente ou poupança)
+  debitAccountId String?  @db.Uuid
+  /// O cartão do crédito
+  creditCardId   String?  @db.Uuid
+  updatedAt      DateTime @updatedAt
+
+  member HouseholdMember @relation(fields: [householdId, userId], references: [householdId, userId], onDelete: Cascade)
+
+  @@unique([householdId, userId])
+  @@map("bot_preference")
+}
+
+/// O tipo de mensagem que chegou.
+enum BotMessageKind {
+  /// Texto livre: um lançamento ou o "vincular 123 456"
+  TEXT
+  /// O clique num botão de resposta (Confirmar, Cancelar, Desfazer, um cartão)
+  BUTTON
+  /// Áudio, foto, figurinha, localização: o bot só lê texto (por enquanto)
+  OTHER
+
+  @@map("bot_message_kind")
+}
+
+/// O que o bot fez com a mensagem.
+enum BotMessageOutcome {
+  /// Propôs um lançamento (com os botões)
+  PROPOSED
+  /// Perguntou o cartão ou o ambiente
+  ASKED
+  /// Confirmou um rascunho (virou lançamento)
+  CONFIRMED
+  /// Cancelou um rascunho
+  CANCELLED
+  /// Desfez um lançamento confirmado
+  UNDONE
+  /// Não entendeu (sem valor, data errada, mensagem que não é texto...)
+  NOT_UNDERSTOOD
+  /// Parecia um número de cartão: nada foi guardado
+  CARD_NUMBER
+  /// Vinculou o número
+  LINKED
+  /// Código errado ou vencido
+  BAD_CODE
+  /// Número que não está vinculado a ninguém: nada é gravado além desta linha
+  UNKNOWN_NUMBER
+  /// O bot estava desligado no lar
+  BOT_OFF
+  /// Clique num botão de uma proposta que já foi decidida, venceu ou não é desta pessoa
+  STALE
+
+  @@map("bot_message_outcome")
+}
+
+/// Uma mensagem recebida pelo webhook. O wamid (o id da Meta) é único: a mesma mensagem
+/// entregue de novo não é lida duas vezes.
+model BotMessage {
+  id             String             @id @default(uuid(7)) @db.Uuid
+  /// O id da mensagem na Meta ("wamid.…"). CHECK: de 1 a 200 caracteres
+  wamid          String             @unique
+  /// De quem é (nulos quando o número não está vinculado)
+  householdId    String?            @db.Uuid
+  userId         String?
+  /// HMAC do número que mandou (o mesmo do BotLink): conta os códigos errados de um número
+  phoneHash      String             @db.Char(64)
+  kind           BotMessageKind
+  /// Quando a pessoa mandou (o timestamp da Meta)
+  sentAt         DateTime
+  createdAt      DateTime           @default(now())
+  /// Quando a fila leu. Nulo = ainda na fila
+  processedAt    DateTime?
+  outcome        BotMessageOutcome?
+  /// O texto (ou o id do botão) e o número para responder, cifrados (AES-256-GCM, o id da
+  /// mensagem como AAD). Apagado quando a fila lê. CHECK: lida = sem texto
+  bodyCiphertext Bytes?
+  /// O rascunho que a mensagem criou ou decidiu
+  draftId        String?            @db.Uuid
+
+  @@index([householdId, createdAt(sort: Desc)])
+  @@index([phoneHash, createdAt(sort: Desc)])
+  @@index([createdAt])
+  @@map("bot_message")
+}
+
+/// A situação de um rascunho.
+enum BotDraftStatus {
+  /// Esperando o Confirmar (aparece em Recebidos, fora das somas)
+  OPEN
+  /// Virou lançamento
+  CONFIRMED
+  /// Cancelado (pelo botão ou na web)
+  CANCELLED
+  /// Confirmado e desfeito: o lançamento foi excluído
+  UNDONE
+
+  @@map("bot_draft_status")
+}
+
+/// O lançamento que o bot propôs. Só vira lançamento (Transaction, source BOT) no Confirmar,
+/// pelo mesmo caminho do formulário da web: assim a compra parcelada nasce com as faturas certas,
+/// e o lançamento confirmado é "seu" (o par com o que o banco mandar depois é sugerido no M09.2).
+model BotDraft {
+  id                 String         @id @default(uuid(7)) @db.Uuid
+  householdId        String         @db.Uuid
+  userId             String
+  /// O ambiente (nulo enquanto o bot pergunta qual)
+  walletId           String?        @db.Uuid
+  /// A conta (nula enquanto o bot pergunta o cartão)
+  accountId          String?        @db.Uuid
+  cardId             String?        @db.Uuid
+  method             PaymentMethod
+  /// O valor gasto, positivo (o bot lança só despesa). CHECK: maior que zero
+  amount             Decimal        @db.Decimal(14, 2)
+  /// CHECK: de 1 a 200 caracteres
+  description        String
+  occurredOn         DateTime       @db.Date
+  /// Parcelas (de 2 a 24) ou nulo. CHECK
+  installmentCount   Int?           @db.SmallInt
+  /// A categoria que a cascata sugeriu (a de sempre, sem LLM)
+  categoryId         String?        @db.Uuid
+  status             BotDraftStatus @default(OPEN)
+  createdAt          DateTime       @default(now())
+  /// Quando o Confirmar, o Cancelar ou o Desfazer aconteceu. CHECK: só fora de OPEN
+  decidedAt          DateTime?
+  /// O lançamento criado no Confirmar (despesa simples) ou o grupo da compra parcelada
+  transactionId      String?        @db.Uuid
+  installmentGroupId String?        @db.Uuid
+
+  member           HouseholdMember   @relation(fields: [householdId, userId], references: [householdId, userId], onDelete: Cascade)
+  transaction      Transaction?      @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  installmentGroup InstallmentGroup? @relation(fields: [installmentGroupId], references: [id], onDelete: SetNull)
+
+  @@index([householdId, userId, status])
+  @@index([transactionId])
+  @@index([installmentGroupId])
+  @@map("bot_draft")
+}
+
+/// Quantas respostas o número do bot mandou no mês (horário de São Paulo). A Meta dá 1.000 por
+/// número; o FinTrack avisa em 850 e para em 900 (packages/core/src/bot.ts).
+model BotReplyCount {
+  /// O id do número do bot na Meta (WHATSAPP_PHONE_NUMBER_ID)
+  phoneNumberId String
+  /// "2026-10". CHECK: AAAA-MM
+  month         String    @db.Char(7)
+  /// CHECK: de 0 a 1000
+  used          Int       @default(0)
+  /// Quando o aviso de 850 saiu (uma vez por mês)
+  warnedAt      DateTime?
+  updatedAt     DateTime  @updatedAt
+
+  @@id([phoneNumberId, month])
+  @@map("bot_reply_count")
+}

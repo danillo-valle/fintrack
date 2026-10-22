@@ -199,6 +199,8 @@ model Transaction {
   matchesAsReceived      TransactionMatch[]      @relation("MatchReceived")
   matchesAsOwn           TransactionMatch[]      @relation("MatchOwn")
   categorizationExamples CategorizationExample[]
+  /// A proposta do bot que virou este lançamento (M11)
+  botDrafts              BotDraft[]
 
   // Idempotência da importação: o mesmo lançamento da mesma origem na mesma conta, uma vez só.
   // Lançamentos manuais têm externalId nulo, e no Postgres nulos não colidem entre si.
@@ -373,6 +375,8 @@ model InstallmentGroup {
   wallet       Wallet           @relation(fields: [walletId, householdId], references: [id, householdId], onDelete: Cascade)
   account      FinancialAccount @relation(fields: [accountId, householdId], references: [id, householdId], onDelete: Cascade)
   transactions Transaction[]
+  /// A proposta do bot que virou esta compra parcelada (M11)
+  botDrafts    BotDraft[]
 
   // Alvo da chave composta (installmentGroupId, accountId): as parcelas ficam na mesma conta
   @@unique([id, accountId])
