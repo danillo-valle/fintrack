@@ -305,6 +305,35 @@ sudo -u fintrack fintrack-llm testar
 
 Trocar o modelo, a imagem ou os argumentos é medir de novo (`services/ml/bench`, ADR-016).
 
+## Bot do WhatsApp (M11, ADR-018)
+
+O webhook `https://<seu domínio>/api/whatsapp/webhook` é a única rota pública do bot. Ele só confere
+a assinatura da Meta, grava a mensagem (uma vez só) e põe na fila `bot-message`; a resposta sai pela
+Cloud API. Sem as quatro variáveis `WHATSAPP_*` do painel da Meta em `/srv/fintrack/app.env`, o bot
+está **desligado no servidor** e a rota responde 404 (o M11.1 vai para a produção assim; o M11.2
+grava os valores). Desligar só no lar: Ajustes › Bot do WhatsApp.
+
+```bash
+# A rota (sem configuração: 404; com: 403 para um token de verificação errado)
+curl -s -o /dev/null -w '%{http_code}\n' 'https://fintrack.SEU-DOMINIO/api/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=errado&hub.challenge=1'
+# O que o webhook recebeu e o que a fila fez (só contagens e o resultado)
+sudo -u fintrack fintrack-compose logs --since 24h --no-log-prefix web | jq -R 'fromjson? | select((.event? // "") | startswith("webhook.") or startswith("bot."))'
+# A conta das respostas grátis do mês (para em 900)
+sudo -u fintrack fintrack-compose exec db psql -U fintrack -c \
+  'SELECT month, used, "warnedAt" FROM bot_reply_count ORDER BY month DESC LIMIT 3'
+```
+
+| Situação                                       | O que fazer                                                                                                |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `webhook.rejected` com `reason: signature`     | Alguém chamou sem a assinatura certa, ou a `WHATSAPP_APP_SECRET` não é a do app: confira no painel da Meta |
+| O bot não responde e não há `webhook.received` | O webhook não chega: a Meta mostra o erro em WhatsApp › Configuração; confira o túnel e o caminho          |
+| `bot.message` com `failed` maior que zero      | A Cloud API recusou a resposta (token vencido? `WHATSAPP_ACCESS_TOKEN` é o do usuário do sistema?)         |
+| Chegou a 900 no mês                            | Esperado: o bot silencia até o dia 1º; os lançamentos continuam em Recebidos                               |
+| Suspeita de número indevido                    | Ajustes › Bot do WhatsApp › Desvincular (cada pessoa o seu); ou desligue o bot do lar                      |
+
+Trocar o `BETTER_AUTH_SECRET` desfaz os vínculos (o HMAC dos números deriva dele): cada pessoa
+vincula de novo.
+
 ## Alertas
 
 | Alerta                               | Significa                                   | Primeiro passo                                    |
