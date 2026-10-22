@@ -70,6 +70,7 @@ pode, mas não numa carteira pessoal.
 | create_wallet     | sim                 | sim             |
 | view_activity     | sim                 | não             |
 | manage_categories | sim                 | sim             |
+| manage_bot        | sim                 | sim             |
 
 <!-- matriz-lar: fim -->
 
@@ -80,6 +81,8 @@ pode, mas não numa carteira pessoal.
 - **manage_categories**: criar e arquivar categorias e regras texto → categoria (M07). As duas
   pessoas organizam; a sugestão de categoria, porém, só olha o histórico das carteiras que
   quem pede consegue ver (nada vaza da carteira pessoal do outro).
+- **manage_bot**: ligar e desligar o bot do WhatsApp do lar (M11, ADR-018). Vincular o número é
+  de cada pessoa, sempre o próprio, e o bot só lança nas carteiras em que quem mandou pode editar.
 - Por enquanto, **um lar por pessoa** (o banco aceita mais; escolher entre lares é feature futura).
 
 ## O que fica registrado (auditoria)

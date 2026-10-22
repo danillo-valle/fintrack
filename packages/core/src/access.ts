@@ -119,7 +119,13 @@ export function canInWallet(
  *   manage_categories  criar e arquivar categorias e regras de categorização do lar (M07)
  */
 export type HouseholdAction =
-  "view" | "invite" | "remove_member" | "create_wallet" | "view_activity" | "manage_categories";
+  | "view"
+  | "invite"
+  | "remove_member"
+  | "create_wallet"
+  | "view_activity"
+  | "manage_categories"
+  | "manage_bot";
 
 export const HOUSEHOLD_ACTIONS: readonly HouseholdAction[] = [
   "view",
@@ -128,6 +134,7 @@ export const HOUSEHOLD_ACTIONS: readonly HouseholdAction[] = [
   "create_wallet",
   "view_activity",
   "manage_categories",
+  "manage_bot",
 ];
 
 export const HOUSEHOLD_MATRIX: Readonly<
@@ -140,6 +147,8 @@ export const HOUSEHOLD_MATRIX: Readonly<
   view_activity: { OWNER: true, MEMBER: false },
   // As categorias são do lar inteiro: as duas pessoas organizam (M07)
   manage_categories: { OWNER: true, MEMBER: true },
+  // O interruptor do bot do WhatsApp vale para o lar inteiro; as duas pessoas usam o bot (M11)
+  manage_bot: { OWNER: true, MEMBER: true },
 };
 
 export function canInHousehold(role: HouseholdRole, action: HouseholdAction): boolean {

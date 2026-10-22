@@ -19,3 +19,5 @@ export * from "./cashflow";
 export * from "./sync";
 export * from "./reconcile";
 export * from "./file-import";
+export * from "./bot";
+export * from "./bot-parse";
