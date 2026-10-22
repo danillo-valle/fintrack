@@ -93,3 +93,5 @@ export * from "./review";
 
 // Importar extrato (M09.3): o arquivo OFX lido vira Recebidos, sem duplicar (ADR-013)
 export * from "./file-imports";
+// M11: o bot do WhatsApp (vínculo, mensagens, rascunhos, conta das respostas grátis)
+export * from "./bot";

@@ -200,6 +200,10 @@ export type DomainErrorCode =
   // ── Importar extrato (M09.3) ──
   | "FILE_PREVIEW_EXPIRED" // a conferência venceu (1 hora), foi cancelada ou já foi importada
   | "FILE_ACCOUNT_KIND_MISMATCH" // extrato de conta só em corrente ou poupança; fatura, em cartão
+  // ── Bot do WhatsApp (M11) ──
+  | "BOT_LINK_CODE_BUSY" // dez sorteios seguidos bateram em códigos abertos (praticamente impossível)
+  | "BOT_DRAFT_STALE" // a proposta já foi decidida (aqui ou no WhatsApp)
+  | "BOT_DRAFT_INCOMPLETE" // falta o ambiente ou o cartão (a pessoa escolhe no WhatsApp)
   | "NOT_FOUND";
 
 // ── M07: contas, lançamentos e listas que juntam várias carteiras ───────────────

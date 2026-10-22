@@ -25,6 +25,7 @@ import {
   resolvePayment,
   sameHousehold,
   type CategorizationOptions,
+  type TransactionOrigin,
 } from "./transactions";
 
 /** O máximo da tela (o banco aceita até 99, para importações). */
@@ -40,6 +41,8 @@ export type InstallmentPurchaseInput = {
   method?: PaymentMethod | null;
   cardId?: string | null;
   notes?: string | null;
+  /** De onde veio (M11): cada parcela leva o id da origem com o número (":1", ":2"...) */
+  origin?: TransactionOrigin | null;
 };
 
 export async function createInstallmentPurchase(
@@ -133,6 +136,12 @@ export async function createInstallmentPurchase(
           statementId: statement.id,
           installmentGroupId: group.id,
           installmentNumber: entry.number,
+          ...(input.origin
+            ? {
+                source: input.origin.source,
+                externalId: `${input.origin.externalId}:${entry.number}`,
+              }
+            : {}),
           createdById: wallet.userId,
         },
         select: { id: true },
