@@ -109,6 +109,7 @@ const HOUSEHOLD_EXPECTED: Record<HouseholdAction, Record<HouseholdRole, boolean>
   create_wallet: { OWNER: true, MEMBER: true },
   view_activity: { OWNER: true, MEMBER: false },
   manage_categories: { OWNER: true, MEMBER: true },
+  manage_bot: { OWNER: true, MEMBER: true },
 };
 
 describe("matriz de papéis do lar", () => {
@@ -116,8 +117,8 @@ describe("matriz de papéis do lar", () => {
     HOUSEHOLD_ROLES.map((role) => ({ action, role, allowed: HOUSEHOLD_EXPECTED[action][role] })),
   );
 
-  it("cobre 6 ações × 2 papéis", () => {
-    expect(householdRows).toHaveLength(12);
+  it("cobre 7 ações × 2 papéis", () => {
+    expect(householdRows).toHaveLength(14);
   });
 
   it.each(householdRows)("$role · $action → $allowed", ({ action, role, allowed }) => {

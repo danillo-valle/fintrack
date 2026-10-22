@@ -17,6 +17,8 @@ import {
   type ReviewReturn,
 } from "@/features/bank/ui/review/review-actions";
 import { SyncLine } from "@/features/bank/ui/sync-line";
+import { getOpenDrafts } from "@/features/bot/server/queries";
+import { BotDrafts } from "@/features/bot/ui/drafts";
 import { requireUser } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
 
@@ -68,7 +70,7 @@ export default async function ReviewPage({ searchParams }: PageProps<"/lancament
               undo: null,
             }
           : null;
-  const page = await getReviewPage(session, view);
+  const [page, drafts] = await Promise.all([getReviewPage(session, view), getOpenDrafts(session)]);
   const { queue } = page;
   // A categoria da IA local fica fora do "Confirmar os N" (M10.2b): a tela diz isso
   const hasLlm = queue.groups.some((g) =>
@@ -113,6 +115,13 @@ export default async function ReviewPage({ searchParams }: PageProps<"/lancament
           <p className="mb-4 text-sm font-semibold">Categoria criada e aplicada.</p>
         ) : null}
       </noscript>
+
+      {/* M11: as propostas do bot do WhatsApp desta pessoa, antes do que veio do banco */}
+      {drafts.length > 0 ? (
+        <div className="mb-4 md:mb-5">
+          <BotDrafts drafts={drafts} />
+        </div>
+      ) : null}
 
       {queue.total === 0 ? (
         <EmptyState

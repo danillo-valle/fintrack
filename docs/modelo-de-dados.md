@@ -91,6 +91,19 @@ erDiagram
     Wallet ||--o| ClassifierModel : "modelo do classificador (M10.1)"
     Transaction ||--o| LocalAiAttempt : "o que a IA local respondeu (M10.2b)"
     Category |o--o{ LocalAiAttempt : "mãe da categoria nova proposta"
+    HouseholdMember ||--o| BotLink : "número do WhatsApp (M11)"
+    HouseholdMember ||--o{ BotLinkCode : "código de vínculo"
+    HouseholdMember ||--o| BotPreference : "padrões do bot"
+    HouseholdMember ||--o{ BotDraft : "propostas do bot"
+    BotDraft |o--o| Transaction : "virou (Confirmar)"
+    BotDraft |o--o| InstallmentGroup : "virou a compra parcelada"
+    BotMessage |o--o| BotDraft : "criou ou decidiu"
+    BotReplyCount {
+        string phoneNumberId PK "o número do bot na Meta"
+        char month PK "AAAA-MM, São Paulo"
+        int used "0 a 1000 (para em 900)"
+        timestamp warnedAt "aviso dos 850"
+    }
 
     Household {
         uuid id PK
@@ -231,6 +244,43 @@ erDiagram
         uuid proposedParentId FK "a mãe proposta"
         timestamp attemptedAt
     }
+    BotLink {
+        string userId PK
+        uuid householdId FK
+        char phoneHash UK "HMAC do número; nunca o número"
+        char phoneLastFour "final 0001"
+    }
+    BotLinkCode {
+        uuid id PK
+        string userId FK
+        char codeHash "SHA-256; 10 min, uso único"
+        timestamp usedAt
+    }
+    BotPreference {
+        string userId PK
+        uuid walletId "padrão, conferido a cada uso"
+        uuid debitAccountId
+        uuid creditCardId
+    }
+    BotMessage {
+        uuid id PK
+        string wamid UK "id da Meta: uma vez só"
+        uuid householdId "sem FK, como a auditoria"
+        char phoneHash
+        enum kind "TEXT | BUTTON | OTHER"
+        enum outcome
+        bytes bodyCiphertext "cifrado; apagado ao ler"
+    }
+    BotDraft {
+        uuid id PK
+        uuid householdId FK
+        string userId FK
+        decimal amount "positivo (só despesa)"
+        enum method "CREDIT | DEBIT | PIX"
+        smallint installmentCount "2 a 24, só crédito"
+        enum status "OPEN | CONFIRMED | CANCELLED | UNDONE"
+        uuid transactionId FK
+    }
     CardStatement {
         uuid id PK
         uuid accountId FK
@@ -344,6 +394,10 @@ registro sobreviver mesmo que a pessoa ou o grupo sejam apagados.
 | Confiança de 0 a 100 e só de camada automática (M10.1)                        | CHECK `transaction_categorization_confidence_check`                   |
 | Modelo com 20+ exemplos e 2+ categorias; SHA-256 em hex (M10.1)               | CHECKs `classifier_model_counts_check` e `_training_hash_check`       |
 | Proposta de categoria nova só num NEW_CATEGORY, com o nome no padrão (M10.2b) | CHECKs `local_ai_attempt_proposal_check` e `_proposed_name_check`     |
+| Bot: o número só como HMAC e 4 dígitos; código só como SHA-256 (M11)          | CHECKs `bot_link_phone_check` e `bot_link_code_check`                 |
+| Bot: mensagem lida não guarda texto; na fila, sem resultado (M11)             | CHECK `bot_message_check`                                             |
+| Bot: proposta só de despesa, crédito/débito/pix, parcelas só no crédito (M11) | CHECKs `bot_draft_values_check` e `bot_draft_status_check`            |
+| Bot: a conta do mês de 0 a 1000, mês AAAA-MM (M11)                            | CHECK `bot_reply_count_check`                                         |
 
 Cada regra tem um teste em `packages/db/src/integration/`, que tenta quebrá-la contra o
 PostgreSQL de verdade (`pnpm test:integration`).
@@ -385,6 +439,21 @@ fazer o quê** é decidido no código, num ponto só: `authorizeWallet` e `autho
   sem categoria e **sem linha aqui**, num lar com **`household.localAiEnabledAt`** preenchido (o
   interruptor; quem liga e desliga fica na auditoria). Detalhes no
   [ADR-016](adr/0016-llm-local.md).
+
+## Bot do WhatsApp (M11)
+
+- **`bot_link`** liga um número a uma pessoa do lar, guardando só o **HMAC** do número (chave
+  derivada do segredo do app) e os 4 últimos dígitos. Nasce do **`bot_link_code`** (6 dígitos,
+  10 minutos, uso único, guardado como SHA-256) que a pessoa gera na web e manda pelo WhatsApp.
+  Vínculo, código, padrões e propostas são da pessoa dentro do lar: sair do lar apaga tudo.
+- **`bot_message`** é cada mensagem recebida, uma vez só (`wamid` único). O texto fica **cifrado**
+  só até a fila ler. Número que não está vinculado deixa uma linha sem texto e sem dono, só para
+  contar. Tudo some em 90 dias.
+- **`bot_draft`** é a proposta. Ela vira lançamento (`source BOT`, `externalId` = id da proposta;
+  na compra parcelada, `:1`, `:2`...) só no Confirmar, pelo mesmo caminho do formulário. Aberta,
+  aparece em Recebidos e fica fora das somas.
+- **`bot_reply_count`** conta as respostas do número do bot no mês (a cota grátis da Meta).
+  Detalhes no [ADR-018](adr/0018-bot-whatsapp.md).
 
 ## Pago por, parcelas e despesas fixas (M07.4)
 

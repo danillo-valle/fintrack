@@ -23,7 +23,8 @@
     "db:seed": "pnpm --filter @fintrack/db db:seed",
     "db:reset": "pnpm --filter @fintrack/db db:reset",
     "pluggy:fake": "pnpm --filter @fintrack/web pluggy:fake",
-    "ml:dev": "pnpm --filter @fintrack/ml dev"
+    "ml:dev": "pnpm --filter @fintrack/ml dev",
+    "whatsapp:fake": "pnpm --filter @fintrack/web whatsapp:fake"
   },
   "packageManager": "pnpm@12.8.1",
   "devDependencies": {

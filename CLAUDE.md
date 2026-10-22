@@ -44,7 +44,13 @@ Projeto de portfólio construído em módulos (M00 a M12); cada módulo é uma m
 - Resumo do mês (M10.3, ADR-017): no topo do Início, até três observações por regras puras
   (`packages/core/src/month-summary.ts`: orçado que estoura, acima do costume, conta fixa nova), na
   hora, no cache do M08; do dia 1 ao 5, o mês anterior fechado; cada número leva à lista
-- Próximo: M11 (conforme o roteiro)
+- Bot do WhatsApp (M11.1, ADR-018): webhook `/api/whatsapp/webhook` com assinatura sobre o corpo cru,
+  mensagem uma vez só (wamid) e fila `bot-message`; vínculo por código de 6 dígitos (10 min, prova
+  de identidade recente); leitor determinístico (`packages/core/src/bot-parse.ts`, sem LLM); a
+  mensagem vira rascunho (`bot_draft`) e o Confirmar cria o lançamento pelo caminho do formulário
+  (`source BOT`); número só como HMAC, texto cifrado e apagado ao ler; respostas grátis contadas
+  (aviso em 850, para em 900); Ajustes › Bot do WhatsApp e Recebidos › Do WhatsApp. Sem as
+  variáveis `WHATSAPP_*`, o bot fica desligado no servidor (o M11.2 liga a Cloud API de verdade)
 
 Regras específicas do Next.js 16: @apps/web/AGENTS.md
 
@@ -59,11 +65,14 @@ Regras específicas do Next.js 16: @apps/web/AGENTS.md
 - `bash scripts/gerar-schema-auth.sh` atualiza as tabelas do Better Auth depois de mudar o `auth.ts`
 - `pnpm check` roda lint, tipos, testes e build (o mesmo que o CI)
 - `pnpm --filter @fintrack/web test` roda só os testes do app web
-- `pnpm e2e` roda os testes de ponta a ponta (sobe o app, a Pluggy de mentira e o serviço Python, se não estiverem rodando)
+- `pnpm e2e` roda os testes de ponta a ponta (sobe o app, a Pluggy de mentira, o serviço Python e a Cloud API do
+  WhatsApp de mentira, se não estiverem rodando)
 - `pnpm ml:dev` sobe o serviço Python (fatura em PDF e classificador) em http://127.0.0.1:8001 (precisa do
   uv; `pnpm --filter @fintrack/ml test` roda o pytest, `pnpm --filter @fintrack/ml eval` o eval do
   classificador; os modelos do desenvolvimento ficam em `services/ml/.modelos`, fora do Git)
 - `pnpm pluggy:fake` sobe a Pluggy de mentira (banco sintético) em http://127.0.0.1:8787, para o `pnpm dev`
+- `pnpm whatsapp:fake` sobe a Cloud API do WhatsApp de mentira em http://127.0.0.1:8789 (o papel da Meta e
+  da pessoa que escreve para o bot; veja a skill `bot-whatsapp`)
 - `bash scripts/lighthouse-a11y.sh` mede a acessibilidade com o Lighthouse (precisa do `pnpm dev`)
 - `pnpm format` formata tudo com Prettier
 - `docker build --target web .` constrói a imagem de produção; `bash deploy/bin/smoke-test <url>` confere uma instância
@@ -114,6 +123,10 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
   `sync.ts` (a busca idempotente) e `statements.ts` (faturas); `packages/core/src/sync.ts` as regras puras;
   do M09.2: `packages/db/src/review.ts` (fila, par, estorno, lote, desfazer) e `packages/core/src/reconcile.ts`;
   do M09.3: `packages/db/src/file-imports.ts` (conferência e importação) e `packages/core/src/file-import.ts`
+- `apps/web/src/features/bot/` o bot do WhatsApp (M11): webhook, fila, Ajustes › Bot, o código de vínculo
+  e as propostas em Recebidos; `apps/web/src/lib/whatsapp/` o protocolo da Meta e o canal;
+  `apps/web/src/lib/jobs.ts` o pg-boss e todas as filas do app; `packages/db/src/bot.ts` e
+  `packages/core/src/bot{,-parse}.ts` as regras
 - `docs/permissoes.md` quem pode fazer o quê (conferido por teste)
 - `docs/modelo-de-dados.md` diagrama das tabelas (conferido por teste)
 - `apps/web/e2e/` testes Playwright
@@ -145,6 +158,10 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
 - Variáveis de ambiente novas: no `.env.example` (sem valor real), no `src/lib/env.ts` (validação), no `globalPassThroughEnv` do `turbo.json` e no `deploy/env/app.env.example`; avise no PR que o valor de produção vai em `/srv/fintrack/app.env` antes do merge.
 - Log no servidor só pelo `logger` (`src/lib/logger.ts`), com `event`; migração para produção sempre aditiva. Siga a skill `deploy-e-operacao`.
 - Nenhum dado financeiro real, `.env` ou segredo em arquivo versionado.
+- Bot do WhatsApp: siga a skill `bot-whatsapp`. O webhook confere a assinatura antes de ler o JSON e responde
+  igual para tudo; nenhum LLM no caminho do bot; a resposta nunca mostra final de cartão, saldo ou outro
+  lançamento; número só como HMAC, texto nunca em log; o lançamento nasce no Confirmar, pelo caminho do
+  formulário.
 - Dados do banco: siga a skill `importador`. Resposta de banco em teste é sintética, escrita à mão; nenhum
   teste chama a Pluggy de verdade; Client ID, Client Secret e tokens nunca em log, Git ou navegador.
 - Código e identificadores em inglês; textos da interface, commits, PRs e documentação em português.
@@ -154,7 +171,7 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
   mesmo valor (E2E). Toda action que muda dinheiro chama `financeChanged` (cache das somas, ADR-010).
 - Para qualquer trabalho de interface, siga a skill `ui-componentes` (visual "Elétrico", ADR-008: vidro só
   na moldura, contraste conferido pelo `theme-contrast.test.ts`, novo lançamento em modal de rota).
-  A referência visual é o canvas "FinTrack Visual" (linhas C.2, D e E): tela nova é desenhada lá antes do código.
+  A referência visual é o canvas "FinTrack Visual" (linhas C.2 a G): tela nova é desenhada lá antes do código.
 - Mudança nova entra como estrutura, não como remendo: peça visual repetida vira componente em
   `components/visual/`, peça de domínio fica em `features/<nome>/ui/`, regra de negócio vai para
   `packages/core` (com teste). Se a peça nova muda quem a chama, atualize toda a cadeia de chamadas.

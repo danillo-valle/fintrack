@@ -68,7 +68,13 @@ export type TransactionInput = {
   method?: PaymentMethod | null;
   cardId?: string | null;
   notes?: string | null;
+  /** De onde veio (M11): o formulário (MANUAL, o padrão) ou o bot. Com origem, o id na origem
+   * impede lançar duas vezes a mesma proposta (chave única conta + origem + id) */
+  origin?: TransactionOrigin | null;
 };
+
+/** A origem de um lançamento que não nasceu no formulário (M11: o bot do WhatsApp). */
+export type TransactionOrigin = { source: "BOT"; externalId: string };
 
 /** O que acompanha a categoria escolhida: a cascata e, se a pessoa pediu, a regra nova. */
 export type CategorizationOptions = {
@@ -192,6 +198,9 @@ export async function createTransaction(
         occurredOn: dbDateFromCivil(input.occurredOn),
         description: input.description,
         notes: input.notes ?? null,
+        ...(input.origin
+          ? { source: input.origin.source, externalId: input.origin.externalId }
+          : {}),
         createdById: wallet.userId,
       },
       select: { id: true },

@@ -69,6 +69,12 @@ Referência: `apps/web/e2e/permissoes.spec.ts` (M06) e `apps/web/e2e/helpers.ts`
   Pluggy de mentira (`pnpm pluggy:fake`, porta 8787, banco sintético de
   `@fintrack/importers/testing`) e aponta o app para ela (`PLUGGY_API_URL`). Credenciais:
   `SYNTHETIC_CREDENTIALS`; bancos: `SYNTHETIC_IDS`. Referência: `coleta-bancaria.spec.ts`.
+- **WhatsApp (M11)**: nenhum teste fala com a Meta. O `playwright.config.ts` sobe a Cloud API de
+  mentira (`pnpm whatsapp:fake`, porta 8789) com os valores de `e2e/whatsapp.ts` (`WHATSAPP_FAKE`).
+  O teste faz o papel da pessoa com `sendToBot({ from, text | button })` e lê as respostas com
+  `waitForReply(phone, /regex/)`. Telefone inventado e único: `fakePhone(n, project)`. A mesma
+  `wamid` de novo = a reentrega da Meta. Referência: `bot-whatsapp.spec.ts` (a assinatura errada é
+  testada com a mutação: sem a conferência, o teste falha).
 - **Esperar trabalho em segundo plano** (a fila do pg-boss): `expect.poll` recarregando a página,
   e dentro do poll **nada que espere** (`count()`, não `textContent()` de algo que pode não existir:
   ele fica parado até o fim do poll e a página nunca é recarregada).

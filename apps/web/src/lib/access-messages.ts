@@ -111,6 +111,10 @@ const DOMAIN_ERROR_MESSAGE: Record<DomainErrorCode, string> = {
     "Essa conferência não vale mais (passou 1 hora, foi cancelada ou já foi importada). Envie o arquivo de novo.",
   FILE_ACCOUNT_KIND_MISMATCH:
     "Extrato de conta entra em conta corrente ou poupança; fatura do cartão, em cartão de crédito.",
+  BOT_LINK_CODE_BUSY: "Não deu para gerar o código agora. Tente de novo em alguns segundos.",
+  BOT_DRAFT_STALE: "Essa proposta já foi decidida, aqui ou no WhatsApp. Recarregue a página.",
+  BOT_DRAFT_INCOMPLETE:
+    "Falta escolher o ambiente ou o cartão dessa proposta (o bot perguntou no WhatsApp).",
   NOT_FOUND: "Não encontramos o que você pediu.",
 };
 
@@ -173,6 +177,13 @@ export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
   "local_ai.enabled": "ligou a IA local",
   "local_ai.disabled": "desligou a IA local",
   "local_ai.proposal_applied": "criou e aplicou uma categoria proposta pela IA local",
+  "bot.link_code_created": "gerou um código para vincular o WhatsApp",
+  "bot.linked": "vinculou o número do WhatsApp",
+  "bot.unlinked": "desvinculou o número do WhatsApp",
+  "bot.enabled": "ligou o bot do WhatsApp",
+  "bot.disabled": "desligou o bot do WhatsApp",
+  "bot.entry_confirmed": "lançou pelo WhatsApp",
+  "bot.entry_undone": "desfez um lançamento do WhatsApp",
 };
 
 export function auditActionLabel(action: string): string {

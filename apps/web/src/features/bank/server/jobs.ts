@@ -1,5 +1,5 @@
-// A fila da sincronização com o banco (M09.1, ADR-011), com o pg-boss: as tarefas ficam numa
-// tabela do próprio Postgres (esquema "pgboss"), então nenhum serviço novo precisa subir.
+// A fila da sincronização com o banco (M09.1, ADR-011), com o pg-boss (lib/jobs.ts: um pg-boss
+// por processo e todas as filas do app criadas num lugar só).
 //
 //   bank-sync         uma busca de UMA conexão. singletonKey = id da conexão: nunca duas
 //                     buscas da mesma conexão na fila ao mesmo tempo (política "stately")
@@ -29,22 +29,21 @@ import {
   walletsForTraining,
 } from "@fintrack/db";
 import { inLocalAiWindow, localAiWindowEnd } from "@fintrack/core";
-import { PgBoss } from "pg-boss";
-import { env } from "@/lib/env";
+import { jobs, QUEUES, TIME_ZONE } from "@/lib/jobs";
 import { logger } from "@/lib/logger";
 import { cascadeServices, classifierPort, QUEUE_SUBJECT } from "@/lib/ml/classifier";
 import { localAiPort } from "@/lib/ml/local-ai";
 import { pluggyFor } from "./provider";
 
-export const SYNC_QUEUE = "bank-sync";
-export const DAILY_QUEUE = "bank-sync-daily";
+export { TIME_ZONE } from "@/lib/jobs";
+export const SYNC_QUEUE = QUEUES.bankSync.name;
+export const DAILY_QUEUE = QUEUES.bankSyncDaily.name;
 /** 04:30 em São Paulo: depois do backup (03:30), e antes da IA local subir (04:40) */
 export const DAILY_CRON = "30 4 * * *";
-export const TIME_ZONE = "America/Sao_Paulo";
-export const CLASSIFIER_QUEUE = "classifier-train-daily";
+export const CLASSIFIER_QUEUE = QUEUES.classifierTraining.name;
 /** 03:15 em São Paulo: a casa dorme, e o treino termina antes do backup das 03:30 */
 export const CLASSIFIER_CRON = "15 3 * * *";
-export const LOCAL_AI_QUEUE = "local-ai-nightly";
+export const LOCAL_AI_QUEUE = QUEUES.localAi.name;
 /** A cada 10 min das 04:00 às 06:50; a tarefa confere a janela (04:45–06:40) antes de trabalhar */
 export const LOCAL_AI_CRON = "*/10 4-6 * * *";
 const RETRIABLE = new Set(["PROVIDER_UNAVAILABLE", "PROVIDER_RATE_LIMITED", "SYNC_FAILED"]);
@@ -55,41 +54,7 @@ export type SyncJob = {
   requestedById: string | null;
 };
 
-const globalForBoss = globalThis as unknown as {
-  fintrackBoss?: Promise<PgBoss>;
-  fintrackWorker?: Promise<void>;
-};
-
-/** O pg-boss do processo (um só, mesmo com o recarregamento do `pnpm dev`). */
-export function jobs(): Promise<PgBoss> {
-  globalForBoss.fintrackBoss ??= (async () => {
-    const boss = new PgBoss({ connectionString: env.DATABASE_URL, schema: "pgboss" });
-    boss.on("error", (error: unknown) =>
-      logger.error({ event: "jobs.error", err: error }, "erro na fila de tarefas"),
-    );
-    await boss.start();
-    const existing = new Set((await boss.getQueues()).map((q) => q.name));
-    if (!existing.has(SYNC_QUEUE)) {
-      await boss.createQueue(SYNC_QUEUE, {
-        policy: "stately",
-        retryLimit: 2,
-        retryDelay: 60,
-        retryBackoff: true,
-        expireInSeconds: 15 * 60,
-      });
-    }
-    if (!existing.has(DAILY_QUEUE)) await boss.createQueue(DAILY_QUEUE, { policy: "stately" });
-    if (!existing.has(CLASSIFIER_QUEUE)) {
-      await boss.createQueue(CLASSIFIER_QUEUE, { policy: "stately", expireInSeconds: 60 * 60 });
-    }
-    if (!existing.has(LOCAL_AI_QUEUE)) {
-      // Uma rodada por vez; ela mesma para às 06:40 (o pg-boss só corta depois de 2 h)
-      await boss.createQueue(LOCAL_AI_QUEUE, { policy: "stately", expireInSeconds: 2 * 60 * 60 });
-    }
-    return boss;
-  })();
-  return globalForBoss.fintrackBoss;
-}
+const globalForWorker = globalThis as unknown as { fintrackWorker?: Promise<void> };
 
 /** Põe uma busca da conexão na fila. Já há uma esperando? Não duplica (devolve false). */
 export async function enqueueSync(job: SyncJob): Promise<boolean> {
@@ -171,7 +136,7 @@ export async function processLocalAiNight(now: Date = new Date()): Promise<void>
 
 /** Liga o worker e a agenda diária (uma vez por processo). */
 export function startSyncWorker(): Promise<void> {
-  globalForBoss.fintrackWorker ??= (async () => {
+  globalForWorker.fintrackWorker ??= (async () => {
     const boss = await jobs();
     await boss.work<SyncJob>(SYNC_QUEUE, { batchSize: 1 }, async ([job]) => {
       if (job) await processSyncJob(job.data, job.retryCount + 1);
@@ -197,5 +162,5 @@ export function startSyncWorker(): Promise<void> {
       "fila de sincronização, do classificador e da IA local ligada",
     );
   })();
-  return globalForBoss.fintrackWorker;
+  return globalForWorker.fintrackWorker;
 }

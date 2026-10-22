@@ -46,6 +46,7 @@ describe("rótulos", () => {
     // + 7 do M09.2 (confirmar, em lote, desfazer, par, recusa, estorno, desfazer o par)
     // + 1 do M09.3 (extrato importado)
     // + 3 do M10.2b (IA local ligada, desligada, categoria proposta criada e aplicada)
-    expect(Object.keys(AUDIT_ACTION_LABEL)).toHaveLength(48);
+    // + 7 do M11 (código, vincular, desvincular, ligar, desligar, lançar e desfazer pelo bot)
+    expect(Object.keys(AUDIT_ACTION_LABEL)).toHaveLength(55);
   });
 });

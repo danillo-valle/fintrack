@@ -72,7 +72,15 @@ export type AuditAction =
   // M10.2b: a IA local (só ids e contagens; nunca descrição nem nome de categoria)
   | "local_ai.enabled"
   | "local_ai.disabled"
-  | "local_ai.proposal_applied";
+  | "local_ai.proposal_applied"
+  // M11: o bot do WhatsApp (o número só como ***0001; nunca texto, valor ou descrição)
+  | "bot.link_code_created"
+  | "bot.linked"
+  | "bot.unlinked"
+  | "bot.enabled"
+  | "bot.disabled"
+  | "bot.entry_confirmed"
+  | "bot.entry_undone";
 
 export type AuditEntry = {
   actorId: string | null;
@@ -92,7 +100,8 @@ export type AuditEntry = {
     | "category"
     | "category_rule"
     | "provider_connection"
-    | "file_import";
+    | "file_import"
+    | "bot_draft";
   entityId: string;
   metadata?: Prisma.InputJsonObject;
 };

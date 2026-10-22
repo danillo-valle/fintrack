@@ -51,6 +51,9 @@ model Household {
   /// A IA local (M10.2b, ADR-016): quando foi ligada; nula = desligada (o padrão). Quem ligou e
   /// desligou fica na auditoria (local_ai.enabled / local_ai.disabled)
   localAiEnabledAt DateTime?
+  /// O bot do WhatsApp (M11, ADR-018): quando foi desligado no lar; nulo = ligado (o padrão:
+  /// ele só lê números que alguém vinculou). Quem ligou e desligou fica na auditoria
+  botDisabledAt    DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -84,6 +87,11 @@ model HouseholdMember {
   user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   walletMemberships WalletMember[]
   budgetShares      BudgetShare[]
+  /// O bot do WhatsApp (M11): o número, o código, os padrões e as propostas desta pessoa no lar
+  botLink           BotLink?
+  botLinkCodes      BotLinkCode[]
+  botPreference     BotPreference?
+  botDrafts         BotDraft[]
 
   // Chave primária composta: a mesma pessoa não entra duas vezes no mesmo grupo
   @@id([householdId, userId])

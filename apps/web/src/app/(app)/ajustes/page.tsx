@@ -5,6 +5,7 @@ import {
   House,
   Landmark,
   Link2,
+  MessageCircle,
   ShieldCheck,
   Sparkles,
   Tags,
@@ -50,6 +51,13 @@ const LINKS: { href: string; title: string; detail: string; icon: LucideIcon; to
     detail: "Quanto se categoriza sozinho e o classificador",
     icon: Sparkles,
     tone: 1,
+  },
+  {
+    href: "/ajustes/bot",
+    title: "Bot do WhatsApp",
+    detail: "Lançar um gasto mandando uma mensagem",
+    icon: MessageCircle,
+    tone: 2,
   },
   {
     href: "/ajustes/lar",
