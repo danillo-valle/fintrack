@@ -23,6 +23,10 @@ describe("isPublicPath", () => {
   it("um caminho que só começa parecido não vira público", () => {
     expect(isPublicPath("/entrar-falso")).toBe(false);
     expect(isPublicPath("/api/authx")).toBe(false);
+    // M11: só o caminho exato do webhook é público
+    expect(isPublicPath("/api/whatsapp/webhook")).toBe(true);
+    expect(isPublicPath("/api/whatsapp/webhook/x")).toBe(false);
+    expect(isPublicPath("/api/whatsapp")).toBe(false);
   });
 });
 

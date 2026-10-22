@@ -1,7 +1,8 @@
 // instrumentation.ts: ganchos que o Next.js chama no servidor (convenção de arquivo do Next.js).
 //
 //   register()        uma vez, quando o servidor sobe: registra no log que a versão X iniciou e
-//                     liga a fila da sincronização com o banco (M09.1, SYNC_WORKER).
+//                     liga a fila da sincronização com o banco (M09.1, SYNC_WORKER) e a do bot
+//                     do WhatsApp (M11).
 //                     No deploy, dá para ver no log a hora exata em que cada versão entrou.
 //   onRequestError()  sempre que uma página, rota de API ou Server Action lança um erro que
 //                     ninguém tratou: vira uma linha JSON com o caminho e o "digest" (o código
@@ -20,6 +21,11 @@ export async function register() {
     const { startSyncWorker } = await import("./features/bank/server/jobs");
     startSyncWorker().catch((err: unknown) =>
       logger.error({ event: "sync.worker_failed", err }, "a fila de sincronização não subiu"),
+    );
+    // M11: a fila do bot do WhatsApp (sem a configuração da Meta, ela sobe e não faz nada)
+    const { startBotWorker } = await import("./features/bot/server/jobs");
+    startBotWorker().catch((err: unknown) =>
+      logger.error({ event: "bot.worker_failed", err }, "a fila do bot não subiu"),
     );
   }
 }

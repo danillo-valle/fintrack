@@ -17,6 +17,12 @@ const PUBLIC_PREFIXES = ["/api/auth/", "/api/health", "/_next/", "/icons/"];
 /** Arquivos públicos na raiz (ícones e manifesto do app instalável). */
 const PUBLIC_FILES = ["/manifest.webmanifest", "/icon.svg", "/apple-icon.png", "/favicon.ico"];
 
+/**
+ * Rotas de API públicas, pelo caminho EXATO (nunca prefixo). M11: o webhook do WhatsApp, que a
+ * Meta chama sem sessão; ele mesmo confere a assinatura antes de ler qualquer coisa (ADR-018).
+ */
+const PUBLIC_ENDPOINTS = ["/api/whatsapp/webhook"];
+
 export const SIGN_IN_PATH = "/entrar";
 export const TWO_FACTOR_SETUP_PATH = "/configurar-2fa";
 export const REAUTH_PATH = "/reautenticar";
@@ -35,6 +41,7 @@ export function isPublicPath(pathname: string): boolean {
   return (
     (AUTH_PAGES as readonly string[]).includes(pathname) ||
     PUBLIC_FILES.includes(pathname) ||
+    PUBLIC_ENDPOINTS.includes(pathname) ||
     PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix))
   );
 }
