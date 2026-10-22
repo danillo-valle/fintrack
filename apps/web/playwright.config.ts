@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { WHATSAPP_FAKE } from "./e2e/whatsapp";
 
 const PORT = 3000;
 const BASE_URL = `http://localhost:${PORT}`;
@@ -7,6 +8,16 @@ const PLUGGY_FAKE_URL = "http://127.0.0.1:8787";
 // O serviço Python que lê a fatura em PDF (M09.4): o de verdade, com os PDFs sintéticos de
 // samples/pdf. Ele confere o token do app em http://127.0.0.1:3000/api/auth/jwks
 const ML_URL = "http://127.0.0.1:8001";
+// A WhatsApp Cloud API de mentira (M11): o app manda as respostas para ela, e os testes fazem o
+// papel da pessoa por ela (POST /__enviar). Os valores de mentira são os mesmos do .env.example
+const WHATSAPP_ENV = {
+  WHATSAPP_API_URL: `${WHATSAPP_FAKE.url}/v23.0`,
+  WHATSAPP_APP_SECRET: WHATSAPP_FAKE.appSecret,
+  WHATSAPP_ACCESS_TOKEN: WHATSAPP_FAKE.accessToken,
+  WHATSAPP_VERIFY_TOKEN: WHATSAPP_FAKE.verifyToken,
+  WHATSAPP_PHONE_NUMBER_ID: WHATSAPP_FAKE.phoneNumberId,
+  WHATSAPP_DISPLAY_NUMBER: WHATSAPP_FAKE.displayNumber,
+};
 
 // Os testes acessam o banco e o Mailpit, então precisam das mesmas variáveis do app.
 // Em casa, lê o .env da raiz; no CI, as variáveis vêm do workflow.
@@ -48,9 +59,10 @@ export default defineConfig({
       dependencies: ["preparar"],
     },
   ],
-  // Sobe a Pluggy de mentira (M09.1), o serviço Python (M09.4) e o app antes dos testes. Se você
-  // já estiver com "pnpm pluggy:fake", "pnpm ml:dev" e "pnpm dev" rodando, reaproveita (o .env
-  // aponta o app para os dois).
+  // Sobe a Pluggy de mentira (M09.1), o serviço Python (M09.4), a Cloud API do WhatsApp de
+  // mentira (M11) e o app antes dos testes. Se você já estiver com "pnpm pluggy:fake",
+  // "pnpm ml:dev", "pnpm whatsapp:fake" e "pnpm dev" rodando, reaproveita (o .env aponta o app
+  // para os três).
   webServer: [
     {
       command: "pnpm pluggy:fake",
@@ -65,12 +77,19 @@ export default defineConfig({
       timeout: 60_000,
     },
     {
+      command: "pnpm whatsapp:fake",
+      url: `${WHATSAPP_FAKE.url}/health`,
+      reuseExistingServer: !CI,
+      timeout: 30_000,
+      env: WHATSAPP_ENV,
+    },
+    {
       command: "pnpm dev",
       url: `${BASE_URL}/api/health`,
       reuseExistingServer: !CI,
       timeout: 120_000,
       // Nenhum teste fala com a Pluggy de verdade
-      env: { PLUGGY_API_URL: PLUGGY_FAKE_URL, ML_SERVICE_URL: ML_URL },
+      env: { PLUGGY_API_URL: PLUGGY_FAKE_URL, ML_SERVICE_URL: ML_URL, ...WHATSAPP_ENV },
     },
   ],
 });

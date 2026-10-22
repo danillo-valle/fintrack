@@ -206,6 +206,8 @@ export const PAGES = [
   // M10.1: o percentual sem IA e o classificador
   "/ajustes/categorizacao",
   "/ajustes/conexoes",
+  // M11: o bot do WhatsApp (a Ana sem número vinculado)
+  "/ajustes/bot",
   "/ajustes/seguranca",
   ...(PRODUCTION_BUILD ? [] : ["/dev/ui"]),
 ];
