@@ -72,6 +72,22 @@ const schema = z.object({
   // http://ml:8001; no desenvolvimento http://127.0.0.1:8001. Sem ela, o PDF é recusado com
   // um aviso, a cascata roda sem o classificador e o OFX continua funcionando.
   ML_SERVICE_URL: z.url({ protocol: /^https?$/ }).optional(),
+  // ── Bot do WhatsApp (M11, ADR-018) ──
+  // As quatro do painel da Meta. Sem elas (todas), o bot fica desligado: o webhook responde como
+  // rota inexistente e Ajustes › Bot do WhatsApp explica que o servidor não está pronto. Valores
+  // só no .env local e em /srv/fintrack/app.env (fintrack-definir), nunca no Git ou em log.
+  WHATSAPP_APP_SECRET: z.string().min(16).optional(),
+  WHATSAPP_ACCESS_TOKEN: z.string().min(16).optional(),
+  WHATSAPP_VERIFY_TOKEN: z.string().min(16, "use pelo menos 16 caracteres").optional(),
+  WHATSAPP_PHONE_NUMBER_ID: z
+    .string()
+    .regex(/^\d{5,20}$/, "o id do número (só dígitos)")
+    .optional(),
+  // Endereço da Graph API. Os testes apontam para a Cloud API de mentira (127.0.0.1:8789)
+  WHATSAPP_API_URL: z.url({ protocol: /^https?$/ }).default("https://graph.facebook.com/v23.0"),
+  // O número do bot como a tela mostra ("+1 555 010-0000") e se é o número de teste da Meta
+  WHATSAPP_DISPLAY_NUMBER: z.string().max(30).optional(),
+  WHATSAPP_TEST_NUMBER: z.enum(["on", "off"]).default("on"),
 });
 
 const parsed = schema.safeParse(process.env);

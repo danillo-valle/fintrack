@@ -15,7 +15,8 @@
     "CONNECTION_SECRET_KEYS",
     "PLUGGY_API_URL",
     "SYNC_WORKER",
-    "ML_SERVICE_URL"
+    "ML_SERVICE_URL",
+    "WHATSAPP_*"
   ],
   "tasks": {
     "build": {
