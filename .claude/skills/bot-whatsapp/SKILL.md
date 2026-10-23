@@ -46,14 +46,20 @@ visual (Ajustes › Bot, o código de vínculo e as conversas).
 9. **Telefones nos testes são inventados** (`+55 41 90000-0xxx`, `fakePhone()`), únicos por teste
    e aparelho. Nenhum arquivo do repositório tem 13 a 19 dígitos seguidos: o teste do número de
    cartão monta o número na hora.
-10. **Relógio dos testes de integração**: `BOT_CLOCK` (21/10/2026 15:00 UTC); a limpeza de 90 dias
+10. **Falha da Meta vai para o log só como código** (`event: "bot.send_failed"`, `status`, `code`,
+    `subcode`, `hint` de `META_ERROR_HINTS` em `protocol.ts`), nunca a mensagem de texto da Meta
+    (ela pode repetir o número). Código novo que o bot precisa explicar: na tabela, com teste, e
+    no runbook.
+11. **A versão da Graph API** está no padrão do `WHATSAPP_API_URL` (`env.ts`, hoje `v26.0`). Trocar
+    de versão: o padrão, o `.env.example`, o `playwright.config.ts` e o runbook juntos.
+12. **Relógio dos testes de integração**: `BOT_CLOCK` (21/10/2026 15:00 UTC); a limpeza de 90 dias
     é global, e só o teste dela cria linhas antigas (julho).
 
 ## Testar
 
 ```bash
 pnpm --filter @fintrack/core exec vitest run src/bot          # leitor e regras
-pnpm --filter @fintrack/web exec vitest run src/lib/whatsapp  # assinatura e JSON da Meta
+pnpm --filter @fintrack/web exec vitest run src/lib/whatsapp  # assinatura, JSON e erros da Meta, o canal
 pnpm --filter @fintrack/db exec vitest run --config vitest.integration.config.mts src/integration/bot.integration.test.ts
 pnpm --filter @fintrack/web exec playwright test e2e/bot-whatsapp.spec.ts
 ```

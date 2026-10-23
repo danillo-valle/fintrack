@@ -327,12 +327,47 @@ sudo -u fintrack fintrack-compose exec db psql -U fintrack -c \
 | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `webhook.rejected` com `reason: signature`     | Alguém chamou sem a assinatura certa, ou a `WHATSAPP_APP_SECRET` não é a do app: confira no painel da Meta |
 | O bot não responde e não há `webhook.received` | O webhook não chega: a Meta mostra o erro em WhatsApp › Configuração; confira o túnel e o caminho          |
-| `bot.message` com `failed` maior que zero      | A Cloud API recusou a resposta (token vencido? `WHATSAPP_ACCESS_TOKEN` é o do usuário do sistema?)         |
+| `bot.message` com `failed` maior que zero      | A Cloud API recusou: o `bot.send_failed` logo antes traz o código (tabela abaixo)                          |
 | Chegou a 900 no mês                            | Esperado: o bot silencia até o dia 1º; os lançamentos continuam em Recebidos                               |
 | Suspeita de número indevido                    | Ajustes › Bot do WhatsApp › Desvincular (cada pessoa o seu); ou desligue o bot do lar                      |
 
 Trocar o `BETTER_AUTH_SECRET` desfaz os vínculos (o HMAC dos números deriva dele): cada pessoa
 vincula de novo.
+
+### A Meta (M11.2): o número de teste, o token e os códigos de erro
+
+O app da Meta fica em **modo de desenvolvimento**, com o número de teste: só os números da lista
+(até 5) conversam com o bot. Onde fica cada coisa no painel (developers.facebook.com › Meus apps):
+
+| O quê                 | Onde                                                                                  | Variável                   |
+| --------------------- | ------------------------------------------------------------------------------------- | -------------------------- |
+| Chave secreta do app  | Configurações do app › Básico › Chave secreta do app                                  | `WHATSAPP_APP_SECRET`      |
+| Id do número de teste | Casos de uso › WhatsApp › Configuração da API › "Identificação do número de telefone" | `WHATSAPP_PHONE_NUMBER_ID` |
+| Lista de quem recebe  | Configuração da API › Para › "Gerenciar lista de números de telefone"                 |                            |
+| Webhook (URL e token) | Casos de uso › WhatsApp › Configuração › Webhook; campo assinado: **messages**        | `WHATSAPP_VERIFY_TOKEN`    |
+| Token permanente      | Configurações do negócio › Usuários do sistema › Gerar token (validade: Nunca)        | `WHATSAPP_ACCESS_TOKEN`    |
+
+```bash
+# A Meta recusou alguma resposta? (só o código; nunca o número)
+sudo -u fintrack fintrack-compose logs --since 24h --no-log-prefix web | jq -R -c 'fromjson? | select(.event? == "bot.send_failed") | {time, kind, status, code, subcode, hint}'
+```
+
+| Código (`hint`)                      | O que é                                                     | O que fazer                                                                                                    |
+| ------------------------------------ | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| 131030 (`fora_da_lista_de_teste`)    | Quem recebe não está na lista do número de teste            | Cadastre o número na lista. DDD fora de 11–19, 21, 22, 24, 27, 28 (o 41, por exemplo): cadastre também sem o 9 |
+| 190 (`token_invalido`)               | Token vencido ou revogado (o da página API Setup dura 24 h) | Gere o token do usuário do sistema (Nunca) e grave com o `fintrack-definir`; reinicie o `web`                  |
+| 100 (`parametro_invalido`)           | Em geral, o número no lugar do **id** do número             | `WHATSAPP_PHONE_NUMBER_ID` é o id (15 a 17 dígitos) da Configuração da API                                     |
+| 131047 (`fora_da_janela_24h`)        | Passou de 24 h desde a mensagem da pessoa                   | Esperado em botão antigo: a pessoa manda uma mensagem nova (o bot nunca usa template, que é cobrado)           |
+| 131026 (`nao_entregue`)              | A pessoa não pode receber (bloqueou, app antigo)            | Confira no celular dela                                                                                        |
+| 130429 / 131056 (`limite_de_envio`…) | Muitas mensagens em pouco tempo                             | Espere alguns minutos                                                                                          |
+
+| Situação                                                                   | O que fazer                                                                                                                                                          |
+| -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "Não foi possível validar a URL" ao salvar o webhook na Meta               | O `WHATSAPP_VERIFY_TOKEN` do `app.env` é o mesmo do painel? O `web` foi reiniciado depois de gravar? `curl` da rota responde 403 (e não 404)?                        |
+| A verificação passa, mas nenhum `webhook.received` chega                   | Campo **messages** assinado? Cloudflare › Segurança › Bots: o "Bot Fight Mode" barra o POST da Meta (no plano grátis não há exceção: desligue)                       |
+| Trocar o token permanente                                                  | Gere outro no usuário do sistema; `sudo -u fintrack fintrack-definir app.env WHATSAPP_ACCESS_TOKEN`; `sudo -u fintrack fintrack-compose up -d web`; revogue o antigo |
+| Trocar a chave secreta do app                                              | Painel da Meta › Básico › Redefinir; grave a nova com o `fintrack-definir` e reinicie o `web` (até lá, todo POST é recusado como assinatura errada)                  |
+| Trocar a versão da Graph API (a `v26.0` vence ~2 anos depois de 29/7/2026) | No repositório: o padrão do `WHATSAPP_API_URL` no `env.ts`, o `.env.example` e o `playwright.config.ts` (skill `bot-whatsapp`)                                       |
 
 ## Alertas
 
