@@ -50,7 +50,10 @@ Projeto de portfólio construído em módulos (M00 a M12); cada módulo é uma m
   mensagem vira rascunho (`bot_draft`) e o Confirmar cria o lançamento pelo caminho do formulário
   (`source BOT`); número só como HMAC, texto cifrado e apagado ao ler; respostas grátis contadas
   (aviso em 850, para em 900); Ajustes › Bot do WhatsApp e Recebidos › Do WhatsApp. Sem as
-  variáveis `WHATSAPP_*`, o bot fica desligado no servidor (o M11.2 liga a Cloud API de verdade)
+  variáveis `WHATSAPP_*`, o bot fica desligado no servidor
+- Bot na Meta (M11.2, adendo do ADR-018): número de teste da Meta em modo de desenvolvimento, token
+  permanente do usuário do sistema, Graph API `v26.0`; recusa da Meta no log só como código
+  (`bot.send_failed`, `META_ERROR_HINTS`); o runbook tem o passo a passo e os códigos
 
 Regras específicas do Next.js 16: @apps/web/AGENTS.md
 

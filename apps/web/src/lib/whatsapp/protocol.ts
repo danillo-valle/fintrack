@@ -124,3 +124,37 @@ export function outgoingMessage(to: string, message: BotMessage) {
 export function readReceipt(wamid: string) {
   return { messaging_product: "whatsapp", status: "read", message_id: wamid };
 }
+
+/**
+ * Os erros da Cloud API que o bot sabe explicar (o código vem em `error.code` da resposta). Só o
+ * código e um nome curto vão para o log: a mensagem da Meta pode repetir o número de quem recebe.
+ * Tabela completa: developers.facebook.com › WhatsApp › Error codes.
+ */
+export const META_ERROR_HINTS: Readonly<Record<number, string>> = {
+  100: "parametro_invalido", // em geral, o WHATSAPP_PHONE_NUMBER_ID errado (o número no lugar do id)
+  190: "token_invalido", // token vencido (o de teste dura 24 h) ou revogado
+  131026: "nao_entregue", // a pessoa não pode receber (sem WhatsApp, versão antiga, bloqueou)
+  131030: "fora_da_lista_de_teste", // número de teste: quem recebe precisa estar na lista (o "9")
+  131047: "fora_da_janela_24h", // passou de 24 h desde a mensagem da pessoa (resposta exige template)
+  131056: "muitas_para_o_mesmo_numero", // limite de envio para o mesmo número
+  130429: "limite_de_envio", // limite de mensagens por segundo do número
+};
+
+export type MetaError = { code: number | null; subcode: number | null; hint: string | null };
+
+const whole = (value: unknown): number | null =>
+  typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : null;
+
+/**
+ * O código do erro numa resposta da Graph API (`{"error": {"code": 131030, "error_subcode": …}}`).
+ * Corpo estranho: tudo null. Nunca devolve a mensagem de texto da Meta.
+ */
+export function metaErrorOf(body: unknown): MetaError {
+  const error = isObject(body) && isObject(body.error) ? body.error : {};
+  const code = whole(error.code);
+  return {
+    code,
+    subcode: whole(error.error_subcode),
+    hint: code !== null ? (META_ERROR_HINTS[code] ?? null) : null,
+  };
+}

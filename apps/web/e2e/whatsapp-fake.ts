@@ -112,7 +112,7 @@ const server = createServer((request, response) => {
       return json(200, { wamid, status: reply.status });
     }
 
-    // A Graph API: POST /v23.0/<id>/messages
+    // A Graph API: POST /v26.0/<id>/messages
     const graph = /^(?:\/v\d+\.\d+)?\/(\d+)\/messages$/.exec(url.pathname);
     if (request.method === "POST" && graph) {
       if (request.headers.authorization !== `Bearer ${accessToken}`)

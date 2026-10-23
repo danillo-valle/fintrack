@@ -98,3 +98,29 @@ Decidido pelo Danillo em 21/10/2026 (as recomendações), com a linha G do canva
 - **Guardar o texto da mensagem**: não há uso para ele depois de lido; guardá-lo só aumentaria o
   que um backup expõe.
 - **Coexistência (o mesmo número no app WhatsApp Business e na API)**: exige ser parceiro da Meta.
+
+## Adendo (M11.2, 22/10/2026): a Cloud API de verdade, no número de teste
+
+Decidido pelo Danillo em 22/10/2026 (as recomendações, e a Nelcimara junto):
+
+1. **O número de teste da Meta**, com o app em **modo de desenvolvimento**: até 5 números
+   cadastrados na lista do número de teste (cada um confirma com um código). Usam o bot o Danillo e a
+   Nelcimara; cada um vincula o próprio número pela própria conta. Modo de desenvolvimento não pede
+   política de privacidade, verificação do negócio nem forma de pagamento.
+2. **Token permanente** de um usuário do sistema (Business Settings › System users, validade
+   "Never", permissões `whatsapp_business_messaging` e `whatsapp_business_management`). O token de
+   teste da página API Setup vence em 24 h e nunca vai para o servidor.
+3. **A versão da Graph API passa para a `v26.0`** (lançada em 29/7/2026; a `v23.0` do M11.1 vence em
+   8/10/2027). Só o padrão do `WHATSAPP_API_URL` muda; a troca seguinte está no runbook.
+4. **Falha da Meta só no log**, como código (`bot.send_failed` com `status`, `code`, `subcode` e um
+   nome curto, como `fora_da_lista_de_teste` para o 131030). Nenhuma tela nem migração nova. O texto
+   do erro da Meta nunca vai para o log (pode repetir o número de quem recebe).
+5. **O "9" dos celulares brasileiros**: em vários DDDs (o 41 entre eles) o WhatsApp identifica o
+   número sem o 9, e a lista do número de teste compara o formato exato. O bot responde sempre para
+   o número como a Meta mandou (`from`); se a Meta recusar com 131030, o número entra na lista
+   também sem o 9 (runbook). Não dá para provar no laboratório (sem acesso à Meta).
+6. **Cloudflare**: o "Bot Fight Mode" do plano grátis pode barrar o POST da Meta e não aceita
+   exceção; o manual confere com um POST de fora antes de ligar no painel da Meta.
+
+O check do M11.2 prova o webhook pela internet sem mandar mensagem: a verificação com o token certo
+devolve o desafio, e um POST com assinatura forjada recebe 200 sem gravar nada.

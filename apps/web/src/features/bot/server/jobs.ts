@@ -21,7 +21,7 @@ import { jobs, QUEUES, TIME_ZONE } from "@/lib/jobs";
 import { logger } from "@/lib/logger";
 import { cascadeServices, QUEUE_SUBJECT } from "@/lib/ml/classifier";
 import { botConfig, botSecrets } from "@/lib/whatsapp/config";
-import { cloudApiChannel } from "@/lib/whatsapp/channel";
+import { ChannelError, cloudApiChannel } from "@/lib/whatsapp/channel";
 
 export const BOT_QUEUE = QUEUES.botMessage.name;
 export const BOT_DAILY_QUEUE = QUEUES.botDaily.name;
@@ -50,8 +50,9 @@ export async function deliver(
   let sent = 0;
   let skipped = 0;
   let failed = 0;
-  await channel.markRead(result.wamid).catch(() => {
+  await channel.markRead(result.wamid).catch((err: unknown) => {
     failed += 1;
+    logSendFailure("read", err);
   });
   for (const reply of result.replies) {
     const slot = await reserveReply(prisma, phoneNumberId, reply.kind, now);
@@ -66,11 +67,25 @@ export async function deliver(
         await channel.send(reply.to, BOT_WARNING_MESSAGE);
         sent += 1;
       }
-    } catch {
+    } catch (err: unknown) {
       failed += 1;
+      logSendFailure("reply", err);
     }
   }
   return { sent, skipped, failed };
+}
+
+/**
+ * Uma resposta que a Meta recusou: o status, o código da Meta e o nome curto (131030 =
+ * "fora_da_lista_de_teste"; a tabela está no runbook). Nunca o número, o texto ou a mensagem de
+ * erro da Meta (ela pode repetir o número de quem recebe).
+ */
+function logSendFailure(kind: "read" | "reply", err: unknown) {
+  const meta =
+    err instanceof ChannelError
+      ? { status: err.status, code: err.code, subcode: err.subcode, hint: err.hint }
+      : { status: null, code: null, subcode: null, hint: err instanceof Error ? err.name : "erro" };
+  logger.warn({ event: "bot.send_failed", kind, ...meta }, "a Cloud API recusou");
 }
 
 /** O que o worker faz com uma tarefa da fila. */

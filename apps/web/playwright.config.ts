@@ -11,7 +11,7 @@ const ML_URL = "http://127.0.0.1:8001";
 // A WhatsApp Cloud API de mentira (M11): o app manda as respostas para ela, e os testes fazem o
 // papel da pessoa por ela (POST /__enviar). Os valores de mentira são os mesmos do .env.example
 const WHATSAPP_ENV = {
-  WHATSAPP_API_URL: `${WHATSAPP_FAKE.url}/v23.0`,
+  WHATSAPP_API_URL: `${WHATSAPP_FAKE.url}/v26.0`,
   WHATSAPP_APP_SECRET: WHATSAPP_FAKE.appSecret,
   WHATSAPP_ACCESS_TOKEN: WHATSAPP_FAKE.accessToken,
   WHATSAPP_VERIFY_TOKEN: WHATSAPP_FAKE.verifyToken,

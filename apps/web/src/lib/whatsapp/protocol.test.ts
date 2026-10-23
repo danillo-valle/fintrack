@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  META_ERROR_HINTS,
+  metaErrorOf,
   outgoingMessage,
   parseWebhook,
   readReceipt,
@@ -171,5 +173,42 @@ describe("o que o FinTrack manda", () => {
       status: "read",
       message_id: "wamid.A",
     });
+  });
+});
+
+describe("o erro que a Meta devolve (M11.2)", () => {
+  it("lê o código, o subcódigo e o nome curto; nunca a mensagem de texto", () => {
+    // Formato da Graph API; o texto da Meta pode repetir o número de quem recebe
+    const error = metaErrorOf({
+      error: {
+        message: "(#131030) Recipient phone number not in allowed list +5541900000001",
+        type: "OAuthException",
+        code: 131030,
+        error_subcode: 2494010,
+        fbtrace_id: "Azz000000000000",
+      },
+    });
+    expect(error).toEqual({ code: 131030, subcode: 2494010, hint: "fora_da_lista_de_teste" });
+    expect(JSON.stringify(error)).not.toContain("5541900000001");
+  });
+
+  it("token vencido: 190", () => {
+    expect(metaErrorOf({ error: { code: 190, error_subcode: 463 } }).hint).toBe("token_invalido");
+  });
+
+  it("código desconhecido: o número sem nome; corpo estranho: tudo null", () => {
+    expect(metaErrorOf({ error: { code: 4 } })).toEqual({ code: 4, subcode: null, hint: null });
+    for (const body of [null, "texto", [], {}, { error: "x" }, { error: { code: "131030" } }]) {
+      expect(metaErrorOf(body)).toEqual({ code: null, subcode: null, hint: null });
+    }
+    expect(metaErrorOf({ error: { code: -1, error_subcode: 1.5 } })).toEqual({
+      code: null,
+      subcode: null,
+      hint: null,
+    });
+  });
+
+  it("todo nome curto é minúsculo, sem espaço (vai para o log como está)", () => {
+    for (const hint of Object.values(META_ERROR_HINTS)) expect(hint).toMatch(/^[a-z0-9_]+$/);
   });
 });
