@@ -83,8 +83,9 @@ const schema = z.object({
     .string()
     .regex(/^\d{5,20}$/, "o id do número (só dígitos)")
     .optional(),
-  // Endereço da Graph API. Os testes apontam para a Cloud API de mentira (127.0.0.1:8789)
-  WHATSAPP_API_URL: z.url({ protocol: /^https?$/ }).default("https://graph.facebook.com/v23.0"),
+  // Endereço da Graph API, com a versão (v26.0, de 29/7/2026; a Meta mantém cada versão por cerca
+  // de dois anos: a troca está no runbook). Os testes apontam para a Cloud API de mentira (127.0.0.1:8789)
+  WHATSAPP_API_URL: z.url({ protocol: /^https?$/ }).default("https://graph.facebook.com/v26.0"),
   // O número do bot como a tela mostra ("+1 555 010-0000") e se é o número de teste da Meta
   WHATSAPP_DISPLAY_NUMBER: z.string().max(30).optional(),
   WHATSAPP_TEST_NUMBER: z.enum(["on", "off"]).default("on"),
