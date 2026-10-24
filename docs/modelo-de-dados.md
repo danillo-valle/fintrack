@@ -92,6 +92,7 @@ erDiagram
     Transaction ||--o| LocalAiAttempt : "o que a IA local respondeu (M10.2b)"
     Category |o--o{ LocalAiAttempt : "mãe da categoria nova proposta"
     HouseholdMember ||--o| BotLink : "número do WhatsApp (M11)"
+    HouseholdMember ||--o| BotTelegramLink : "conta do Telegram (M12.0b)"
     HouseholdMember ||--o{ BotLinkCode : "código de vínculo"
     HouseholdMember ||--o| BotPreference : "padrões do bot"
     HouseholdMember ||--o{ BotDraft : "propostas do bot"
@@ -103,6 +104,8 @@ erDiagram
         char month PK "AAAA-MM, São Paulo"
         int used "0 a 1000 (para em 900)"
         timestamp warnedAt "aviso dos 850"
+        timestamp lastSentAt "última resposta aceita (M12.0b)"
+        int lastFailureCode "última recusa da Meta (M12.0b)"
     }
 
     Household {
@@ -398,6 +401,9 @@ registro sobreviver mesmo que a pessoa ou o grupo sejam apagados.
 | Bot: mensagem lida não guarda texto; na fila, sem resultado (M11)             | CHECK `bot_message_check`                                             |
 | Bot: proposta só de despesa, crédito/débito/pix, parcelas só no crédito (M11) | CHECKs `bot_draft_values_check` e `bot_draft_status_check`            |
 | Bot: a conta do mês de 0 a 1000, mês AAAA-MM (M11)                            | CHECK `bot_reply_count_check`                                         |
+| Bot: a conta do Telegram só como HMAC (M12.0b)                                | CHECK `bot_telegram_link_chat_check`                                  |
+| Bot: o canal do código só depois do uso; o id do Telegram com "tg:" (M12.0b)  | CHECKs `bot_link_code_channel_check` e `bot_message_channel_check`    |
+| Bot: a recusa da Meta com código e hora juntos (M12.0b)                       | CHECK `bot_reply_count_failure_check`                                 |
 
 Cada regra tem um teste em `packages/db/src/integration/`, que tenta quebrá-la contra o
 PostgreSQL de verdade (`pnpm test:integration`).
@@ -440,7 +446,7 @@ fazer o quê** é decidido no código, num ponto só: `authorizeWallet` e `autho
   interruptor; quem liga e desliga fica na auditoria). Detalhes no
   [ADR-016](adr/0016-llm-local.md).
 
-## Bot do WhatsApp (M11)
+## Bot do WhatsApp (M11) e do Telegram (M12.0b)
 
 - **`bot_link`** liga um número a uma pessoa do lar, guardando só o **HMAC** do número (chave
   derivada do segredo do app) e os 4 últimos dígitos. Nasce do **`bot_link_code`** (6 dígitos,
@@ -452,8 +458,14 @@ fazer o quê** é decidido no código, num ponto só: `authorizeWallet` e `autho
 - **`bot_draft`** é a proposta. Ela vira lançamento (`source BOT`, `externalId` = id da proposta;
   na compra parcelada, `:1`, `:2`...) só no Confirmar, pelo mesmo caminho do formulário. Aberta,
   aparece em Recebidos e fica fora das somas.
-- **`bot_reply_count`** conta as respostas do número do bot no mês (a cota grátis da Meta).
+- **`bot_reply_count`** conta as respostas do número do bot no mês (a cota grátis da Meta) e
+  guarda a última resposta aceita e a última recusada (com o código), para a tela avisar.
   Detalhes no [ADR-018](adr/0018-bot-whatsapp.md).
+- **`bot_telegram_link`** (M12.0b) liga uma conta do Telegram a uma pessoa, guardando só o **HMAC**
+  do id da conversa (a mesma chave, com o prefixo `telegram:`): nem o nome, nem o @. O código de
+  vínculo é o mesmo do WhatsApp; `bot_link_code.usedChannel` diz por onde ele chegou, e
+  `bot_message.channel` diz o canal de cada mensagem (no Telegram, o `wamid` é `tg:` + o
+  `update_id`). Detalhes no [ADR-019](adr/0019-bot-telegram.md).
 
 ## Pago por, parcelas e despesas fixas (M07.4)
 

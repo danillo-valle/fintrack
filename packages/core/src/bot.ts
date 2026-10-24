@@ -1,5 +1,6 @@
-// As regras do bot do WhatsApp (M11, ADR-018) que não dependem de banco nem de rede: o código de
-// vínculo, a guarda das respostas grátis, os botões e o texto exato de cada resposta.
+// As regras do bot de lançamento (M11, ADR-018; o Telegram no M12.0b, ADR-019) que não dependem de
+// banco nem de rede: o código de vínculo, a guarda das respostas grátis do WhatsApp, os botões e o
+// texto exato de cada resposta, igual nos dois canais.
 //
 // O texto das respostas mora aqui (e não na tela nem no adaptador) por um motivo de privacidade:
 // a resposta passa pela Meta, então ela só pode repetir o que a pessoa mandou e o que o FinTrack
@@ -18,10 +19,32 @@ export const BOT_LINK_MAX_FAILURES = 5;
 export const BOT_LINK_FAILURE_WINDOW_MS = 60 * 60 * 1000;
 export const BOT_LINK_BLOCK_MS = 24 * 60 * 60 * 1000;
 
+/** Os canais do bot (M12.0b): o WhatsApp da Meta e o Telegram. */
+export type BotChannelKind = "WHATSAPP" | "TELEGRAM";
+
 /** "vincular 482 913" → "482913". Qualquer outra coisa: nulo. */
 export function parseLinkCommand(text: string): string | null {
   const match = /^\s*vincular\s+(\d{3})[\s.-]?(\d{3})\s*$/i.exec(text);
   return match ? `${match[1]}${match[2]}` : null;
+}
+
+/**
+ * O "/start" do Telegram (M12.0b): o link `t.me/<bot>?start=482913` chega como "/start 482913".
+ * Devolve o código (6 dígitos) ou nulo quando veio sem código ou com outra coisa; não é /start:
+ * `undefined`.
+ */
+export function parseStartCommand(text: string): { code: string | null } | undefined {
+  const match = /^\s*\/start(?:@[A-Za-z0-9_]{1,64})?(?:\s+(\S{1,64}))?\s*$/.exec(text);
+  if (!match) return undefined;
+  const code = match[1] ?? "";
+  return { code: /^\d{6}$/.test(code) ? code : null };
+}
+
+/** O link que abre o bot no Telegram já com o código ("Abrir no Telegram"). */
+export function telegramStartLink(botUsername: string, code: string): string {
+  if (!/^[A-Za-z0-9_]{5,32}$/.test(botUsername)) throw new Error("nome do bot inválido");
+  if (!/^\d{6}$/.test(code)) throw new Error("código inválido");
+  return `https://t.me/${botUsername}?start=${code}`;
 }
 
 /** O código como a tela mostra e a pessoa digita: "482 913". */
@@ -191,14 +214,36 @@ export const BOT_UNDO_MS = 30 * 60 * 1000;
 // ── O canal ─────────────────────────────────────────────────────────────────────
 
 /**
- * O canal por onde as respostas saem (M11: a WhatsApp Cloud API; nos testes, a de mentira). A
- * leitura, o vínculo, a idempotência e a confirmação não conhecem o canal: só este contrato.
+ * A mensagem recebida, como o canal precisa dela para responder (só em memória, entre a fila e o
+ * canal; nada disto é gravado aberto).
+ */
+export type BotIncomingRef = {
+  /** O id da mensagem no canal (o wamid; no Telegram, "tg:" + o update_id) */
+  externalId: string;
+  /** Para quem responder: o número (WhatsApp) ou o id da conversa (Telegram) */
+  chat: string;
+  /** Telegram: o id da mensagem da pessoa (para apagar a que tinha um número de cartão) */
+  messageId: string | null;
+  /** Telegram: o id do toque no botão (o canal confirma o toque) */
+  callbackId: string | null;
+};
+
+/**
+ * O canal por onde as respostas saem (M11: a WhatsApp Cloud API; M12.0b: o Telegram; nos testes,
+ * os de mentira). A leitura, o vínculo, a idempotência e a confirmação não conhecem o canal: só
+ * este contrato.
  */
 export interface BotChannel {
-  /** Manda a resposta (texto, ou texto com botões de resposta). Falha = lança. */
-  send(to: string, message: BotMessage): Promise<void>;
-  /** Marca a mensagem recebida como lida (os dois tiques azuis; não conta como mensagem) */
-  markRead(wamid: string): Promise<void>;
+  /**
+   * Manda a resposta (texto, ou texto com botões). Com `replace` (o id da mensagem do bot que
+   * tinha o botão tocado), o canal que sabe editar troca aquela mensagem em vez de mandar outra
+   * (Telegram); o que não sabe manda uma nova (WhatsApp). Falha = lança.
+   */
+  send(to: string, message: BotMessage, replace?: string | null): Promise<void>;
+  /** Avisa o canal que a mensagem foi lida (WhatsApp: os tiques azuis; Telegram: o toque). Grátis */
+  acknowledge(incoming: BotIncomingRef): Promise<void>;
+  /** Tira da conversa a mensagem da pessoa (Telegram, a do número de cartão); quem não pode, nada */
+  discard(incoming: BotIncomingRef): Promise<void>;
 }
 
 // ── Textos ──────────────────────────────────────────────────────────────────────
@@ -321,15 +366,34 @@ export const ALREADY_DONE_MESSAGE: BotMessage = {
   body: "Essa proposta já foi decidida, aqui ou no FinTrack.",
 };
 
-export function linkedMessage(firstName: string, walletName: string): BotMessage {
+export function linkedMessage(
+  firstName: string,
+  walletName: string,
+  channel: BotChannelKind = "WHATSAPP",
+): BotMessage {
   return {
     body: [
-      `Pronto, ${firstName}. Seu número está vinculado.`,
+      channel === "TELEGRAM"
+        ? `Pronto, ${firstName}. Este Telegram agora lança no FinTrack em seu nome.`
+        : `Pronto, ${firstName}. Seu número está vinculado.`,
       "Para lançar, escreva por exemplo: gastei 42,90 no mercado",
-      `Vai para o ambiente ${walletName}; troque em Ajustes › Bot do WhatsApp.`,
+      `Vai para o ambiente ${walletName}; troque em Ajustes › Bot de lançamento.`,
     ].join("\n"),
   };
 }
+
+/**
+ * Telegram (M12.0b): a resposta a quem toca em Iniciar sem estar vinculado, com código errado,
+ * vencido ou sem código. Uma frase só, que não diz qual dos casos (não revela se o código existe).
+ */
+export const PRIVATE_BOT_MESSAGE: BotMessage = {
+  body: "Este bot é de uso particular. Para vincular, gere um código em Ajustes › Bot de lançamento, no FinTrack.",
+};
+
+/** Telegram (M12.0b): o número de cartão, quando o bot conseguiu apagar a mensagem da conversa. */
+export const CARD_NUMBER_REMOVED_MESSAGE: BotMessage = {
+  body: "Isso parecia um número de cartão. Apaguei a sua mensagem desta conversa e não guardei nada. Mande só o apelido do cartão, como “no visa”.",
+};
 
 export function warningMessage(): BotMessage {
   return {
@@ -369,7 +433,7 @@ export function notUnderstoodMessage(
     BAD_INSTALLMENTS: "Parcelas pelo bot: de 2 a 24 vezes, como “em 3x”.",
     NO_DESCRIPTION: `Faltou dizer o que foi. Escreva assim:\n${EXAMPLE}`,
     NO_ACCOUNT:
-      "Não sei em qual ambiente, conta ou cartão lançar. Escolha os padrões em Ajustes › Bot do WhatsApp.",
+      "Não sei em qual ambiente, conta ou cartão lançar. Escolha os padrões em Ajustes › Bot de lançamento.",
     NOT_A_TEXT: "Por enquanto o bot só lê texto. Mande o lançamento escrito.",
   };
   return { body: text[error] };
@@ -397,6 +461,8 @@ export const BOT_FIXED_MESSAGES: readonly BotMessage[] = [
   UNDO_EXPIRED_MESSAGE,
   EXPIRED_MESSAGE,
   ALREADY_DONE_MESSAGE,
+  PRIVATE_BOT_MESSAGE,
+  CARD_NUMBER_REMOVED_MESSAGE,
 ];
 
 // ── Para onde vai o lançamento ──────────────────────────────────────────────────

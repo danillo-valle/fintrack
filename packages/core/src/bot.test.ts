@@ -22,6 +22,8 @@ import {
   nameOnlyMessage,
   notUnderstoodMessage,
   parseLinkCommand,
+  parseStartCommand,
+  telegramStartLink,
   phoneLastFour,
   proposalMessage,
   replyAllowed,
@@ -214,6 +216,7 @@ describe("textos", () => {
       askCardMessage(view, DRAFT, [{ id: CARD, nickname: "Visa da Casa" }]),
       confirmedMessage({ cents: 4290n, title: "Mercado", installments: null }, DRAFT),
       linkedMessage("Lia", "Casa"),
+      linkedMessage("Lia", "Casa", "TELEGRAM"),
       nameOnlyMessage({ wallet: "Casa", card: null }),
       nameOnlyMessage({ wallet: null, card: "Visa da Casa" }),
       warningMessage(),
@@ -326,6 +329,44 @@ describe("nameOnlyMessage (M12.0)", () => {
     );
     expect(nameOnlyMessage({ wallet: "Casa", card: "Visa da Casa" }).body).toMatch(
       /^Entendi o ambiente “Casa” e o cartão “Visa da Casa”, mas/,
+    );
+  });
+});
+
+describe("Telegram (M12.0b)", () => {
+  it("o /start traz o código do link; sem código ou com outra coisa, nulo", () => {
+    expect(parseStartCommand("/start 482913")).toEqual({ code: "482913" });
+    expect(parseStartCommand("/start@FinTrackExemploBot 482913")).toEqual({ code: "482913" });
+    expect(parseStartCommand("/start")).toEqual({ code: null });
+    expect(parseStartCommand("/start 48291")).toEqual({ code: null });
+    expect(parseStartCommand("/start abc123")).toEqual({ code: null });
+    expect(parseStartCommand("gastei 42 no mercado")).toBeUndefined();
+    expect(parseStartCommand("/start 482913 extra")).toBeUndefined();
+  });
+
+  it("o link de Abrir no Telegram leva o código e recusa nome ou código fora do formato", () => {
+    expect(telegramStartLink("FinTrackExemploBot", "482913")).toBe(
+      "https://t.me/FinTrackExemploBot?start=482913",
+    );
+    expect(() => telegramStartLink("fin/track", "482913")).toThrow();
+    expect(() => telegramStartLink("FinTrackExemploBot", "48291")).toThrow();
+  });
+
+  it("o vínculo pelo Telegram diz que é o Telegram, não o número", () => {
+    const body = linkedMessage("Lia", "Casa", "TELEGRAM").body;
+    expect(body).toContain("Este Telegram agora lança no FinTrack");
+    expect(body).not.toContain("número");
+    expect(body).toContain("Ajustes › Bot de lançamento");
+  });
+
+  it("todo código de 6 dígitos vai e volta pelo link", () => {
+    fc.assert(
+      fc.property(fc.integer({ min: 0, max: 999_999 }), (n) => {
+        const code = String(n).padStart(6, "0");
+        const link = telegramStartLink("FinTrackExemploBot", code);
+        const start = new URL(link).searchParams.get("start") ?? "";
+        expect(parseStartCommand(`/start ${start}`)).toEqual({ code });
+      }),
     );
   });
 });

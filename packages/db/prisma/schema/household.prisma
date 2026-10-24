@@ -83,12 +83,13 @@ model HouseholdMember {
   joinedAt    DateTime      @default(now())
 
   // Apagar o grupo ou a conta de login remove o vínculo (onDelete: Cascade)
-  household         Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  household         Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   walletMemberships WalletMember[]
   budgetShares      BudgetShare[]
   /// O bot do WhatsApp (M11): o número, o código, os padrões e as propostas desta pessoa no lar
   botLink           BotLink?
+  botTelegramLink   BotTelegramLink?
   botLinkCodes      BotLinkCode[]
   botPreference     BotPreference?
   botDrafts         BotDraft[]

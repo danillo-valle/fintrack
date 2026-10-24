@@ -171,6 +171,7 @@ describe("vínculo por código", () => {
     expect(await linkCodeStatus(prisma, h.holder.id, created.id, deps.keyring, minutes(3))).toEqual(
       {
         state: "LINKED",
+        channel: "WHATSAPP",
         lastFour: phones.holder.slice(-4),
       },
     );
