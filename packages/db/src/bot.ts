@@ -37,6 +37,7 @@ import {
   isEssentialReply,
   linkBlocked,
   linkedMessage,
+  nameOnlyMessage,
   normalizePhone,
   notUnderstoodMessage,
   parseBotMessage,
@@ -675,6 +676,22 @@ export async function processBotMessage(
     wallets: choices.wallets,
     cards: choices.cards.map((c) => ({ id: c.id, name: c.nickname })),
   });
+  if (!parsed.ok && parsed.error === "NAME_ONLY") {
+    const nameOf = (list: readonly { id: string; name: string }[], ids: string[]) =>
+      list.find((item) => item.id === ids[0])?.name ?? null;
+    return done("NOT_UNDERSTOOD", [
+      reply(
+        "NOT_UNDERSTOOD",
+        nameOnlyMessage({
+          wallet: nameOf(choices.wallets, parsed.walletIds),
+          card: nameOf(
+            choices.cards.map((c) => ({ id: c.id, name: c.nickname })),
+            parsed.cardIds,
+          ),
+        }),
+      ),
+    ]);
+  }
   if (!parsed.ok) {
     return done(parsed.error === "CARD_NUMBER" ? "CARD_NUMBER" : "NOT_UNDERSTOOD", [
       reply("NOT_UNDERSTOOD", notUnderstoodMessage(parsed.error)),

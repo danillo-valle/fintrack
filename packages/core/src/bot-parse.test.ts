@@ -167,6 +167,23 @@ describe("parseBotMessage: o que o bot recusa", () => {
     expect(error(text)).toBe(expected);
   });
 
+  it("só o nome de um ambiente ou cartão no lugar da descrição: diz o que entendeu (M12.0)", () => {
+    expect(parseBotMessage("gastei 1 na lia", ctx)).toEqual({
+      ok: false,
+      error: "NAME_ONLY",
+      walletIds: [LIA],
+      cardIds: [],
+    });
+    expect(parseBotMessage("gastei 1 no visa", ctx)).toEqual({
+      ok: false,
+      error: "NAME_ONLY",
+      walletIds: [],
+      cardIds: [VISA],
+    });
+    // Com descrição, segue normal
+    expect(ok("gastei 1 no visa padaria").description).toBe("Padaria");
+  });
+
   it("data no futuro", () => {
     expect(error("luz 210 22/10/2026")).toBe("FUTURE_DATE");
   });

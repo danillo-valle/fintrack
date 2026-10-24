@@ -69,8 +69,15 @@ export type BotParsedEntry = {
   cardIds: string[];
 };
 
+/**
+ * O que o leitor devolve. `NAME_ONLY` (M12.0): a mensagem tinha valor, mas a única palavra que
+ * sobrava era o nome de um ambiente ou cartão ("gastei 1 no teste" com o ambiente "Teste M07");
+ * a resposta diz o que foi entendido, em vez de só "faltou dizer o que foi".
+ */
 export type BotParseResult =
-  { ok: true; entry: BotParsedEntry } | { ok: false; error: BotParseError };
+  | { ok: true; entry: BotParsedEntry }
+  | { ok: false; error: BotParseError }
+  | { ok: false; error: "NAME_ONLY"; walletIds: string[]; cardIds: string[] };
 
 // ── Texto ───────────────────────────────────────────────────────────────────────
 
@@ -358,6 +365,8 @@ export function parseBotMessage(text: string, context: BotParseContext): BotPars
   if (amount === 0n) return { ok: false, error: "ZERO_AMOUNT" };
   if (amount > MAX_ABS_CENTS) return { ok: false, error: "AMOUNT_TOO_BIG" };
   const description = describe(tokens);
+  if (description === "" && (walletIds.length > 0 || cardIds.length > 0))
+    return { ok: false, error: "NAME_ONLY", walletIds, cardIds };
   if (description === "") return { ok: false, error: "NO_DESCRIPTION" };
 
   return {

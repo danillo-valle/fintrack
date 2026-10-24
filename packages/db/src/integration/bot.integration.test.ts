@@ -406,6 +406,13 @@ describe("do texto ao lançamento", () => {
     expect(await prisma.botDraft.count({ where: { householdId: h.householdId } })).toBe(0);
   });
 
+  it("só o nome de um ambiente no lugar da descrição: diz o que entendeu, nada guardado (M12.0)", async () => {
+    const { result } = await send(text(phones.holder, "gastei 1 na casa"));
+    expect(result?.outcome).toBe("NOT_UNDERSTOOD");
+    expect(result?.replies[0]?.message.body).toMatch(/^Entendi o ambiente “Casa”, mas faltou/);
+    expect(await prisma.botDraft.count({ where: { householdId: h.householdId } })).toBe(0);
+  });
+
   it("o bot só lança onde a pessoa pode: a parceira não alcança o ambiente pessoal da titular", async () => {
     await link(h.partner.id, phones.partner);
     // "na Titular" não é um ambiente dela: vira descrição, e o ambiente é o que ela edita
