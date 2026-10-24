@@ -19,6 +19,7 @@ import {
   formatLinkCode,
   linkBlocked,
   linkedMessage,
+  nameOnlyMessage,
   notUnderstoodMessage,
   parseLinkCommand,
   phoneLastFour,
@@ -213,6 +214,8 @@ describe("textos", () => {
       askCardMessage(view, DRAFT, [{ id: CARD, nickname: "Visa da Casa" }]),
       confirmedMessage({ cents: 4290n, title: "Mercado", installments: null }, DRAFT),
       linkedMessage("Lia", "Casa"),
+      nameOnlyMessage({ wallet: "Casa", card: null }),
+      nameOnlyMessage({ wallet: null, card: "Visa da Casa" }),
       warningMessage(),
       ...BOT_FIXED_MESSAGES,
       ...(
@@ -313,5 +316,16 @@ describe("para onde vai o lançamento", () => {
     ).toEqual({
       kind: "NONE",
     });
+  });
+});
+
+describe("nameOnlyMessage (M12.0)", () => {
+  it("diz o ambiente e o cartão que entendeu", () => {
+    expect(nameOnlyMessage({ wallet: "Casa", card: null }).body).toBe(
+      "Entendi o ambiente “Casa”, mas faltou dizer o que foi. Escreva assim:\ngastei 42,90 no mercado",
+    );
+    expect(nameOnlyMessage({ wallet: "Casa", card: "Visa da Casa" }).body).toMatch(
+      /^Entendi o ambiente “Casa” e o cartão “Visa da Casa”, mas/,
+    );
   });
 });

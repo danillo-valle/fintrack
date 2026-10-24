@@ -40,19 +40,25 @@ export function BotSwitch({ on, labelledBy }: { on: boolean; labelledBy: string 
 /**
  * "Vincular meu número" (ou "Gerar outro código"). O código novo abre na tela do código: com o
  * React, navega sozinho (o modal abre por cima de Ajustes); sem ele, aparece o link para abrir.
+ *
+ * `replace`: o botão que já está DENTRO da tela do código (código vencido, "Gerar outro código")
+ * troca o endereço em vez de empilhar. Assim o Fechar (que volta uma página) sai para Ajustes, e
+ * não para o código anterior (M12.0).
  */
 export function StartLinkButton({
   label = "Vincular meu número",
   variant = "default",
+  replace = false,
 }: {
   label?: string;
   variant?: "default" | "outline";
+  replace?: boolean;
 }) {
   return (
     <ActionForm<LinkState> action={startLinkAction} initialState={INITIAL_LINK} aria-label={label}>
       {({ pending, state }) => (
         <>
-          <OpenCode url={state.codeUrl} />
+          <OpenCode url={state.codeUrl} replace={replace} />
           <Button
             type="submit"
             variant={variant}
@@ -70,11 +76,24 @@ export function StartLinkButton({
 
 const INITIAL_LINK: LinkState = { error: null, success: null, codeUrl: null };
 
-function OpenCode({ url }: { url: string | null }) {
+/** Quanto a tela espera a navegação do Next antes de abrir o código pelo navegador. */
+const OPEN_FALLBACK_MS = 2500;
+
+function OpenCode({ url, replace }: { url: string | null; replace: boolean }) {
   const router = useRouter();
   useEffect(() => {
-    if (url) router.push(url);
-  }, [url, router]);
+    if (!url) return;
+    const from = window.location.pathname + window.location.search;
+    if (replace) router.replace(url);
+    else router.push(url);
+    // Rede de segurança (M12.0): no Safari do Danillo, o código era gerado e a tela não saía do
+    // lugar. Se o endereço continua o mesmo depois do prazo, abre o código pelo navegador (a
+    // página inteira do código, a mesma do link sem JavaScript).
+    const timer = window.setTimeout(() => {
+      if (window.location.pathname + window.location.search === from) window.location.assign(url);
+    }, OPEN_FALLBACK_MS);
+    return () => window.clearTimeout(timer);
+  }, [url, replace, router]);
   if (!url) return null;
   return (
     <noscript>

@@ -52,7 +52,11 @@ visual (Ajustes › Bot, o código de vínculo e as conversas).
     no runbook.
 11. **A versão da Graph API** está no padrão do `WHATSAPP_API_URL` (`env.ts`, hoje `v26.0`). Trocar
     de versão: o padrão, o `.env.example`, o `playwright.config.ts` e o runbook juntos.
-12. **Relógio dos testes de integração**: `BOT_CLOCK` (21/10/2026 15:00 UTC); a limpeza de 90 dias
+12. **A tela do código não empilha endereços**: o botão de dentro dela usa `replace`
+    (`StartLinkButton replace`), senão o Fechar (que volta uma página) cai no código anterior.
+    Navegação que depende do cliente tem a rede de segurança do `OpenCode` (abre pelo navegador
+    se o endereço não mudar).
+13. **Relógio dos testes de integração**: `BOT_CLOCK` (21/10/2026 15:00 UTC); a limpeza de 90 dias
     é global, e só o teste dela cria linhas antigas (julho).
 
 ## Testar

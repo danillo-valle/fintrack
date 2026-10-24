@@ -375,6 +375,21 @@ export function notUnderstoodMessage(
   return { body: text[error] };
 }
 
+/**
+ * A mensagem tinha valor, mas o que sobrava era o nome de um ambiente ou cartão (M12.0): diz o
+ * que foi entendido. Só nomes que a própria pessoa usa (o ambiente e o apelido do cartão).
+ */
+export function nameOnlyMessage(named: { wallet: string | null; card: string | null }): BotMessage {
+  const parts = [
+    named.wallet ? `o ambiente “${named.wallet}”` : null,
+    named.card ? `o cartão “${named.card}”` : null,
+  ].filter((part): part is string => part !== null);
+  const what = parts.length > 0 ? parts.join(" e ") : "o ambiente";
+  return {
+    body: `Entendi ${what}, mas faltou dizer o que foi. Escreva assim:\ngastei 42,90 no mercado`,
+  };
+}
+
 /** Todos os textos fixos, para os testes de privacidade conferirem de uma vez. */
 export const BOT_FIXED_MESSAGES: readonly BotMessage[] = [
   CANCELLED_MESSAGE,

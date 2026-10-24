@@ -53,7 +53,7 @@ export function LinkCodeBody({ page, idPrefix = "" }: { page: LinkCodePage; idPr
         <p className="text-sm">
           O código vale 10 minutos e uma vez só. Gere outro e mande de novo pelo WhatsApp.
         </p>
-        <StartLinkButton />
+        <StartLinkButton label="Gerar outro código" replace />
       </div>
     );
   }

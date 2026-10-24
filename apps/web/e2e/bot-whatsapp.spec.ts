@@ -173,6 +173,44 @@ test("vincular o número, propor, não duplicar e confirmar uma vez só", async 
   await expect(page.getByTestId("do-whatsapp")).toHaveCount(0);
 });
 
+test("código vencido: Gerar outro troca o código, Fechar volta para Ajustes e a senha vencida é pedida", async ({
+  page,
+}, testInfo) => {
+  // M12.0: no Safari, gerar outro código de dentro da caixa deixava a tela parada. A causa no app:
+  // o botão de dentro da caixa EMPILHAVA o endereço, e o Fechar (que volta uma página) caía no
+  // código anterior, já vencido, em vez de Ajustes.
+  const person = await personWithHome(page, "bot-vencido", testInfo.project.name);
+  await openPage(page, "/ajustes/bot");
+  await page.getByRole("button", { name: "Vincular meu número" }).click();
+  await page.waitForURL(/\/ajustes\/bot\/vincular\?codigo=/);
+  const first = new URL(page.url()).searchParams.get("codigo");
+  // O código vence com a caixa aberta (a tela se atualiza sozinha a cada 3 s)
+  await sql(
+    `UPDATE bot_link_code c SET "createdAt" = now() - interval '20 minutes', "expiresAt" = now() - interval '10 minutes'
+       FROM "user" u WHERE u.id = c."userId" AND u.email = $1`,
+    [person.email],
+  );
+  const dialog = page.getByRole("dialog", { name: "Esse código não vale mais" });
+  await expect(dialog).toBeVisible({ timeout: 15_000 });
+  await dialog.getByRole("button", { name: "Gerar outro código" }).click();
+  await expect(page.getByRole("dialog", { name: "Mande o código pelo WhatsApp" })).toBeVisible();
+  const second = new URL(page.url()).searchParams.get("codigo");
+  expect(second).not.toBe(first);
+  // Fechar sai para Ajustes (antes: voltava para o código vencido)
+  await page.getByRole("dialog").getByRole("button", { name: "Cancelar" }).click();
+  await page.waitForURL(/\/ajustes\/bot$/);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  // Mais de 10 minutos desde a última senha: o botão leva a "Confirme que é você"
+  await sql(
+    `UPDATE "session" s SET "createdAt" = now() - interval '30 minutes' FROM "user" u
+       WHERE u.id = s."userId" AND u.email = $1`,
+    [person.email],
+  );
+  await page.getByRole("button", { name: "Vincular meu número" }).click();
+  await page.waitForURL(/\/reautenticar\?next=%2Fajustes%2Fbot/);
+});
+
 test("webhook: assinatura errada não grava nada; número desconhecido não propõe", async ({
   request,
 }, testInfo) => {

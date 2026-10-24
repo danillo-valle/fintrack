@@ -124,3 +124,21 @@ Decidido pelo Danillo em 22/10/2026 (as recomendações, e a Nelcimara junto):
 
 O check do M11.2 prova o webhook pela internet sem mandar mensagem: a verificação com o token certo
 devolve o desafio, e um POST com assinatura forjada recebe 200 sem gravar nada.
+
+## Adendo (M12.0, 23/10/2026): o número de produção e as correções
+
+1. **O bot usa um número de produção**, e não o número de teste: o "Reivindicar número de teste"
+   falhou em todas as tentativas (o primeiro app foi criado sem portfólio; cada tentativa criou uma
+   conta de teste presa, até o limite do portfólio, #2494067), e o Danillo seguiu pela Etapa 2 com um
+   número só da API. Sem lista de autorizados (e sem o problema do "9"); `WHATSAPP_TEST_NUMBER=off`.
+   A premissa de nenhum gasto continua: nenhuma forma de pagamento cadastrada, nenhum template, o
+   bot só responde dentro da janela de 24 h, e para em 900 respostas no mês.
+2. **A conta do WhatsApp precisa estar assinada no app** (`POST /<id da conta>/subscribed_apps`): o
+   painel configurou o envio e a verificação do webhook, mas não a entrega das mensagens reais.
+3. **O botão do código**: o "Gerar outro código" de dentro da tela do código troca o endereço em vez
+   de empilhar (o Fechar voltava para o código vencido), e a tela abre o código pelo navegador se a
+   navegação do Next não sair do lugar em 2,5 s (no Safari do Danillo, o código era gerado e a tela
+   não mudava; o laboratório só tem Chromium).
+4. **Quando o nome de um ambiente ou cartão é tudo o que sobra** ("gastei 1 no teste" com o
+   ambiente "Teste M07"), o leitor devolve `NAME_ONLY` e a resposta diz o que entendeu ("Entendi o
+   ambiente “Teste M07”, mas faltou dizer o que foi").

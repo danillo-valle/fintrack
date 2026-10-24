@@ -11,7 +11,7 @@ export function LinkCodeFooter({ state }: { state: "WAITING" | "LINKED" | "EXPIR
   return (
     <div className="flex flex-wrap justify-end gap-2.5">
       {state === "WAITING" ? (
-        <StartLinkButton label="Gerar outro código" variant="outline" />
+        <StartLinkButton label="Gerar outro código" variant="outline" replace />
       ) : null}
       {state === "LINKED" ? (
         <Button type="button" onClick={close} className="h-11 px-4">
