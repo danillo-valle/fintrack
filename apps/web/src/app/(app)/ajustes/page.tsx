@@ -54,8 +54,8 @@ const LINKS: { href: string; title: string; detail: string; icon: LucideIcon; to
   },
   {
     href: "/ajustes/bot",
-    title: "Bot do WhatsApp",
-    detail: "Lançar um gasto mandando uma mensagem",
+    title: "Bot de lançamento",
+    detail: "Lançar um gasto pelo WhatsApp ou pelo Telegram",
     icon: MessageCircle,
     tone: 2,
   },

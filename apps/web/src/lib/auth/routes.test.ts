@@ -26,6 +26,8 @@ describe("isPublicPath", () => {
     // M11: só o caminho exato do webhook é público
     expect(isPublicPath("/api/whatsapp/webhook")).toBe(true);
     expect(isPublicPath("/api/whatsapp/webhook/x")).toBe(false);
+    expect(isPublicPath("/api/telegram/webhook")).toBe(true);
+    expect(isPublicPath("/api/telegram/webhook/x")).toBe(false);
     expect(isPublicPath("/api/whatsapp")).toBe(false);
   });
 });

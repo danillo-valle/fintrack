@@ -15,7 +15,9 @@ import { timingSafeEqual } from "node:crypto";
 import { prisma, recordIncoming } from "@fintrack/db";
 import { enqueueBotMessage } from "./jobs";
 import { logger } from "@/lib/logger";
-import { botConfig, botSecrets } from "@/lib/whatsapp/config";
+import { botSecrets } from "@/lib/bot/secrets";
+import { botConfig } from "@/lib/whatsapp/config";
+import { readLimited } from "./read-limited";
 import { parseWebhook, validSignature, WEBHOOK_MAX_BYTES } from "@/lib/whatsapp/protocol";
 
 const NOT_FOUND = () => new Response("Not Found", { status: 404 });
@@ -44,32 +46,11 @@ export async function handleWebhookGet(request: Request): Promise<Response> {
   return new Response("Forbidden", { status: 403 });
 }
 
-/** Lê o corpo cru até o limite; passou dele, null (sem ler o resto). */
-async function readLimited(request: Request): Promise<Uint8Array | null> {
-  const declared = Number.parseInt(request.headers.get("content-length") ?? "0", 10);
-  if (declared > WEBHOOK_MAX_BYTES) return null;
-  if (!request.body) return new Uint8Array();
-  const reader = request.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > WEBHOOK_MAX_BYTES) {
-      await reader.cancel();
-      return null;
-    }
-    chunks.push(value);
-  }
-  return Buffer.concat(chunks);
-}
-
 export async function handleWebhookPost(request: Request): Promise<Response> {
   const config = botConfig();
   const secrets = botSecrets();
   if (!config || !secrets) return NOT_FOUND();
-  const raw = await readLimited(request);
+  const raw = await readLimited(request, WEBHOOK_MAX_BYTES);
   if (raw === null) {
     logger.warn({ event: "webhook.rejected", reason: "too_large" }, "webhook recusado");
     return OK();

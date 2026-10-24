@@ -135,6 +135,7 @@ export const META_ERROR_HINTS: Readonly<Record<number, string>> = {
   190: "token_invalido", // token vencido (o de teste dura 24 h) ou revogado
   131026: "nao_entregue", // a pessoa não pode receber (sem WhatsApp, versão antiga, bloqueou)
   131030: "fora_da_lista_de_teste", // número de teste: quem recebe precisa estar na lista (o "9")
+  131037: "nome_de_exibicao_sem_aprovacao", // número fornecido pela Meta: o nome precisa ser aprovado (M12.0)
   131047: "fora_da_janela_24h", // passou de 24 h desde a mensagem da pessoa (resposta exige template)
   131056: "muitas_para_o_mesmo_numero", // limite de envio para o mesmo número
   130429: "limite_de_envio", // limite de mensagens por segundo do número

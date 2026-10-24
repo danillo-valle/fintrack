@@ -1,7 +1,9 @@
-// Ajustes › Bot do WhatsApp (M11, pranchas G-Ajustes e G-CelAjustes). No computador, duas colunas
-// (o bot, o número e os padrões; a conta das respostas e as últimas mensagens); no celular, uma
-// só, na ordem da prancha do celular (bot, conta, número, padrões, mensagens). As colunas viram
+// Ajustes › Bot de lançamento (M11, pranchas G-Ajustes e G-CelAjustes; os dois canais no M12.0b,
+// pranchas H-Ajustes e H-CelAjustes). No computador, duas colunas (o bot, os canais e os padrões; a
+// conta das respostas do WhatsApp e as últimas mensagens); no celular, uma só, na ordem da prancha
+// do celular (bot, canais, conta, padrões, mensagens). As colunas viram
 // `contents` no celular e cada cartão leva a sua ordem: um HTML só, sem duplicar.
+import type { ReactNode } from "react";
 import Link from "next/link";
 import {
   Check,
@@ -9,8 +11,9 @@ import {
   Clock,
   Info,
   MessageCircle,
-  Phone,
+  Send,
   ShieldCheck,
+  TriangleAlert,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -52,7 +55,7 @@ export function BotStatusCard({ page }: { page: BotSettingsPage }) {
       <div className="flex items-start justify-between gap-3.5">
         <div className="flex min-w-0 flex-col gap-0.5">
           <h2 id="bot-h" className="text-lg font-extrabold tracking-tight md:text-xl">
-            Bot do WhatsApp
+            Bot do lar
           </h2>
           <span
             className={cn("text-sm font-bold", on ? "text-income" : "text-muted-foreground")}
@@ -65,72 +68,181 @@ export function BotStatusCard({ page }: { page: BotSettingsPage }) {
       </div>
       <p className="text-sm">
         {on
-          ? "Lê o que as pessoas do lar mandam dos números vinculados, propõe o lançamento e espera o Confirmar. Nunca manda mensagem sozinho."
-          : "O bot não lê nem responde. Mensagens que chegarem enquanto ele estiver desligado são descartadas sem gravar nada."}
+          ? "Lê o que as pessoas do lar mandam pelos canais vinculados, propõe o lançamento e espera o Confirmar. Nunca manda mensagem sozinho."
+          : "O bot não lê nem responde em nenhum canal. Mensagens que chegarem enquanto ele estiver desligado são descartadas sem gravar nada."}
       </p>
-      {page.configured ? (
-        <div className="bg-muted/50 flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-sm">
-          <MessageCircle aria-hidden className="text-muted-foreground size-[1.125rem] shrink-0" />
-          <span className="min-w-0">
-            Número do bot:{" "}
-            <span className="font-mono font-bold tabular-nums" data-testid="bot-numero">
-              {page.displayNumber ?? "configurado no servidor"}
-            </span>
-            {page.testNumber ? " · número de teste da Meta" : null}
-          </span>
-        </div>
-      ) : (
+      {page.configured ? null : (
         <ToneChip
           tone={4}
           icon={CircleAlert}
           className="h-auto min-h-6 self-start py-1 whitespace-normal"
         >
-          O bot ainda não está configurado neste servidor (passo da Meta, M11.2)
+          O bot ainda não está configurado neste servidor (o WhatsApp no M11.2, o Telegram no
+          M12.0b)
         </ToneChip>
       )}
     </section>
   );
 }
 
-export function NumberCard({ page }: { page: BotSettingsPage }) {
+/** A Meta está recusando as respostas: o 131037 tem um texto próprio (M12.0, M12.0b). */
+function MetaWarning({ code }: { code: number | null }) {
+  return (
+    <div
+      role="status"
+      data-testid="aviso-meta"
+      className="bg-chart-4/13 text-chart-4-ink flex gap-2 rounded-xl px-3 py-2.5 text-[0.8125rem] leading-relaxed"
+    >
+      <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+      {code === 131037 ? (
+        <span>
+          <strong>A Meta ainda não liberou as respostas deste número.</strong> O que você mandar
+          chega e vira proposta em Recebidos › Do bot; a resposta volta quando a Meta liberar.
+        </span>
+      ) : (
+        <span>
+          <strong>A Meta recusou as últimas respostas</strong>
+          {code ? (
+            <>
+              {" "}
+              (código <span className="font-mono tabular-nums">{code}</span>)
+            </>
+          ) : null}
+          . As propostas continuam em Recebidos › Do bot.
+        </span>
+      )}
+    </div>
+  );
+}
+
+function ChannelRow({
+  icon: Icon,
+  name,
+  testId,
+  linked,
+  children,
+}: {
+  icon: LucideIcon;
+  name: string;
+  testId: string;
+  linked: { line: ReactNode; channel: "whatsapp" | "telegram" } | null;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className="bg-muted/50 flex flex-col gap-2.5 rounded-2xl border p-3.5"
+      data-testid={testId}
+    >
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="bg-chart-1/14 text-chart-1-ink flex size-10 shrink-0 items-center justify-center rounded-xl">
+          <Icon aria-hidden className="size-5" />
+        </span>
+        <span className="flex min-w-0 flex-[1_1_10rem] flex-col gap-0.5">
+          <strong className="text-[0.9375rem]">{name}</strong>
+          <span className="text-muted-foreground text-[0.8125rem]">
+            {linked ? linked.line : "Não vinculado"}
+          </span>
+        </span>
+        {linked ? <UnlinkButton channel={linked.channel} /> : null}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+export function ChannelsCard({ page }: { page: BotSettingsPage }) {
+  const failing = page.usage?.failing ?? null;
   return (
     <section
-      aria-labelledby="bot-numero-h"
-      className={cn(CARD, "order-3 md:order-none")}
-      data-testid="cartao-numero"
+      aria-labelledby="bot-canais-h"
+      className={cn(CARD, "order-2 md:order-none")}
+      data-testid="cartao-canais"
     >
-      <h2 id="bot-numero-h" className="text-base font-extrabold md:text-lg">
-        Seu número
-      </h2>
-      {page.link ? (
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="bg-income/12 text-income flex size-10 shrink-0 items-center justify-center rounded-xl">
-            <Phone aria-hidden className="size-5" />
-          </span>
-          <span className="flex min-w-0 flex-[1_1_10rem] flex-col gap-0.5">
-            <strong className="text-[0.9375rem]" data-testid="numero-vinculado">
-              Vinculado: final{" "}
-              <span className="font-mono tabular-nums">{page.link.phoneLastFour}</span>
-            </strong>
-            <span className="text-muted-foreground text-[0.8125rem]">
-              Desde {formatDate(page.link.linkedAt)}. Só lança em seu nome; não serve para entrar no
-              FinTrack.
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <h2 id="bot-canais-h" className="text-base font-extrabold md:text-lg">
+          Seus canais
+        </h2>
+        <span className="text-muted-foreground text-[0.8125rem]">Um, outro ou os dois</span>
+      </div>
+      {page.whatsappConfigured ? (
+        <ChannelRow
+          icon={MessageCircle}
+          name="WhatsApp"
+          testId="canal-whatsapp"
+          linked={
+            page.link
+              ? {
+                  channel: "whatsapp",
+                  line: (
+                    <span data-testid="numero-vinculado">
+                      Final{" "}
+                      <span className="font-mono tabular-nums">{page.link.phoneLastFour}</span> ·
+                      desde {formatDate(page.link.linkedAt)}
+                    </span>
+                  ),
+                }
+              : null
+          }
+        >
+          {page.link ? (
+            <span className="text-[0.8125rem] leading-relaxed">
+              O bot responde pelo número{" "}
+              <span className="font-mono tabular-nums" data-testid="bot-numero">
+                {page.displayNumber ?? "configurado no servidor"}
+              </span>
+              {page.testNumber ? " (número de teste da Meta)" : ""}.
             </span>
+          ) : (
+            <>
+              <p className="text-sm">Você gera um código e manda pelo WhatsApp do seu celular.</p>
+              <StartLinkButton label="Vincular no WhatsApp" channel="whatsapp" />
+            </>
+          )}
+          {failing ? <MetaWarning code={failing.code} /> : null}
+        </ChannelRow>
+      ) : null}
+      {page.telegramConfigured ? (
+        <ChannelRow
+          icon={Send}
+          name="Telegram"
+          testId="canal-telegram"
+          linked={
+            page.telegramLink
+              ? {
+                  channel: "telegram",
+                  line: (
+                    <span data-testid="telegram-vinculado">
+                      Vinculado desde {formatDate(page.telegramLink.linkedAt)}
+                    </span>
+                  ),
+                }
+              : null
+          }
+        >
+          {page.telegramLink ? (
+            <span className="text-[0.8125rem] leading-relaxed">
+              O bot responde como <span className="font-mono">@{page.telegramUsername}</span>.
+            </span>
+          ) : (
+            <>
+              <p className="text-sm">
+                Um toque abre o Telegram já com o código; é só tocar em Iniciar.
+              </p>
+              <StartLinkButton label="Vincular no Telegram" channel="telegram" />
+            </>
+          )}
+        </ChannelRow>
+      ) : null}
+      {page.configured ? (
+        <span className="text-muted-foreground flex gap-2 text-[0.8125rem] leading-relaxed">
+          <ShieldCheck aria-hidden className="mt-0.5 size-4 shrink-0" />
+          <span>
+            Os canais só lançam em seu nome, nas carteiras em que você pode editar, e nenhum serve
+            para entrar no FinTrack. Do Telegram guardamos só uma marca (hash) da conta: nem o nome,
+            nem o @. Pedimos sua senha de novo antes de mostrar o código.
           </span>
-          <UnlinkButton />
-        </div>
-      ) : (
-        <>
-          <p className="text-sm">
-            Nenhum número vinculado. Você gera um código aqui e manda pelo WhatsApp do seu celular;
-            o código vale 10 minutos e uma vez só.
-          </p>
-          {page.configured ? <StartLinkButton /> : null}
-          <span className="text-muted-foreground text-[0.8125rem]">
-            Pedimos sua senha de novo antes de mostrar o código.
-          </span>
-        </>
-      )}
+        </span>
+      ) : null}
     </section>
   );
 }
@@ -198,15 +310,15 @@ export function UsageCard({ page, now }: { page: BotSettingsPage; now: Date }) {
   return (
     <section
       aria-labelledby="bot-conta-h"
-      className={cn(CARD, "order-2 md:order-none")}
+      className={cn(CARD, "order-3 md:order-none")}
       data-testid="cartao-conta"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <h2 id="bot-conta-h" className="text-base font-extrabold md:text-lg">
-          Respostas grátis de {month}
+          Respostas grátis do WhatsApp em {month}
         </h2>
         <span className="text-muted-foreground text-[0.8125rem]">
-          Do número do bot, para todo o lar
+          Só o WhatsApp tem teto; o Telegram, não
         </span>
       </div>
       <div className="flex flex-wrap items-baseline gap-2">
@@ -316,7 +428,8 @@ function rowDetail(row: Row): string {
       .join(" · ");
   }
   if (row.outcome === "NOT_UNDERSTOOD") return "Sem valor, data ou conta que o bot entendesse";
-  if (row.outcome === "LINKED") return "Número vinculado";
+  if (row.outcome === "LINKED")
+    return row.channel === "TELEGRAM" ? "Telegram vinculado" : "Número vinculado";
   return "Proposta de um ambiente que você não vê";
 }
 
@@ -354,8 +467,8 @@ export function RecentCard({ page, now }: { page: BotSettingsPage; now: Date }) 
                 </span>
                 <span className="flex min-w-0 flex-col gap-0.5">
                   <span className="text-sm font-bold">
-                    {row.who}
-                    {row.lastFour ? ` · final ${row.lastFour}` : ""}
+                    {row.who} · {row.channel === "TELEGRAM" ? "Telegram" : "WhatsApp"}
+                    {row.lastFour ? ` final ${row.lastFour}` : ""}
                   </span>
                   <span className="text-muted-foreground text-[0.8125rem] break-words">
                     {rowDetail(row)}
@@ -384,8 +497,8 @@ export function RecentCard({ page, now }: { page: BotSettingsPage; now: Date }) 
         <p className="text-muted-foreground text-[0.8125rem]">
           {n(unknownToday)}{" "}
           {unknownToday === 1
-            ? "mensagem de número não vinculado nas últimas 24 h (ignorada, sem resposta)"
-            : "mensagens de números não vinculados nas últimas 24 h (ignoradas, sem resposta)"}
+            ? "mensagem de número ou conta não vinculada nas últimas 24 h (ignorada)"
+            : "mensagens de números ou contas não vinculadas nas últimas 24 h (ignoradas)"}
         </p>
       ) : null}
       <Link href="/lancamentos/recebidos" className={cn(TEXT_LINK, "self-start text-sm font-bold")}>

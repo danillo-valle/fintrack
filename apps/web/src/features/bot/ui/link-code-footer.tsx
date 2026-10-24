@@ -6,12 +6,18 @@ import { Button } from "@/components/ui/button";
 import { useRouteModal } from "@/components/ui/route-modal";
 import { StartLinkButton } from "./forms";
 
-export function LinkCodeFooter({ state }: { state: "WAITING" | "LINKED" | "EXPIRED" }) {
+export function LinkCodeFooter({
+  state,
+  channel = "whatsapp",
+}: {
+  state: "WAITING" | "LINKED" | "EXPIRED";
+  channel?: "whatsapp" | "telegram";
+}) {
   const { close } = useRouteModal();
   return (
     <div className="flex flex-wrap justify-end gap-2.5">
       {state === "WAITING" ? (
-        <StartLinkButton label="Gerar outro código" variant="outline" replace />
+        <StartLinkButton label="Gerar outro código" variant="outline" replace channel={channel} />
       ) : null}
       {state === "LINKED" ? (
         <Button type="button" onClick={close} className="h-11 px-4">

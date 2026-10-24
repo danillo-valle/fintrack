@@ -21,7 +21,7 @@ const PUBLIC_FILES = ["/manifest.webmanifest", "/icon.svg", "/apple-icon.png", "
  * Rotas de API públicas, pelo caminho EXATO (nunca prefixo). M11: o webhook do WhatsApp, que a
  * Meta chama sem sessão; ele mesmo confere a assinatura antes de ler qualquer coisa (ADR-018).
  */
-const PUBLIC_ENDPOINTS = ["/api/whatsapp/webhook"];
+const PUBLIC_ENDPOINTS = ["/api/whatsapp/webhook", "/api/telegram/webhook"];
 
 export const SIGN_IN_PATH = "/entrar";
 export const TWO_FACTOR_SETUP_PATH = "/configurar-2fa";

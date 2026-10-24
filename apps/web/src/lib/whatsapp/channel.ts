@@ -4,33 +4,18 @@
 //
 // Nunca vai para o log: o token, o número de quem recebe e o texto da resposta.
 import "server-only";
-import type { BotChannel, BotMessage } from "@fintrack/core";
+import type { BotChannel, BotIncomingRef, BotMessage } from "@fintrack/core";
+import { ChannelError } from "@/lib/bot/channel-error";
 import { botConfig, type BotConfig } from "./config";
 import { metaErrorOf, outgoingMessage, readReceipt, type MetaError } from "./protocol";
+
+export { ChannelError };
 
 /** Cada chamada à Meta: 10 s no máximo (a fila tenta de novo a mensagem inteira, não a resposta). */
 export const SEND_TIMEOUT_MS = 10_000;
 
 /** A maior resposta de erro que o canal lê (a da Meta tem algumas centenas de bytes). */
 const ERROR_BODY_MAX = 16 * 1024;
-
-/** A Cloud API recusou: o status HTTP e o código da Meta (nunca o texto do erro). */
-export class ChannelError extends Error {
-  readonly code: number | null;
-  readonly subcode: number | null;
-  readonly hint: string | null;
-
-  constructor(
-    readonly status: number,
-    meta: MetaError = { code: null, subcode: null, hint: null },
-  ) {
-    super(`a Cloud API respondeu ${status}${meta.code !== null ? ` (código ${meta.code})` : ""}`);
-    this.name = "ChannelError";
-    this.code = meta.code;
-    this.subcode = meta.subcode;
-    this.hint = meta.hint;
-  }
-}
 
 /** O código do erro no corpo de uma resposta recusada (corpo grande ou torto: sem código). */
 async function errorOf(response: Response): Promise<MetaError> {
@@ -59,8 +44,11 @@ export function cloudApiChannel(config: BotConfig): BotChannel {
     if (!response.ok) throw new ChannelError(response.status, await errorOf(response));
   };
   return {
+    // O WhatsApp não edita a mensagem do botão: a resposta é sempre uma mensagem nova
     send: (to: string, message: BotMessage) => post(outgoingMessage(to, message)),
-    markRead: (wamid: string) => post(readReceipt(wamid)),
+    acknowledge: (incoming: BotIncomingRef) => post(readReceipt(incoming.externalId)),
+    // A Cloud API não apaga a mensagem da pessoa
+    discard: async () => {},
   };
 }
 
