@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { TELEGRAM_FAKE } from "./e2e/telegram";
 import { WHATSAPP_FAKE } from "./e2e/whatsapp";
 
 const PORT = 3000;
@@ -17,6 +18,14 @@ const WHATSAPP_ENV = {
   WHATSAPP_VERIFY_TOKEN: WHATSAPP_FAKE.verifyToken,
   WHATSAPP_PHONE_NUMBER_ID: WHATSAPP_FAKE.phoneNumberId,
   WHATSAPP_DISPLAY_NUMBER: WHATSAPP_FAKE.displayNumber,
+};
+// O Telegram de mentira (M12.0b): o app manda as respostas para ele, e os testes fazem o papel da
+// pessoa por ele (POST /__enviar). Os valores de mentira são os mesmos do .env.example
+const TELEGRAM_ENV = {
+  TELEGRAM_API_URL: TELEGRAM_FAKE.url,
+  TELEGRAM_BOT_TOKEN: TELEGRAM_FAKE.token,
+  TELEGRAM_WEBHOOK_SECRET: TELEGRAM_FAKE.webhookSecret,
+  TELEGRAM_BOT_USERNAME: TELEGRAM_FAKE.botUsername,
 };
 
 // Os testes acessam o banco e o Mailpit, então precisam das mesmas variáveis do app.
@@ -60,9 +69,9 @@ export default defineConfig({
     },
   ],
   // Sobe a Pluggy de mentira (M09.1), o serviço Python (M09.4), a Cloud API do WhatsApp de
-  // mentira (M11) e o app antes dos testes. Se você já estiver com "pnpm pluggy:fake",
-  // "pnpm ml:dev", "pnpm whatsapp:fake" e "pnpm dev" rodando, reaproveita (o .env aponta o app
-  // para os três).
+  // mentira (M11), o Telegram de mentira (M12.0b) e o app antes dos testes. Se você já estiver com
+  // "pnpm pluggy:fake", "pnpm ml:dev", "pnpm whatsapp:fake", "pnpm telegram:fake" e "pnpm dev"
+  // rodando, reaproveita (o .env aponta o app para os quatro).
   webServer: [
     {
       command: "pnpm pluggy:fake",
@@ -84,12 +93,24 @@ export default defineConfig({
       env: WHATSAPP_ENV,
     },
     {
+      command: "pnpm telegram:fake",
+      url: `${TELEGRAM_FAKE.url}/health`,
+      reuseExistingServer: !CI,
+      timeout: 30_000,
+      env: TELEGRAM_ENV,
+    },
+    {
       command: "pnpm dev",
       url: `${BASE_URL}/api/health`,
       reuseExistingServer: !CI,
       timeout: 120_000,
       // Nenhum teste fala com a Pluggy de verdade
-      env: { PLUGGY_API_URL: PLUGGY_FAKE_URL, ML_SERVICE_URL: ML_URL, ...WHATSAPP_ENV },
+      env: {
+        PLUGGY_API_URL: PLUGGY_FAKE_URL,
+        ML_SERVICE_URL: ML_URL,
+        ...WHATSAPP_ENV,
+        ...TELEGRAM_ENV,
+      },
     },
   ],
 });

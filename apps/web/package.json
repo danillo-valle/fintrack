@@ -12,7 +12,8 @@
     "e2e": "playwright test",
     "test:e2e": "playwright test",
     "pluggy:fake": "tsx e2e/pluggy-fake.ts",
-    "whatsapp:fake": "tsx e2e/whatsapp-fake.ts"
+    "whatsapp:fake": "tsx e2e/whatsapp-fake.ts",
+    "telegram:fake": "tsx e2e/telegram-fake.ts"
   },
   "dependencies": {
     "@better-auth/passkey": "1.7.7",
