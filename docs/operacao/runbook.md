@@ -334,16 +334,29 @@ sudo -u fintrack fintrack-compose exec db psql -U fintrack -c \
 Trocar o `BETTER_AUTH_SECRET` desfaz os vínculos (o HMAC dos números deriva dele): cada pessoa
 vincula de novo.
 
-### A Meta (M11.2): o número de teste, o token e os códigos de erro
+### A Meta (M11.2 e M12.0): o número, o token e os códigos de erro
 
-O app da Meta fica em **modo de desenvolvimento**, com o número de teste: só os números da lista
-(até 5) conversam com o bot. Onde fica cada coisa no painel (developers.facebook.com › Meus apps):
+Em produção o bot usa um **número de produção** (Etapa 2 do caso de uso "Conectar no WhatsApp"),
+com o app em modo de desenvolvimento: sem lista de autorizados, e o bot só **responde** (mensagens
+de serviço, 1.000 grátis por mês; o FinTrack para em 900). O número de teste (+1 555, lista de até 5)
+continua possível (`WHATSAPP_TEST_NUMBER=on`). Regras que não se negociam:
+
+- **Nenhuma forma de pagamento** no portfólio ou na conta: sem ela, a Meta para de entregar o que
+  passa do grátis, em vez de cobrar.
+- **Nenhum template**: template é sempre cobrado e o bot nunca inicia conversa.
+- **Crie o app já dentro do portfólio** (a etapa "Empresa" da criação). Um app sem portfólio deixa o
+  "Reivindicar número de teste" falhando, e cada tentativa cria uma conta presa que ocupa o limite do
+  portfólio ("número máximo de contas do WhatsApp Business", #2494067). Uma tentativa só.
+- **A conta do WhatsApp assinada no app** (`subscribed_apps`, abaixo): sem isso, a verificação e o
+  "Testar" do painel funcionam, mas nenhuma mensagem real chega.
+
+Onde fica cada coisa no painel (developers.facebook.com › Meus apps):
 
 | O quê                 | Onde                                                                                  | Variável                   |
 | --------------------- | ------------------------------------------------------------------------------------- | -------------------------- |
 | Chave secreta do app  | Configurações do app › Básico › Chave secreta do app                                  | `WHATSAPP_APP_SECRET`      |
-| Id do número de teste | Casos de uso › WhatsApp › Configuração da API › "Identificação do número de telefone" | `WHATSAPP_PHONE_NUMBER_ID` |
-| Lista de quem recebe  | Configuração da API › Para › "Gerenciar lista de números de telefone"                 |                            |
+| Id do número          | Casos de uso › WhatsApp › Configuração da API › "Identificação do número de telefone" | `WHATSAPP_PHONE_NUMBER_ID` |
+| Lista de quem recebe  | Só no número de teste: Configuração da API › Para › "Gerenciar lista"                 |                            |
 | Webhook (URL e token) | Casos de uso › WhatsApp › Configuração › Webhook; campo assinado: **messages**        | `WHATSAPP_VERIFY_TOKEN`    |
 | Token permanente      | Configurações do negócio › Usuários do sistema › Gerar token (validade: Nunca)        | `WHATSAPP_ACCESS_TOKEN`    |
 
@@ -361,13 +374,15 @@ sudo -u fintrack fintrack-compose logs --since 24h --no-log-prefix web | jq -R -
 | 131026 (`nao_entregue`)              | A pessoa não pode receber (bloqueou, app antigo)            | Confira no celular dela                                                                                        |
 | 130429 / 131056 (`limite_de_envio`…) | Muitas mensagens em pouco tempo                             | Espere alguns minutos                                                                                          |
 
-| Situação                                                                   | O que fazer                                                                                                                                                          |
-| -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| "Não foi possível validar a URL" ao salvar o webhook na Meta               | O `WHATSAPP_VERIFY_TOKEN` do `app.env` é o mesmo do painel? O `web` foi reiniciado depois de gravar? `curl` da rota responde 403 (e não 404)?                        |
-| A verificação passa, mas nenhum `webhook.received` chega                   | Campo **messages** assinado? Cloudflare › Segurança › Bots: o "Bot Fight Mode" barra o POST da Meta (no plano grátis não há exceção: desligue)                       |
-| Trocar o token permanente                                                  | Gere outro no usuário do sistema; `sudo -u fintrack fintrack-definir app.env WHATSAPP_ACCESS_TOKEN`; `sudo -u fintrack fintrack-compose up -d web`; revogue o antigo |
-| Trocar a chave secreta do app                                              | Painel da Meta › Básico › Redefinir; grave a nova com o `fintrack-definir` e reinicie o `web` (até lá, todo POST é recusado como assinatura errada)                  |
-| Trocar a versão da Graph API (a `v26.0` vence ~2 anos depois de 29/7/2026) | No repositório: o padrão do `WHATSAPP_API_URL` no `env.ts`, o `.env.example` e o `playwright.config.ts` (skill `bot-whatsapp`)                                       |
+| Situação                                                                    | O que fazer                                                                                                                                                          |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "Não foi possível validar a URL" ao salvar o webhook na Meta                | O `WHATSAPP_VERIFY_TOKEN` do `app.env` é o mesmo do painel? O `web` foi reiniciado depois de gravar? `curl` da rota responde 403 (e não 404)?                        |
+| A verificação passa, mas nenhum `webhook.received` chega                    | Campo **messages** assinado? A conta assinada no app (`subscribed_apps`, abaixo)? Cloudflare › Segurança › Bots: o "Bot Fight Mode" barra o POST da Meta (desligue)  |
+| O "Testar" do painel chega (`webhook.received`), mas as mensagens reais não | Falta assinar a conta no app: Explorador da Graph API, `GET <id da conta>/subscribed_apps`; vazio = `POST` na mesma consulta, uma vez (`{"success": true}`)          |
+| "Reivindicar número de teste" falha ("erro ao criar a conta de teste")      | Não insista: cada clique cria uma conta presa. Confira que o app foi criado dentro do portfólio; se o limite encheu, só o suporte da Meta limpa                      |
+| Trocar o token permanente                                                   | Gere outro no usuário do sistema; `sudo -u fintrack fintrack-definir app.env WHATSAPP_ACCESS_TOKEN`; `sudo -u fintrack fintrack-compose up -d web`; revogue o antigo |
+| Trocar a chave secreta do app                                               | Painel da Meta › Básico › Redefinir; grave a nova com o `fintrack-definir` e reinicie o `web` (até lá, todo POST é recusado como assinatura errada)                  |
+| Trocar a versão da Graph API (a `v26.0` vence ~2 anos depois de 29/7/2026)  | No repositório: o padrão do `WHATSAPP_API_URL` no `env.ts`, o `.env.example` e o `playwright.config.ts` (skill `bot-whatsapp`)                                       |
 
 ## Alertas
 
