@@ -1,26 +1,32 @@
 ---
 name: bot-whatsapp
-description: O bot de lançamento pelo WhatsApp do FinTrack (M11, ADR-018) - o webhook com assinatura, a mensagem uma vez só (wamid), o vínculo por código, o leitor determinístico, o rascunho que vira lançamento no Confirmar, a conta das respostas grátis e a Cloud API de mentira. Use ao mexer em features/bot, lib/whatsapp, packages/core/src/bot*.ts, packages/db/src/bot.ts, no webhook /api/whatsapp/webhook ou em e2e/whatsapp*.ts.
+description: O bot de lançamento do FinTrack pelo WhatsApp (M11, ADR-018) e pelo Telegram (M12.0b, ADR-019) - o webhook com assinatura ou segredo, a mensagem uma vez só (wamid), o vínculo por código, o leitor determinístico, o rascunho que vira lançamento no Confirmar, a conta das respostas grátis e as APIs de mentira. Use ao mexer em features/bot, lib/whatsapp, lib/telegram, lib/bot, packages/core/src/bot*.ts, packages/db/src/bot.ts, nos webhooks /api/whatsapp/webhook e /api/telegram/webhook ou em e2e/{whatsapp,telegram}*.ts.
 ---
 
-# Bot do WhatsApp
+# Bot de lançamento (WhatsApp e Telegram)
 
-Leia antes: `docs/adr/0018-bot-whatsapp.md`. O canvas "FinTrack Visual", linha G, é a referência
-visual (Ajustes › Bot, o código de vínculo e as conversas).
+Leia antes: `docs/adr/0018-bot-whatsapp.md` e `docs/adr/0019-bot-telegram.md`. O canvas "FinTrack
+Visual", linhas G (WhatsApp) e H (os dois canais, M12.0b), é a referência visual (Ajustes › Bot de
+lançamento, o código de vínculo e as conversas).
 
 ## Onde fica cada coisa
 
-| O quê                                                     | Onde                                            |
-| --------------------------------------------------------- | ----------------------------------------------- |
-| Leitor da mensagem (valor, data, forma, parcelas, nomes)  | `packages/core/src/bot-parse.ts`                |
-| Textos das respostas, botões, teto, vínculo, `BotChannel` | `packages/core/src/bot.ts`                      |
-| Vínculo, mensagem, rascunho, Confirmar, conta do mês      | `packages/db/src/bot.ts`                        |
-| Tabelas                                                   | `packages/db/prisma/schema/bot.prisma`          |
-| Assinatura, JSON da Meta, JSON das respostas              | `apps/web/src/lib/whatsapp/protocol.ts`         |
-| O canal (fala com a Graph API) e a configuração           | `apps/web/src/lib/whatsapp/{channel,config}.ts` |
-| Webhook (a regra) e a fila                                | `apps/web/src/features/bot/server/`             |
-| Telas (Ajustes, código, Recebidos › Do WhatsApp)          | `apps/web/src/features/bot/ui/`                 |
-| Cloud API de mentira e o papel da pessoa nos testes       | `apps/web/e2e/whatsapp-fake.ts`, `whatsapp.ts`  |
+| O quê                                                     | Onde                                              |
+| --------------------------------------------------------- | ------------------------------------------------- |
+| Leitor da mensagem (valor, data, forma, parcelas, nomes)  | `packages/core/src/bot-parse.ts`                  |
+| Textos das respostas, botões, teto, vínculo, `BotChannel` | `packages/core/src/bot.ts`                        |
+| Vínculo, mensagem, rascunho, Confirmar, conta do mês      | `packages/db/src/bot.ts`                          |
+| Tabelas                                                   | `packages/db/prisma/schema/bot.prisma`            |
+| Assinatura, JSON da Meta, JSON das respostas              | `apps/web/src/lib/whatsapp/protocol.ts`           |
+| O canal (fala com a Graph API) e a configuração           | `apps/web/src/lib/whatsapp/{channel,config}.ts`   |
+| Webhook (a regra) e a fila                                | `apps/web/src/features/bot/server/`               |
+| Telas (Ajustes, código, Recebidos › Do WhatsApp)          | `apps/web/src/features/bot/ui/`                   |
+| Cloud API de mentira e o papel da pessoa nos testes       | `apps/web/e2e/whatsapp-fake.ts`, `whatsapp.ts`    |
+| Telegram: segredo, update, botões de 64 bytes, erros      | `apps/web/src/lib/telegram/protocol.ts`           |
+| Telegram: o canal (editar, confirmar toque, apagar)       | `apps/web/src/lib/telegram/{channel,config}.ts`   |
+| As chaves do bot e o erro de canal (os dois canais)       | `apps/web/src/lib/bot/{secrets,channel-error}.ts` |
+| Webhook do Telegram                                       | `features/bot/server/telegram-webhook.ts`         |
+| Telegram de mentira e o papel da pessoa nos testes        | `apps/web/e2e/telegram-fake.ts`, `telegram.ts`    |
 
 ## Regras
 
@@ -59,16 +65,35 @@ visual (Ajustes › Bot, o código de vínculo e as conversas).
 13. **Relógio dos testes de integração**: `BOT_CLOCK` (21/10/2026 15:00 UTC); a limpeza de 90 dias
     é global, e só o teste dela cria linhas antigas (julho).
 
+14. **Um canal não muda a regra** (M12.0b): leitura, rascunho, Confirmar, crachás e textos são os
+    mesmos; o canal só muda quem é quem (`bot_link` × `bot_telegram_link`) e como a resposta sai
+    (`BotChannel.send` com `replace`, `acknowledge`, `discard`). Regra nova vale para os dois.
+15. **Webhook do Telegram**: o segredo do cabeçalho (`validSecret`, tempo constante) ANTES de ler o
+    corpo; só conversa privada (`parseUpdate`); tudo responde 200 "ok". O `wamid` do Telegram é
+    `tg:` + `update_id` (CHECK `bot_message_channel_check`).
+16. **Do Telegram, só o HMAC** (`telegramChatHash`, prefixo `telegram:`): nunca o id da conversa,
+    o nome ou o @ em banco, log, auditoria ou tela. O token vai no endereço da Bot API: nunca logue
+    o endereço.
+17. **No Telegram a resposta a um toque edita a mensagem do botão** (`replace`); os botões levam os
+    uuids em base64url (`packCallbackData`) para caber nos 64 bytes.
+18. **Ids de conversa nos testes são inventados** (`7000…`, `fakeChat()`).
+
 ## Testar
 
 ```bash
 pnpm --filter @fintrack/core exec vitest run src/bot          # leitor e regras
 pnpm --filter @fintrack/web exec vitest run src/lib/whatsapp  # assinatura, JSON e erros da Meta, o canal
 pnpm --filter @fintrack/db exec vitest run --config vitest.integration.config.mts src/integration/bot.integration.test.ts
-pnpm --filter @fintrack/web exec playwright test e2e/bot-whatsapp.spec.ts
+pnpm --filter @fintrack/web exec vitest run src/lib/telegram  # segredo, update, botões, o canal
+pnpm --filter @fintrack/db exec vitest run --config vitest.integration.config.mts src/integration/bot-telegram.integration.test.ts
+pnpm --filter @fintrack/web exec playwright test e2e/bot-whatsapp.spec.ts e2e/bot-telegram.spec.ts
 ```
 
 Em casa, para conversar com o bot sem a Meta: `pnpm whatsapp:fake` (porta 8789) e `pnpm dev`; a
 pessoa "manda" uma mensagem com
 `curl -s 127.0.0.1:8789/__enviar -H 'content-type: application/json' -d '{"de":"5541900000001","texto":"gastei 42,90 no mercado"}'`
 e as respostas aparecem em `curl -s '127.0.0.1:8789/__respostas?para=5541900000001'`.
+
+Para o Telegram: `pnpm telegram:fake` (porta 8790) e `pnpm dev`; a pessoa "manda" com
+`curl -s 127.0.0.1:8790/__enviar -H 'content-type: application/json' -d '{"chat":"700000011","texto":"gastei 42,90 no mercado"}'`
+e a conversa aparece em `curl -s '127.0.0.1:8790/__conversa?chat=700000011'`.

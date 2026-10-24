@@ -142,3 +142,9 @@ devolve o desafio, e um POST com assinatura forjada recebe 200 sem gravar nada.
 4. **Quando o nome de um ambiente ou cartão é tudo o que sobra** ("gastei 1 no teste" com o
    ambiente "Teste M07"), o leitor devolve `NAME_ONLY` e a resposta diz o que entendeu ("Entendi o
    ambiente “Teste M07”, mas faltou dizer o que foi").
+5. **O número fornecido pela Meta precisa do nome de exibição aprovado** (erro 131037, achado em
+   23/10): respondeu por cerca de uma hora e passou a recusar todo envio. `AVAILABLE_WITHOUT_REVIEW`
+   (liberado sem revisão) não basta, e pedir o mesmo nome não abre revisão. O log ganhou a dica
+   `nome_de_exibicao_sem_aprovacao`, e o runbook, a consulta do `health_status` e os passos do nome e do
+   novo registro. Enquanto a Meta não aprova, as mensagens chegam e viram rascunho (confirmados pelo
+   app); o Telegram entra como segundo canal no M12.0b.
