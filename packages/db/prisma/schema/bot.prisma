@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// O bot de lançamento pelo WhatsApp (M11, ADR-018)
+// O bot de lançamento pelo WhatsApp (M11, ADR-018) e pelo Telegram (M12.0b, ADR-019)
 //
 //   BotLink        o número de WhatsApp de uma pessoa: só o HMAC (para achar quem mandou) e os
 //                  4 últimos dígitos (para a tela). O número inteiro nunca é gravado
@@ -9,6 +9,7 @@
 //                  CIFRADO só até ser lido e é apagado em seguida
 //   BotDraft       o lançamento proposto: vira lançamento de verdade só no "Confirmar"
 //   BotReplyCount  quantas respostas o número do bot mandou no mês (a cota grátis da Meta)
+//   BotTelegramLink a conta do Telegram de uma pessoa (M12.0b): só o HMAC do id da conversa
 //
 // O vínculo, o código, a preferência e o rascunho pertencem à pessoa DENTRO do lar (chave
 // composta com household_member): sair do lar apaga tudo isso junto. A mensagem não tem chave
@@ -32,21 +33,46 @@ model BotLink {
   @@map("bot_link")
 }
 
+/// Os canais do bot (M12.0b).
+enum BotChannel {
+  WHATSAPP
+  TELEGRAM
+
+  @@map("bot_channel")
+}
+
+/// A conta do Telegram vinculada a uma pessoa (M12.0b, ADR-019). Uma conta por pessoa e uma pessoa
+/// por conta. Do Telegram não se guarda nome, @ nem o id: só o HMAC do id da conversa privada.
+model BotTelegramLink {
+  userId      String   @id
+  householdId String   @db.Uuid
+  /// HMAC-SHA256 de "telegram:" + o id da conversa, com a mesma chave dos números. CHECK: 64 hex
+  chatHash    String   @unique @db.Char(64)
+  linkedAt    DateTime @default(now())
+
+  member HouseholdMember @relation(fields: [householdId, userId], references: [householdId, userId], onDelete: Cascade)
+
+  @@unique([householdId, userId])
+  @@map("bot_telegram_link")
+}
+
 /// O código que liga um número a uma pessoa: vale 10 minutos e uma vez só. Gerar outro apaga o
 /// anterior. A busca é pelo SHA-256; o código cifrado existe só para a tela de quem gerou mostrá-lo
 /// de novo enquanto espera (é apagado no uso).
 model BotLinkCode {
-  id          String    @id @default(uuid(7)) @db.Uuid
-  householdId String    @db.Uuid
+  id          String      @id @default(uuid(7)) @db.Uuid
+  householdId String      @db.Uuid
   userId      String
   /// SHA-256 do código de 6 dígitos. CHECK: 64 caracteres hexadecimais
-  codeHash    String    @db.Char(64)
+  codeHash    String      @db.Char(64)
   /// O código cifrado (AES-256-GCM, o id como AAD), para a tela. CHECK: usado = sem código
   codeSealed  Bytes?
   expiresAt   DateTime
   /// Quando foi usado (o vínculo nasceu). CHECK: antes de vencer
   usedAt      DateTime?
-  createdAt   DateTime  @default(now())
+  /// Por qual canal o código chegou (M12.0b). CHECK: só quando usado
+  usedChannel BotChannel?
+  createdAt   DateTime    @default(now())
 
   member HouseholdMember @relation(fields: [householdId, userId], references: [householdId, userId], onDelete: Cascade)
 
@@ -117,16 +143,20 @@ enum BotMessageOutcome {
   @@map("bot_message_outcome")
 }
 
-/// Uma mensagem recebida pelo webhook. O wamid (o id da Meta) é único: a mesma mensagem
+/// Uma mensagem recebida pelo webhook. O wamid (o id no canal) é único: a mesma mensagem
 /// entregue de novo não é lida duas vezes.
 model BotMessage {
   id             String             @id @default(uuid(7)) @db.Uuid
-  /// O id da mensagem na Meta ("wamid.…"). CHECK: de 1 a 200 caracteres
+  /// Por qual canal chegou (M12.0b; as anteriores são do WhatsApp)
+  channel        BotChannel         @default(WHATSAPP)
+  /// O id da mensagem no canal: o "wamid.…" da Meta; no Telegram, "tg:" + o update_id.
+  /// CHECK: de 1 a 200 caracteres; "tg:" se e só se for do Telegram
   wamid          String             @unique
   /// De quem é (nulos quando o número não está vinculado)
   householdId    String?            @db.Uuid
   userId         String?
-  /// HMAC do número que mandou (o mesmo do BotLink): conta os códigos errados de um número
+  /// HMAC de quem mandou: o número (o mesmo do BotLink) ou, no Telegram, o id da conversa (o
+  /// mesmo do BotTelegramLink). Conta os códigos errados de quem mandou
   phoneHash      String             @db.Char(64)
   kind           BotMessageKind
   /// Quando a pessoa mandou (o timestamp da Meta)
@@ -205,14 +235,19 @@ model BotDraft {
 /// número; o FinTrack avisa em 850 e para em 900 (packages/core/src/bot.ts).
 model BotReplyCount {
   /// O id do número do bot na Meta (WHATSAPP_PHONE_NUMBER_ID)
-  phoneNumberId String
+  phoneNumberId   String
   /// "2026-10". CHECK: AAAA-MM
-  month         String    @db.Char(7)
+  month           String    @db.Char(7)
   /// CHECK: de 0 a 1000
-  used          Int       @default(0)
+  used            Int       @default(0)
   /// Quando o aviso de 850 saiu (uma vez por mês)
-  warnedAt      DateTime?
-  updatedAt     DateTime  @updatedAt
+  warnedAt        DateTime?
+  /// A última resposta que a Meta aceitou e a última que recusou, com o código (M12.0b): a tela
+  /// avisa quando a Meta recusa tudo (131037, o nome de exibição sem aprovação)
+  lastSentAt      DateTime?
+  lastFailureAt   DateTime?
+  lastFailureCode Int?
+  updatedAt       DateTime  @updatedAt
 
   @@id([phoneNumberId, month])
   @@map("bot_reply_count")

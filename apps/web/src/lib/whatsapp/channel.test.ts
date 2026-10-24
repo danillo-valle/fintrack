@@ -65,7 +65,12 @@ describe("cloudApiChannel", () => {
   it("corpo que não é JSON: só o status", async () => {
     stubFetch(new Response("<html>Bad gateway</html>", { status: 502 }));
     const error = await cloudApiChannel(CONFIG)
-      .markRead("wamid.A")
+      .acknowledge({
+        externalId: "wamid.A",
+        chat: "5541900000001",
+        messageId: null,
+        callbackId: null,
+      })
       .catch((err: unknown) => err);
     expect(error).toMatchObject({ status: 502, code: null, hint: null });
   });

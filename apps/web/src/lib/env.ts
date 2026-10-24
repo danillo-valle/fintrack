@@ -89,6 +89,25 @@ const schema = z.object({
   // O número do bot como a tela mostra ("+1 555 010-0000") e se é o número de teste da Meta
   WHATSAPP_DISPLAY_NUMBER: z.string().max(30).optional(),
   WHATSAPP_TEST_NUMBER: z.enum(["on", "off"]).default("on"),
+  // ── Bot do Telegram (M12.0b, ADR-019) ──
+  // O token do @BotFather, o segredo que o Telegram manda em cada chamada do webhook (o mesmo do
+  // setWebhook) e o @ do bot (o link "Abrir no Telegram"). Sem os três, o Telegram fica desligado:
+  // o webhook responde como rota inexistente e Ajustes não mostra o canal. Valores só no .env local
+  // e em /srv/fintrack/app.env (fintrack-definir), nunca no Git ou em log
+  TELEGRAM_BOT_TOKEN: z
+    .string()
+    .regex(/^\d{5,16}:[A-Za-z0-9_-]{30,64}$/, "o token do @BotFather (números:letras)")
+    .optional(),
+  TELEGRAM_WEBHOOK_SECRET: z
+    .string()
+    .regex(/^[A-Za-z0-9_-]{32,256}$/, "de 32 a 256 letras, números, _ ou -")
+    .optional(),
+  TELEGRAM_BOT_USERNAME: z
+    .string()
+    .regex(/^[A-Za-z0-9_]{2,29}[Bb][Oo][Tt]$/, "o @ do bot sem o @ (termina em bot)")
+    .optional(),
+  // A API do Telegram; os testes apontam para o Telegram de mentira (127.0.0.1:8790)
+  TELEGRAM_API_URL: z.url({ protocol: /^https?$/ }).default("https://api.telegram.org"),
 });
 
 const parsed = schema.safeParse(process.env);

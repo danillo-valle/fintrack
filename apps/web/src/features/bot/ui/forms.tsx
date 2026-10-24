@@ -49,15 +49,19 @@ export function StartLinkButton({
   label = "Vincular meu número",
   variant = "default",
   replace = false,
+  channel = "whatsapp",
 }: {
   label?: string;
   variant?: "default" | "outline";
   replace?: boolean;
+  /** Por qual canal a pessoa vai mandar o código (M12.0b): muda as instruções da tela do código */
+  channel?: "whatsapp" | "telegram";
 }) {
   return (
     <ActionForm<LinkState> action={startLinkAction} initialState={INITIAL_LINK} aria-label={label}>
       {({ pending, state }) => (
         <>
+          <input type="hidden" name="canal" value={channel} />
           <OpenCode url={state.codeUrl} replace={replace} />
           <Button
             type="submit"
@@ -104,13 +108,17 @@ function OpenCode({ url, replace }: { url: string | null; replace: boolean }) {
   );
 }
 
-export function UnlinkButton() {
+export function UnlinkButton({ channel = "whatsapp" }: { channel?: "whatsapp" | "telegram" }) {
   return (
     <ActionButton
       action={unlinkAction}
-      fields={{}}
+      fields={{ canal: channel }}
       variant="outline"
-      confirm="O bot para de ler este número. Desvincular?"
+      confirm={
+        channel === "telegram"
+          ? "O bot para de ler este Telegram. Desvincular?"
+          : "O bot para de ler este número. Desvincular?"
+      }
       confirmLabel="Sim, desvincular"
     >
       <Unlink aria-hidden />

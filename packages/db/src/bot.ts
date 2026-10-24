@@ -1,5 +1,7 @@
-// O bot de lançamento pelo WhatsApp (M11, ADR-018): o vínculo do número, a mensagem que chega
-// (uma vez só), a leitura, o rascunho, o Confirmar, o Desfazer e a conta das respostas grátis.
+// O bot de lançamento pelo WhatsApp (M11, ADR-018) e pelo Telegram (M12.0b, ADR-019): o vínculo
+// do número ou da conta, a mensagem que chega (uma vez só), a leitura, o rascunho, o Confirmar, o
+// Desfazer e a conta das respostas grátis (só o WhatsApp tem teto). A leitura, o rascunho e o
+// Confirmar são os mesmos nos dois canais; o canal só muda quem é quem e como a resposta sai.
 //
 // O caminho de uma mensagem:
 //   webhook   recordIncoming: grava a mensagem (wamid único) com o texto CIFRADO e diz se ela
@@ -23,6 +25,11 @@ import {
   BOT_UNDO_MS,
   BOT_WARN_AT,
   ALREADY_DONE_MESSAGE,
+  CARD_NUMBER_REMOVED_MESSAGE,
+  PRIVATE_BOT_MESSAGE,
+  parseStartCommand,
+  type BotChannelKind,
+  type BotIncomingRef,
   canInHousehold,
   botMonth,
   CANCELLED_MESSAGE,
@@ -93,6 +100,24 @@ export function botPhoneKey(appSecret: string): Buffer {
 export function phoneHash(key: Buffer, phone: string): string {
   return createHmac("sha256", key).update(normalizePhone(phone)).digest("hex");
 }
+
+/**
+ * HMAC-SHA256 da conversa do Telegram (M12.0b), com a mesma chave dos números e um prefixo: um id
+ * do Telegram nunca coincide com o HMAC de um número.
+ */
+export function telegramChatHash(key: Buffer, chatId: string): string {
+  return createHmac("sha256", key).update(`telegram:${chatId}`).digest("hex");
+}
+
+/** O HMAC de quem mandou, conforme o canal. */
+function senderHash(key: Buffer, channel: BotChannelKind, from: string): string {
+  return channel === "TELEGRAM" ? telegramChatHash(key, from) : phoneHash(key, from);
+}
+
+const CHANNEL_LABEL: Record<BotChannelKind, string> = {
+  WHATSAPP: "whatsapp",
+  TELEGRAM: "telegram",
+};
 
 const sha256 = (text: string) => createHash("sha256").update(text).digest("hex");
 
@@ -166,21 +191,30 @@ export async function linkCodeStatus(
   now: Date = new Date(),
 ): Promise<
   | { state: "WAITING"; code: string; expiresAt: Date }
-  | { state: "LINKED"; lastFour: string }
+  | { state: "LINKED"; channel: BotChannelKind; lastFour: string | null }
   | { state: "EXPIRED" }
 > {
   if (!isUuid(codeId)) return { state: "EXPIRED" };
   const row = await db.botLinkCode.findFirst({
     where: { id: codeId, userId },
-    select: { id: true, codeSealed: true, expiresAt: true, usedAt: true },
+    select: { id: true, codeSealed: true, expiresAt: true, usedAt: true, usedChannel: true },
   });
   if (!row) return { state: "EXPIRED" };
   if (row.usedAt) {
+    if (row.usedChannel === "TELEGRAM") {
+      const link = await db.botTelegramLink.findUnique({
+        where: { userId },
+        select: { userId: true },
+      });
+      return link ? { state: "LINKED", channel: "TELEGRAM", lastFour: null } : { state: "EXPIRED" };
+    }
     const link = await db.botLink.findUnique({
       where: { userId },
       select: { phoneLastFour: true },
     });
-    return link ? { state: "LINKED", lastFour: link.phoneLastFour } : { state: "EXPIRED" };
+    return link
+      ? { state: "LINKED", channel: "WHATSAPP", lastFour: link.phoneLastFour }
+      : { state: "EXPIRED" };
   }
   if (row.expiresAt <= now || !row.codeSealed) return { state: "EXPIRED" };
   return {
@@ -190,12 +224,31 @@ export async function linkCodeStatus(
   };
 }
 
-/** Desvincula o número da pessoa. Sem número vinculado: não faz nada. */
+/** Desvincula o número (ou a conta do Telegram) da pessoa. Sem vínculo no canal: não faz nada. */
 export async function unlinkBot(
   db: PrismaClient,
   grant: HouseholdGrant<"view">,
   ctx: RequestContext,
+  channel: BotChannelKind = "WHATSAPP",
 ): Promise<boolean> {
+  if (channel === "TELEGRAM")
+    return db.$transaction(async (tx) => {
+      const { count } = await tx.botTelegramLink.deleteMany({ where: { userId: grant.userId } });
+      if (count === 0) return false;
+      await writeAudit(
+        tx,
+        {
+          actorId: grant.userId,
+          householdId: grant.household.id,
+          action: "bot.unlinked",
+          entity: "household_member",
+          entityId: grant.userId,
+          metadata: { channel: "telegram" },
+        },
+        ctx,
+      );
+      return true;
+    });
   return db.$transaction(async (tx) => {
     const link = await tx.botLink.findUnique({
       where: { userId: grant.userId },
@@ -211,7 +264,7 @@ export async function unlinkBot(
         action: "bot.unlinked",
         entity: "household_member",
         entityId: grant.userId,
-        metadata: { phone: `***${link.phoneLastFour}` },
+        metadata: { channel: "whatsapp", phone: `***${link.phoneLastFour}` },
       },
       ctx,
     );
@@ -356,9 +409,25 @@ export async function botReplyUsage(
 ) {
   const row = await db.botReplyCount.findUnique({
     where: { phoneNumberId_month: { phoneNumberId, month: botMonth(now) } },
-    select: { used: true, warnedAt: true },
+    select: {
+      used: true,
+      warnedAt: true,
+      lastSentAt: true,
+      lastFailureAt: true,
+      lastFailureCode: true,
+    },
   });
-  return { month: botMonth(now), used: row?.used ?? 0, warnedAt: row?.warnedAt ?? null };
+  // A Meta está recusando? A última recusa veio depois da última resposta aceita (M12.0b)
+  const failing =
+    row?.lastFailureAt && (!row.lastSentAt || row.lastFailureAt > row.lastSentAt)
+      ? { code: row.lastFailureCode, at: row.lastFailureAt }
+      : null;
+  return {
+    month: botMonth(now),
+    used: row?.used ?? 0,
+    warnedAt: row?.warnedAt ?? null,
+    failing,
+  };
 }
 
 /** A tela de Ajustes › Bot do WhatsApp. */
@@ -369,11 +438,15 @@ export async function botSettings(
   now: Date = new Date(),
 ) {
   const householdId = grant.household.id;
-  const [household, link, defaults, choices] = await Promise.all([
+  const [household, link, telegramLink, defaults, choices] = await Promise.all([
     db.household.findUniqueOrThrow({ where: { id: householdId }, select: { botDisabledAt: true } }),
     db.botLink.findUnique({
       where: { userId: grant.userId },
       select: { phoneLastFour: true, linkedAt: true },
+    }),
+    db.botTelegramLink.findUnique({
+      where: { userId: grant.userId },
+      select: { linkedAt: true },
     }),
     defaultsFor(db, grant.userId),
     botChoicesFor(db, grant.userId),
@@ -384,6 +457,7 @@ export async function botSettings(
     enabled: household.botDisabledAt === null,
     canManage: canInHousehold(grant.role, "manage_bot"),
     link,
+    telegramLink,
     linkedCount,
     defaults,
     choices,
@@ -411,7 +485,14 @@ async function recentBotMessages(db: PrismaClient, grant: HouseholdGrant<"view">
     },
     orderBy: { createdAt: "desc" },
     take: 8,
-    select: { id: true, createdAt: true, userId: true, outcome: true, draftId: true },
+    select: {
+      id: true,
+      createdAt: true,
+      userId: true,
+      outcome: true,
+      draftId: true,
+      channel: true,
+    },
   });
   const drafts = await db.botDraft.findMany({
     where: { id: { in: rows.map((r) => r.draftId).filter((id): id is string => id !== null) } },
@@ -457,7 +538,8 @@ async function recentBotMessages(db: PrismaClient, grant: HouseholdGrant<"view">
         id: row.id,
         at: row.createdAt,
         who: person ? (person.user.name.split(" ")[0] ?? person.user.name) : "Alguém do lar",
-        lastFour: person?.botLink?.phoneLastFour ?? null,
+        channel: row.channel as BotChannelKind,
+        lastFour: row.channel === "WHATSAPP" ? (person?.botLink?.phoneLastFour ?? null) : null,
         outcome: row.outcome as BotMessageOutcome,
         draftStatus: draft?.status ?? null,
         detail:
@@ -479,8 +561,12 @@ async function recentBotMessages(db: PrismaClient, grant: HouseholdGrant<"view">
 
 /** Uma mensagem como o webhook entende (o adaptador do canal traduz o JSON da Meta para isto). */
 export type IncomingBotMessage = {
+  /** O canal (M12.0b). Sem ele: WhatsApp */
+  channel?: BotChannelKind;
+  /** O id da mensagem no canal (o wamid; no Telegram, "tg:" + o update_id) */
   wamid: string;
-  /** O número de quem mandou, só dígitos com o país (o "from" da Meta) */
+  /** Quem mandou: o número, só dígitos com o país (o "from" da Meta), ou o id da conversa privada
+   * do Telegram */
   from: string;
   kind: BotMessageKind;
   sentAt: Date;
@@ -488,11 +574,24 @@ export type IncomingBotMessage = {
   text?: string;
   /** O id do botão clicado (BUTTON) */
   buttonId?: string;
+  /** Telegram: o id da mensagem da pessoa (para apagar a do número de cartão) */
+  messageId?: string;
+  /** Telegram: o id do toque no botão (o canal confirma o toque) */
+  callbackId?: string;
+  /** Telegram: a mensagem do bot que tinha o botão tocado (a resposta a edita) */
+  buttonMessageId?: string;
 };
 
 export type BotSecrets = { phoneKey: Buffer; keyring: SecretKeyring };
 
-type SealedBody = { from: string; text?: string; buttonId?: string };
+type SealedBody = {
+  from: string;
+  text?: string;
+  buttonId?: string;
+  messageId?: string;
+  callbackId?: string;
+  buttonMessageId?: string;
+};
 
 /**
  * Grava a mensagem que chegou, uma vez só por wamid. Devolve o id para a fila, ou nulo quando
@@ -504,12 +603,25 @@ export async function recordIncoming(
   message: IncomingBotMessage,
   now: Date = new Date(),
 ): Promise<{ queue: string | null; duplicate: boolean }> {
-  const hash = phoneHash(secrets.phoneKey, message.from);
-  const link = await db.botLink.findUnique({
-    where: { phoneHash: hash },
-    select: { userId: true, householdId: true },
-  });
-  const isLinkCommand = message.kind === "TEXT" && parseLinkCommand(message.text ?? "") !== null;
+  const channel = message.channel ?? "WHATSAPP";
+  const hash = senderHash(secrets.phoneKey, channel, message.from);
+  const link =
+    channel === "TELEGRAM"
+      ? await db.botTelegramLink.findUnique({
+          where: { chatHash: hash },
+          select: { userId: true, householdId: true },
+        })
+      : await db.botLink.findUnique({
+          where: { phoneHash: hash },
+          select: { userId: true, householdId: true },
+        });
+  // O "vincular 123 456" e, no Telegram, todo /start (com código, ou sem, que recebe a frase de
+  // uso particular) passam pela fila mesmo sem vínculo
+  const text = message.kind === "TEXT" ? (message.text ?? "") : "";
+  const isLinkCommand =
+    message.kind === "TEXT" &&
+    (parseLinkCommand(text) !== null ||
+      (channel === "TELEGRAM" && parseStartCommand(text) !== undefined));
   const id = randomUUID();
   if (!link && !isLinkCommand) {
     // Número desconhecido: uma linha sem texto e sem dono, só para contar; nada na fila
@@ -517,6 +629,7 @@ export async function recordIncoming(
       data: [
         {
           id,
+          channel,
           wamid: message.wamid,
           phoneHash: hash,
           kind: message.kind,
@@ -530,13 +643,19 @@ export async function recordIncoming(
     });
     return { queue: null, duplicate: created.count === 0 };
   }
-  const body: SealedBody = { from: normalizePhone(message.from) };
+  const body: SealedBody = {
+    from: channel === "TELEGRAM" ? message.from : normalizePhone(message.from),
+  };
   if (message.text !== undefined) body.text = message.text;
   if (message.buttonId !== undefined) body.buttonId = message.buttonId;
+  if (message.messageId !== undefined) body.messageId = message.messageId;
+  if (message.callbackId !== undefined) body.callbackId = message.callbackId;
+  if (message.buttonMessageId !== undefined) body.buttonMessageId = message.buttonMessageId;
   const created = await db.botMessage.createMany({
     data: [
       {
         id,
+        channel,
         wamid: message.wamid,
         householdId: link?.householdId ?? null,
         userId: link?.userId ?? null,
@@ -554,14 +673,28 @@ export async function recordIncoming(
 
 // ── A fila ──────────────────────────────────────────────────────────────────────
 
-/** Uma resposta para mandar (depois do commit), com o tipo para a conta das grátis. */
-export type BotReply = { to: string; kind: BotReplyKind; message: BotReplyMessage };
+/**
+ * Uma resposta para mandar (depois do commit), com o tipo para a conta das grátis. `replace`: a
+ * mensagem do bot que tinha o botão tocado (o Telegram a edita; o WhatsApp manda outra).
+ */
+export type BotReply = {
+  to: string;
+  kind: BotReplyKind;
+  message: BotReplyMessage;
+  replace: string | null;
+};
 
 export type BotProcessResult = {
   outcome: BotMessageOutcome;
-  /** O wamid, para marcar como lida (não é mensagem: não conta) */
+  /** Por qual canal responder */
+  channel: BotChannelKind;
+  /** A mensagem recebida, para o canal marcar como lida (não é mensagem: não conta) */
+  incoming: BotIncomingRef;
+  /** O wamid (o mesmo de `incoming.externalId`) */
   wamid: string;
   replies: BotReply[];
+  /** Tirar da conversa a mensagem da pessoa (Telegram: a que parecia ter um número de cartão) */
+  discard: boolean;
   /** O lar cujo dinheiro mudou (o painel recalcula) */
   financeChangedFor: string | null;
 };
@@ -595,6 +728,7 @@ export async function processBotMessage(
     select: {
       id: true,
       wamid: true,
+      channel: true,
       userId: true,
       householdId: true,
       phoneHash: true,
@@ -604,6 +738,7 @@ export async function processBotMessage(
     },
   });
   if (!row || row.processedAt || !row.bodyCiphertext) return null;
+  const channel = row.channel as BotChannelKind;
   const body = JSON.parse(openSecret(deps.keyring, row.id, row.bodyCiphertext)) as SealedBody;
   // Toma a mensagem para si ANTES de qualquer efeito: marca como lida e apaga o texto. Duas filas
   // ao mesmo tempo (uma repetição do pg-boss): só uma passa daqui. Se o processo cair no meio, a
@@ -630,29 +765,56 @@ export async function processBotMessage(
     });
     return {
       outcome,
+      channel,
+      incoming: {
+        externalId: row.wamid,
+        chat: body.from,
+        messageId: body.messageId ?? null,
+        callbackId: body.callbackId ?? null,
+      },
       wamid: row.wamid,
       replies,
+      discard: extra.discard ?? false,
       financeChangedFor: extra.financeChangedFor ?? null,
     };
   };
+  // A resposta a um toque num botão troca a mensagem que tinha o botão (no Telegram)
+  const replace = row.kind === "BUTTON" ? (body.buttonMessageId ?? null) : null;
   const reply = (kind: BotReplyKind, message: BotReplyMessage): BotReply => ({
     to: body.from,
     kind,
     message,
+    replace,
   });
 
-  // "vincular 123 456": de número novo ou de quem já está vinculado (troca de pessoa)
-  const code = row.kind === "TEXT" ? parseLinkCommand(body.text ?? "") : null;
-  if (code) return linkByCode(db, row, body, code, now, done, reply);
+  // "vincular 123 456" (ou o /start do Telegram): de quem é novo ou já está vinculado (troca)
+  const text = row.kind === "TEXT" ? (body.text ?? "") : "";
+  const start = channel === "TELEGRAM" ? parseStartCommand(text) : undefined;
+  const code = parseLinkCommand(text) ?? start?.code ?? null;
+  if (code) return linkByCode(db, row, channel, body, code, now, done, reply);
 
   // Vinculado quando chegou, mas pode ter sido desvinculado enquanto esperava na fila
   const link = row.userId
-    ? await db.botLink.findUnique({
-        where: { userId: row.userId },
-        select: { userId: true, householdId: true, phoneHash: true },
-      })
+    ? channel === "TELEGRAM"
+      ? await db.botTelegramLink
+          .findUnique({
+            where: { userId: row.userId },
+            select: { userId: true, householdId: true, chatHash: true },
+          })
+          .then((l) => l && { userId: l.userId, householdId: l.householdId, hash: l.chatHash })
+      : await db.botLink
+          .findUnique({
+            where: { userId: row.userId },
+            select: { userId: true, householdId: true, phoneHash: true },
+          })
+          .then((l) => l && { userId: l.userId, householdId: l.householdId, hash: l.phoneHash })
     : null;
-  if (!link || link.phoneHash !== row.phoneHash) return done("UNKNOWN_NUMBER");
+  // /start sem código (ou com um que não é código) de quem não está vinculado: a frase de uso
+  // particular, que não diz nada sobre códigos
+  if (!link || link.hash !== row.phoneHash)
+    return done("UNKNOWN_NUMBER", start ? [reply("NOT_UNDERSTOOD", PRIVATE_BOT_MESSAGE)] : []);
+  if (start)
+    return done("NOT_UNDERSTOOD", [reply("NOT_UNDERSTOOD", notUnderstoodMessage("EMPTY"))]);
   const household = await db.household.findUniqueOrThrow({
     where: { id: link.householdId },
     select: { botDisabledAt: true },
@@ -692,10 +854,22 @@ export async function processBotMessage(
       ),
     ]);
   }
+  if (!parsed.ok && parsed.error === "CARD_NUMBER") {
+    // No Telegram o bot apaga a mensagem da conversa (o canal faz isso antes de responder)
+    const removed = channel === "TELEGRAM" && body.messageId !== undefined;
+    return done(
+      "CARD_NUMBER",
+      [
+        reply(
+          "NOT_UNDERSTOOD",
+          removed ? CARD_NUMBER_REMOVED_MESSAGE : notUnderstoodMessage("CARD_NUMBER"),
+        ),
+      ],
+      { discard: removed },
+    );
+  }
   if (!parsed.ok) {
-    return done(parsed.error === "CARD_NUMBER" ? "CARD_NUMBER" : "NOT_UNDERSTOOD", [
-      reply("NOT_UNDERSTOOD", notUnderstoodMessage(parsed.error)),
-    ]);
+    return done("NOT_UNDERSTOOD", [reply("NOT_UNDERSTOOD", notUnderstoodMessage(parsed.error))]);
   }
   const entry = parsed.entry;
   const defaults = await defaultsFor(db, userId);
@@ -736,6 +910,7 @@ export async function processBotMessage(
 }
 
 type DoneExtra = {
+  discard?: boolean;
   draftId?: string | null;
   householdId?: string | null;
   userId?: string | null;
@@ -751,6 +926,7 @@ type Reply = (kind: BotReplyKind, message: BotReplyMessage) => BotReply;
 async function linkByCode(
   db: PrismaClient,
   row: { id: string; phoneHash: string },
+  channel: BotChannelKind,
   body: SealedBody,
   code: string,
   now: Date,
@@ -773,6 +949,12 @@ async function linkByCode(
     )
   )
     return done("BAD_CODE", [], { householdId: null });
+  // Código errado: no WhatsApp, silêncio; no Telegram, a frase de uso particular (a mesma do /start
+  // sem código; não diz se o código existiu)
+  const badCode = () =>
+    done("BAD_CODE", channel === "TELEGRAM" ? [reply("NOT_UNDERSTOOD", PRIVATE_BOT_MESSAGE)] : [], {
+      householdId: null,
+    });
   const linked = await db.$transaction(async (tx) => {
     const found = await tx.botLinkCode.findFirst({
       where: { codeHash: sha256(code), usedAt: null, expiresAt: { gt: now } },
@@ -781,9 +963,43 @@ async function linkByCode(
     if (!found) return null;
     const { count } = await tx.botLinkCode.updateMany({
       where: { id: found.id, usedAt: null },
-      data: { usedAt: now, codeSealed: null },
+      data: { usedAt: now, codeSealed: null, usedChannel: channel },
     });
     if (count === 0) return null;
+    if (channel === "TELEGRAM") {
+      // Uma pessoa por conta do Telegram e uma conta por pessoa: o vínculo anterior de cada lado sai
+      const previous = await tx.botTelegramLink.findUnique({
+        where: { chatHash: row.phoneHash },
+        select: { userId: true },
+      });
+      await tx.botTelegramLink.deleteMany({
+        where: { OR: [{ chatHash: row.phoneHash }, { userId: found.userId }] },
+      });
+      await tx.botTelegramLink.create({
+        data: {
+          userId: found.userId,
+          householdId: found.householdId,
+          chatHash: row.phoneHash,
+          linkedAt: now,
+        },
+      });
+      await writeAudit(
+        tx,
+        {
+          actorId: found.userId,
+          householdId: found.householdId,
+          action: "bot.linked",
+          entity: "household_member",
+          entityId: found.userId,
+          metadata: {
+            channel: CHANNEL_LABEL.TELEGRAM,
+            replacedOtherPerson: previous !== null && previous.userId !== found.userId,
+          },
+        },
+        {},
+      );
+      return found;
+    }
     // Uma pessoa por número e um número por pessoa: o vínculo anterior de cada lado sai
     const previous = await tx.botLink.findUnique({
       where: { phoneHash: row.phoneHash },
@@ -811,6 +1027,7 @@ async function linkByCode(
         entity: "household_member",
         entityId: found.userId,
         metadata: {
+          channel: CHANNEL_LABEL.WHATSAPP,
           phone: `***${lastFour}`,
           replacedOtherPerson: previous !== null && previous.userId !== found.userId,
         },
@@ -820,7 +1037,7 @@ async function linkByCode(
     return found;
   });
   // Código errado ou vencido: o mesmo silêncio de um número desconhecido (não revela nada)
-  if (!linked) return done("BAD_CODE", [], { householdId: null });
+  if (!linked) return badCode();
   const [user, defaults, choices] = await Promise.all([
     db.user.findUniqueOrThrow({ where: { id: linked.userId }, select: { name: true } }),
     defaultsFor(db, linked.userId),
@@ -833,7 +1050,7 @@ async function linkByCode(
       : "que você escolher";
   return done(
     "LINKED",
-    [reply("LINKED", linkedMessage(user.name.split(" ")[0] ?? user.name, walletName))],
+    [reply("LINKED", linkedMessage(user.name.split(" ")[0] ?? user.name, walletName, channel))],
     { householdId: linked.householdId, userId: linked.userId },
   );
 }
@@ -1319,6 +1536,29 @@ export async function reserveReply(
     data: { used: { increment: 1 }, warnedAt: now, updatedAt: now },
   });
   return { allowed: true, warn: warned.count > 0 };
+}
+
+/**
+ * Anota o resultado de uma resposta do WhatsApp (M12.0b): a última aceita e a última recusada, com
+ * o código da Meta. A tela de Ajustes avisa quando a Meta está recusando tudo (o 131037).
+ */
+export async function recordReplyResult(
+  db: PrismaClient,
+  phoneNumberId: string,
+  result: { ok: true } | { ok: false; code: number | null },
+  now: Date = new Date(),
+): Promise<void> {
+  const month = botMonth(now);
+  await db.botReplyCount.createMany({
+    data: [{ phoneNumberId, month, used: 0, updatedAt: now }],
+    skipDuplicates: true,
+  });
+  await db.botReplyCount.update({
+    where: { phoneNumberId_month: { phoneNumberId, month } },
+    data: result.ok
+      ? { lastSentAt: now }
+      : { lastFailureAt: now, lastFailureCode: result.code ?? 0 },
+  });
 }
 
 /** O texto do aviso dos 850 (o mesmo do core; aqui para quem manda não importar dois lugares). */

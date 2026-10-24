@@ -16,7 +16,8 @@
     "PLUGGY_API_URL",
     "SYNC_WORKER",
     "ML_SERVICE_URL",
-    "WHATSAPP_*"
+    "WHATSAPP_*",
+    "TELEGRAM_*"
   ],
   "tasks": {
     "build": {

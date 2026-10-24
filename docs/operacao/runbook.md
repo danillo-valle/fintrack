@@ -311,7 +311,7 @@ O webhook `https://<seu domínio>/api/whatsapp/webhook` é a única rota públic
 a assinatura da Meta, grava a mensagem (uma vez só) e põe na fila `bot-message`; a resposta sai pela
 Cloud API. Sem as quatro variáveis `WHATSAPP_*` do painel da Meta em `/srv/fintrack/app.env`, o bot
 está **desligado no servidor** e a rota responde 404 (o M11.1 vai para a produção assim; o M11.2
-grava os valores). Desligar só no lar: Ajustes › Bot do WhatsApp.
+grava os valores). Desligar só no lar: Ajustes › Bot de lançamento.
 
 ```bash
 # A rota (sem configuração: 404; com: 403 para um token de verificação errado)
@@ -329,7 +329,7 @@ sudo -u fintrack fintrack-compose exec db psql -U fintrack -c \
 | O bot não responde e não há `webhook.received` | O webhook não chega: a Meta mostra o erro em WhatsApp › Configuração; confira o túnel e o caminho          |
 | `bot.message` com `failed` maior que zero      | A Cloud API recusou: o `bot.send_failed` logo antes traz o código (tabela abaixo)                          |
 | Chegou a 900 no mês                            | Esperado: o bot silencia até o dia 1º; os lançamentos continuam em Recebidos                               |
-| Suspeita de número indevido                    | Ajustes › Bot do WhatsApp › Desvincular (cada pessoa o seu); ou desligue o bot do lar                      |
+| Suspeita de número indevido                    | Ajustes › Bot de lançamento › Desvincular (cada pessoa o seu); ou desligue o bot do lar                    |
 
 Trocar o `BETTER_AUTH_SECRET` desfaz os vínculos (o HMAC dos números deriva dele): cada pessoa
 vincula de novo.
@@ -365,14 +365,34 @@ Onde fica cada coisa no painel (developers.facebook.com › Meus apps):
 sudo -u fintrack fintrack-compose logs --since 24h --no-log-prefix web | jq -R -c 'fromjson? | select(.event? == "bot.send_failed") | {time, kind, status, code, subcode, hint}'
 ```
 
-| Código (`hint`)                      | O que é                                                     | O que fazer                                                                                                    |
-| ------------------------------------ | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| 131030 (`fora_da_lista_de_teste`)    | Quem recebe não está na lista do número de teste            | Cadastre o número na lista. DDD fora de 11–19, 21, 22, 24, 27, 28 (o 41, por exemplo): cadastre também sem o 9 |
-| 190 (`token_invalido`)               | Token vencido ou revogado (o da página API Setup dura 24 h) | Gere o token do usuário do sistema (Nunca) e grave com o `fintrack-definir`; reinicie o `web`                  |
-| 100 (`parametro_invalido`)           | Em geral, o número no lugar do **id** do número             | `WHATSAPP_PHONE_NUMBER_ID` é o id (15 a 17 dígitos) da Configuração da API                                     |
-| 131047 (`fora_da_janela_24h`)        | Passou de 24 h desde a mensagem da pessoa                   | Esperado em botão antigo: a pessoa manda uma mensagem nova (o bot nunca usa template, que é cobrado)           |
-| 131026 (`nao_entregue`)              | A pessoa não pode receber (bloqueou, app antigo)            | Confira no celular dela                                                                                        |
-| 130429 / 131056 (`limite_de_envio`…) | Muitas mensagens em pouco tempo                             | Espere alguns minutos                                                                                          |
+| Código (`hint`)                           | O que é                                                                                                   | O que fazer                                                                                                                                                                  |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 131030 (`fora_da_lista_de_teste`)         | Quem recebe não está na lista do número de teste                                                          | Cadastre o número na lista. DDD fora de 11–19, 21, 22, 24, 27, 28 (o 41, por exemplo): cadastre também sem o 9                                                               |
+| 190 (`token_invalido`)                    | Token vencido ou revogado (o da página API Setup dura 24 h)                                               | Gere o token do usuário do sistema (Nunca) e grave com o `fintrack-definir`; reinicie o `web`                                                                                |
+| 100 (`parametro_invalido`)                | Em geral, o número no lugar do **id** do número                                                           | `WHATSAPP_PHONE_NUMBER_ID` é o id (15 a 17 dígitos) da Configuração da API                                                                                                   |
+| 131047 (`fora_da_janela_24h`)             | Passou de 24 h desde a mensagem da pessoa                                                                 | Esperado em botão antigo: a pessoa manda uma mensagem nova (o bot nunca usa template, que é cobrado)                                                                         |
+| 131037 (`nome_de_exibicao_sem_aprovacao`) | Número **fornecido pela Meta** com o nome de exibição não aprovado (`AVAILABLE_WITHOUT_REVIEW` não basta) | Consulte o estado (abaixo); peça a revisão do nome (`new_display_name`); aprovado, registre o número de novo com o PIN (em até 14 dias). Sem revisão aberta: suporte da Meta |
+| 131026 (`nao_entregue`)                   | A pessoa não pode receber (bloqueou, app antigo)                                                          | Confira no celular dela                                                                                                                                                      |
+| 130429 / 131056 (`limite_de_envio`…)      | Muitas mensagens em pouco tempo                                                                           | Espere alguns minutos                                                                                                                                                        |
+
+O estado do número, direto da Meta (o token sai do `app.env` sem as aspas e vai ao `curl` pela entrada,
+nunca na linha de comando):
+
+```bash
+sudo -u fintrack grep '^WHATSAPP_ACCESS_TOKEN=' /srv/fintrack/app.env | cut -d= -f2- \
+  | sed -e "s/^[\"']//" -e "s/[\"']\$//" \
+  | sed 's/^/header = "Authorization: Bearer /; s/$/"/' \
+  | curl -s -K - "https://graph.facebook.com/v26.0/<id do número>?fields=verified_name,name_status,new_display_name,new_name_status,status,health_status" \
+  | jq .
+```
+
+- `health_status.entities[].errors` e `additional_info` dizem o que a Meta está bloqueando. 141006 (forma
+  de pagamento) só trava conversa iniciada pela empresa (template): o bot só responde, ignore; 141010
+  (empresa não verificada) limita o volume; 138024/138025 (SIP) são de chamadas, irrelevantes.
+- O nome: `POST <id do número>?new_display_name=<nome>` pede a revisão (10 trocas por 30 dias; o mesmo
+  nome não abre revisão). Depois de `APPROVED`, `POST <id do número>/register` com
+  `{"messaging_product":"whatsapp","pin":"<6 dígitos>"}`. Sem o PIN: `POST <id do número>` com
+  `{"pin":"<6 dígitos novos>"}` define outro (guarde no gerenciador de senhas).
 
 | Situação                                                                    | O que fazer                                                                                                                                                          |
 | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -383,6 +403,45 @@ sudo -u fintrack fintrack-compose logs --since 24h --no-log-prefix web | jq -R -
 | Trocar o token permanente                                                   | Gere outro no usuário do sistema; `sudo -u fintrack fintrack-definir app.env WHATSAPP_ACCESS_TOKEN`; `sudo -u fintrack fintrack-compose up -d web`; revogue o antigo |
 | Trocar a chave secreta do app                                               | Painel da Meta › Básico › Redefinir; grave a nova com o `fintrack-definir` e reinicie o `web` (até lá, todo POST é recusado como assinatura errada)                  |
 | Trocar a versão da Graph API (a `v26.0` vence ~2 anos depois de 29/7/2026)  | No repositório: o padrão do `WHATSAPP_API_URL` no `env.ts`, o `.env.example` e o `playwright.config.ts` (skill `bot-whatsapp`)                                       |
+
+## Bot do Telegram (M12.0b, ADR-019)
+
+O webhook `https://<seu domínio>/api/telegram/webhook` é a única rota pública do Telegram. Ele só
+confere o segredo do cabeçalho `X-Telegram-Bot-Api-Secret-Token` (o mesmo do `setWebhook`), grava a
+mensagem (uma vez só) e põe na mesma fila `bot-message`; a resposta sai pela Bot API. Sem as três
+variáveis `TELEGRAM_*` em `/srv/fintrack/app.env`, o Telegram está **desligado no servidor** e a
+rota responde 404. Sem teto de respostas (a conta das grátis é só do WhatsApp).
+
+```bash
+# A rota (sem configuração: 404; com: 200 "ok" para tudo, até sem o segredo)
+curl -s -o /dev/null -w '%{http_code}\n' -X POST -H 'content-type: application/json' -d '{}' https://fintrack.SEU-DOMINIO/api/telegram/webhook
+# O que o Telegram diz do webhook (o token sai do app.env sem as aspas e vai ao curl pela entrada)
+sudo -u fintrack grep '^TELEGRAM_BOT_TOKEN=' /srv/fintrack/app.env | cut -d= -f2- \
+  | sed -e "s/^[\"']//" -e "s/[\"']\$//" \
+  | sed 's|^|url = "https://api.telegram.org/bot|; s|$|/getWebhookInfo"|' \
+  | curl -s -K - | jq '.result | {url, pending_update_count, last_error_date, last_error_message, allowed_updates}'
+# O que chegou e o que a fila fez, só do Telegram
+sudo -u fintrack fintrack-compose logs --since 24h --no-log-prefix web | jq -R -c 'fromjson? | select(.channel? == "telegram") | {time, event, reason, outcome, sent, failed, code, hint}'
+```
+
+| Situação                                                   | O que fazer                                                                                                                                                        |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `webhook.rejected` com `reason: secret`                    | Alguém chamou sem o segredo, ou o `TELEGRAM_WEBHOOK_SECRET` do `app.env` não é o do `setWebhook`: refaça o `setWebhook` com o segredo do `app.env` (manual M12.0b) |
+| O bot não responde e não há `webhook.received` do Telegram | `getWebhookInfo` (acima): `url` vazia = falta o `setWebhook`; `last_error_message` diz o que o Telegram viu (túnel, certificado, 404)                              |
+| `bot.send_failed` com `hint: bloqueado_pela_pessoa`        | A pessoa bloqueou o bot no Telegram; ela desbloqueia, ou desvincula em Ajustes                                                                                     |
+| `bot.send_failed` com `hint: token_invalido`               | O token foi trocado no @BotFather (`/revoke`): grave o novo com o `fintrack-definir`, reinicie o `web` e refaça o `setWebhook`                                     |
+| Vazou o token do bot                                       | @BotFather › `/revoke` (o antigo para na hora) → o novo pelo `fintrack-definir` → `fintrack-compose up -d web` → `setWebhook` de novo                              |
+| Suspeita de conta indevida                                 | Ajustes › Bot de lançamento › Telegram › Desvincular (cada pessoa a sua); ou desligue o bot do lar                                                                 |
+
+| Código (`hint`)                 | O que é                                              |
+| ------------------------------- | ---------------------------------------------------- |
+| 400 (`mensagem_igual`)          | O mesmo botão tocado duas vezes: o canal ignora      |
+| 400 (`mensagem_nao_encontrada`) | A mensagem do botão foi apagada: o canal manda outra |
+| 400 (`toque_vencido`)           | O toque ficou na fila mais de alguns minutos         |
+| 403 (`bloqueado_pela_pessoa`)   | A pessoa bloqueou o bot                              |
+| 400 (`conversa_nao_encontrada`) | A conta foi apagada ou nunca falou com o bot         |
+| 401 (`token_invalido`)          | Token trocado ou revogado no @BotFather              |
+| 429 (`limite_de_envio`)         | Muitas mensagens em pouco tempo: espere              |
 
 ## Alertas
 

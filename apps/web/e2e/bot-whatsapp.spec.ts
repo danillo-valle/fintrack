@@ -9,17 +9,8 @@
 //      falha), número desconhecido não gera proposta, a verificação do painel da Meta
 //   4. a tela de Ajustes a 320 px, o interruptor e o axe
 import { expect } from "@playwright/test";
-import {
-  createFinanceDirect,
-  createHouseholdDirect,
-  createTestUser,
-  expectNoA11yViolations,
-  openPage,
-  sql,
-  test,
-  testEmail,
-  todaySaoPaulo,
-} from "./helpers";
+import { expectNoA11yViolations, openPage, sql, test, todaySaoPaulo } from "./helpers";
+import { personWithHome } from "./bot-person";
 import {
   fakePhone,
   replyButtons,
@@ -28,51 +19,6 @@ import {
   waitForReply,
   WHATSAPP_FAKE,
 } from "./whatsapp";
-
-const PASSWORD = "frase longa da pessoa do bot do whatsapp";
-
-/** Uma pessoa com lar (pessoal + Casa), um cartão de crédito e a regra "mercado" → Mercado. */
-async function personWithHome(
-  page: import("@playwright/test").Page,
-  slug: string,
-  project: string,
-) {
-  const email = testEmail(slug, project);
-  await createTestUser(page.request, {
-    email,
-    password: PASSWORD,
-    name: "Lia Bot",
-    twoFactor: true,
-  });
-  const { householdId, personal, shared } = await createHouseholdDirect({
-    name: `Lar do bot ${project}`,
-    people: [{ email, role: "OWNER" }],
-    shared: [{ name: "Casa", members: [{ email, role: "OWNER" }] }],
-  });
-  const { cards } = await createFinanceDirect({
-    householdId,
-    accounts: [
-      {
-        walletId: personal[email]!,
-        name: "Cartão Aurora",
-        kind: "CREDIT_CARD",
-        holderEmail: email,
-        closingDay: 27,
-        dueDay: 5,
-        cards: [{ nickname: "Visa da Casa", lastFour: "0002", holderEmail: email }],
-      },
-    ],
-    categories: [{ name: "Mercado", kind: "EXPENSE" }],
-    rules: [{ pattern: "mercado", category: "Mercado" }],
-  });
-  return {
-    email,
-    householdId,
-    personalId: personal[email]!,
-    homeId: shared.Casa!,
-    cardId: cards["Visa da Casa"]!,
-  };
-}
 
 test("vincular o número, propor, não duplicar e confirmar uma vez só", async ({
   page,
@@ -83,8 +29,8 @@ test("vincular o número, propor, não duplicar e confirmar uma vez só", async 
 
   // ── 1. Vincular ──
   await openPage(page, "/ajustes/bot");
-  await expect(page.getByTestId("cartao-numero")).toContainText("Nenhum número vinculado");
-  await page.getByRole("button", { name: "Vincular meu número" }).click();
+  await expect(page.getByTestId("canal-whatsapp")).toContainText("Não vinculado");
+  await page.getByRole("button", { name: "Vincular no WhatsApp" }).click();
   await page.waitForURL(/\/ajustes\/bot\/vincular\?codigo=/);
   const dialog = page.getByRole("dialog", { name: "Mande o código pelo WhatsApp" });
   await expect(dialog).toBeVisible();
@@ -145,7 +91,7 @@ test("vincular o número, propor, não duplicar e confirmar uma vez só", async 
 
   // Em Recebidos, a proposta espera o Confirmar
   await openPage(page, "/lancamentos/recebidos");
-  const section = page.getByTestId("do-whatsapp");
+  const section = page.getByTestId("do-bot");
   await expect(section).toContainText("1 proposta esperando o seu Confirmar");
   await expect(section.getByTestId("proposta-whatsapp")).toContainText("Mercado");
   await expectNoA11yViolations(page);
@@ -170,7 +116,7 @@ test("vincular o número, propor, não duplicar e confirmar uma vez só", async 
 
   // A proposta saiu de Recebidos
   await openPage(page, "/lancamentos/recebidos");
-  await expect(page.getByTestId("do-whatsapp")).toHaveCount(0);
+  await expect(page.getByTestId("do-bot")).toHaveCount(0);
 });
 
 test("código vencido: Gerar outro troca o código, Fechar volta para Ajustes e a senha vencida é pedida", async ({
@@ -181,7 +127,7 @@ test("código vencido: Gerar outro troca o código, Fechar volta para Ajustes e 
   // código anterior, já vencido, em vez de Ajustes.
   const person = await personWithHome(page, "bot-vencido", testInfo.project.name);
   await openPage(page, "/ajustes/bot");
-  await page.getByRole("button", { name: "Vincular meu número" }).click();
+  await page.getByRole("button", { name: "Vincular no WhatsApp" }).click();
   await page.waitForURL(/\/ajustes\/bot\/vincular\?codigo=/);
   const first = new URL(page.url()).searchParams.get("codigo");
   // O código vence com a caixa aberta (a tela se atualiza sozinha a cada 3 s)
@@ -207,7 +153,7 @@ test("código vencido: Gerar outro troca o código, Fechar volta para Ajustes e 
        WHERE u.id = s."userId" AND u.email = $1`,
     [person.email],
   );
-  await page.getByRole("button", { name: "Vincular meu número" }).click();
+  await page.getByRole("button", { name: "Vincular no WhatsApp" }).click();
   await page.waitForURL(/\/reautenticar\?next=%2Fajustes%2Fbot/);
 });
 
@@ -256,6 +202,9 @@ test("Ajustes › Bot: o interruptor, a 320 px e o axe", async ({ page }, testIn
   await openPage(page, "/ajustes/bot");
   await expect(page.getByTestId("bot-estado")).toHaveText("Ligado");
   await expect(page.getByTestId("cartao-conta")).toContainText("de 900");
+  // M12.0b: os dois canais, cada um com o seu Vincular
+  await expect(page.getByTestId("canal-whatsapp")).toContainText("Não vinculado");
+  await expect(page.getByTestId("canal-telegram")).toContainText("Não vinculado");
   await expectNoA11yViolations(page);
 
   const toggle = page.getByTestId("bot-interruptor");
@@ -272,7 +221,7 @@ test("Ajustes › Bot: o interruptor, a 320 px e o axe", async ({ page }, testIn
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );
   expect(overflow).toBe(0);
-  for (const id of ["cartao-bot", "cartao-conta", "cartao-numero", "cartao-mensagens"]) {
+  for (const id of ["cartao-bot", "cartao-conta", "cartao-canais", "cartao-mensagens"]) {
     const box = await page.getByTestId(id).boundingBox();
     expect(box && box.x + box.width, id).toBeLessThanOrEqual(320);
   }

@@ -26,3 +26,4 @@ Modelo para um ADR novo: copie `0001-stack-e-monorepo.md` e troque o conteúdo.
 | 016 | [LLM local: o Qwen2.5 3B, com defesa em camadas](0016-llm-local.md)                                    | aceita |
 | 017 | [O resumo do mês: três observações por regras, sem IA](0017-resumo-do-mes.md)                          | aceita |
 | 018 | [O bot de lançamento pelo WhatsApp](0018-bot-whatsapp.md)                                              | aceita |
+| 019 | [O Telegram como segundo canal do bot](0019-bot-telegram.md)                                           | aceita |

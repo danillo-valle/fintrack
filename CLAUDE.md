@@ -55,6 +55,11 @@ Projeto de portfólio construído em módulos (M00 a M12); cada módulo é uma m
   nem forma de pagamento), app em modo de desenvolvimento, token permanente do usuário do sistema, a
   conta assinada no app (`subscribed_apps`), Graph API `v26.0`; recusa da Meta no log só como código
   (`bot.send_failed`, `META_ERROR_HINTS`); o runbook tem o passo a passo e os códigos
+- Bot pelo Telegram (M12.0b, ADR-019): segundo canal do mesmo bot (Ajustes › Bot de lançamento, um
+  cartão por canal); webhook `/api/telegram/webhook` com o segredo do cabeçalho antes do corpo; vínculo
+  pelo `/start <código>` do link "Abrir no Telegram"; a conta só como HMAC (`bot_telegram_link`); a
+  resposta a um toque edita a mensagem do botão; o número de cartão sai da conversa. Sem as variáveis
+  `TELEGRAM_*`, o Telegram fica desligado no servidor
 
 Regras específicas do Next.js 16: @apps/web/AGENTS.md
 
@@ -69,14 +74,15 @@ Regras específicas do Next.js 16: @apps/web/AGENTS.md
 - `bash scripts/gerar-schema-auth.sh` atualiza as tabelas do Better Auth depois de mudar o `auth.ts`
 - `pnpm check` roda lint, tipos, testes e build (o mesmo que o CI)
 - `pnpm --filter @fintrack/web test` roda só os testes do app web
-- `pnpm e2e` roda os testes de ponta a ponta (sobe o app, a Pluggy de mentira, o serviço Python e a Cloud API do
-  WhatsApp de mentira, se não estiverem rodando)
+- `pnpm e2e` roda os testes de ponta a ponta (sobe o app, a Pluggy de mentira, o serviço Python, a Cloud API do
+  WhatsApp e o Telegram de mentira, se não estiverem rodando)
 - `pnpm ml:dev` sobe o serviço Python (fatura em PDF e classificador) em http://127.0.0.1:8001 (precisa do
   uv; `pnpm --filter @fintrack/ml test` roda o pytest, `pnpm --filter @fintrack/ml eval` o eval do
   classificador; os modelos do desenvolvimento ficam em `services/ml/.modelos`, fora do Git)
 - `pnpm pluggy:fake` sobe a Pluggy de mentira (banco sintético) em http://127.0.0.1:8787, para o `pnpm dev`
 - `pnpm whatsapp:fake` sobe a Cloud API do WhatsApp de mentira em http://127.0.0.1:8789 (o papel da Meta e
   da pessoa que escreve para o bot; veja a skill `bot-whatsapp`)
+- `pnpm telegram:fake` sobe o Telegram de mentira em http://127.0.0.1:8790 (o papel da Bot API e da pessoa)
 - `bash scripts/lighthouse-a11y.sh` mede a acessibilidade com o Lighthouse (precisa do `pnpm dev`)
 - `pnpm format` formata tudo com Prettier
 - `docker build --target web .` constrói a imagem de produção; `bash deploy/bin/smoke-test <url>` confere uma instância
@@ -127,8 +133,9 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
   `sync.ts` (a busca idempotente) e `statements.ts` (faturas); `packages/core/src/sync.ts` as regras puras;
   do M09.2: `packages/db/src/review.ts` (fila, par, estorno, lote, desfazer) e `packages/core/src/reconcile.ts`;
   do M09.3: `packages/db/src/file-imports.ts` (conferência e importação) e `packages/core/src/file-import.ts`
-- `apps/web/src/features/bot/` o bot do WhatsApp (M11): webhook, fila, Ajustes › Bot, o código de vínculo
-  e as propostas em Recebidos; `apps/web/src/lib/whatsapp/` o protocolo da Meta e o canal;
+- `apps/web/src/features/bot/` o bot (M11; o Telegram no M12.0b): webhooks, fila, Ajustes › Bot de lançamento,
+  o código de vínculo e as propostas em Recebidos; `apps/web/src/lib/whatsapp/` o protocolo da Meta e o canal;
+  `apps/web/src/lib/telegram/` o protocolo e o canal do Telegram; `apps/web/src/lib/bot/` as chaves e o erro de canal;
   `apps/web/src/lib/jobs.ts` o pg-boss e todas as filas do app; `packages/db/src/bot.ts` e
   `packages/core/src/bot{,-parse}.ts` as regras
 - `docs/permissoes.md` quem pode fazer o quê (conferido por teste)
@@ -162,7 +169,7 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
 - Variáveis de ambiente novas: no `.env.example` (sem valor real), no `src/lib/env.ts` (validação), no `globalPassThroughEnv` do `turbo.json` e no `deploy/env/app.env.example`; avise no PR que o valor de produção vai em `/srv/fintrack/app.env` antes do merge.
 - Log no servidor só pelo `logger` (`src/lib/logger.ts`), com `event`; migração para produção sempre aditiva. Siga a skill `deploy-e-operacao`.
 - Nenhum dado financeiro real, `.env` ou segredo em arquivo versionado.
-- Bot do WhatsApp: siga a skill `bot-whatsapp`. O webhook confere a assinatura antes de ler o JSON e responde
+- Bot (WhatsApp e Telegram): siga a skill `bot-whatsapp`. O webhook confere a assinatura antes de ler o JSON e responde
   igual para tudo; nenhum LLM no caminho do bot; a resposta nunca mostra final de cartão, saldo ou outro
   lançamento; número só como HMAC, texto nunca em log; o lançamento nasce no Confirmar, pelo caminho do
   formulário.

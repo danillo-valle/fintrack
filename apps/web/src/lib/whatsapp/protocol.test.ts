@@ -194,6 +194,8 @@ describe("o erro que a Meta devolve (M11.2)", () => {
 
   it("token vencido: 190", () => {
     expect(metaErrorOf({ error: { code: 190, error_subcode: 463 } }).hint).toBe("token_invalido");
+    // M12.0: o número fornecido pela Meta sem o nome de exibição aprovado
+    expect(metaErrorOf({ error: { code: 131037 } }).hint).toBe("nome_de_exibicao_sem_aprovacao");
   });
 
   it("código desconhecido: o número sem nome; corpo estranho: tudo null", () => {

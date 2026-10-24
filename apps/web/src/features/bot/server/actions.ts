@@ -1,6 +1,6 @@
 "use server";
 
-// Server Actions do bot do WhatsApp (M11, ADR-018): sessão → zod → crachá → operação (com
+// Server Actions do bot (M11, ADR-018; o canal do Telegram no M12.0b, ADR-019): sessão → zod → crachá → operação (com
 // auditoria). Gerar o código pede uma prova de identidade dos últimos 10 minutos (como conectar
 // um banco): é o passo que dá a um número de telefone o poder de lançar em nome da pessoa.
 import {
@@ -18,8 +18,10 @@ import { requestContext, requireHouseholdAccess, runAction, type ActionState } f
 import { requireRecentAuth, requireUser } from "@/lib/auth/session";
 import { financeChanged } from "@/lib/finance-cache";
 import { cascadeServices } from "@/lib/ml/classifier";
-import { botSecrets } from "@/lib/whatsapp/config";
-import { botDraftSchema, botPreferenceSchema, botSwitchSchema } from "../schemas";
+import { botSecrets } from "@/lib/bot/secrets";
+import { telegramConfig } from "@/lib/telegram/config";
+import { botConfig } from "@/lib/whatsapp/config";
+import { botChannelSchema, botDraftSchema, botPreferenceSchema, botSwitchSchema } from "../schemas";
 
 const PAGE = "/ajustes/bot";
 const REVIEW = "/lancamentos/recebidos";
@@ -36,10 +38,14 @@ export type LinkState = ActionState & { codeUrl: string | null };
  * do código. Com o React, o botão navega para lá (o modal abre por cima de Ajustes); sem ele, o
  * botão vira o link "Abrir o código". Sem prova recente, vai para /reautenticar e volta.
  */
-export async function startLinkAction(): Promise<LinkState> {
+export async function startLinkAction(_prev: LinkState, formData: FormData): Promise<LinkState> {
   const session = await requireRecentAuth(PAGE);
+  const channel = botChannelSchema.safeParse(Object.fromEntries(formData));
   const secrets = botSecrets();
-  if (!secrets)
+  const ready =
+    channel.success &&
+    (channel.data.canal === "TELEGRAM" ? telegramConfig() !== null : botConfig() !== null);
+  if (!secrets || !ready)
     return {
       error: "O bot ainda não está configurado neste servidor.",
       success: null,
@@ -49,17 +55,23 @@ export async function startLinkAction(): Promise<LinkState> {
   const result = await runAction(async () => {
     const grant = await requireHouseholdAccess(session, "view");
     const created = await createLinkCode(prisma, grant, secrets.keyring, await requestContext());
-    codeUrl = `${PAGE}/vincular?codigo=${created.id}`;
+    codeUrl = `${PAGE}/vincular?codigo=${created.id}${channel.data?.canal === "TELEGRAM" ? "&canal=telegram" : ""}`;
   });
   return { ...result, codeUrl };
 }
 
-export async function unlinkAction(): Promise<ActionState> {
+export async function unlinkAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const session = await requireUser();
+  const parsed = botChannelSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return invalid(parsed.error);
+  const channel = parsed.data.canal;
   const result = await runAction(async () => {
     const grant = await requireHouseholdAccess(session, "view");
-    const removed = await unlinkBot(prisma, grant, await requestContext());
-    return removed ? "Número desvinculado. O bot não lê mais as mensagens dele." : undefined;
+    const removed = await unlinkBot(prisma, grant, await requestContext(), channel);
+    if (!removed) return undefined;
+    return channel === "TELEGRAM"
+      ? "Telegram desvinculado. O bot não lê mais as mensagens dele."
+      : "Número desvinculado. O bot não lê mais as mensagens dele.";
   });
   revalidatePath(PAGE);
   return result;
@@ -77,7 +89,7 @@ export async function setBotEnabledAction(
     const grant = await requireHouseholdAccess(session, "manage_bot");
     await setBotEnabled(prisma, grant, enabled, await requestContext());
     return enabled
-      ? "Bot ligado. Ele volta a ler as mensagens dos números vinculados."
+      ? "Bot ligado. Ele volta a ler as mensagens dos canais vinculados."
       : "Bot desligado. As mensagens que chegarem não são lidas nem respondidas.";
   });
   revalidatePath(PAGE);
@@ -100,7 +112,7 @@ export async function saveBotPreferenceAction(
   return result;
 }
 
-/** Confirmar ou cancelar uma proposta do bot pela web (Recebidos › Do WhatsApp). */
+/** Confirmar ou cancelar uma proposta do bot pela web (Recebidos › Do bot). */
 export async function botDraftAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const session = await requireUser();
   const parsed = botDraftSchema.safeParse(Object.fromEntries(formData));

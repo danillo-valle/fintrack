@@ -1,7 +1,8 @@
 "use client";
 
-// Recebidos › Do WhatsApp (M11): as propostas do bot que esperam o Confirmar DESTA pessoa. Ficam
-// fora das somas (ainda não são lançamentos). Confirmar aqui faz o mesmo que o botão do WhatsApp:
+// Recebidos › Do bot (M11; o nome mudou no M12.0b, com o Telegram): as propostas do bot que esperam
+// o Confirmar DESTA pessoa, venham do WhatsApp ou do Telegram. Ficam fora das somas (ainda não são
+// lançamentos). Confirmar aqui faz o mesmo que o botão da conversa:
 // cria o lançamento pelo caminho do formulário. Cancelar descarta a proposta.
 //
 // O estado da action mora no topo da seção (a linha confirmada some na mesma resposta) e o aviso
@@ -34,18 +35,14 @@ export function BotDrafts({ drafts }: { drafts: OpenDraft[] }) {
 
   if (drafts.length === 0) return null;
   return (
-    <section
-      aria-labelledby="do-whatsapp"
-      className="flex flex-col gap-3"
-      data-testid="do-whatsapp"
-    >
+    <section aria-labelledby="do-bot" className="flex flex-col gap-3" data-testid="do-bot">
       <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
         <h2
-          id="do-whatsapp"
+          id="do-bot"
           className="inline-flex items-center gap-2 text-lg font-extrabold md:text-xl"
         >
           <MessageCircle aria-hidden className="text-chart-2-ink size-5" />
-          Do WhatsApp
+          Do bot
         </h2>
         <span className="text-muted-foreground text-sm">
           {drafts.length === 1
@@ -123,7 +120,7 @@ export function BotDrafts({ drafts }: { drafts: OpenDraft[] }) {
       <p className="text-muted-foreground text-[0.8125rem]">
         Ainda não são lançamentos: não entram nas somas. Os padrões do bot ficam em{" "}
         <Link href="/ajustes/bot" className={cn(TEXT_LINK, "font-semibold")}>
-          Ajustes › Bot do WhatsApp
+          Ajustes › Bot de lançamento
         </Link>
         .
       </p>
