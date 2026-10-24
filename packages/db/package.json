@@ -21,19 +21,19 @@
   "dependencies": {
     "@fintrack/core": "workspace:*",
     "@fintrack/importers": "workspace:*",
-    "@prisma/adapter-pg": "^7.10.0",
-    "@prisma/client": "^7.10.0",
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
     "pg": "^8.23.1"
   },
   "devDependencies": {
     "@fintrack/config": "workspace:*",
-    "@types/node": "^24.19.0",
+    "@types/node": "^24.19.2",
     "@types/pg": "^8.23.1",
-    "dotenv": "^18.0.5",
+    "dotenv": "^18.0.8",
     "eslint": "^9.39.5",
-    "prisma": "^7.10.0",
+    "prisma": "^7.10.1",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
-    "vitest": "^5.0.2"
+    "vitest": "^5.0.5"
   }
 }
