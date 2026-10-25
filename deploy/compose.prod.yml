@@ -206,7 +206,7 @@ services:
   cloudflared:
     <<: *hardening
     # Versão fixada (atualize de propósito, lendo as notas de versão)
-    image: cloudflare/cloudflared:2026.9.3
+    image: cloudflare/cloudflared:2026.10.3
     restart: unless-stopped
     command: tunnel --no-autoupdate run
     environment:
