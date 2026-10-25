@@ -67,3 +67,6 @@ packages/db/src/generated/
 
 # ── Playwright: sessões das contas de teste (criadas por e2e/auth.setup.ts) ──
 apps/web/e2e/.auth/
+
+# ── ZAP (M12.1): relatórios da varredura (scripts/zap/varrer.sh) ──
+relatorios-zap/

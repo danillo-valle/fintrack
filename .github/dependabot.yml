@@ -35,3 +35,37 @@ updates:
       timezone: America/Sao_Paulo
     commit-message:
       prefix: ci
+
+  # M12.1 (OWASP A03): o serviço Python. Antes, só os alertas de segurança chegavam aqui; agora
+  # também as versões novas, toda segunda, com as pequenas num PR só
+  - package-ecosystem: uv
+    directory: /services/ml
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: America/Sao_Paulo
+    commit-message:
+      prefix: build
+      include: scope
+    groups:
+      menores-python:
+        update-types: [minor, patch]
+
+  # M12.1: as imagens dos compose (o de casa e o de produção: Postgres, Caddy, cloudflared,
+  # Mailpit). As imagens do FinTrack mudam a cada deploy e não entram.
+  - package-ecosystem: docker-compose
+    directories: ["/", "/deploy"]
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: America/Sao_Paulo
+    commit-message:
+      prefix: build
+    ignore:
+      # Postgres de outra versão maior precisa de dump e restauração (runbook), nunca um PR
+      - dependency-name: postgres
+        update-types: ["version-update:semver-major"]
+      # O llama.cpp é o digest medido no ADR-016: muda só com uma medição nova
+      - dependency-name: ghcr.io/ggml-org/llama.cpp
+      # As imagens do próprio FinTrack (a etiqueta é o commit do deploy)
+      - dependency-name: "ghcr.io/danillo-valle/*"

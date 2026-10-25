@@ -1,0 +1,105 @@
+# Varredura de segurança do FinTrack com o ZAP (M12.1, OWASP Top 10:2025, ADR-020).
+#
+# PASSIVA: o ZAP navega pelo app como um visitante (o spider segue os links e só envia
+# formulários GET) e examina cada resposta: cabeçalhos, cookies, CSP, cache, vazamento de
+# informação. Não ataca nada (nenhum scan ativo). Roda duas vezes, pelo scripts/zap/varrer.sh:
+#
+#   publico  sem sessão: as telas de entrada, os dois webhooks e os arquivos públicos;
+#   logado   com o cookie da conta de teste (scripts/zap/conta-de-teste.mjs), que o ZAP manda em
+#            todo pedido ao app (ZAP_AUTH_HEADER_VALUE): as telas onde estão os dados.
+#
+# Quem barra o PR: todo alerta de risco Baixo ou maior (exitStatus no fim). Os alertas
+# "Informativo" saem no relatório e não barram. Um alerta que não se aplica ao FinTrack vai para
+# a lista de exceções (o job alertFilter abaixo), SEMPRE com o motivo escrito, e passa a constar
+# como "Falso positivo" no relatório. Exceção nova é decisão de revisão de PR, nunca atalho para
+# o CI passar: o documento docs/seguranca/owasp-top10-2025.md diz o que cada uma cobre.
+env:
+  contexts:
+    - name: fintrack
+      urls:
+        - ${ZAP_ALVO}
+      excludePaths:
+        # A API do Better Auth: o spider poderia sair da conta (sign-out) ou gastar o limite de
+        # tentativas do login. As telas de entrada continuam na varredura.
+        - "${ZAP_ALVO}/api/auth/.*"
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    progressToStdout: true
+
+jobs:
+  - type: passiveScan-config
+    parameters:
+      maxAlertsPerRule: 10
+      scanOnlyInScope: true
+      enableTags: false
+
+  # ── Exceções: cada uma com o motivo ─────────────────────────────────────────────────────
+  # Antes de qualquer pedido: o filtro só vale para os alertas que aparecem depois dele.
+  - type: alertFilter
+    alertFilters:
+      # 10202 "Absence of Anti-CSRF Tokens": a regra procura um campo de token no <form>. O
+      # FinTrack se protege por outro caminho, o recomendado pelos dois frameworks: o Better Auth
+      # recusa pedido sem Origin ou de outra origem (trustedOrigins) e o Next.js aborta a Server
+      # Action cuja Origin não é o próprio endereço; o cookie da sessão é SameSite=Lax. Provado no
+      # E2E e2e/cabecalhos.spec.ts ("pedido de outra origem é recusado"): o MESMO pedido de uma
+      # Server Action é recusado com outra origem e grava com a do app. OWASP A01/A06.
+      - ruleId: 10202
+        newRisk: False Positive
+        context: fintrack
+
+  # Os endereços que o spider não acharia sozinho por links: os públicos de propósito
+  - type: requestor
+    parameters:
+      user: ""
+    requests:
+      - url: ${ZAP_ALVO}/entrar
+      - url: ${ZAP_ALVO}/cadastro
+      - url: ${ZAP_ALVO}/esqueci-a-senha
+      - url: ${ZAP_ALVO}/redefinir-senha
+      - url: ${ZAP_ALVO}/verifique-seu-email
+      - url: ${ZAP_ALVO}/api/health
+      - url: ${ZAP_ALVO}/manifest.webmanifest
+      # Os webhooks: com o bot desligado, 404 "Not Found"; ligado, 200 "ok" para tudo
+      - url: ${ZAP_ALVO}/api/whatsapp/webhook
+        method: POST
+        data: "{}"
+      - url: ${ZAP_ALVO}/api/telegram/webhook
+        method: POST
+        data: "{}"
+      - url: ${ZAP_ALVO}/uma-pagina-que-nao-existe
+
+  - type: spider
+    parameters:
+      context: fintrack
+      url: ${ZAP_ALVO}/
+      maxDuration: 3
+      # Formulário POST (as Server Actions) nunca: varredura passiva não muda dado nenhum
+      postForm: false
+      processForm: true
+      maxChildren: 25
+
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 5
+
+  - type: report
+    parameters:
+      template: traditional-html
+      reportDir: ${ZAP_RELATORIOS}
+      reportFile: zap-${ZAP_NOME}.html
+      reportTitle: "FinTrack: varredura ${ZAP_NOME}"
+    risks: [info, low, medium, high]
+    confidences: [falsepositive, low, medium, high, confirmed]
+
+  - type: report
+    parameters:
+      template: traditional-json
+      reportDir: ${ZAP_RELATORIOS}
+      reportFile: zap-${ZAP_NOME}.json
+    risks: [info, low, medium, high]
+    confidences: [falsepositive, low, medium, high, confirmed]
+
+  - type: exitStatus
+    parameters:
+      errorLevel: Low

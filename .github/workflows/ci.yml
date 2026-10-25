@@ -32,13 +32,13 @@ jobs:
       SMTP_PORT: "1025"
     steps:
       - name: Baixa o código
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Instala o pnpm (versão do campo packageManager)
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
 
       - name: Instala o Node (versão do .node-version) e reaproveita o cache do pnpm
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
           cache: pnpm
@@ -48,7 +48,7 @@ jobs:
 
       # M09.4: o serviço Python (services/ml), gerenciado pelo uv com as versões do uv.lock
       - name: Instala o uv (o Python do serviço que lê o PDF)
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
         with:
           version: "0.11.32"
           enable-cache: true
@@ -92,7 +92,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Baixa o código com todo o histórico
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -100,9 +100,20 @@ jobs:
         run: git ls-files -z | xargs -0 scripts/check_no_financial_data.sh
 
       - name: Nenhum segredo em todo o histórico
-        uses: gitleaks/gitleaks-action@v3
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # M12.1 (OWASP A03, ADR-020): nenhuma dependência com vulnerabilidade conhecida na base
+      # OSV (npm e PyPI), nos dois lockfiles. Exceção só no osv-scanner.toml, presa ao pacote e
+      # à versão, com motivo e prazo. Sai com erro também se a consulta falhar (nunca passa calado).
+      - name: Nenhuma dependência com vulnerabilidade conhecida (OSV-Scanner)
+        uses: google/osv-scanner-action/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
+        with:
+          scan-args: |-
+            --config=osv-scanner.toml
+            --lockfile=pnpm-lock.yaml
+            --lockfile=services/ml/uv.lock
 
   e2e:
     name: e2e
@@ -143,13 +154,13 @@ jobs:
       ML_SERVICE_URL: http://127.0.0.1:8001
     steps:
       - name: Baixa o código
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Instala o pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
 
       - name: Instala o Node e reaproveita o cache do pnpm
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
           cache: pnpm
@@ -159,7 +170,7 @@ jobs:
 
       # M09.4: o serviço Python (services/ml), gerenciado pelo uv com as versões do uv.lock
       - name: Instala o uv (o Python do serviço que lê o PDF)
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
         with:
           version: "0.11.32"
           enable-cache: true
@@ -205,7 +216,7 @@ jobs:
 
       - name: Guarda o relatório quando algo falha
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: relatorio-playwright
           path: apps/web/playwright-report/
@@ -217,7 +228,8 @@ jobs:
   imagem:
     name: imagem
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    # M12.1: +15 min para as duas varreduras do ZAP (a logada percorre ~8 mil endereços)
+    timeout-minutes: 40
     permissions:
       contents: read
       packages: write # publicar no GHCR (só acontece num push na main)
@@ -233,12 +245,20 @@ jobs:
         options: >-
           --health-cmd "pg_isready -h 127.0.0.1 -U fintrack -d fintrack"
           --health-interval 5s --health-timeout 3s --health-retries 20
+      # M12.1: o e-mail de confirmação da conta de teste da varredura do ZAP
+      mail:
+        image: axllent/mailpit:v1.31.3
+        ports:
+          - 1025:1025
+          - 8025:8025
     steps:
       - name: Baixa o código
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Confere os scripts de operação (shellcheck)
-        run: shellcheck -x deploy/bin/lib.sh deploy/bin/fintrack-* deploy/bin/smoke-test deploy/servidor/*.sh
+        run: |
+          shellcheck -x deploy/bin/lib.sh deploy/bin/fintrack-* deploy/bin/smoke-test \
+            deploy/servidor/*.sh scripts/zap/varrer.sh
 
       - name: Confere o compose de produção e o Caddyfile
         run: |
@@ -256,10 +276,10 @@ jobs:
             run --rm --no-deps caddy caddy version
 
       - name: Prepara o Buildx (cache das camadas entre execuções)
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Constrói a imagem do app (web)
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           target: web
@@ -270,7 +290,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=fintrack-web
 
       - name: Constrói a imagem das migrações (migrate)
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           target: migrate
@@ -282,7 +302,7 @@ jobs:
 
       # M09.4: o serviço Python. Contexto = services/ml (não a raiz)
       - name: Constrói a imagem do serviço Python (ml)
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: services/ml
           load: true
@@ -301,7 +321,8 @@ jobs:
           docker run -d --name web --network host \
             -e DATABASE_URL=postgresql://fintrack:fintrack@localhost:5432/fintrack \
             -e BETTER_AUTH_SECRET="$SECRET" -e BETTER_AUTH_URL=http://localhost:3000 \
-            -e ALLOWED_EMAILS=ana@fintrack.test -e "EMAIL_FROM=FinTrack <nao-responda@fintrack.local>" \
+            -e ALLOWED_EMAILS=ana@fintrack.test,zap@fintrack.test \
+            -e "EMAIL_FROM=FinTrack <nao-responda@fintrack.local>" \
             -e SMTP_HOST=localhost -e SMTP_PORT=1025 -e HIBP_CHECK=off \
             --read-only --tmpfs /tmp --tmpfs /app/apps/web/.next/cache:uid=1000,gid=1000 \
             --cap-drop ALL --security-opt no-new-privileges:true \
@@ -336,6 +357,43 @@ jobs:
           docker run --rm --entrypoint sh fintrack-ml:ci -c \
             'test -d /data/modelos && test -z "$(ls -A /data/modelos)" && ! find / -xdev -name "rotulado*" 2>/dev/null | grep -q .'
 
+      # ── M12.1: a varredura de segurança do ZAP contra a imagem (OWASP Top 10, ADR-020) ────
+      # PASSIVA (só observa, nada é atacado), no app que acabou de passar na fumaça, com o banco
+      # limpo. Duas rodadas: sem sessão, e com uma conta de TESTE criada pelo caminho de verdade
+      # (cadastro, o link do e-mail no Mailpit, o 2FA). Barra o PR com alerta de risco Baixo ou
+      # maior; exceção só no scripts/zap/plano.yaml, sempre com o motivo.
+      - name: Conta de teste da varredura (cadastro, e-mail e 2FA de verdade)
+        id: conta-zap
+        run: |
+          node scripts/zap/conta-de-teste.mjs --url http://localhost:3000 \
+            --mailpit http://localhost:8025 --email zap@fintrack.test \
+            --saida "$RUNNER_TEMP/zap-cookie"
+          # O cookie da conta de teste não aparece em log nenhum, nem por engano
+          echo "::add-mask::$(cat "$RUNNER_TEMP/zap-cookie")"
+
+      - name: Dados sintéticos para a varredura logada (o seed, pela imagem das migrações)
+        run: |
+          docker run --rm --network host \
+            -e DATABASE_URL=postgresql://fintrack:fintrack@localhost:5432/fintrack \
+            -e SEED_VIEWER_EMAIL=zap@fintrack.test \
+            fintrack-migrate:ci prisma db seed
+
+      - name: Varredura do ZAP sem sessão (telas de entrada, webhooks, arquivos públicos)
+        run: bash scripts/zap/varrer.sh http://localhost:3000 relatorios-zap
+
+      - name: Varredura do ZAP com a sessão de teste (as telas com os dados)
+        if: ${{ !cancelled() && steps.conta-zap.outcome == 'success' }}
+        run: bash scripts/zap/varrer.sh http://localhost:3000 relatorios-zap "$RUNNER_TEMP/zap-cookie"
+
+      - name: Guarda os relatórios do ZAP (HTML e JSON)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: relatorios-zap
+          path: relatorios-zap/
+          retention-days: 14
+          if-no-files-found: ignore
+
       - name: Mostra o log do app se algo falhou
         if: failure()
         run: |
@@ -344,7 +402,7 @@ jobs:
 
       - name: Entra no GHCR (só na main)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -372,10 +430,10 @@ jobs:
       packages: write
     steps:
       - name: Prepara o Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Entra no GHCR
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
