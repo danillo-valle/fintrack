@@ -7,6 +7,22 @@
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 
+const SQL_MESSAGE =
+  "SQL só parametrizado (OWASP A05, M12.1): use $queryRaw`...${valor}` ou Prisma.sql. As versões " +
+  "Unsafe e o Prisma.raw juntam texto no comando e abrem caminho para injeção de SQL.";
+
+/**
+ * A trava do SQL (M12.1): proíbe os jeitos de montar SQL com texto. Fica numa lista só porque a
+ * regra "no-restricted-properties" também é usada pela trava de dinheiro, e no formato "flat" do
+ * ESLint a última definição de uma regra substitui as anteriores: as duas incluem esta lista.
+ * O app web (eslint.config.mjs próprio) importa a mesma lista.
+ */
+export const RAW_SQL_RESTRICTIONS = [
+  { property: "$queryRawUnsafe", message: SQL_MESSAGE },
+  { property: "$executeRawUnsafe", message: SQL_MESSAGE },
+  { object: "Prisma", property: "raw", message: SQL_MESSAGE },
+];
+
 /** Regras gerais: as recomendadas do JavaScript e do TypeScript, mais as do CLAUDE.md. */
 export const fintrackBase = [
   { ignores: ["**/generated/**", "**/node_modules/**", "**/dist/**"] },
@@ -18,6 +34,8 @@ export const fintrackBase = [
       "no-console": ["error", { allow: ["warn", "error"] }],
       // "any" desliga a checagem de tipos: proibido
       "@typescript-eslint/no-explicit-any": "error",
+      // SQL só parametrizado (M12.1)
+      "no-restricted-properties": ["error", ...RAW_SQL_RESTRICTIONS],
     },
   },
 ];
@@ -50,6 +68,8 @@ export function moneyGuard(files) {
         { object: "Math", property: "round", message: MONEY_MESSAGE },
         { property: "toFixed", message: MONEY_MESSAGE },
         { property: "toPrecision", message: MONEY_MESSAGE },
+        // A mesma regra carrega a trava do SQL (senão esta definição a apagaria)
+        ...RAW_SQL_RESTRICTIONS,
       ],
     },
   };

@@ -3,6 +3,7 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import { RAW_SQL_RESTRICTIONS } from "@fintrack/config/eslint";
 
 // Módulos que dão acesso direto ao banco de dados.
 // Só o código em features/*/server e lib/ pode importá-los, porque é ali
@@ -41,6 +42,9 @@ const eslintConfig = defineConfig([
       "no-console": ["error", { allow: ["warn", "error"] }],
       // "any" desliga a checagem de tipos: proibido
       "@typescript-eslint/no-explicit-any": "error",
+      // SQL só parametrizado (OWASP A05, M12.1): nada de $queryRawUnsafe, $executeRawUnsafe ou
+      // Prisma.raw (a lista é a mesma dos pacotes, em packages/config/eslint.mjs)
+      "no-restricted-properties": ["error", ...RAW_SQL_RESTRICTIONS],
     },
   },
 
