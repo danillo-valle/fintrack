@@ -6,6 +6,35 @@ Controle financeiro pessoal e da casa: ambientes pessoais e compartilhados, cart
 adicionais, orçamento e importação de extratos e faturas. Construído em 12 módulos, cada um
 acompanhado por uma [milestone](https://github.com/danillo-valle/fintrack/milestones).
 
+## Telas
+
+Capturas com a casa fictícia do seed (24 meses de dados sintéticos), no tema do seu GitHub (claro
+ou escuro). Gravadas por `pnpm capturas`; não há demonstração no ar.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/capturas/inicio-escuro-computador.png">
+  <img alt="Início: o resumo do mês, o gasto por categoria e o orçado × realizado" src="docs/capturas/inicio-claro-computador.png">
+</picture>
+
+| Orçamento do mês                                                                                                                                                                                                                                  | Evolução mês a mês                                                                                                                                                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| <picture> <source media="(prefers-color-scheme: dark)" srcset="docs/capturas/orcamento-escuro-computador.png"> <img alt="Orçamento do mês com o orçado e o previsto por categoria" src="docs/capturas/orcamento-claro-computador.png"> </picture> | <picture> <source media="(prefers-color-scheme: dark)" srcset="docs/capturas/evolucao-escuro-computador.png"> <img alt="Evolução do gasto por categoria mês a mês" src="docs/capturas/evolucao-claro-computador.png"> </picture>     |
+| **Lançamentos**                                                                                                                                                                                                                                   | **Fluxo de caixa**                                                                                                                                                                                                                   |
+| <picture> <source media="(prefers-color-scheme: dark)" srcset="docs/capturas/lancamentos-escuro-computador.png"> <img alt="Lançamentos do mês agrupados por dia" src="docs/capturas/lancamentos-claro-computador.png"> </picture>                 | <picture> <source media="(prefers-color-scheme: dark)" srcset="docs/capturas/fluxo-de-caixa-escuro-computador.png"> <img alt="Fluxo de caixa dos próximos meses" src="docs/capturas/fluxo-de-caixa-claro-computador.png"> </picture> |
+
+No celular:
+
+<p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/capturas/inicio-escuro-celular.png">
+  <img alt="Início no celular" src="docs/capturas/inicio-claro-celular.png" width="280">
+</picture>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/capturas/lancamentos-escuro-celular.png">
+  <img alt="Lançamentos no celular" src="docs/capturas/lancamentos-claro-celular.png" width="280">
+</picture>
+</p>
+
 ## Stack
 
 Next.js 16 · React 19 · TypeScript · Tailwind CSS v4 · shadcn/ui · pnpm + Turborepo ·
@@ -24,6 +53,8 @@ pnpm db:seed           # casa fictícia com 24 meses de dados sintéticos
 pnpm dev               # http://localhost:3000
 pnpm check             # lint, tipos, testes e build, igual ao CI
 pnpm e2e               # testes de ponta a ponta
+pnpm e2e:producao      # os mesmos, contra o build de produção (como o CI)
+pnpm capturas          # refaz as capturas desta página (roda o seed de novo)
 pnpm test:integration  # regras do banco contra o Postgres
 ```
 
