@@ -15,6 +15,19 @@
 /** Cabeçalho interno com o nonce: o proxy.ts grava, o layout raiz lê e entrega ao next-themes. */
 export const NONCE_HEADER = "x-nonce";
 
+/**
+ * Os únicos <style> sem nonce que a página aceita, pelo SHA-256 do texto exato (M12.1). O sonner
+ * (os avisos) põe o próprio CSS num <style> assim que carrega, sem opção de nonce: primeiro o
+ * elemento vazio, depois o texto (o navegador confere as duas vezes). Atualizou o sonner? O CSS
+ * muda, o aviso some sem estilo e o security-headers.test.ts mostra o hash novo.
+ */
+export const INLINE_STYLE_HASHES = {
+  /** O <style> ainda vazio (o texto entra logo depois) */
+  empty: "sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=",
+  /** O CSS do sonner 2.0.8 (dist/index.mjs, o texto do __insertCSS) */
+  sonner: "sha256-StEaX+se6YS7pqjzrzMIA0KaX9zF/8zAhvQXZAe5epY=",
+} as const;
+
 /** Opções da CSP. */
 export type CspOptions = {
   /** Valor aleatório desta requisição (base64). Só scripts com esse nonce rodam. */
@@ -44,10 +57,29 @@ export function buildCsp({ nonce, dev, https }: CspOptions): string {
       "'strict-dynamic'",
       ...(dev ? ["'unsafe-eval'"] : []),
     ],
-    // Estilos: o Next.js, o Sonner (avisos) e o next-themes injetam <style> e style="".
-    // 'unsafe-inline' em estilo é um risco bem menor que em script (CSS não executa código)
-    // e é o compromisso aceito pela documentação do Next.js. Decisão registrada no ADR-005.
-    "style-src": ["'self'", "'unsafe-inline'"],
+    // Estilos (M12.1, ADR-020; antes, 'unsafe-inline' para tudo, do ADR-005). A CSP nível 3
+    // separa os dois jeitos de pôr estilo na página:
+    //   - <style> (style-src-elem): o perigoso. CSS injetado num <style> consegue ler a página
+    //     com seletores ([value^="a"] { background: url(...) }) e mandar para fora. Só passa o
+    //     arquivo do próprio site, o <style> com o nonce desta resposta (o next-themes usa) e o
+    //     texto EXATO do CSS do sonner, pelo hash (INLINE_STYLE_HASHES, conferido por teste);
+    //   - style="..." (style-src-attr): a largura das barras, as variáveis de cor (--tone), a
+    //     posição dos menus do Radix. Atributo não tem seletor: não lê nada da página. Fica
+    //     liberado; o React escapa todo texto, então ninguém de fora escreve um atributo.
+    // "style-src" sem 'unsafe-inline' é o padrão dos navegadores antigos, que não conhecem as
+    // duas diretivas novas (Safari antes do 15.4): neles, o estilo inline não aplica.
+    // Em dev, o Next.js põe o CSS das telas em <style> sem nonce (o recarregamento rápido), como
+    // o eval dos scripts: <style> liberado. Junto de um nonce ou hash, o navegador ignoraria o
+    // 'unsafe-inline', por isso o dev vai sem eles.
+    "style-src": ["'self'"],
+    "style-src-elem": dev
+      ? ["'self'", "'unsafe-inline'"]
+      : [
+          "'self'",
+          `'nonce-${nonce}'`,
+          ...Object.values(INLINE_STYLE_HASHES).map((hash) => `'${hash}'`),
+        ],
+    "style-src-attr": ["'unsafe-inline'"],
     // Imagens: do site, data: (o QR code do 2FA é gerado como data:image/png) e blob:
     "img-src": ["'self'", "data:", "blob:"],
     // Fontes: o next/font baixa a Geist no build e serve do próprio site

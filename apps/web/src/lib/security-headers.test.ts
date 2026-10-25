@@ -1,5 +1,16 @@
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { buildCsp, createNonce, STATIC_SECURITY_HEADERS } from "./security-headers";
+import {
+  buildCsp,
+  createNonce,
+  INLINE_STYLE_HASHES,
+  STATIC_SECURITY_HEADERS,
+} from "./security-headers";
+
+const require = createRequire(import.meta.url);
 
 /** Separa a CSP em { diretiva: [valores] } para os testes lerem uma diretiva de cada vez. */
 function parse(csp: string): Record<string, string[]> {
@@ -36,6 +47,35 @@ describe("buildCsp", () => {
     expect(prod["frame-ancestors"]).toEqual(["'none'"]);
     expect(prod["object-src"]).toEqual(["'none'"]);
     expect(prod["base-uri"]).toEqual(["'none'"]);
+  });
+
+  it("<style> só com o nonce ou pelo hash exato; style= só como atributo (M12.1)", () => {
+    // Produção: nenhum 'unsafe-inline' que valha para <style>, nem no padrão, nem na diretiva
+    expect(prod["style-src"]).toEqual(["'self'"]);
+    expect(prod["style-src-elem"]).not.toContain("'unsafe-inline'");
+    expect(prod["style-src-elem"]).toContain("'nonce-abc123'");
+    expect(prod["style-src-elem"]).toContain(`'${INLINE_STYLE_HASHES.sonner}'`);
+    expect(prod["style-src-attr"]).toEqual(["'unsafe-inline'"]);
+  });
+
+  it("em dev, <style> liberado (o recarregamento do Next), sem nonce que o anularia", () => {
+    expect(dev["style-src"]).toEqual(["'self'"]);
+    expect(dev["style-src-elem"]).toEqual(["'self'", "'unsafe-inline'"]);
+    expect(dev["style-src-attr"]).toEqual(["'unsafe-inline'"]);
+  });
+
+  it("o hash do sonner é o do CSS do pacote instalado (atualizou o sonner? troque o hash)", () => {
+    // O sonner põe o CSS dele num <style> pelo __insertCSS("...") do dist/index.mjs
+    const entry = require.resolve("sonner");
+    const source = readFileSync(path.join(path.dirname(entry), "index.mjs"), "utf8");
+    const literal = /__insertCSS\(("(?:[^"\\]|\\.)*")\)/.exec(source)?.[1];
+    expect(literal, "o sonner mudou o jeito de injetar o CSS: reveja a CSP").toBeDefined();
+    const css = JSON.parse(literal!) as string;
+    const hash = `sha256-${createHash("sha256").update(css).digest("base64")}`;
+    expect(INLINE_STYLE_HASHES.sonner, "hash novo do CSS do sonner").toBe(hash);
+    expect(INLINE_STYLE_HASHES.empty).toBe(
+      `sha256-${createHash("sha256").update("").digest("base64")}`,
+    );
   });
 
   it("aceita imagem data: (o QR code do 2FA é gerado assim)", () => {
