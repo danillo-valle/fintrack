@@ -67,6 +67,9 @@ Opções pesquisadas em outubro de 2026 (preços mudam; confira antes de decidir
    dinâmicas), `strict-dynamic`, sem `unsafe-eval` em produção. `style-src 'unsafe-inline'` é um
    compromisso aceito: Next.js, Sonner e next-themes injetam estilos, e CSS injetado não executa
    código. Cabeçalhos fixos no `next.config.ts` e HSTS no Caddy.
+   **Substituído no M12.1 (ADR-020)**: o `<style>` passou a exigir o nonce ou o hash exato
+   (`style-src-elem`), e só o atributo `style=` continua liberado (`style-src-attr`). O argumento
+   "CSS não executa código" não cobria o CSS que lê a página por seletor e manda para fora.
 9. **Backup**: `pg_dump` diário às 03:30 e antes de cada deploy, cifrado com **age** usando só a
    chave **pública** no servidor. Cópia fora de casa no **Google Drive** (conta dedicada, rclone),
    30 dias. A chave privada fica no gerenciador de senhas e só aparece no teste de restauração,

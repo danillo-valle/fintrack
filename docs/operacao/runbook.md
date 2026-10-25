@@ -443,6 +443,82 @@ sudo -u fintrack fintrack-compose logs --since 24h --no-log-prefix web | jq -R -
 | 401 (`token_invalido`)          | Token trocado ou revogado no @BotFather              |
 | 429 (`limite_de_envio`)         | Muitas mensagens em pouco tempo: espere              |
 
+## Segurança (M12.1, ADR-020)
+
+O que cada item do OWASP Top 10 tem no FinTrack e as pendências: `docs/seguranca/owasp-top10-2025.md`.
+
+### Eventos de segurança
+
+O `fintrack-status` mostra, na seção "Segurança (últimas 24 h)", quantas vezes cada evento
+apareceu no log do app:
+
+| Evento                 | Significa                                                        | Normal                     | Agir quando                                                       |
+| ---------------------- | ---------------------------------------------------------------- | -------------------------- | ----------------------------------------------------------------- |
+| `auth.failed`          | Senha, código do 2FA, código de backup, passkey ou link recusado | Alguns por dia (digitação) | Dezenas num dia, ou o mesmo IP em sequência: veja o IP abaixo     |
+| `auth.rate_limited`    | O limite de tentativas barrou alguém (429)                       | Raro                       | Qualquer um que não foi você: alguém tentou muitas vezes seguidas |
+| `auth.origin_rejected` | Pedido ao login vindo de outro site, ou sem origem               | Zero                       | Qualquer um: um site tentou agir em nome de quem estava logado    |
+| `access.denied`        | Alguém logado tentou abrir um recurso que não é dele             | Zero                       | Qualquer um: veja o caminho e quem foi                            |
+| `webhook.rejected`     | Webhook com assinatura ou segredo errado                         | Zero ou poucos             | Muitos: alguém está chamando o webhook por fora                   |
+
+```bash
+# Os eventos de segurança das últimas 24 h, com o IP (nunca há senha, e-mail ou código no log)
+sudo -u fintrack fintrack-compose logs --since 24h --no-log-prefix web \
+  | jq -R 'fromjson? | select((.event // "") | test("^auth\\.|^access\\.denied|^webhook\\.rejected")) | {time, event, path, code, ip}'
+
+# Quem mais errou o login (IP e quantas vezes)
+sudo -u fintrack fintrack-compose logs --since 24h --no-log-prefix web \
+  | jq -rR 'fromjson? | select(.event == "auth.failed") | .ip' | sort | uniq -c | sort -rn | head
+```
+
+Tentativas em sequência de um IP que não é seu: o limite de tentativas já barra (5 por minuto no
+login e no 2FA), e sem o código do 2FA a senha sozinha não entra. Se continuar por horas, troque a
+senha da conta visada (a troca derruba as sessões) e, na Cloudflare, bloqueie o IP em Security ›
+WAF › Tools (grátis).
+
+### O CI barrou o PR por causa do ZAP
+
+O passo "Varredura do ZAP…" do job `imagem` lista os alertas no fim (`varrer: alertas`). O
+relatório inteiro, com cada endereço e a evidência, está no artefato `relatorios-zap` do job.
+
+1. Alerta novo depois de uma mudança sua: corrija na causa (um cabeçalho, um cookie, uma tela que
+   vaza informação). É o caso comum.
+2. Alerta que não se aplica ao FinTrack: só com a prova de que a proteção existe por outro caminho
+   (de preferência um teste), acrescente a exceção em `scripts/zap/plano.yaml` (job
+   `alertFilter`), com o motivo, e a linha na tabela "Exceções em vigor" do documento do OWASP.
+
+Rodar a mesma varredura no seu servidor exige o **build de produção**: o `pnpm dev` tem a CSP de
+desenvolvimento, mais aberta (o Next.js põe o CSS das telas em `<style>`), e o ZAP acusaria. Com o
+`pnpm db:up` no ar e a porta 3000 livre (o Docker baixa a imagem do ZAP na 1ª vez, cerca de 1,5 GB):
+
+```bash
+docker build --target web -t fintrack-web:local .                     # a imagem, como no CI
+set -a; . ./.env; set +a                                               # o DATABASE_URL e o e-mail do .env
+docker run -d --rm --name fintrack-zap --network host \
+  -e DATABASE_URL -e EMAIL_FROM -e SMTP_HOST -e SMTP_PORT -e ALLOWED_EMAILS \
+  -e BETTER_AUTH_SECRET="$(openssl rand -base64 32)" -e BETTER_AUTH_URL=http://localhost:3000 \
+  -e HIBP_CHECK=off fintrack-web:local                                 # o app de produção na porta 3000
+bash scripts/zap/varrer.sh http://localhost:3000 relatorios-zap        # a rodada sem sessão
+docker stop fintrack-zap                                               # para o app de teste
+```
+
+A rodada logada é a do CI (conta de teste e seed num banco limpo); para repetir em casa, siga os
+passos do job `imagem` no `ci.yml`.
+
+### O CI barrou o PR por causa do OSV-Scanner
+
+O passo "Nenhuma dependência com vulnerabilidade conhecida" mostra uma tabela com o pacote, a
+versão e o alerta. Quase sempre a correção é atualizar, numa branch própria:
+
+```bash
+pnpm update -r <pacote>                        # npm: a versão corrigida dentro da faixa
+pnpm why <pacote>                              # se não mudou: quem pede a versão antiga
+cd services/ml && uv lock --upgrade-package <pacote> && cd ../..   # Python
+```
+
+Se o pai prende a versão antiga, atualize o pai. Só quando não houver versão corrigida
+alcançável e o código vulnerável não rodar no FinTrack, a exceção vai no `osv-scanner.toml`
+(o próprio arquivo mostra o formato: pacote, versão, motivo e prazo).
+
 ## Alertas
 
 | Alerta                               | Significa                                   | Primeiro passo                                    |

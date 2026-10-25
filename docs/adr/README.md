@@ -27,3 +27,4 @@ Modelo para um ADR novo: copie `0001-stack-e-monorepo.md` e troque o conteúdo.
 | 017 | [O resumo do mês: três observações por regras, sem IA](0017-resumo-do-mes.md)                          | aceita |
 | 018 | [O bot de lançamento pelo WhatsApp](0018-bot-whatsapp.md)                                              | aceita |
 | 019 | [O Telegram como segundo canal do bot](0019-bot-telegram.md)                                           | aceita |
+| 020 | [Segurança contínua: OWASP Top 10:2025, ZAP e OSV no CI](0020-seguranca-continua.md)                   | aceita |
