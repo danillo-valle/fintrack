@@ -1,11 +1,12 @@
 import { expect, test } from "@playwright/test";
-import { openCatalog } from "./helpers";
+import { DEV_ONLY, openCatalog } from "./helpers";
 
+// O catálogo só existe no pnpm dev: no CI, roda no job "e2e-dev" com --grep @dev (M12.2)
 test.beforeEach(async ({ page }) => {
   await openCatalog(page);
 });
 
-test("excluir com desfazer funciona só com o teclado", async ({ page }) => {
+test("excluir com desfazer funciona só com o teclado", { tag: DEV_ONLY }, async ({ page }) => {
   const excluir = page.getByRole("button", { name: "Excluir Mercado (exemplo)" });
   await excluir.focus();
   await page.keyboard.press("Enter");
@@ -28,35 +29,46 @@ test("excluir com desfazer funciona só com o teclado", async ({ page }) => {
   await expect(excluir).toBeFocused();
 });
 
-test("excluir o último item leva o foco ao aviso de lista vazia", async ({ page }) => {
-  for (const nome of ["Mercado", "Salário", "Farmácia"]) {
-    await page.getByRole("button", { name: `Excluir ${nome} (exemplo)` }).click();
-  }
-  await expect(page.getByText(/^Lista vazia/)).toBeFocused();
-});
+test(
+  "excluir o último item leva o foco ao aviso de lista vazia",
+  { tag: DEV_ONLY },
+  async ({ page }) => {
+    for (const nome of ["Mercado", "Salário", "Farmácia"]) {
+      await page.getByRole("button", { name: `Excluir ${nome} (exemplo)` }).click();
+    }
+    await expect(page.getByText(/^Lista vazia/)).toBeFocused();
+  },
+);
 
-test("o aviso fala português e dá tempo para chegar ao Desfazer", async ({ page }) => {
-  await page.getByRole("button", { name: "Excluir Mercado (exemplo)" }).click();
-  await expect(page.getByRole("region", { name: "Avisos (Alt+T)" })).toBeAttached();
-  await expect(page.getByRole("button", { name: "Fechar aviso" })).toBeAttached();
-  await expect(page.getByText("Alt+T leva aos avisos e pausa o tempo.")).toBeVisible();
+test(
+  "o aviso fala português e dá tempo para chegar ao Desfazer",
+  { tag: DEV_ONLY },
+  async ({ page }) => {
+    await page.getByRole("button", { name: "Excluir Mercado (exemplo)" }).click();
+    await expect(page.getByRole("region", { name: "Avisos (Alt+T)" })).toBeAttached();
+    await expect(page.getByRole("button", { name: "Fechar aviso" })).toBeAttached();
+    await expect(page.getByText("Alt+T leva aos avisos e pausa o tempo.")).toBeVisible();
 
-  // Sem interação, o aviso ainda está na tela depois de 6 s (o padrão do Sonner seria 4 s)
-  await page.mouse.move(0, 0);
-  await page.waitForTimeout(6_000);
-  await expect(page.getByRole("button", { name: "Desfazer" })).toBeVisible();
-});
+    // Sem interação, o aviso ainda está na tela depois de 6 s (o padrão do Sonner seria 4 s)
+    await page.mouse.move(0, 0);
+    await page.waitForTimeout(6_000);
+    await expect(page.getByRole("button", { name: "Desfazer" })).toBeVisible();
+  },
+);
 
-test("a caixa de erro mostra o código do log e o copia (M12.1, OWASP A10)", async ({
-  page,
-  context,
-}) => {
-  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-  const box = page.getByRole("region", { name: "Erro" }).getByRole("alert");
-  // O código é o "digest" que o instrumentation.ts grava no log, nunca a mensagem do erro
-  await expect(box.getByTestId("codigo-do-erro")).toHaveText("1551172719");
-  await box.getByRole("button", { name: "Copiar o código do erro" }).click();
-  await expect(box.getByRole("button", { name: "Copiar o código do erro" })).toHaveText("Copiado");
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("1551172719");
-  await expect(box.getByRole("link", { name: "Voltar ao início" })).toHaveAttribute("href", "/");
-});
+test(
+  "a caixa de erro mostra o código do log e o copia (M12.1, OWASP A10)",
+  { tag: DEV_ONLY },
+  async ({ page, context }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    const box = page.getByRole("region", { name: "Erro" }).getByRole("alert");
+    // O código é o "digest" que o instrumentation.ts grava no log, nunca a mensagem do erro
+    await expect(box.getByTestId("codigo-do-erro")).toHaveText("1551172719");
+    await box.getByRole("button", { name: "Copiar o código do erro" }).click();
+    await expect(box.getByRole("button", { name: "Copiar o código do erro" })).toHaveText(
+      "Copiado",
+    );
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("1551172719");
+    await expect(box.getByRole("link", { name: "Voltar ao início" })).toHaveAttribute("href", "/");
+  },
+);

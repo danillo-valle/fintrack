@@ -131,9 +131,10 @@ export async function clearMoney(input: Locator) {
 }
 
 /**
- * Os testes estão rodando contra o build de produção (a imagem Docker do M05) em vez do
- * pnpm dev? Liga com PLAYWRIGHT_PRODUCTION=1 (passo do manual do M05). Nesse modo, o catálogo
- * /dev/ui não existe (responde 404 de propósito) e os testes dele são pulados.
+ * Os testes estão rodando contra o build de produção em vez do pnpm dev? Liga com
+ * PLAYWRIGHT_PRODUCTION=1: o CI e o "pnpm e2e:producao" (M12.2, ADR-021), com o servidor
+ * standalone de e2e/production-server.ts. Nesse modo, o catálogo /dev/ui não existe (responde 404
+ * de propósito) e os testes dele são pulados; eles rodam no job e2e-dev (etiqueta @dev).
  */
 export const PRODUCTION_BUILD = process.env.PLAYWRIGHT_PRODUCTION === "1";
 
@@ -211,6 +212,18 @@ export const PAGES = [
   "/ajustes/seguranca",
   ...(PRODUCTION_BUILD ? [] : ["/dev/ui"]),
 ];
+
+/**
+ * Etiqueta dos testes que só existem no pnpm dev (o catálogo /dev/ui). No CI, as partes rodam
+ * contra o build de produção (onde eles são pulados) e o job "e2e-dev" roda só estes, com
+ * --grep @dev (M12.2, ADR-021). Teste novo que só faz sentido no dev leva esta etiqueta.
+ */
+export const DEV_ONLY = "@dev";
+
+/** As etiquetas de um teste gerado a partir de PAGES: @dev para as telas que só existem no dev. */
+export function pageTags(path: string): string[] {
+  return path === "/dev/ui" ? [DEV_ONLY] : [];
+}
 
 /** Abre o catálogo de componentes, ou pula o teste no build de produção (onde ele não existe). */
 export async function openCatalog(page: Page) {
