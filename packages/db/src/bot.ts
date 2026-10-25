@@ -26,6 +26,7 @@ import {
   BOT_WARN_AT,
   ALREADY_DONE_MESSAGE,
   CARD_NUMBER_REMOVED_MESSAGE,
+  CONFIRM_NOT_ALLOWED_MESSAGE,
   PRIVATE_BOT_MESSAGE,
   parseStartCommand,
   type BotChannelKind,
@@ -46,6 +47,7 @@ import {
   linkedMessage,
   nameOnlyMessage,
   normalizePhone,
+  missingChoiceMessage,
   notUnderstoodMessage,
   parseBotMessage,
   parseLinkCommand,
@@ -876,8 +878,17 @@ export async function processBotMessage(
   const options = optionsOf(choices);
   const wallet = chooseBotWallet(entry.walletIds, defaults, options);
   const payment = chooseBotPayment(entry, defaults, options);
+  // M12.1: a resposta diz o que faltou (o ambiente, quem paga ou os dois) e o que fazer
   if (wallet.kind === "NONE" || payment.kind === "NONE")
-    return done("NOT_UNDERSTOOD", [reply("NOT_UNDERSTOOD", notUnderstoodMessage("NO_ACCOUNT"))]);
+    return done("NOT_UNDERSTOOD", [
+      reply(
+        "NOT_UNDERSTOOD",
+        missingChoiceMessage({
+          wallet: wallet.kind === "NONE" ? wallet.missing : null,
+          payment: payment.kind === "NONE" ? payment.missing : null,
+        }),
+      ),
+    ]);
 
   const scope = await authorizeScope(db, userId, "view");
   const suggestion = await suggestCategory(
@@ -1161,14 +1172,11 @@ async function handleAction(
         return done("STALE", [reply("NOT_UNDERSTOOD", ALREADY_DONE_MESSAGE)], {
           draftId: draft.id,
         });
+      // Perdeu o acesso ao ambiente ou à conta entre a proposta e o toque (M12.1)
       if (!confirmed.ok)
-        return done(
-          "NOT_UNDERSTOOD",
-          [reply("NOT_UNDERSTOOD", notUnderstoodMessage("NO_ACCOUNT"))],
-          {
-            draftId: draft.id,
-          },
-        );
+        return done("NOT_UNDERSTOOD", [reply("NOT_UNDERSTOOD", CONFIRM_NOT_ALLOWED_MESSAGE)], {
+          draftId: draft.id,
+        });
       return done(
         "CONFIRMED",
         [

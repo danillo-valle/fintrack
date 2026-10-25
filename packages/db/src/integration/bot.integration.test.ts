@@ -447,6 +447,61 @@ describe("do texto ao lançamento", () => {
     expect(result).toMatchObject({ outcome: "UNKNOWN_NUMBER", replies: [] });
   });
 
+  it("edita um ambiente e não tem conta nem cartão: a resposta diz o que falta (M12.1)", async () => {
+    // O caso da produção (24/10): a pessoa vinculou, salvou o ambiente padrão e mandou um gasto,
+    // mas não tinha conta nem cartão em que pudesse lançar. A frase antiga mandava escolher os
+    // padrões, e não havia o que escolher.
+    const third = await prisma.user.create({
+      data: {
+        id: randomUUID(),
+        name: "Terceira",
+        email: `terceira-${randomUUID()}@fintrack.test`,
+        emailVerified: true,
+      },
+    });
+    try {
+      await prisma.householdMember.create({
+        data: { householdId: h.householdId, userId: third.id, role: "MEMBER" },
+      });
+      const own = await prisma.wallet.create({
+        data: { householdId: h.householdId, name: "Da Terceira", kind: "PERSONAL" },
+      });
+      await prisma.walletMember.create({
+        data: { householdId: h.householdId, walletId: own.id, userId: third.id, role: "OWNER" },
+      });
+      await link(third.id, phones.stranger);
+      await saveBotPreference(prisma, await grantOf(third.id), {
+        walletId: own.id,
+        debitAccountId: null,
+        creditCardId: null,
+      });
+      const { result } = await send(text(phones.stranger, "gastei 10 no mercado"));
+      expect(result?.outcome).toBe("NOT_UNDERSTOOD");
+      expect(result?.replies[0]?.message.body).toBe(
+        "Você ainda não tem conta nem cartão em que possa lançar. Cadastre o seu em Ajustes › Contas, ou peça a quem administra a conta da casa.",
+      );
+      expect(await prisma.botDraft.count({ where: { userId: third.id } })).toBe(0);
+    } finally {
+      await prisma.user.delete({ where: { id: third.id } });
+    }
+  });
+
+  it("perdeu o acesso entre a proposta e o Confirmar: diz isso, nada lançado (M12.1)", async () => {
+    const { result } = await send(text(phones.holder, "gastei 42,90 no mercado"));
+    expect(result?.outcome).toBe("PROPOSED");
+    const confirm = result!.replies[0]!.message.buttons!.find((b) => b.title === "Confirmar")!;
+    // A Casa deixa de ser editável pela titular antes do toque
+    await prisma.walletMember.update({
+      where: { walletId_userId: { walletId: h.home.id, userId: h.holder.id } },
+      data: { role: "VIEWER" },
+    });
+    const { result: tapped } = await send(button(phones.holder, confirm.id));
+    expect(tapped?.replies[0]?.message.body).toMatch(/^Não lancei: você não pode mais lançar/);
+    expect(
+      await prisma.transaction.count({ where: { householdId: h.householdId, source: "BOT" } }),
+    ).toBe(0);
+  });
+
   it("padrão que não é da pessoa é recusado", async () => {
     await expect(
       saveBotPreference(prisma, await grantOf(h.partner.id), {

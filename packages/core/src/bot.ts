@@ -395,6 +395,14 @@ export const CARD_NUMBER_REMOVED_MESSAGE: BotMessage = {
   body: "Isso parecia um número de cartão. Apaguei a sua mensagem desta conversa e não guardei nada. Mande só o apelido do cartão, como “no visa”.",
 };
 
+/**
+ * O Confirmar não lançou porque, entre a proposta e o toque, a pessoa perdeu o acesso ao ambiente
+ * ou à conta (M12.1; antes caía na frase dos padrões, que não ajudava).
+ */
+export const CONFIRM_NOT_ALLOWED_MESSAGE: BotMessage = {
+  body: "Não lancei: você não pode mais lançar nesse ambiente ou com essa conta. Mande de novo para eu propor com o que vale agora.",
+};
+
 export function warningMessage(): BotMessage {
   return {
     body: `Aviso: o bot chegou a ${BOT_WARN_AT} respostas grátis neste mês. Até o mês virar ele só manda a proposta; a confirmação aparece como “lida”.`,
@@ -415,7 +423,6 @@ export function notUnderstoodMessage(
     | "FUTURE_DATE"
     | "BAD_INSTALLMENTS"
     | "NO_DESCRIPTION"
-    | "NO_ACCOUNT"
     | "NOT_A_TEXT",
 ): BotMessage {
   const EXAMPLE = "gastei 42,90 no mercado";
@@ -432,8 +439,6 @@ export function notUnderstoodMessage(
     FUTURE_DATE: "A data está no futuro. Lançamento agendado só pela web.",
     BAD_INSTALLMENTS: "Parcelas pelo bot: de 2 a 24 vezes, como “em 3x”.",
     NO_DESCRIPTION: `Faltou dizer o que foi. Escreva assim:\n${EXAMPLE}`,
-    NO_ACCOUNT:
-      "Não sei em qual ambiente, conta ou cartão lançar. Escolha os padrões em Ajustes › Bot de lançamento.",
     NOT_A_TEXT: "Por enquanto o bot só lê texto. Mande o lançamento escrito.",
   };
   return { body: text[error] };
@@ -463,6 +468,7 @@ export const BOT_FIXED_MESSAGES: readonly BotMessage[] = [
   ALREADY_DONE_MESSAGE,
   PRIVATE_BOT_MESSAGE,
   CARD_NUMBER_REMOVED_MESSAGE,
+  CONFIRM_NOT_ALLOWED_MESSAGE,
 ];
 
 // ── Para onde vai o lançamento ──────────────────────────────────────────────────
@@ -489,8 +495,17 @@ export type BotOptions = {
   debitAccountIds: readonly string[];
 };
 
+/**
+ * Por que o bot não conseguiu escolher o ambiente (M12.1): a resposta diz exatamente o que falta.
+ *   NO_WALLET      a pessoa não edita nenhum ambiente
+ *   CHOOSE_WALLET  edita mais de 3 e não escolheu o padrão nem citou um na mensagem
+ */
+export type BotWalletMissing = "NO_WALLET" | "CHOOSE_WALLET";
+
 export type BotWalletChoice =
-  { kind: "WALLET"; walletId: string } | { kind: "ASK"; walletIds: string[] } | { kind: "NONE" };
+  | { kind: "WALLET"; walletId: string }
+  | { kind: "ASK"; walletIds: string[] }
+  | { kind: "NONE"; missing: BotWalletMissing };
 
 /**
  * O ambiente: o que a mensagem citou; senão o padrão da pessoa; senão o único que ela tem.
@@ -509,13 +524,25 @@ export function chooseBotWallet(
   if (options.walletIds.length === 1) return { kind: "WALLET", walletId: options.walletIds[0]! };
   if (options.walletIds.length > 1 && options.walletIds.length <= BOT_MAX_BUTTONS)
     return { kind: "ASK", walletIds: [...options.walletIds] };
-  return { kind: "NONE" };
+  return { kind: "NONE", missing: options.walletIds.length === 0 ? "NO_WALLET" : "CHOOSE_WALLET" };
 }
+
+/**
+ * Por que o bot não conseguiu escolher quem paga (M12.1):
+ *   NO_PAYMENT        nenhum cartão e nenhuma conta em que a pessoa possa lançar
+ *   NO_CREDIT         pediu crédito (ou parcelas) e não há cartão de crédito
+ *   NO_DEBIT          pediu débito ou pix e não há conta corrente ou poupança
+ *   CHOOSE_CARD       mais de 3 cartões possíveis e nenhum padrão ou apelido
+ *   CHOOSE_DEBIT      mais de uma conta para débito e pix e nenhuma padrão
+ *   CREDIT_ONLY       parcelas num cartão de débito
+ */
+export type BotPaymentMissing =
+  "NO_PAYMENT" | "NO_CREDIT" | "NO_DEBIT" | "CHOOSE_CARD" | "CHOOSE_DEBIT" | "CREDIT_ONLY";
 
 export type BotPaymentChoice =
   | { kind: "PAY"; method: "CREDIT" | "DEBIT" | "PIX"; accountId: string; cardId: string | null }
   | { kind: "ASK"; cardIds: string[] }
-  | { kind: "NONE" };
+  | { kind: "NONE"; missing: BotPaymentMissing };
 
 /**
  * Quem paga: o cartão citado; senão a forma citada com a conta ou o cartão padrão; sem forma, o
@@ -534,22 +561,22 @@ export function chooseBotPayment(
   const credit = options.cards.filter((c) => c.credit);
   const payWithCard = (c: BotCardOption): BotPaymentChoice =>
     entry.installments !== null && !c.credit
-      ? { kind: "NONE" }
+      ? { kind: "NONE", missing: "CREDIT_ONLY" }
       : {
           kind: "PAY",
           method: c.credit ? "CREDIT" : "DEBIT",
           accountId: c.accountId,
           cardId: c.id,
         };
-  const askOrNone = (list: readonly BotCardOption[]): BotPaymentChoice =>
+  const askOrNone = (list: readonly BotCardOption[], empty: BotPaymentMissing): BotPaymentChoice =>
     list.length >= 2 && list.length <= BOT_MAX_BUTTONS
       ? { kind: "ASK", cardIds: list.map((c) => c.id) }
-      : { kind: "NONE" };
+      : { kind: "NONE", missing: list.length === 0 ? empty : "CHOOSE_CARD" };
   const creditChoice = (): BotPaymentChoice => {
     const preferred = defaults.creditCardId ? card(defaults.creditCardId) : null;
     if (preferred?.credit) return payWithCard(preferred);
     if (credit.length === 1) return payWithCard(credit[0]!);
-    return askOrNone(credit);
+    return askOrNone(credit, "NO_CREDIT");
   };
   const debitAccount = (): string | null => {
     if (defaults.debitAccountId && options.debitAccountIds.includes(defaults.debitAccountId))
@@ -559,13 +586,15 @@ export function chooseBotPayment(
 
   const mentioned = entry.cardIds.map(card).filter((c): c is BotCardOption => c !== null);
   if (mentioned.length === 1) return payWithCard(mentioned[0]!);
-  if (mentioned.length > 1) return askOrNone(mentioned);
+  if (mentioned.length > 1) return askOrNone(mentioned, "CHOOSE_CARD");
   if (entry.method === "CREDIT" || entry.installments !== null) return creditChoice();
   if (entry.method === "DEBIT" || entry.method === "PIX") {
     const accountId = debitAccount();
-    return accountId
-      ? { kind: "PAY", method: entry.method, accountId, cardId: null }
-      : { kind: "NONE" };
+    if (accountId) return { kind: "PAY", method: entry.method, accountId, cardId: null };
+    return {
+      kind: "NONE",
+      missing: options.debitAccountIds.length === 0 ? "NO_DEBIT" : "CHOOSE_DEBIT",
+    };
   }
   // Sem forma: o crédito padrão; sem ele, o débito padrão; sem padrões, o único que houver
   const preferred = defaults.creditCardId ? card(defaults.creditCardId) : null;
@@ -575,5 +604,57 @@ export function chooseBotPayment(
   if (credit.length === 1) return payWithCard(credit[0]!);
   if (credit.length === 0 && options.debitAccountIds.length === 1)
     return { kind: "PAY", method: "DEBIT", accountId: options.debitAccountIds[0]!, cardId: null };
-  return askOrNone(credit);
+  // Sem cartão de crédito: ou não há nada, ou há contas demais para escolher sozinho
+  if (credit.length === 0)
+    return {
+      kind: "NONE",
+      missing:
+        options.debitAccountIds.length === 0 && options.cards.length === 0
+          ? "NO_PAYMENT"
+          : "CHOOSE_DEBIT",
+    };
+  return askOrNone(credit, "NO_CREDIT");
 }
+
+const SETTINGS = "Ajustes › Bot de lançamento";
+
+/**
+ * O que falta para lançar (M12.1): uma frase por parte que faltou, dizendo o que fazer. Antes,
+ * uma frase só ("escolha os padrões") servia também para quem não tinha o que escolher.
+ */
+export function missingChoiceMessage(missing: {
+  wallet: BotWalletMissing | null;
+  payment: BotPaymentMissing | null;
+}): BotMessage {
+  const wallet: Record<BotWalletMissing, string> = {
+    NO_WALLET:
+      "Você ainda não pode lançar em nenhum ambiente. Peça a quem administra o lar o papel de editor num ambiente.",
+    CHOOSE_WALLET: `Diga o ambiente na mensagem, como “na casa”, ou escolha o ambiente padrão em ${SETTINGS}.`,
+  };
+  const payment: Record<BotPaymentMissing, string> = {
+    NO_PAYMENT:
+      "Você ainda não tem conta nem cartão em que possa lançar. Cadastre o seu em Ajustes › Contas, ou peça a quem administra a conta da casa.",
+    NO_CREDIT:
+      "Você não tem cartão de crédito em que possa lançar. Mande sem “crédito” ou cadastre o cartão em Ajustes › Contas.",
+    NO_DEBIT:
+      "Você não tem conta para débito ou pix em que possa lançar. Cadastre a conta em Ajustes › Contas.",
+    CHOOSE_CARD: `Diga o apelido do cartão na mensagem, como “no visa”, ou escolha o cartão padrão em ${SETTINGS}.`,
+    CHOOSE_DEBIT: `Escolha a conta do débito e do pix em ${SETTINGS}.`,
+    CREDIT_ONLY: "Parcelado só no cartão de crédito. Diga qual, como “no visa em 3x”.",
+  };
+  const lines = [
+    missing.wallet ? wallet[missing.wallet] : null,
+    missing.payment ? payment[missing.payment] : null,
+  ].filter((line): line is string => line !== null);
+  return { body: lines.join("\n") };
+}
+
+/** Todas as frases do que falta (o teste de privacidade confere uma por uma). */
+export const BOT_MISSING_MESSAGES: readonly BotMessage[] = [
+  ...(["NO_WALLET", "CHOOSE_WALLET"] as const).map((wallet) =>
+    missingChoiceMessage({ wallet, payment: null }),
+  ),
+  ...(
+    ["NO_PAYMENT", "NO_CREDIT", "NO_DEBIT", "CHOOSE_CARD", "CHOOSE_DEBIT", "CREDIT_ONLY"] as const
+  ).map((payment) => missingChoiceMessage({ wallet: null, payment })),
+];

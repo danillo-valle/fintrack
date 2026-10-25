@@ -9,21 +9,34 @@
 //   3. o webhook: segredo errado não grava nada (a mutação: sem a conferência, este teste falha);
 //      quem não está vinculado recebe só a frase de uso particular no /start
 import { expect } from "@playwright/test";
-import { personWithHome } from "./bot-person";
-import { expectNoA11yViolations, openPage, sql, test, todaySaoPaulo } from "./helpers";
+import { PASSWORD, personWithHome } from "./bot-person";
+import {
+  createHouseholdDirect,
+  createTestUser,
+  expectNoA11yViolations,
+  openPage,
+  sql,
+  test,
+  testEmail,
+  todaySaoPaulo,
+} from "./helpers";
 import { conversation, fakeChat, sendToTelegram, TELEGRAM_FAKE, waitForBot } from "./telegram";
 
-/** Abre a tela do código do Telegram por Ajustes (o modal) e devolve o link e o código. */
+/**
+ * Abre a tela do código do Telegram por Ajustes e devolve o link e o código. A tela é o modal ou,
+ * quando a navegação do Next demora mais de 2,5 s (a 1ª compilação do modal no `pnpm dev` de uma
+ * máquina ocupada), a página inteira: a rede de segurança do M12.0 (`OpenCode`). O que o teste
+ * prova é o vínculo, nos dois casos; o modal em si é provado pelo teste do WhatsApp.
+ */
 async function openTelegramCode(page: import("@playwright/test").Page) {
   await openPage(page, "/ajustes/bot");
   await expect(page.getByTestId("canal-telegram")).toContainText("Não vinculado");
   await page.getByRole("button", { name: "Vincular no Telegram" }).click();
   await page.waitForURL(/\/ajustes\/bot\/vincular\?codigo=.+&canal=telegram/);
-  const dialog = page.getByRole("dialog", { name: "Abra o FinTrack no Telegram" });
-  await expect(dialog).toBeVisible();
-  const href = (await dialog.getByTestId("abrir-telegram").getAttribute("href")) ?? "";
-  const typed = (await dialog.getByTestId("codigo-vinculo").textContent())!.trim();
-  return { dialog, href, typed };
+  await expect(page.getByRole("heading", { name: "Abra o FinTrack no Telegram" })).toBeVisible();
+  const href = (await page.getByTestId("abrir-telegram").getAttribute("href")) ?? "";
+  const typed = (await page.getByTestId("codigo-vinculo").textContent())!.trim();
+  return { href, typed };
 }
 
 test("vincular em um toque, propor e Confirmar: a mensagem do botão vira Lançado, uma vez só", async ({
@@ -36,10 +49,10 @@ test("vincular em um toque, propor e Confirmar: a mensagem do botão vira Lança
   // ── 1. Vincular: o link leva o código; o /start do Telegram vincula ──
   const { href } = await openTelegramCode(page);
   expect(href).toMatch(new RegExp(`^https://t\\.me/${TELEGRAM_FAKE.botUsername}\\?start=\\d{6}$`));
-  await expectNoA11yViolations(page); // o modal do Telegram
+  await expectNoA11yViolations(page); // a tela do código do Telegram
   const code = new URL(href).searchParams.get("start")!;
   await sendToTelegram({ chat, text: `/start ${code}` });
-  await expect(page.getByRole("dialog", { name: "Pronto, Telegram vinculado" })).toBeVisible({
+  await expect(page.getByRole("heading", { name: "Pronto, Telegram vinculado" })).toBeVisible({
     timeout: 20_000,
   });
   await waitForBot(chat, /^Pronto, Lia\. Este Telegram agora lança no FinTrack/);
@@ -115,7 +128,7 @@ test("o código digitado de reserva e o número de cartão que sai da conversa",
   const { typed } = await openTelegramCode(page);
   expect(typed).toMatch(/^vincular \d{3} \d{3}$/);
   await sendToTelegram({ chat, text: typed });
-  await expect(page.getByRole("dialog", { name: "Pronto, Telegram vinculado" })).toBeVisible({
+  await expect(page.getByRole("heading", { name: "Pronto, Telegram vinculado" })).toBeVisible({
     timeout: 20_000,
   });
 
@@ -130,6 +143,44 @@ test("o código digitado de reserva e o número de cartão que sai da conversa",
     [person.householdId],
   );
   expect(drafts[0]!.n).toBe("0");
+});
+
+test("sem conta nem cartão: a tela avisa e o bot diz o que falta (M12.1)", async ({
+  page,
+}, testInfo) => {
+  test.slow(); // vínculo, uma mensagem e a fila em segundo plano
+  // O caso da produção de 24/10: a pessoa edita um ambiente, mas não tem conta nem cartão
+  const chat = fakeChat(4, testInfo.project.name);
+  const email = testEmail("tg-sem-conta", testInfo.project.name);
+  await createTestUser(page.request, { email, password: PASSWORD, name: "Lia Bot" });
+  await createHouseholdDirect({
+    name: `Lar sem contas ${testInfo.project.name}`,
+    people: [{ email, role: "OWNER" }],
+  });
+
+  await openPage(page, "/ajustes/bot");
+  const note = page.getByTestId("padroes-sem-pagamento");
+  await expect(note).toContainText("Ainda não há com o que pagar.");
+  await expect(note.getByRole("link", { name: "Cadastrar em Contas" })).toHaveAttribute(
+    "href",
+    "/ajustes/contas",
+  );
+  // As listas vazias ficam desabilitadas e dizem por quê; o ambiente continua escolhível
+  await expect(page.getByLabel("Débito e pix")).toBeDisabled();
+  await expect(page.getByLabel("Crédito")).toBeDisabled();
+  await expect(page.getByLabel("Crédito")).toHaveAccessibleDescription(/Nenhum cartão de crédito/);
+  await expect(page.getByLabel("Ambiente")).toBeEnabled();
+  await expectNoA11yViolations(page);
+
+  const { href } = await openTelegramCode(page);
+  await sendToTelegram({ chat, text: `/start ${new URL(href).searchParams.get("start")!}` });
+  await waitForBot(chat, /^Pronto, Lia\./);
+  await sendToTelegram({ chat, text: "gastei 10 no mercado" });
+  const reply = await waitForBot(chat, /^Você ainda não tem conta nem cartão/);
+  expect(reply.text).toBe(
+    "Você ainda não tem conta nem cartão em que possa lançar. Cadastre o seu em Ajustes › Contas, ou peça a quem administra a conta da casa.",
+  );
+  expect(reply.buttons).toEqual([]);
 });
 
 test("webhook do Telegram: segredo errado não grava nada; quem não está vinculado recebe só a frase", async ({
