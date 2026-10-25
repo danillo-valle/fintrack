@@ -12,6 +12,7 @@ export function CopyButton({
   targetId,
   label,
   variant = "outline",
+  size = "default",
 }: {
   text: string;
   /** O id do elemento que mostra o texto (selecionado quando a cópia falha) */
@@ -19,6 +20,8 @@ export function CopyButton({
   /** Nome acessível ("Copiar o código") */
   label: string;
   variant?: "default" | "outline";
+  /** "compact": dentro de uma linha de texto (o código do erro, M12.1) */
+  size?: "default" | "compact";
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -45,7 +48,7 @@ export function CopyButton({
         variant={variant}
         onClick={copy}
         aria-label={label}
-        className="h-10 px-3.5"
+        className={size === "compact" ? "h-8 px-2.5 text-[0.8125rem]" : "h-10 px-3.5"}
       >
         {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
         {copied ? "Copiado" : "Copiar"}

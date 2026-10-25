@@ -46,3 +46,17 @@ test("o aviso fala português e dá tempo para chegar ao Desfazer", async ({ pag
   await page.waitForTimeout(6_000);
   await expect(page.getByRole("button", { name: "Desfazer" })).toBeVisible();
 });
+
+test("a caixa de erro mostra o código do log e o copia (M12.1, OWASP A10)", async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  const box = page.getByRole("region", { name: "Erro" }).getByRole("alert");
+  // O código é o "digest" que o instrumentation.ts grava no log, nunca a mensagem do erro
+  await expect(box.getByTestId("codigo-do-erro")).toHaveText("1551172719");
+  await box.getByRole("button", { name: "Copiar o código do erro" }).click();
+  await expect(box.getByRole("button", { name: "Copiar o código do erro" })).toHaveText("Copiado");
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("1551172719");
+  await expect(box.getByRole("link", { name: "Voltar ao início" })).toHaveAttribute("href", "/");
+});
