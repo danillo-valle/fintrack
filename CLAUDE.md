@@ -60,6 +60,10 @@ Projeto de portfólio construído em módulos (M00 a M12); cada módulo é uma m
   pelo `/start <código>` do link "Abrir no Telegram"; a conta só como HMAC (`bot_telegram_link`); a
   resposta a um toque edita a mensagem do botão; o número de cartão sai da conversa. Sem as variáveis
   `TELEGRAM_*`, o Telegram fica desligado no servidor
+- Segurança contínua (M12.1, ADR-020): OWASP Top 10:2025 item por item em `docs/seguranca/owasp-top10-2025.md`;
+  ZAP passivo contra a imagem no CI (sem sessão e com conta de teste, `scripts/zap/`) e OSV-Scanner nos dois
+  lockfiles, os dois barrando o PR; CSP com `<style>` só por nonce ou hash; ações do CI presas pelo commit;
+  tentativas recusadas do login no log (`auth.*`) e na seção "Segurança" do `fintrack-status`
 
 Regras específicas do Next.js 16: @apps/web/AGENTS.md
 
@@ -83,6 +87,8 @@ Regras específicas do Next.js 16: @apps/web/AGENTS.md
 - `pnpm whatsapp:fake` sobe a Cloud API do WhatsApp de mentira em http://127.0.0.1:8789 (o papel da Meta e
   da pessoa que escreve para o bot; veja a skill `bot-whatsapp`)
 - `pnpm telegram:fake` sobe o Telegram de mentira em http://127.0.0.1:8790 (o papel da Bot API e da pessoa)
+- `bash scripts/zap/varrer.sh http://localhost:3000 relatorios-zap [cookie]` roda a varredura passiva do ZAP
+  (a mesma do CI; precisa do Docker e do build de produção no ar, não do `pnpm dev`: runbook, "Segurança")
 - `bash scripts/lighthouse-a11y.sh` mede a acessibilidade com o Lighthouse (precisa do `pnpm dev`)
 - `pnpm format` formata tudo com Prettier
 - `docker build --target web .` constrói a imagem de produção; `bash deploy/bin/smoke-test <url>` confere uma instância
@@ -173,6 +179,9 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
   igual para tudo; nenhum LLM no caminho do bot; a resposta nunca mostra final de cartão, saldo ou outro
   lançamento; número só como HMAC, texto nunca em log; o lançamento nasce no Confirmar, pelo caminho do
   formulário.
+- Segurança: siga a skill `seguranca`. Mudança que mexe num item do OWASP atualiza o documento no mesmo PR;
+  exceção no ZAP ou no OSV só com o motivo e a prova; SQL só parametrizado; nada de `unsafe-inline` em script ou
+  `<style>` de produção.
 - Dados do banco: siga a skill `importador`. Resposta de banco em teste é sintética, escrita à mão; nenhum
   teste chama a Pluggy de verdade; Client ID, Client Secret e tokens nunca em log, Git ou navegador.
 - Código e identificadores em inglês; textos da interface, commits, PRs e documentação em português.

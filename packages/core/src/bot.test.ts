@@ -4,8 +4,10 @@ import {
   askCardMessage,
   chooseBotPayment,
   chooseBotWallet,
+  missingChoiceMessage,
   type BotOptions,
   BOT_FIXED_MESSAGES,
+  BOT_MISSING_MESSAGES,
   BOT_STOP_AT,
   BOT_WARN_AT,
   botDayLabel,
@@ -234,10 +236,10 @@ describe("textos", () => {
           "FUTURE_DATE",
           "BAD_INSTALLMENTS",
           "NO_DESCRIPTION",
-          "NO_ACCOUNT",
           "NOT_A_TEXT",
         ] as const
       ).map(notUnderstoodMessage),
+      ...BOT_MISSING_MESSAGES,
     ];
     for (const message of all) {
       const text = `${message.header ?? ""} ${message.body} ${(message.buttons ?? []).map((b) => b.title).join(" ")}`;
@@ -280,6 +282,25 @@ describe("para onde vai o lançamento", () => {
       kind: "WALLET",
       walletId: W2,
     });
+    // M12.1: o motivo do nada (nenhum ambiente; mais de 3 sem padrão)
+    expect(chooseBotWallet([], none, { ...options, walletIds: [] })).toEqual({
+      kind: "NONE",
+      missing: "NO_WALLET",
+    });
+    expect(chooseBotWallet([], none, { ...options, walletIds: ["a", "b", "c", "d"] })).toEqual({
+      kind: "NONE",
+      missing: "CHOOSE_WALLET",
+    });
+  });
+
+  it("missingChoiceMessage: uma frase por parte que falta, sem nome nem número (M12.1)", () => {
+    expect(missingChoiceMessage({ wallet: null, payment: "NO_PAYMENT" }).body).toBe(
+      "Você ainda não tem conta nem cartão em que possa lançar. Cadastre o seu em Ajustes › Contas, ou peça a quem administra a conta da casa.",
+    );
+    const both = missingChoiceMessage({ wallet: "CHOOSE_WALLET", payment: "CHOOSE_CARD" }).body;
+    expect(both.split("\n")).toHaveLength(2);
+    expect(both).toMatch(/^Diga o ambiente na mensagem/);
+    expect(both).toMatch(/\nDiga o apelido do cartão/);
   });
 
   it("sem forma: o cartão de crédito padrão", () => {
@@ -303,7 +324,7 @@ describe("para onde vai o lançamento", () => {
     ).toEqual({ kind: "PAY", method: "DEBIT", accountId: ACC_CHECKING, cardId: DEBIT_CARD });
     expect(
       chooseBotPayment({ method: "CREDIT", installments: 3, cardIds: [DEBIT_CARD] }, none, options),
-    ).toEqual({ kind: "NONE" });
+    ).toEqual({ kind: "NONE", missing: "CREDIT_ONLY" });
   });
 
   it("crédito sem padrão e dois cartões: pergunta qual", () => {
@@ -312,12 +333,59 @@ describe("para onde vai o lançamento", () => {
     ).toEqual({ kind: "ASK", cardIds: [VISA, MASTER] });
   });
 
-  it("nada que sirva: pede os padrões", () => {
+  it("nenhum cartão nem conta: diz que não há com o que pagar (M12.1)", () => {
     const empty: BotOptions = { walletIds: [W1], cards: [], debitAccountIds: [] };
     expect(
       chooseBotPayment({ method: null, installments: null, cardIds: [] }, none, empty),
-    ).toEqual({
+    ).toEqual({ kind: "NONE", missing: "NO_PAYMENT" });
+  });
+
+  it("cada motivo do nada, um por caso (M12.1)", () => {
+    const pay = (
+      entry: { method: "CREDIT" | "DEBIT" | "PIX" | null; installments: number | null },
+      opts: BotOptions,
+    ) => chooseBotPayment({ ...entry, cardIds: [] }, none, opts);
+    const card = (id: string, credit = true) => ({
+      id,
+      nickname: id,
+      accountId: ACC_CREDIT,
+      credit,
+    });
+    const onlyDebit: BotOptions = { walletIds: [W1], cards: [], debitAccountIds: [ACC_CHECKING] };
+    const twoDebit: BotOptions = {
+      walletIds: [W1],
+      cards: [],
+      debitAccountIds: [ACC_CHECKING, ACC_CREDIT],
+    };
+    const onlyCredit: BotOptions = { walletIds: [W1], cards: [card(VISA)], debitAccountIds: [] };
+    const fourCards: BotOptions = {
+      walletIds: [W1],
+      cards: ["a", "b", "c", "d"].map((id) => card(id)),
+      debitAccountIds: [],
+    };
+    expect(pay({ method: "CREDIT", installments: null }, onlyDebit)).toEqual({
       kind: "NONE",
+      missing: "NO_CREDIT",
+    });
+    expect(pay({ method: null, installments: 3 }, onlyDebit)).toEqual({
+      kind: "NONE",
+      missing: "NO_CREDIT",
+    });
+    expect(pay({ method: "PIX", installments: null }, onlyCredit)).toEqual({
+      kind: "NONE",
+      missing: "NO_DEBIT",
+    });
+    expect(pay({ method: "DEBIT", installments: null }, twoDebit)).toEqual({
+      kind: "NONE",
+      missing: "CHOOSE_DEBIT",
+    });
+    expect(pay({ method: null, installments: null }, twoDebit)).toEqual({
+      kind: "NONE",
+      missing: "CHOOSE_DEBIT",
+    });
+    expect(pay({ method: null, installments: null }, fourCards)).toEqual({
+      kind: "NONE",
+      missing: "CHOOSE_CARD",
     });
   });
 });

@@ -1,0 +1,18 @@
+# OSV-Scanner (M12.1, OWASP A03:2025, ADR-020): o CI recusa o PR quando um pacote dos lockfiles
+# (pnpm-lock.yaml e services/ml/uv.lock) tem vulnerabilidade conhecida na base OSV
+# (https://osv.dev, que junta os alertas do GitHub, do npm e do PyPI).
+#
+# O caminho normal é ATUALIZAR o pacote (pnpm update / uv lock --upgrade-package). Exceção só
+# quando não há versão corrigida alcançável E o código vulnerável não roda no FinTrack; nesse
+# caso, uma entrada aqui, presa ao pacote e à versão exatos, com o motivo e o prazo para rever:
+#
+#   [[PackageOverrides]]
+#   ecosystem = "npm"
+#   name = "nome-do-pacote"
+#   version = "1.2.3"
+#   vulnerability.ignore = true
+#   effectiveUntil = 2027-01-31
+#   reason = "Por que não roda no FinTrack e o que destrava a atualização (PR, versão do pai)."
+#
+# Uma exceção nunca vale para o pacote inteiro nem para o id do alerta sozinho: assim, a mesma
+# falha em outro pacote (ou noutra versão) continua barrando. Hoje: nenhuma exceção.

@@ -77,6 +77,12 @@ lançamento, o código de vínculo e as conversas).
 17. **No Telegram a resposta a um toque edita a mensagem do botão** (`replace`); os botões levam os
     uuids em base64url (`packCallbackData`) para caber nos 64 bytes.
 18. **Ids de conversa nos testes são inventados** (`7000…`, `fakeChat()`).
+19. **Quando o bot não consegue escolher, a resposta diz o que falta** (M12.1): `chooseBotWallet` e
+    `chooseBotPayment` devolvem `NONE` com o motivo (`missing`), e `missingChoiceMessage` escreve uma
+    frase por parte que falta (nenhum ambiente, nenhuma conta ou cartão, cartões demais sem padrão...).
+    Nunca uma frase genérica como "escolha os padrões" para quem não tem o que escolher. O Confirmar
+    que perdeu o acesso no meio responde `CONFIRM_NOT_ALLOWED_MESSAGE`. Motivo novo: o tipo, a frase
+    e o teste de privacidade (`BOT_MISSING_MESSAGES`).
 
 ## Testar
 

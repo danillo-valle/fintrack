@@ -26,7 +26,13 @@ export function MoneyInputDemo() {
 }
 
 export function ErrorDemo() {
-  return <ErrorState onRetry={() => toast("Tentando de novo…")} />;
+  return (
+    <ErrorState
+      onRetry={() => toast("Tentando de novo…")}
+      code="1551172719"
+      home={{ href: "/", label: "Voltar ao início" }}
+    />
+  );
 }
 
 type Item = { id: number; description: string; cents: bigint };

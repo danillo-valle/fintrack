@@ -134,6 +134,7 @@ function Select({
   name,
   label,
   hint,
+  emptyHint,
   options,
   value,
 }: {
@@ -141,9 +142,32 @@ function Select({
   name: string;
   label: string;
   hint: string;
+  /** Sem nenhuma opção (M12.1): o select fica desabilitado e diz por quê */
+  emptyHint: string;
   options: Option[];
   value: string | null;
 }) {
+  if (options.length === 0)
+    return (
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <label htmlFor={id} className="text-sm font-bold">
+          {label}
+        </label>
+        {/* Desabilitado não vai no envio: o servidor lê o campo ausente como "nenhum" */}
+        <NativeSelect
+          id={id}
+          name={name}
+          disabled
+          aria-describedby={`${id}-ajuda`}
+          className="h-11 w-full border-dashed"
+        >
+          <option value="">Nenhuma disponível</option>
+        </NativeSelect>
+        <span id={`${id}-ajuda`} className="text-chart-4-ink text-[0.8125rem]">
+          {emptyHint}
+        </span>
+      </div>
+    );
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
       <label htmlFor={id} className="text-sm font-bold">
@@ -194,6 +218,7 @@ export function PreferenceForm({
               name="walletId"
               label="Ambiente"
               hint={hints.wallet}
+              emptyHint="Você não edita nenhum ambiente: peça o papel de editor."
               options={wallets}
               value={defaults.walletId}
             />
@@ -202,6 +227,7 @@ export function PreferenceForm({
               name="debitAccountId"
               label="Débito e pix"
               hint={hints.debit}
+              emptyHint="Nenhuma conta corrente ou poupança: cadastre em Contas."
               options={debitAccounts}
               value={defaults.debitAccountId}
             />
@@ -210,6 +236,7 @@ export function PreferenceForm({
               name="creditCardId"
               label="Crédito"
               hint={hints.credit}
+              emptyHint="Nenhum cartão de crédito: cadastre em Contas."
               options={creditCards}
               value={defaults.creditCardId}
             />

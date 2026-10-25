@@ -49,6 +49,14 @@ const nextConfig: NextConfig = {
     // (export const instant = true). Toda tela do app começa pela sessão (requireUser), e o
     // loading.tsx cobre essa espera; sem isto, o log do dev avisaria em todas as páginas.
     instantInsights: { validationLevel: "manual-warning" },
+    // M12.1: sem o cache em disco do Turbopack no `next dev`. No Next 16.4 (16.4.0 a 16.4.3, sem
+    // correção publicada), o servidor religado com o cache da rodada anterior manda "restart" na
+    // primeira conexão de cada aba, e a aba recarrega sem parar ("HMR hash mismatch"): a tela nunca
+    // termina de carregar e os testes de ponta a ponta falham na espera do React. Bug aberto:
+    // https://github.com/vercel/next.js/issues/100251. O custo é o `pnpm dev` compilar do zero a
+    // cada vez que sobe; o build de produção continua com o cache. Tirar quando o Next corrigir
+    // (o teste é rodar e2e/bot-telegram.spec.ts e depois e2e/catalogo.spec.ts sem apagar o .next).
+    turbopackFileSystemCacheForDev: false,
   },
 
   // Cabeçalhos de segurança fixos em toda resposta (a CSP, que muda a cada requisição,

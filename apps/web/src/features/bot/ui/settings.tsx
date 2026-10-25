@@ -6,6 +6,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import {
+  ArrowRight,
   Check,
   CircleAlert,
   Clock,
@@ -18,6 +19,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { BOT_FREE_TIER, BOT_STOP_AT, BOT_WARN_AT, botPhase, nameWords } from "@fintrack/core";
+import { Button } from "@/components/ui/button";
 import { ToneChip } from "@/components/visual/tone-chip";
 import { formatDate } from "@/lib/dates";
 import { formatBRL } from "@/lib/money";
@@ -253,9 +255,44 @@ function mention(prefix: string, name: string | undefined, fallback: string): st
   return word ? `“${prefix} ${word}” na mensagem troca` : fallback;
 }
 
+/**
+ * Sem conta e sem cartão em que a pessoa possa lançar (M12.1, linha I do canvas): os padrões não têm
+ * o que escolher, e o bot responde a mesma coisa a qualquer gasto (missingChoiceMessage).
+ */
+function NoPaymentNote() {
+  return (
+    <div
+      role="status"
+      data-testid="padroes-sem-pagamento"
+      className="bg-chart-4/13 text-chart-4-ink flex flex-col gap-2.5 rounded-[0.875rem] px-4 py-3.5"
+    >
+      <p className="flex gap-2.5 text-sm leading-relaxed">
+        <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+        <span>
+          <strong>Ainda não há com o que pagar.</strong> Você não tem conta nem cartão em que possa
+          lançar, então o bot não consegue propor nada. O bot diz o mesmo quando você manda um
+          gasto.
+        </span>
+      </p>
+      <div className="flex flex-wrap items-center gap-2.5 pl-6.5">
+        <Button asChild variant="outline" className="text-foreground h-10">
+          <Link href="/ajustes/contas">
+            Cadastrar em Contas
+            <ArrowRight aria-hidden />
+          </Link>
+        </Button>
+        <span className="text-foreground text-[0.8125rem]">
+          ou peça a quem administra a casa para você editar o ambiente.
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function PreferenceCard({ page }: { page: BotSettingsPage }) {
   const { choices, defaults } = page;
   const credit = choices.cards.filter((c) => c.credit);
+  const noPayment = choices.debitAccounts.length === 0 && credit.length === 0;
   const otherWallet = choices.wallets.find((w) => w.id !== defaults.walletId) ?? choices.wallets[0];
   const otherCard = credit.find((c) => c.id !== defaults.creditCardId) ?? credit[0];
   return (
@@ -263,6 +300,7 @@ export function PreferenceCard({ page }: { page: BotSettingsPage }) {
       <h2 id="bot-padroes-h" className="text-base font-extrabold md:text-lg">
         O que o bot usa quando você não diz
       </h2>
+      {noPayment ? <NoPaymentNote /> : null}
       <PreferenceForm
         wallets={choices.wallets}
         debitAccounts={choices.debitAccounts}
