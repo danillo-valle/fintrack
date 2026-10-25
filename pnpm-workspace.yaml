@@ -14,6 +14,10 @@ allowBuilds:
   sharp: false
   unrs-resolver: false
 
+# M12.1 (OWASP A03): pacote publicado há menos de 1 dia não entra. Versão maliciosa costuma ser
+# descoberta e retirada do npm em horas; esperar um dia evita instalá-la nesse intervalo. As
+# exceções abaixo são versões que precisaram entrar antes (cada uma conferida na época).
+minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
   - "@better-auth/core@1.7.7"
   - "@better-auth/drizzle-adapter@1.7.7"
@@ -24,3 +28,11 @@ minimumReleaseAgeExclude:
   - "@better-auth/prisma-adapter@1.7.7"
   - "@better-auth/telemetry@1.7.7"
   - better-auth@1.7.7
+
+# M12.1 (OSV-Scanner): versão mínima de pacotes que o lockfile prendia numa versão com alerta.
+# Cada linha diz por quê; apague quando o pai passar a pedir a versão corrigida sozinho.
+overrides:
+  # Peer OPCIONAL do Better Auth (o FinTrack usa Postgres pelo Prisma; o mysql2 nunca é
+  # carregado). O lockfile mantinha a 3.15.3 (GHSA-3f6p-5ww8-9rcr e GHSA-rgwj-5xj2-c3m3); o
+  # Prisma 7.10.1 já usa a 3.24.4. Isto só alinha o peer à mesma versão.
+  mysql2: ">=3.23.1"
