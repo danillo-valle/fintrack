@@ -13,7 +13,9 @@
     "test:e2e": "playwright test",
     "pluggy:fake": "tsx e2e/pluggy-fake.ts",
     "whatsapp:fake": "tsx e2e/whatsapp-fake.ts",
-    "telegram:fake": "tsx e2e/telegram-fake.ts"
+    "telegram:fake": "tsx e2e/telegram-fake.ts",
+    "e2e:producao": "PLAYWRIGHT_PRODUCTION=1 playwright test",
+    "capturas": "playwright test -c playwright.capturas.config.ts"
   },
   "dependencies": {
     "@better-auth/passkey": "1.7.7",
