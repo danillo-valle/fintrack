@@ -72,6 +72,11 @@ um endereço escolhido pelo atacante (SSRF, que entrou neste item em 2021).
 - **CSRF**: o Better Auth recusa pedido sem `Origin` ou de outra origem (`trustedOrigins`); o
   Next.js aborta a Server Action cuja `Origin` não é o próprio endereço; o cookie da sessão é
   `SameSite=Lax`.
+- **O que fica no navegador depois de sair** (M12.2, `partialPrefetching`): o Next.js busca de
+  antemão a "casca" de cada tela e a guarda na memória da aba, por sessão (as telas leem o cookie).
+  O Sair recarrega a página inteira, o que apaga essa memória; o teste "sair apaga a sessão e fecha
+  o app" (`e2e/autenticacao.spec.ts`), que agora roda contra o build de produção em todo PR
+  (ADR-021), prova que depois de sair a tela volta a pedir o login.
 - **SSRF**: o servidor só chama endereços que vêm da configuração (`PLUGGY_API_URL`,
   `ML_SERVICE_URL`, `WHATSAPP_API_URL`, `TELEGRAM_API_URL`), conferidos por `normalizeBaseUrl`
   (`packages/importers/src/pluggy`); nenhum endereço vem do que a pessoa digita. O serviço Python

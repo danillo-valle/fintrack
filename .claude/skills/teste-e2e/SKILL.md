@@ -63,8 +63,17 @@ Referência: `apps/web/e2e/permissoes.spec.ts` (M06) e `apps/web/e2e/helpers.ts`
   `protocol` de `new URL(...)` e aceite só `http:`/`https:`. Nunca `startsWith("javascript:")`: o CodeQL
   acusa (js/incomplete-url-scheme-check, alta) e trava o PR, mesmo em arquivo de teste.
 - **Tempo é medido no build de produção**: limite de tempo (`toBeLessThan(ms)`) só com
-  `test.skip(!PRODUCTION_BUILD, …)`. No `pnpm dev` o número mede a máquina. A suíte contra a imagem
-  local (`PLAYWRIGHT_PRODUCTION=1 pnpm e2e`, passo do manual do M08) roda esses testes.
+  `test.skip(!PRODUCTION_BUILD, …)`. No `pnpm dev` o número mede a máquina. O CI e o
+  `pnpm e2e:producao` rodam contra o build de produção, então esses testes rodam em todo PR.
+- **O CI roda contra o build de produção (M12.2, ADR-021)**: o servidor standalone
+  (`e2e/production-server.ts`), em 3 partes (`--shard`). Teste que só faz sentido no `pnpm dev` (o
+  catálogo `/dev/ui`) leva a etiqueta `@dev` (`{ tag: DEV_ONLY }`, ou `pageTags(caminho)` nos testes
+  gerados de `PAGES`): o job `e2e-dev` roda só esses. Sem a etiqueta, o teste seria pulado no CI sem
+  ninguém ver. As partes rodam em qualquer ordem e máquina: nenhum teste depende de outro ter
+  rodado antes (dados próprios por teste, como acima).
+- **A falha no CI**: o relatório juntado (artefato `relatorio-playwright`) tem o trace da 1ª tentativa
+  de cada falha, também das "flaky" (que passaram na repetição). Leia o trace antes de mexer no teste
+  (runbook, "O CI barrou o PR por causa do E2E").
 - **Banco (M09.1)**: nenhum teste fala com a Pluggy de verdade. O `playwright.config.ts` sobe a
   Pluggy de mentira (`pnpm pluggy:fake`, porta 8787, banco sintético de
   `@fintrack/importers/testing`) e aponta o app para ela (`PLUGGY_API_URL`). Credenciais:
@@ -80,8 +89,10 @@ Referência: `apps/web/e2e/permissoes.spec.ts` (M06) e `apps/web/e2e/helpers.ts`
   ele fica parado até o fim do poll e a página nunca é recarregada).
 - **Deslogado**: `test.use({ storageState: NO_SESSION })`.
 - **E-mail**: `clearEmails(destino)` antes, `linkFromEmail(destino, /assunto/)` depois.
-- **Acessibilidade**: tela nova entra em `PAGES` (axe claro/escuro, foco, proteção); estados que
-  só existem no meio de um fluxo ganham `expectNoA11yViolations(page)` no próprio teste.
+- **Acessibilidade (axe em todas as telas, M12.2)**: tela nova entra em `PAGES` ou `PUBLIC_PAGES` (axe
+  claro/escuro, foco, CSP, proteção); tela que só existe no meio de um fluxo (precisa de um código, de
+  um arquivo ou de um par) ganha `expectNoA11yViolations(page)` no teste do fluxo, com a tela à vista.
+  Toda rota de `src/app` tem de cair num dos dois.
 - **IDOR**: para cada tela com id na URL, um teste em que outra pessoa abre a URL e recebe a
   página 404 **sem nenhum dado** no HTML (`page.content()` não contém o nome do recurso), igual
   à de um id inexistente. (O status sai 200 por causa do streaming; veja o ADR-006.)
@@ -95,6 +106,9 @@ Referência: `apps/web/e2e/permissoes.spec.ts` (M06) e `apps/web/e2e/helpers.ts`
 pnpm e2e                                                       # tudo (sobe o app se precisar)
 pnpm --filter @fintrack/web exec playwright test e2e/permissoes.spec.ts --project=desktop
 pnpm --filter @fintrack/web exec playwright show-report        # relatório HTML da última execução
+pnpm e2e:producao                                              # build de produção + suíte inteira (como o CI)
+pnpm --filter @fintrack/web exec playwright test --grep @dev   # só os testes do pnpm dev (job e2e-dev)
+pnpm capturas                                                  # as capturas do README (docs/capturas)
 ```
 
 Teste instável não se conserta com retry: rode a suíte inteira várias vezes seguidas, ache a
