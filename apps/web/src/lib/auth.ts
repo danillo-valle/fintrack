@@ -16,6 +16,7 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { haveIBeenPwned, jwt, twoFactor } from "better-auth/plugins";
 import { isEmailAllowed } from "./auth/allowlist";
+import { AUTH_ADVANCED, AUTH_SESSION } from "./auth/cookies";
 import { ML_TOKEN } from "./auth/ml-token-claims";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "./auth/password-policy";
 import { isRecentlyAuthenticated, isSensitiveAuthPath } from "./auth/reauth";
@@ -26,7 +27,6 @@ import { logger } from "./logger";
 import { sendEmail } from "./mailer";
 
 const ONE_HOUR = 60 * 60;
-const ONE_DAY = 24 * ONE_HOUR;
 
 export const auth = betterAuth({
   appName: "FinTrack",
@@ -89,15 +89,8 @@ export const auth = betterAuth({
   },
 
   // ── Sessão ─────────────────────────────────────────────────────────────────
-  session: {
-    expiresIn: 7 * ONE_DAY, // sem uso por 7 dias, a sessão expira
-    updateAge: ONE_DAY, // a cada dia de uso, a validade é renovada
-    additionalFields: {
-      // Momento da última reautenticação (senha ou código) antes de uma ação sensível.
-      // input: false impede que o navegador escreva neste campo pela rota /update-session.
-      reauthenticatedAt: { type: "date", required: false, input: false },
-    },
-  },
+  // 7 dias sem uso e a sessão expira; renovada a cada dia de uso (src/lib/auth/cookies.ts)
+  session: AUTH_SESSION,
 
   // ── Limite de tentativas (força bruta) ─────────────────────────────────────
   // Guardado no banco para valer mesmo depois de reiniciar o app.
@@ -173,21 +166,9 @@ export const auth = betterAuth({
     }),
   },
 
-  advanced: {
-    cookiePrefix: "fintrack",
-    // ── IP de quem fez a requisição (M05) ───────────────────────────────────────
-    // O limite de tentativas conta por IP. Em produção, o app não vê o visitante direto: o
-    // caminho é visitante → Cloudflare → cloudflared → Caddy → app. O X-Forwarded-For que chega
-    // da Cloudflare NÃO é confiável (o cloudflared acrescenta o IP ao que o visitante mandou,
-    // então dá para forjar o começo). O confiável é o CF-Connecting-IP, que a Cloudflare sempre
-    // sobrescreve. O Caddy lê esse e repassa ao app um X-Forwarded-For com UM endereço só
-    // (deploy/caddy/Caddyfile). O Better Auth só aceita X-Forwarded-For de um valor; com vários,
-    // ele cai num limite único para todo mundo (e avisa no log). Sem o cabeçalho (pnpm dev),
-    // usa 127.0.0.1.
-    ipAddress: {
-      ipAddressHeaders: ["x-forwarded-for"],
-    },
-  },
+  // Cookies do login (HttpOnly, SameSite=Lax, Secure em HTTPS) e o IP de quem pede, que o limite
+  // de tentativas usa: em src/lib/auth/cookies.ts, conferidos pelo cookies.test.ts (M12.1)
+  advanced: AUTH_ADVANCED,
 
   // Os avisos e erros internos do Better Auth saem no mesmo log JSON do app (src/lib/logger.ts)
   logger: {

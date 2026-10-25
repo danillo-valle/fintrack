@@ -13,6 +13,7 @@
 //    o nonce, e o navegador se recusa a rodá-lo. Detalhes em src/lib/security-headers.ts.
 import { getSessionCookie } from "better-auth/cookies";
 import { NextResponse, type NextRequest } from "next/server";
+import { AUTH_COOKIE_PREFIX } from "@/lib/auth/cookies";
 import { isPublicPath, signInUrl } from "@/lib/auth/routes";
 import { buildCsp, createNonce, NONCE_HEADER } from "@/lib/security-headers";
 
@@ -23,8 +24,9 @@ export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
   if (!isPublicPath(pathname)) {
-    // Confere só se o cookie existe (sem ir ao banco). O prefixo é o mesmo do auth.ts.
-    const hasSessionCookie = getSessionCookie(request, { cookiePrefix: "fintrack" }) !== null;
+    // Confere só se o cookie existe (sem ir ao banco), com o prefixo do auth.ts
+    const hasSessionCookie =
+      getSessionCookie(request, { cookiePrefix: AUTH_COOKIE_PREFIX }) !== null;
     if (!hasSessionCookie) {
       return NextResponse.redirect(new URL(signInUrl(`${pathname}${search}`), request.url));
     }
