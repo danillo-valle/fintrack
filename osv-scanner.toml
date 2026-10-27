@@ -15,4 +15,19 @@
 #   reason = "Por que não roda no FinTrack e o que destrava a atualização (PR, versão do pai)."
 #
 # Uma exceção nunca vale para o pacote inteiro nem para o id do alerta sozinho: assim, a mesma
-# falha em outro pacote (ou noutra versão) continua barrando. Hoje: nenhuma exceção.
+# falha em outro pacote (ou noutra versão) continua barrando. Hoje: uma (deepmerge, M12.2).
+
+# GHSA-gcqx-w48m-w2h4 / CVE-2026-93753 (prototype pollution no mergeObject), sem versão corrigida.
+# Quem traz: só o CLI do shadcn (shadcn -> @shadcn/registry -> deepmerge), dependência de
+# desenvolvimento; o app usa do pacote shadcn só o shadcn/tailwind.css. O deepmerge roda apenas
+# quando alguém roda "shadcn add" no computador de quem desenvolve, para juntar o tailwind.config
+# do Tailwind v3 (o FinTrack é v4: o CLI nem chega lá), com dados do próprio repositório. Não está
+# no build de produção nem na imagem (conferido no .next/standalone, M12.2). Rever no prazo ou
+# quando o deepmerge ou o @shadcn/registry tiverem versão corrigida.
+[[PackageOverrides]]
+ecosystem = "npm"
+name = "deepmerge"
+version = "4.3.1"
+vulnerability.ignore = true
+effectiveUntil = 2027-01-31
+reason = "Só o CLI do shadcn (desenvolvimento) usa; nunca roda no app nem na imagem; sem versão corrigida."

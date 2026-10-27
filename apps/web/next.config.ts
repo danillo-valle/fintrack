@@ -40,6 +40,12 @@ const nextConfig: NextConfig = {
   // As somas do painel ficam em cache por lar e caem a cada lançamento salvo
   // (src/lib/finance-cache.ts). O resto do app continua gerado a cada acesso.
   cacheComponents: true,
+  // M12.2: Partial Prefetching (o padrão da próxima versão maior do Next.js). Um <Link> busca de
+  // antemão só a "casca" de cada rota (o que não depende da URL), uma vez por rota, e o resto chega
+  // depois da navegação. O app não usa prefetch={true}, então não havia prefetch antigo a migrar.
+  // As telas leem a sessão (cookies): o Next guarda essa casca por sessão no navegador, e o Sair
+  // recarrega a página inteira, o que a descarta. Provado pela suíte contra o build de produção.
+  partialPrefetching: true,
   experimental: {
     // Importar extrato (M09.3) e a fatura em PDF (M09.4): o arquivo vai numa Server Action. O
     // leitor recusa OFX acima de 2 MB e PDF acima de 5 MB; o limite aqui (o padrão é 1 MB) deixa

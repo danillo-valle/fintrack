@@ -70,3 +70,8 @@ apps/web/e2e/.auth/
 
 # ── ZAP (M12.1): relatórios da varredura (scripts/zap/varrer.sh) ──
 relatorios-zap/
+
+# ── E2E em partes (M12.2): os relatórios de cada parte e o relatório juntado baixado do CI ──
+blob-report/
+blob-reports/
+relatorio-playwright/

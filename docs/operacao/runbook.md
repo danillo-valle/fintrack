@@ -519,6 +519,41 @@ Se o pai prende a versão antiga, atualize o pai. Só quando não houver versão
 alcançável e o código vulnerável não rodar no FinTrack, a exceção vai no `osv-scanner.toml`
 (o próprio arquivo mostra o formato: pacote, versão, motivo e prazo).
 
+## Testes de ponta a ponta no CI (M12.2, ADR-021)
+
+O E2E do CI roda contra o **build de produção** em 3 partes ao mesmo tempo, mais o job `e2e-dev`
+(o catálogo `/dev/ui`, que só existe no `pnpm dev`) e o `integracao` (o banco). O check `e2e`, o que
+o ruleset exige, junta os relatórios e só fica verde com todos verdes.
+
+### O CI barrou o PR por causa do E2E
+
+1. Veja qual job falhou: `gh pr checks` (`e2e (parte N de 3)`, `e2e-dev`, `integracao` ou
+   `e2e-build`). O job `e2e` só repete o resultado deles.
+2. Baixe o relatório juntado (ele existe mesmo quando tudo passou):
+
+```bash
+RUN=$(gh run list --branch "$(git branch --show-current)" --workflow ci.yml --limit 1 --json databaseId --jq '.[0].databaseId')
+rm -rf relatorio-playwright && gh run download "$RUN" -n relatorio-playwright -D relatorio-playwright
+pnpm --filter @fintrack/web exec playwright show-report ../../relatorio-playwright   # abre no navegador
+```
+
+3. Cada falha tem o **trace** da primeira tentativa (a aba "Traces"): a tela a cada passo, os
+   pedidos com o status e o console. Um teste marcado **flaky** falhou e passou na repetição: o PR
+   segue, mas o trace mostra a corrida, e ela se corrige como qualquer falha (skill `teste-e2e`).
+4. Para repetir em casa contra o mesmo tipo de build:
+
+```bash
+pnpm e2e:producao                                                            # build + suíte inteira
+PLAYWRIGHT_PRODUCTION=1 pnpm --filter @fintrack/web exec playwright test e2e/<arquivo>.spec.ts --trace=retain-on-failure --output=test-results/<nome>
+```
+
+O segundo comando reaproveita o último build; o servidor avisa ("AVISO: há arquivos em
+apps/web/src mais novos") quando o código mudou depois dele.
+
+5. Para ver se uma falha é instável, repita o mesmo teste várias vezes **um de cada vez**:
+   `--repeat-each=10 --workers=1`. Sem o `--workers=1`, as cópias rodam juntas e, como cada teste usa
+   a mesma pessoa de teste em todas as cópias, uma apaga a pessoa da outra (`user_email_key`).
+
 ## Alertas
 
 | Alerta                               | Significa                                   | Primeiro passo                                    |

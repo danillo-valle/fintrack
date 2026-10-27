@@ -25,7 +25,9 @@
     "pluggy:fake": "pnpm --filter @fintrack/web pluggy:fake",
     "ml:dev": "pnpm --filter @fintrack/ml dev",
     "whatsapp:fake": "pnpm --filter @fintrack/web whatsapp:fake",
-    "telegram:fake": "pnpm --filter @fintrack/web telegram:fake"
+    "telegram:fake": "pnpm --filter @fintrack/web telegram:fake",
+    "e2e:producao": "turbo run build --filter=@fintrack/web && pnpm --filter @fintrack/web e2e:producao",
+    "capturas": "pnpm --filter @fintrack/web capturas"
   },
   "packageManager": "pnpm@12.8.1",
   "devDependencies": {

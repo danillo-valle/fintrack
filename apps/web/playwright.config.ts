@@ -5,6 +5,9 @@ import { WHATSAPP_FAKE } from "./e2e/whatsapp";
 const PORT = 3000;
 const BASE_URL = `http://localhost:${PORT}`;
 const CI = Boolean(process.env.CI);
+// M12.2 (ADR-021): contra o build de produção (o servidor standalone, como na imagem) em vez do
+// pnpm dev. É o modo do CI; em casa, "pnpm e2e:producao" (faz o build antes).
+const PRODUCTION = process.env.PLAYWRIGHT_PRODUCTION === "1";
 const PLUGGY_FAKE_URL = "http://127.0.0.1:8787";
 // O serviço Python que lê a fatura em PDF (M09.4): o de verdade, com os PDFs sintéticos de
 // samples/pdf. Ele confere o token do app em http://127.0.0.1:3000/api/auth/jwks
@@ -42,16 +45,22 @@ const AUTH_FILE = "e2e/.auth/ana.json";
 // Testes de ponta a ponta: abrem um navegador de verdade e usam o app como uma pessoa usaria.
 export default defineConfig({
   testDir: "./e2e",
+  // As capturas do README têm a configuração própria (playwright.capturas.config.ts, M12.2)
+  testIgnore: ["**/capturas/**"],
   fullyParallel: true,
   forbidOnly: CI, // no CI, um test.only esquecido reprova a execução
   retries: CI ? 2 : 0,
-  // No terminal, uma linha por teste; sempre grava também o relatório HTML (playwright show-report)
-  reporter: [[CI ? "github" : "list"], ["html", { open: "never" }]],
+  // No terminal, uma linha por teste; sempre grava também o relatório HTML (playwright show-report).
+  // No CI, a suíte roda em partes (--shard) e cada parte grava um "blob": o job final junta os blobs
+  // num relatório HTML só, com os traces (M12.2)
+  reporter: CI ? [["github"], ["blob"]] : [["list"], ["html", { open: "never" }]],
   use: {
     baseURL: BASE_URL,
     locale: "pt-BR",
     timezoneId: "America/Sao_Paulo",
-    trace: "on-first-retry", // guarda um "filme" do teste quando ele falha e é repetido
+    // O "filme" do teste (trace): no CI, da 1ª tentativa que falhou, mesmo que a repetição passe
+    // (assim um teste instável aparece com a prova); em casa, só na repetição (que não há)
+    trace: CI ? "retain-on-first-failure" : "on-first-retry",
   },
   projects: [
     // 1º: cria a conta de teste, liga o 2FA e guarda a sessão em AUTH_FILE
@@ -100,14 +109,20 @@ export default defineConfig({
       env: TELEGRAM_ENV,
     },
     {
-      command: "pnpm dev",
+      // O app: o pnpm dev, ou o build de produção (e2e/production-server.ts) com PLAYWRIGHT_PRODUCTION=1
+      command: PRODUCTION ? "pnpm exec tsx e2e/production-server.ts" : "pnpm dev",
       url: `${BASE_URL}/api/health`,
       reuseExistingServer: !CI,
       timeout: 120_000,
-      // Nenhum teste fala com a Pluggy de verdade
+      // Nenhum teste depende da internet: todo serviço de fora vai para uma versão de mentira ou
+      // fica desligado. A consulta de senhas vazadas (Have I Been Pwned, no cadastro e na troca de
+      // senha) fica desligada como no CI: o .env de casa a liga, e aí o cadastro esperava a
+      // internet (M12.2: num cadastro, o servidor passou de 5 s sem responder). Vale para o app que
+      // os testes sobem; um pnpm dev seu, reaproveitado, segue o seu .env.
       env: {
         PLUGGY_API_URL: PLUGGY_FAKE_URL,
         ML_SERVICE_URL: ML_URL,
+        HIBP_CHECK: "off",
         ...WHATSAPP_ENV,
         ...TELEGRAM_ENV,
       },

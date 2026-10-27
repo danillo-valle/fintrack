@@ -115,11 +115,13 @@ jobs:
             --lockfile=pnpm-lock.yaml
             --lockfile=services/ml/uv.lock
 
-  e2e:
-    name: e2e
+  # ── M12.2 (ADR-021): o E2E em escala ────────────────────────────────────────────────────
+  # O banco por si: os testes de integração (CHECKs, chaves, gatilho da auditoria) contra o
+  # Postgres de verdade e o seed sintético num banco que acabou de nascer.
+  integracao:
+    name: integracao
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    # Serviços que o GitHub sobe ao lado do job, iguais aos do compose.yml
+    timeout-minutes: 15
     services:
       db:
         image: postgres:17-alpine
@@ -152,6 +154,139 @@ jobs:
       PLUGGY_API_URL: http://127.0.0.1:8787
       # M09.4: o serviço Python de verdade (o playwright.config.ts sobe), com PDFs sintéticos
       ML_SERVICE_URL: http://127.0.0.1:8001
+      TURBO_TELEMETRY_DISABLED: 1
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - name: Baixa o código
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Instala o pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - name: Instala o Node e reaproveita o cache do pnpm
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Instala as dependências
+        run: pnpm install --frozen-lockfile
+
+      - name: Gera os segredos temporários (Better Auth e chave das conexões)
+        run: |
+          # Segredo descartável, só para este job. ::add-mask:: esconde o valor em todos os logs
+          SECRET=$(openssl rand -base64 32)
+          echo "::add-mask::$SECRET"
+          echo "BETTER_AUTH_SECRET=$SECRET" >> "$GITHUB_ENV"
+          # M09.1: chave descartável que cifra o Client Secret sintético dos testes
+          KEY=$(openssl rand -base64 32)
+          echo "::add-mask::$KEY"
+          echo "CONNECTION_SECRET_KEYS=1:$KEY" >> "$GITHUB_ENV"
+
+      - name: Cria as tabelas no banco de teste (migrações do Prisma)
+        run: pnpm db:deploy
+
+      - name: Testes de integração do banco
+        run: pnpm turbo run test:integration
+
+      # Prova que o seed roda num banco que acabou de nascer (e que continua rápido)
+      - name: Seed sintético num banco limpo
+        run: pnpm db:seed
+
+  # O build de produção do app, uma vez só: as 3 partes testam este mesmo build (o servidor
+  # standalone, como na imagem). Valores de mentira, como na qualidade: o build não fala com nada.
+  e2e-build:
+    name: e2e-build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      BETTER_AUTH_URL: http://localhost:3000
+      ALLOWED_EMAILS: ana@fintrack.test
+      EMAIL_FROM: FinTrack <nao-responda@fintrack.local>
+      SMTP_HOST: localhost
+      SMTP_PORT: "1025"
+      TURBO_TELEMETRY_DISABLED: 1
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - name: Baixa o código
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Instala o pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - name: Instala o Node e reaproveita o cache do pnpm
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Instala as dependências
+        run: pnpm install --frozen-lockfile
+
+      - name: Build de produção do app
+        run: |
+          BETTER_AUTH_SECRET=$(openssl rand -base64 32)
+          echo "::add-mask::$BETTER_AUTH_SECRET"
+          BETTER_AUTH_SECRET="$BETTER_AUTH_SECRET" pnpm turbo run build --filter=@fintrack/web
+
+      - name: Empacota o servidor standalone e os estáticos
+        run: tar -czf e2e-build.tgz -C apps/web .next/BUILD_ID .next/standalone .next/static
+
+      - name: Guarda o build para as partes
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-build
+          path: e2e-build.tgz
+          retention-days: 1
+          if-no-files-found: error
+
+  # A suíte contra o build de produção, em 3 partes ao mesmo tempo (cada uma com o próprio banco).
+  # Cada parte grava um "blob" do relatório; o job e2e junta os três.
+  e2e-parte:
+    name: e2e (parte ${{ matrix.parte }} de 3)
+    needs: e2e-build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        parte: [1, 2, 3]
+    services:
+      db:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: fintrack
+          POSTGRES_PASSWORD: fintrack
+          POSTGRES_DB: fintrack
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fintrack -d fintrack"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+      mail:
+        image: axllent/mailpit:v1.31.3
+        ports:
+          - 1025:1025
+          - 8025:8025
+    env:
+      DATABASE_URL: postgresql://fintrack:fintrack@localhost:5432/fintrack
+      BETTER_AUTH_URL: http://localhost:3000
+      ALLOWED_EMAILS: ana@fintrack.test,bruno@fintrack.test
+      EMAIL_FROM: FinTrack <nao-responda@fintrack.local>
+      SMTP_HOST: localhost
+      SMTP_PORT: "1025"
+      PASSKEY_RP_ID: localhost
+      # A consulta de senhas vazadas depende de um serviço externo: desligada no CI
+      HIBP_CHECK: "off"
+      MAILPIT_URL: http://localhost:8025
+      # M09.1: a Pluggy de mentira (o playwright.config.ts sobe); nunca a de verdade no CI
+      PLUGGY_API_URL: http://127.0.0.1:8787
+      # M09.4: o serviço Python de verdade (o playwright.config.ts sobe), com PDFs sintéticos
+      ML_SERVICE_URL: http://127.0.0.1:8001
+      TURBO_TELEMETRY_DISABLED: 1
+      NEXT_TELEMETRY_DISABLED: 1
+      PLAYWRIGHT_PRODUCTION: "1"
     steps:
       - name: Baixa o código
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -194,33 +329,185 @@ jobs:
           echo "::add-mask::$KEY"
           echo "CONNECTION_SECRET_KEYS=1:$KEY" >> "$GITHUB_ENV"
 
+      - name: Gera o cliente do Prisma (o seed e os testes importam o @fintrack/db)
+        run: pnpm turbo run db:generate
+
       - name: Cria as tabelas no banco de teste (migrações do Prisma)
         run: pnpm db:deploy
 
-      # As regras que moram no banco (CHECKs, chaves, gatilho da auditoria), provadas contra
-      # o Postgres de verdade. Ficam aqui porque este é o job que tem banco.
-      - name: Testes de integração do banco
-        run: pnpm turbo run test:integration
-        env:
-          TURBO_TELEMETRY_DISABLED: 1
-
-      # Prova que o seed roda num banco que acabou de nascer (e que continua rápido)
-      - name: Seed sintético num banco limpo
+      - name: Seed sintético (o mesmo banco de antes do M12.2)
         run: pnpm db:seed
 
-      - name: Testes de ponta a ponta e acessibilidade (axe)
-        run: pnpm turbo run test:e2e
-        env:
-          TURBO_TELEMETRY_DISABLED: 1
-          NEXT_TELEMETRY_DISABLED: 1
+      - name: Baixa o build de produção
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: e2e-build
 
-      - name: Guarda o relatório quando algo falha
-        if: failure()
+      - name: Desempacota o build
+        run: tar -xzf e2e-build.tgz -C apps/web
+
+      - name: Testes de ponta a ponta e acessibilidade (axe), parte ${{ matrix.parte }} de 3
+        run: pnpm turbo run test:e2e -- --shard=${{ matrix.parte }}/3
+
+      - name: Guarda o relatório desta parte (blob, com os traces das falhas)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: blob-parte-${{ matrix.parte }}
+          path: apps/web/blob-report/
+          retention-days: 1
+          if-no-files-found: ignore
+
+  # Os testes que só existem no pnpm dev (o catálogo /dev/ui, etiqueta @dev)
+  e2e-dev:
+    name: e2e-dev
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      db:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: fintrack
+          POSTGRES_PASSWORD: fintrack
+          POSTGRES_DB: fintrack
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fintrack -d fintrack"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+      mail:
+        image: axllent/mailpit:v1.31.3
+        ports:
+          - 1025:1025
+          - 8025:8025
+    env:
+      DATABASE_URL: postgresql://fintrack:fintrack@localhost:5432/fintrack
+      BETTER_AUTH_URL: http://localhost:3000
+      ALLOWED_EMAILS: ana@fintrack.test,bruno@fintrack.test
+      EMAIL_FROM: FinTrack <nao-responda@fintrack.local>
+      SMTP_HOST: localhost
+      SMTP_PORT: "1025"
+      PASSKEY_RP_ID: localhost
+      # A consulta de senhas vazadas depende de um serviço externo: desligada no CI
+      HIBP_CHECK: "off"
+      MAILPIT_URL: http://localhost:8025
+      # M09.1: a Pluggy de mentira (o playwright.config.ts sobe); nunca a de verdade no CI
+      PLUGGY_API_URL: http://127.0.0.1:8787
+      # M09.4: o serviço Python de verdade (o playwright.config.ts sobe), com PDFs sintéticos
+      ML_SERVICE_URL: http://127.0.0.1:8001
+      TURBO_TELEMETRY_DISABLED: 1
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - name: Baixa o código
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Instala o pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - name: Instala o Node e reaproveita o cache do pnpm
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Instala as dependências
+        run: pnpm install --frozen-lockfile
+
+      # M09.4: o serviço Python (services/ml), gerenciado pelo uv com as versões do uv.lock
+      - name: Instala o uv (o Python do serviço que lê o PDF)
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          version: "0.11.32"
+          enable-cache: true
+          cache-dependency-glob: services/ml/uv.lock
+
+      - name: Instala o Python e as dependências exatas do serviço (uv.lock)
+        run: uv sync --frozen
+        working-directory: services/ml
+
+      - name: Instala o Chromium do Playwright e as bibliotecas do sistema
+        run: pnpm --filter @fintrack/web exec playwright install --with-deps chromium
+
+      - name: Gera os segredos temporários (Better Auth e chave das conexões)
+        run: |
+          # Segredo descartável, só para este job. ::add-mask:: esconde o valor em todos os logs
+          SECRET=$(openssl rand -base64 32)
+          echo "::add-mask::$SECRET"
+          echo "BETTER_AUTH_SECRET=$SECRET" >> "$GITHUB_ENV"
+          # M09.1: chave descartável que cifra o Client Secret sintético dos testes
+          KEY=$(openssl rand -base64 32)
+          echo "::add-mask::$KEY"
+          echo "CONNECTION_SECRET_KEYS=1:$KEY" >> "$GITHUB_ENV"
+
+      - name: Gera o cliente do Prisma (o seed e os testes importam o @fintrack/db)
+        run: pnpm turbo run db:generate
+
+      - name: Cria as tabelas no banco de teste (migrações do Prisma)
+        run: pnpm db:deploy
+
+      - name: Testes do pnpm dev (o catálogo /dev/ui)
+        run: pnpm turbo run test:e2e -- --grep @dev
+
+      - name: Guarda o relatório (blob, com os traces das falhas)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: blob-dev
+          path: apps/web/blob-report/
+          retention-days: 1
+          if-no-files-found: ignore
+
+  # O check "e2e" que o ruleset exige: junta os relatórios num HTML só (com os traces) e reprova se
+  # a integração, alguma parte ou o dev falhou. Roda sempre, para o relatório existir na falha.
+  e2e:
+    name: e2e
+    needs: [integracao, e2e-parte, e2e-dev]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Baixa o código
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Instala o pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - name: Instala o Node e reaproveita o cache do pnpm
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Instala as dependências
+        run: pnpm install --frozen-lockfile
+
+      - name: Baixa os relatórios das partes
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: blob-*
+          merge-multiple: true
+          path: apps/web/blob-reports
+
+      - name: Junta os relatórios num só
+        if: ${{ hashFiles('apps/web/blob-reports/*.zip') != '' }}
+        run: pnpm --filter @fintrack/web exec playwright merge-reports --reporter html blob-reports
+
+      - name: Guarda o relatório (abra o index.html; cada falha tem o trace)
+        if: ${{ hashFiles('apps/web/playwright-report/index.html') != '' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: relatorio-playwright
           path: apps/web/playwright-report/
-          retention-days: 7
+          retention-days: 14
+
+      - name: Confere a integração, as 3 partes e o dev
+        env:
+          INTEGRACAO: ${{ needs.integracao.result }}
+          PARTES: ${{ needs.e2e-parte.result }}
+          DEV: ${{ needs.e2e-dev.result }}
+        run: |
+          echo "integracao: $INTEGRACAO · partes: $PARTES · dev: $DEV"
+          test "$INTEGRACAO" = success && test "$PARTES" = success && test "$DEV" = success
 
   # ── M05: as imagens de produção ─────────────────────────────────────────────────────────
   # Em todo PR: prova que as imagens constroem, que as migrações rodam num banco limpo e que o

@@ -64,6 +64,10 @@ Projeto de portfólio construído em módulos (M00 a M12); cada módulo é uma m
   ZAP passivo contra a imagem no CI (sem sessão e com conta de teste, `scripts/zap/`) e OSV-Scanner nos dois
   lockfiles, os dois barrando o PR; CSP com `<style>` só por nonce ou hash; ações do CI presas pelo commit;
   tentativas recusadas do login no log (`auth.*`) e na seção "Segurança" do `fintrack-status`
+- E2E em escala (M12.2, ADR-021): no CI, a suíte contra o build de produção (servidor standalone,
+  `apps/web/e2e/production-server.ts`) em 3 partes, o job `e2e-dev` para os testes `@dev` e o relatório
+  juntado com o trace de cada falha; `partialPrefetching: true`; axe em todas as telas; capturas do
+  README em `docs/capturas/` (`pnpm capturas`, com o seed)
 
 Regras específicas do Next.js 16: @apps/web/AGENTS.md
 
@@ -80,6 +84,8 @@ Regras específicas do Next.js 16: @apps/web/AGENTS.md
 - `pnpm --filter @fintrack/web test` roda só os testes do app web
 - `pnpm e2e` roda os testes de ponta a ponta (sobe o app, a Pluggy de mentira, o serviço Python, a Cloud API do
   WhatsApp e o Telegram de mentira, se não estiverem rodando)
+- `pnpm e2e:producao` faz o build de produção e roda a suíte inteira contra ele, como o CI (ADR-021)
+- `pnpm capturas` grava as capturas do README em `docs/capturas/` (roda o seed de novo, só a casa fictícia)
 - `pnpm ml:dev` sobe o serviço Python (fatura em PDF e classificador) em http://127.0.0.1:8001 (precisa do
   uv; `pnpm --filter @fintrack/ml test` roda o pytest, `pnpm --filter @fintrack/ml eval` o eval do
   classificador; os modelos do desenvolvimento ficam em `services/ml/.modelos`, fora do Git)

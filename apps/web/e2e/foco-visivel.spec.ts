@@ -5,6 +5,7 @@ import {
   openCatalog,
   openPage,
   PAGES,
+  pageTags,
   PUBLIC_PAGES,
   startTwoFactor,
   test,
@@ -82,11 +83,15 @@ async function tour(page: Page, key: "Tab" | "Shift+Tab"): Promise<string[]> {
 }
 
 for (const path of PAGES) {
-  test(`${path}: o foco nunca fica escondido (Tab e Shift+Tab)`, async ({ page }) => {
-    await openPage(page, path);
-    expect(await tour(page, "Tab")).toEqual([]);
-    expect(await tour(page, "Shift+Tab")).toEqual([]);
-  });
+  test(
+    `${path}: o foco nunca fica escondido (Tab e Shift+Tab)`,
+    { tag: pageTags(path) },
+    async ({ page }) => {
+      await openPage(page, path);
+      expect(await tour(page, "Tab")).toEqual([]);
+      expect(await tour(page, "Shift+Tab")).toEqual([]);
+    },
+  );
 }
 
 test.describe("telas de entrada, sem sessão", () => {

@@ -72,6 +72,11 @@ um endereço escolhido pelo atacante (SSRF, que entrou neste item em 2021).
 - **CSRF**: o Better Auth recusa pedido sem `Origin` ou de outra origem (`trustedOrigins`); o
   Next.js aborta a Server Action cuja `Origin` não é o próprio endereço; o cookie da sessão é
   `SameSite=Lax`.
+- **O que fica no navegador depois de sair** (M12.2, `partialPrefetching`): o Next.js busca de
+  antemão a "casca" de cada tela e a guarda na memória da aba, por sessão (as telas leem o cookie).
+  O Sair recarrega a página inteira, o que apaga essa memória; o teste "sair apaga a sessão e fecha
+  o app" (`e2e/autenticacao.spec.ts`), que agora roda contra o build de produção em todo PR
+  (ADR-021), prova que depois de sair a tela volta a pedir o login.
 - **SSRF**: o servidor só chama endereços que vêm da configuração (`PLUGGY_API_URL`,
   `ML_SERVICE_URL`, `WHATSAPP_API_URL`, `TELEGRAM_API_URL`), conferidos por `normalizeBaseUrl`
   (`packages/importers/src/pluggy`); nenhum endereço vem do que a pessoa digita. O serviço Python
@@ -150,6 +155,12 @@ ar e ninguém tinha visto:
 
 **Provas.** O passo do OSV-Scanner no job `seguranca`; o `pnpm audit` e o `pip-audit` limpos no
 laboratório (a base OSV junta os mesmos alertas).
+
+**Exceções do OSV (no `osv-scanner.toml`).**
+
+| Pacote          | Alerta                                      | Por que não barra                                                                                                                                                                                                | Rever até  |
+| --------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| deepmerge 4.3.1 | GHSA-gcqx-w48m-w2h4 (CVE-2026-93753), médio | Sem versão corrigida. Só o CLI do shadcn (dependência de desenvolvimento) o usa, ao juntar o `tailwind.config` do Tailwind v3; o app usa do pacote só o `shadcn/tailwind.css`. Fora do build e da imagem (M12.2) | 2027-01-31 |
 
 **Pendência.** As imagens-base do Dockerfile (`node`, `python`, `uv`) são etiquetas que andam (a
 linha 24, a 3.13), sem digest; o Dependabot não as lê, porque o `FROM` usa `${NODE_VERSION}`.

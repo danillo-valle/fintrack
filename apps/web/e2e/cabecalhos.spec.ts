@@ -19,6 +19,7 @@ import {
   NO_SESSION,
   openPage,
   PAGES,
+  pageTags,
   PRODUCTION_BUILD,
   PUBLIC_PAGES,
   sql,
@@ -82,7 +83,7 @@ test.describe("cabeçalhos em toda página", () => {
 test.describe("nenhuma tela é quebrada pela CSP", () => {
   // Com a sessão da conta de teste
   for (const path of PAGES) {
-    test(`${path} carrega sem violação de CSP`, async ({ page }) => {
+    test(`${path} carrega sem violação de CSP`, { tag: pageTags(path) }, async ({ page }) => {
       await recordCspViolations(page);
       await openPage(page, path);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();

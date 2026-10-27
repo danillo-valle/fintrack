@@ -7,6 +7,7 @@ import {
   NO_SESSION,
   openPage,
   PAGES,
+  pageTags,
   PUBLIC_PAGES,
   startTwoFactor,
   testEmail,
@@ -39,9 +40,13 @@ for (const scheme of ["light", "dark"] as const) {
 
     // Páginas do app, com a sessão da conta de teste
     for (const path of PAGES) {
-      test(`${path} não tem violações de acessibilidade`, async ({ page }) => {
-        await expectNoViolations(page, path);
-      });
+      test(
+        `${path} não tem violações de acessibilidade`,
+        { tag: pageTags(path) },
+        async ({ page }) => {
+          await expectNoViolations(page, path);
+        },
+      );
     }
 
     // Telas de entrada, sem sessão
