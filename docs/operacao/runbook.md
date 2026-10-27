@@ -550,6 +550,10 @@ PLAYWRIGHT_PRODUCTION=1 pnpm --filter @fintrack/web exec playwright test e2e/<ar
 O segundo comando reaproveita o último build; o servidor avisa ("AVISO: há arquivos em
 apps/web/src mais novos") quando o código mudou depois dele.
 
+5. Para ver se uma falha é instável, repita o mesmo teste várias vezes **um de cada vez**:
+   `--repeat-each=10 --workers=1`. Sem o `--workers=1`, as cópias rodam juntas e, como cada teste usa
+   a mesma pessoa de teste em todas as cópias, uma apaga a pessoa da outra (`user_email_key`).
+
 ## Alertas
 
 | Alerta                               | Significa                                   | Primeiro passo                                    |

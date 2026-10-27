@@ -61,6 +61,9 @@ Decidido pelo Danillo em 25/10/2026 (as recomendações, menos o vídeo):
   ela, ele seria pulado no CI sem ninguém perceber.
 - O teste que mede tempo (o painel de 24 meses), que só roda no build de produção, passa a rodar em
   todo PR.
+- O app que os testes sobem não depende da internet: além das APIs de mentira, a consulta de senhas
+  vazadas fica desligada (`HIBP_CHECK: "off"` no `playwright.config.ts`, como no CI). Com ela
+  ligada pelo `.env` de casa, um cadastro esperou a internet por mais de 5 s e o teste falhou.
 - Uma falha agora é lida no relatório juntado: Actions › o run › Artifacts › `relatorio-playwright`
   (runbook, "O CI barrou o PR por causa do E2E").
 

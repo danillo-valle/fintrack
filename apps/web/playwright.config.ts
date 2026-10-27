@@ -114,10 +114,15 @@ export default defineConfig({
       url: `${BASE_URL}/api/health`,
       reuseExistingServer: !CI,
       timeout: 120_000,
-      // Nenhum teste fala com a Pluggy de verdade
+      // Nenhum teste depende da internet: todo serviço de fora vai para uma versão de mentira ou
+      // fica desligado. A consulta de senhas vazadas (Have I Been Pwned, no cadastro e na troca de
+      // senha) fica desligada como no CI: o .env de casa a liga, e aí o cadastro esperava a
+      // internet (M12.2: num cadastro, o servidor passou de 5 s sem responder). Vale para o app que
+      // os testes sobem; um pnpm dev seu, reaproveitado, segue o seu .env.
       env: {
         PLUGGY_API_URL: PLUGGY_FAKE_URL,
         ML_SERVICE_URL: ML_URL,
+        HIBP_CHECK: "off",
         ...WHATSAPP_ENV,
         ...TELEGRAM_ENV,
       },

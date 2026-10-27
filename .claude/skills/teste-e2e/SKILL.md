@@ -84,6 +84,10 @@ Referência: `apps/web/e2e/permissoes.spec.ts` (M06) e `apps/web/e2e/helpers.ts`
   `waitForReply(phone, /regex/)`. Telefone inventado e único: `fakePhone(n, project)`. A mesma
   `wamid` de novo = a reentrega da Meta. Referência: `bot-whatsapp.spec.ts` (a assinatura errada é
   testada com a mutação: sem a conferência, o teste falha).
+- **Internet (M12.2)**: nenhum teste depende dela. Todo serviço de fora tem a versão de mentira ou
+  fica desligado no `env` do app no `playwright.config.ts`; a consulta de senhas vazadas (Have I
+  Been Pwned, no cadastro e na troca de senha) vai com `HIBP_CHECK: "off"`, como no CI, mesmo com o
+  `.env` de casa ligado. Serviço de fora novo entra ali no mesmo PR.
 - **Esperar trabalho em segundo plano** (a fila do pg-boss): `expect.poll` recarregando a página,
   e dentro do poll **nada que espere** (`count()`, não `textContent()` de algo que pode não existir:
   ele fica parado até o fim do poll e a página nunca é recarregada).
