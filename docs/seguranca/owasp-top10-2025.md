@@ -156,6 +156,12 @@ ar e ninguém tinha visto:
 **Provas.** O passo do OSV-Scanner no job `seguranca`; o `pnpm audit` e o `pip-audit` limpos no
 laboratório (a base OSV junta os mesmos alertas).
 
+**Exceções do OSV (no `osv-scanner.toml`).**
+
+| Pacote          | Alerta                                      | Por que não barra                                                                                                                                                                                                | Rever até  |
+| --------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| deepmerge 4.3.1 | GHSA-gcqx-w48m-w2h4 (CVE-2026-93753), médio | Sem versão corrigida. Só o CLI do shadcn (dependência de desenvolvimento) o usa, ao juntar o `tailwind.config` do Tailwind v3; o app usa do pacote só o `shadcn/tailwind.css`. Fora do build e da imagem (M12.2) | 2027-01-31 |
+
 **Pendência.** As imagens-base do Dockerfile (`node`, `python`, `uv`) são etiquetas que andam (a
 linha 24, a 3.13), sem digest; o Dependabot não as lê, porque o `FROM` usa `${NODE_VERSION}`.
 Veja [Pendências](#pendências).
