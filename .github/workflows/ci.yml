@@ -329,6 +329,9 @@ jobs:
           echo "::add-mask::$KEY"
           echo "CONNECTION_SECRET_KEYS=1:$KEY" >> "$GITHUB_ENV"
 
+      - name: Gera o cliente do Prisma (o seed e os testes importam o @fintrack/db)
+        run: pnpm turbo run db:generate
+
       - name: Cria as tabelas no banco de teste (migrações do Prisma)
         run: pnpm db:deploy
 
@@ -344,7 +347,7 @@ jobs:
         run: tar -xzf e2e-build.tgz -C apps/web
 
       - name: Testes de ponta a ponta e acessibilidade (axe), parte ${{ matrix.parte }} de 3
-        run: pnpm --filter @fintrack/web exec playwright test --shard=${{ matrix.parte }}/3
+        run: pnpm turbo run test:e2e -- --shard=${{ matrix.parte }}/3
 
       - name: Guarda o relatório desta parte (blob, com os traces das falhas)
         if: ${{ !cancelled() }}
@@ -436,11 +439,14 @@ jobs:
           echo "::add-mask::$KEY"
           echo "CONNECTION_SECRET_KEYS=1:$KEY" >> "$GITHUB_ENV"
 
+      - name: Gera o cliente do Prisma (o seed e os testes importam o @fintrack/db)
+        run: pnpm turbo run db:generate
+
       - name: Cria as tabelas no banco de teste (migrações do Prisma)
         run: pnpm db:deploy
 
       - name: Testes do pnpm dev (o catálogo /dev/ui)
-        run: pnpm --filter @fintrack/web exec playwright test --grep @dev
+        run: pnpm turbo run test:e2e -- --grep @dev
 
       - name: Guarda o relatório (blob, com os traces das falhas)
         if: ${{ !cancelled() }}
