@@ -16,6 +16,9 @@ const MESSAGES: Record<string, string> = {
   PASSWORD_TOO_LONG: "A senha pode ter no máximo 128 caracteres.",
   PASSWORD_COMPROMISED:
     "Esta senha já apareceu em vazamentos de dados. Escolha outra, de preferência uma frase.",
+  // M12.3a: o serviço de senhas vazadas não respondeu em 3 s; nada foi criado nem trocado
+  PASSWORD_CHECK_UNAVAILABLE:
+    "Não deu para conferir a senha agora: o serviço que verifica senhas vazadas não respondeu. Nada foi criado nem trocado. Tente de novo em alguns segundos.",
   INVALID_PASSWORD: "Senha incorreta.",
   // Conta criada só pelo Google não tem senha para trocar
   CREDENTIAL_ACCOUNT_NOT_FOUND:
