@@ -42,6 +42,10 @@ export async function checkLeakedPassword(
   options: { fetch?: FetchLike; timeoutMs?: number } = {},
 ): Promise<LeakedPasswordResult> {
   const doFetch = options.fetch ?? fetch;
+  // SHA-1 porque é o protocolo do HIBP, não para guardar: o hash não é gravado nem logado, e só
+  // os 5 primeiros caracteres saem do servidor. A senha guardada usa o scrypt do Better Auth.
+  // O CodeQL marca esta linha (js/insufficient-password-hash): alerta dispensado como falso
+  // positivo, com o motivo no OWASP (A04, "Exceções do CodeQL").
   const sha1 = createHash("sha1").update(password, "utf8").digest("hex").toUpperCase();
   const prefix = sha1.slice(0, 5);
   const suffix = sha1.slice(5);

@@ -51,6 +51,10 @@ Decidido pelo Danillo em 27/10/2026 (as recomendações), com o canvas linha J a
   busca e a página pública; o axe passa pelo índice, por um artigo, pela busca e pelo primeiro
   acesso (`PAGES`/`PUBLIC_PAGES`), e a trava do M12.2 cobre as rotas novas.
 - O `StepFooter` saiu de `features/bank` para `components/feedback`: agora é usado por bank e accounts.
+- O SHA-1 do HIBP passou a estar no nosso código, e o CodeQL o marca como hash fraco de senha
+  (`js/insufficient-password-hash`). É o protocolo, não o jeito de guardar: o alerta foi dispensado
+  como falso positivo, com o motivo no OWASP (A04, "Exceções do CodeQL"); o teste usa o exemplo
+  publicado do HIBP com o hash escrito à mão e não calcula SHA-1 de senha.
 - Com o HIBP fora do ar, ninguém cria conta nem troca a senha até ele voltar (escolha consciente:
   deixar passar sem conferir abriria a porta para uma senha vazada).
 

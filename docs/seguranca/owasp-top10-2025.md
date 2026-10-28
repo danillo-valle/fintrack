@@ -175,6 +175,9 @@ Veja [Pendências](#pendências).
 - **HTTPS** de ponta a ponta até a Cloudflare; HSTS de 1 ano; `upgrade-insecure-requests` na CSP.
 - **Senhas** com o hash do Better Auth (scrypt), nunca guardadas nem logadas; política do NIST
   (mínimo 8, frases longas, senhas vazadas recusadas).
+- **Senha vazada conferida sem sair do servidor** (novo no M12.3a): o SHA-1 que o protocolo do
+  HIBP pede é calculado na memória, nunca gravado nem logado, e só os 5 primeiros caracteres saem
+  (`apps/web/src/lib/auth/leaked-password.ts`). Veja "Exceções do CodeQL" abaixo.
 - **Segredos guardados cifrados**: o Client Secret do Meu Pluggy com AES-256-GCM, a versão da
   chave no primeiro byte e o id da conexão como dado associado
   (`packages/db/src/connection-secret.ts`); rotação pela chave nova na frente.
@@ -192,6 +195,16 @@ Veja [Pendências](#pendências).
 (**novo no M12.1**: os atributos do cookie com as opções de verdade do `auth.ts`, em HTTP e em
 HTTPS); `apps/web/e2e/cabecalhos.spec.ts`, bloco "cookie da sessão" (o `Set-Cookie` real do
 login).
+
+**Exceções do CodeQL** (alerta dispensado no GitHub, com o comentário; cada uma aqui, com a prova).
+
+| Alerta                                                       | Onde                                                               | Por que não é falha                                                                                                                                                                                                                                                                         | Prova                                                                                                                                                                             |
+| ------------------------------------------------------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `js/insufficient-password-hash` (alto), dispensado no M12.3a | `apps/web/src/lib/auth/leaked-password.ts`, o `createHash("sha1")` | O SHA-1 é o protocolo do Pwned Passwords (k-anonimato), não o jeito de guardar: fica na memória, só os 5 primeiros caracteres saem, nada é gravado nem logado. A senha guardada usa o scrypt do Better Auth. O plugin antigo fazia o mesmo dentro do `node_modules`, onde o CodeQL não olha | `leaked-password.test.ts`: o exemplo publicado do HIBP com o SHA-1 escrito à mão, a URL só com o prefixo e o log sem o prefixo; o teste não calcula hash de senha (nenhum alerta) |
+
+Uma exceção nova do CodeQL segue a mesma regra das do OSV e do ZAP: o motivo, a prova e a linha
+nesta tabela no mesmo PR. Alerta em código de teste se resolve tirando o padrão do teste (valor
+escrito à mão), não dispensando.
 
 ## A05 Injeção
 

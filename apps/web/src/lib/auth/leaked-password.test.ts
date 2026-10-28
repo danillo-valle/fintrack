@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { authErrorMessage } from "./messages";
 
@@ -8,11 +7,12 @@ const { checkLeakedPassword, compromiseCount, leakedPasswordCheck, PWNED_RANGE_U
   await import("./leaked-password");
 const { logger } = await import("../logger");
 
-// Senha sintética: o teste nunca fala com o HIBP de verdade
-const PASSWORD = "uma frase longa so para testes";
-const SHA1 = createHash("sha1").update(PASSWORD).digest("hex").toUpperCase();
-const PREFIX = SHA1.slice(0, 5);
-const SUFFIX = SHA1.slice(5);
+// O exemplo publicado na documentação do Pwned Passwords ("P@ssw0rd"), com o SHA-1 escrito à mão:
+// o teste confere o protocolo contra um valor de fora, sem recalcular o hash com o mesmo código
+// que testa. O teste nunca fala com o HIBP de verdade (o fetch é sempre de mentira).
+const PASSWORD = "P@ssw0rd";
+const PREFIX = "21BD1";
+const SUFFIX = "2DC183F740EE76F27B78EB39C8AD972A757";
 
 function answering(body: string, status = 200) {
   return vi.fn<(url: string, init: RequestInit) => Promise<Response>>(
