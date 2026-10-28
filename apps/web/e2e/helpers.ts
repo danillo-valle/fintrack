@@ -203,6 +203,13 @@ export const PAGES = [
   "/ajustes/lar",
   "/ajustes/contas",
   `/ajustes/contas/${ANA_FINANCE.cardAccountId}`,
+  // M12.3a: Nova conta e Adicionar cartão na página inteira (o modal é testado em contas.spec.ts)
+  "/ajustes/contas/nova",
+  // M12.3a: a Ajuda (o índice, um artigo e a busca)
+  "/ajuda",
+  "/ajuda/contas-e-cartoes",
+  "/ajuda?q=fatura",
+  `/ajustes/contas/${ANA_FINANCE.cardAccountId}/cartao`,
   "/ajustes/categorias",
   // M10.1: o percentual sem IA e o classificador
   "/ajustes/categorizacao",
@@ -242,6 +249,7 @@ export const PUBLIC_PAGES = [
   "/verifique-seu-email",
   "/esqueci-a-senha",
   "/redefinir-senha",
+  "/primeiro-acesso",
 ];
 
 /** Sem cookies: para os testes que começam deslogados. */
