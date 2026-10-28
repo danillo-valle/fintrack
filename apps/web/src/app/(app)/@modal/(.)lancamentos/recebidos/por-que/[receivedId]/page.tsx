@@ -1,6 +1,6 @@
 import { RouteModal } from "@/components/ui/route-modal";
 import { getExplanationPage } from "@/features/bank/server/review";
-import { StepFooter } from "@/features/bank/ui/form-footer";
+import { StepFooter } from "@/components/feedback/step-footer";
 import {
   ExplanationBody,
   explanationSubtitle,

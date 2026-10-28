@@ -70,6 +70,8 @@ export const cardSchema = z.object({
   // Só os 4 últimos dígitos: nunca o número inteiro (o banco também recusa)
   lastFour: z.string().regex(/^\d{4}$/, "Digite só os 4 últimos dígitos do cartão."),
   form: z.enum(["PHYSICAL", "VIRTUAL", "VIRTUAL_TEMPORARY"]),
+  // Para onde voltar depois de cadastrar (M12.3a): a lista de contas ou a página da conta
+  volta: z.enum(["contas", "conta"]).default("contas"),
   holderId: z.string().max(100).default(""),
   isAdditional: z
     .literal("on")

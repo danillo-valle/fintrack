@@ -22,7 +22,7 @@ export default async function CategoriesPage() {
   if (!page) {
     return (
       <>
-        <PageHeader title="Categorias e regras" />
+        <PageHeader help="categorias-e-regras" title="Categorias e regras" />
         <EmptyState
           icon={Tags}
           title="Você ainda não tem um lar"
@@ -36,6 +36,7 @@ export default async function CategoriesPage() {
   return (
     <>
       <PageHeader
+        help="categorias-e-regras"
         title="Categorias e regras"
         description="Do lar inteiro: as duas pessoas organizam"
       />

@@ -1,6 +1,6 @@
 import { RouteModal } from "@/components/ui/route-modal";
 import { getPairPage } from "@/features/bank/server/review";
-import { StepFooter } from "@/features/bank/ui/form-footer";
+import { StepFooter } from "@/components/feedback/step-footer";
 import { PairDialogBody, pairSubtitle } from "@/features/bank/ui/review/pair-dialog-body";
 import { requireUser } from "@/lib/auth/session";
 

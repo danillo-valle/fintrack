@@ -25,6 +25,7 @@ export default async function LinkCodePage({
   return (
     <>
       <PageHeader
+        help="bot-vincular"
         crumb={{ href: "/ajustes/bot", label: "Bot de lançamento" }}
         title={linkCodeTitle(page)}
         description={linkCodeEyebrow(page)}

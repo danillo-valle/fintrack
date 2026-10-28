@@ -1,9 +1,9 @@
 "use client";
 
-// Novo cartão numa conta (M07). Só os 4 últimos dígitos: o número inteiro, a validade e o CVV
-// nunca entram no FinTrack (o banco recusa qualquer coisa que não sejam 4 dígitos).
+// Adicionar cartão numa conta (M07; em modal desde o M12.3a, prancha J-AdicionarCartao). Só os 4
+// últimos dígitos: o número inteiro, a validade e o CVV nunca entram no FinTrack (o banco recusa
+// qualquer coisa que não sejam 4 dígitos). O botão fica no rodapé (form="…").
 import { ActionForm } from "@/components/feedback/action-form";
-import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -11,20 +11,31 @@ import { CARD_FORM_LABEL } from "@/lib/labels";
 import { createCardAction } from "../server/actions";
 
 export function CardForm({
+  formId,
   walletId,
   accountId,
   people,
   me,
+  back,
 }: {
+  formId: string;
   walletId: string;
   accountId: string;
   people: { userId: string; name: string }[];
   me: string;
+  /** Para onde voltar depois de cadastrar: a lista de contas ou a página da conta */
+  back: "contas" | "conta";
 }) {
-  const prefix = `cartao-${accountId.slice(0, 8)}-`;
+  const prefix = `${formId}-`;
   return (
-    <ActionForm action={createCardAction} idPrefix={prefix} className="mt-3 flex flex-col gap-3">
-      {({ pending, field }) => {
+    <ActionForm
+      action={createCardAction}
+      id={formId}
+      idPrefix={prefix}
+      aria-label="Adicionar cartão"
+      className="flex flex-col gap-4"
+    >
+      {({ field }) => {
         const nickname = field("nickname");
         const brand = field("brand");
         const last = field("lastFour", { helpId: `${prefix}final-help` });
@@ -32,7 +43,8 @@ export function CardForm({
           <>
             <input type="hidden" name="walletId" value={walletId} />
             <input type="hidden" name="accountId" value={accountId} />
-            <div className="grid gap-3 sm:grid-cols-3">
+            <input type="hidden" name="volta" value={back} />
+            <div className="grid gap-4 sm:grid-cols-3">
               <Field data-invalid={nickname.error ? true : undefined}>
                 <FieldLabel htmlFor={`${prefix}apelido`}>Apelido</FieldLabel>
                 <Input
@@ -76,12 +88,12 @@ export function CardForm({
                   {...last.props}
                 />
                 <FieldDescription id={`${prefix}final-help`}>
-                  Só os 4 últimos dígitos.
+                  Só os 4 últimos. Nunca o número inteiro, a validade ou o código de segurança.
                 </FieldDescription>
                 <FieldError id={last.errorId}>{last.error}</FieldError>
               </Field>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               <Field>
                 <FieldLabel htmlFor={`${prefix}formato`}>Formato</FieldLabel>
                 <NativeSelect
@@ -130,9 +142,6 @@ export function CardForm({
               Cartão de compras conjuntas (em &quot;Pago por&quot;, as compras dele aparecem como
               Compartilhado)
             </label>
-            <Button type="submit" variant="outline" className="self-start" disabled={pending}>
-              {pending ? "Salvando…" : "Cadastrar cartão"}
-            </Button>
           </>
         );
       }}

@@ -1,6 +1,6 @@
 import { RouteModal } from "@/components/ui/route-modal";
 import { getLinkPage } from "@/features/bank/server/queries";
-import { StepFooter } from "@/features/bank/ui/form-footer";
+import { StepFooter } from "@/components/feedback/step-footer";
 import { requireRecentAuth } from "@/lib/auth/session";
 import { LinkPageBody } from "@/features/bank/ui/link-page-body";
 

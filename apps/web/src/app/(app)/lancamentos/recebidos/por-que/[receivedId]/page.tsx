@@ -3,7 +3,7 @@ import { CircleHelp } from "lucide-react";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { getExplanationPage } from "@/features/bank/server/review";
-import { StepFooter } from "@/features/bank/ui/form-footer";
+import { StepFooter } from "@/components/feedback/step-footer";
 import {
   ExplanationBody,
   explanationSubtitle,
@@ -27,6 +27,7 @@ export default async function ExplanationPage({
     return (
       <>
         <PageHeader
+          help="por-que-essa-categoria"
           crumb={{ href: "/lancamentos/recebidos", label: "Recebidos do banco" }}
           title="Por que essa categoria?"
         />
@@ -41,6 +42,7 @@ export default async function ExplanationPage({
   return (
     <>
       <PageHeader
+        help="por-que-essa-categoria"
         crumb={{ href: "/lancamentos/recebidos", label: "Recebidos do banco" }}
         title={explanationTitle(page)}
         description={explanationSubtitle(page)}

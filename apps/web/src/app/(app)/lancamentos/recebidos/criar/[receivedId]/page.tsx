@@ -3,7 +3,7 @@ import { Sparkles } from "lucide-react";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { getProposalPage } from "@/features/bank/server/review";
-import { StepFooter } from "@/features/bank/ui/form-footer";
+import { StepFooter } from "@/components/feedback/step-footer";
 import { ProposalForm } from "@/features/bank/ui/review/proposal-form";
 import { proposalSubtitle, proposalTitle } from "@/features/bank/ui/review/proposal-text";
 import { requireUser } from "@/lib/auth/session";
@@ -23,6 +23,7 @@ export default async function ProposalPage({
     return (
       <>
         <PageHeader
+          help="ia-local"
           crumb={{ href: "/lancamentos/recebidos", label: "Recebidos do banco" }}
           title="Criar a categoria proposta"
         />
@@ -37,6 +38,7 @@ export default async function ProposalPage({
   return (
     <>
       <PageHeader
+        help="ia-local"
         crumb={{ href: "/lancamentos/recebidos", label: "Recebidos do banco" }}
         title={proposalTitle(page)}
         description={proposalSubtitle(page)}

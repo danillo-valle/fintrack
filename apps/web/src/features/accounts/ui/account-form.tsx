@@ -1,11 +1,12 @@
 "use client";
 
 // Nova conta (M07): corrente, poupança, cartão de crédito, vale ou dinheiro. Cartão de crédito
-// pede o dia do fechamento e do vencimento da fatura (o banco exige os dois).
+// pede o dia do fechamento e do vencimento da fatura (o banco exige os dois). Desde o M12.3a em
+// modal (prancha J-NovaConta): o botão fica no rodapé (form="…") e, dando certo, a action volta
+// para a lista com o aviso no topo; dando errado, o aviso aparece aqui.
 import { useState } from "react";
 import { ActionForm } from "@/components/feedback/action-form";
 import { MoneyInput } from "@/components/money/money-input";
-import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -15,24 +16,33 @@ import { createAccountAction } from "../server/actions";
 
 const KINDS = Object.keys(ACCOUNT_KIND_LABEL) as AccountKind[];
 
-export function AccountForm({ wallets }: { wallets: { id: string; name: string }[] }) {
+export function AccountForm({
+  formId,
+  wallets,
+}: {
+  formId: string;
+  wallets: { id: string; name: string }[];
+}) {
   const [kind, setKind] = useState<AccountKind>("CHECKING");
+  const p = `${formId}-`;
   return (
     <ActionForm
       action={createAccountAction}
-      idPrefix="conta-"
-      className="flex max-w-md flex-col gap-4"
+      id={formId}
+      idPrefix={p}
+      aria-label="Nova conta"
+      className="flex flex-col gap-4"
     >
-      {({ pending, field, state }) => {
+      {({ field }) => {
         const name = field("name");
         const closing = field("closingDay");
         const due = field("dueDay");
         return (
           <>
             <Field data-invalid={name.error ? true : undefined}>
-              <FieldLabel htmlFor="conta-nome">Nome da conta</FieldLabel>
+              <FieldLabel htmlFor={`${p}nome`}>Nome da conta</FieldLabel>
               <Input
-                id="conta-nome"
+                id={`${p}nome`}
                 name="name"
                 required
                 maxLength={60}
@@ -45,9 +55,9 @@ export function AccountForm({ wallets }: { wallets: { id: string; name: string }
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field>
-                <FieldLabel htmlFor="conta-tipo">Tipo</FieldLabel>
+                <FieldLabel htmlFor={`${p}tipo`}>Tipo</FieldLabel>
                 <NativeSelect
-                  id="conta-tipo"
+                  id={`${p}tipo`}
                   name="kind"
                   value={kind}
                   onChange={(e) => setKind(e.target.value as AccountKind)}
@@ -61,8 +71,8 @@ export function AccountForm({ wallets }: { wallets: { id: string; name: string }
                 </NativeSelect>
               </Field>
               <Field>
-                <FieldLabel htmlFor="conta-carteira">Carteira que gere</FieldLabel>
-                <NativeSelect id="conta-carteira" name="walletId" className="h-10">
+                <FieldLabel htmlFor={`${p}carteira`}>Carteira que gere</FieldLabel>
+                <NativeSelect id={`${p}carteira`} name="walletId" className="h-10">
                   {wallets.map((w) => (
                     <option key={w.id} value={w.id}>
                       {w.name}
@@ -74,9 +84,9 @@ export function AccountForm({ wallets }: { wallets: { id: string; name: string }
             {kind === "CREDIT_CARD" ? (
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field data-invalid={closing.error ? true : undefined}>
-                  <FieldLabel htmlFor="conta-fecha">Fecha no dia</FieldLabel>
+                  <FieldLabel htmlFor={`${p}fecha`}>Fecha no dia</FieldLabel>
                   <Input
-                    id="conta-fecha"
+                    id={`${p}fecha`}
                     name="closingDay"
                     inputMode="numeric"
                     required
@@ -89,9 +99,9 @@ export function AccountForm({ wallets }: { wallets: { id: string; name: string }
                   <FieldError id={closing.errorId}>{closing.error}</FieldError>
                 </Field>
                 <Field data-invalid={due.error ? true : undefined}>
-                  <FieldLabel htmlFor="conta-vence">Vence no dia</FieldLabel>
+                  <FieldLabel htmlFor={`${p}vence`}>Vence no dia</FieldLabel>
                   <Input
-                    id="conta-vence"
+                    id={`${p}vence`}
                     name="dueDay"
                     inputMode="numeric"
                     required
@@ -106,26 +116,22 @@ export function AccountForm({ wallets }: { wallets: { id: string; name: string }
               </div>
             ) : (
               <Field>
-                <FieldLabel htmlFor="conta-saldo">Saldo inicial</FieldLabel>
+                <FieldLabel htmlFor={`${p}saldo`}>Saldo inicial</FieldLabel>
                 <MoneyInput
-                  key={state.success ?? "nova"}
-                  id="conta-saldo"
+                  id={`${p}saldo`}
                   name="initialBalance"
-                  aria-describedby="conta-saldo-help"
+                  aria-describedby={`${p}saldo-help`}
                   className="h-10"
                 />
-                <FieldDescription id="conta-saldo-help">
+                <FieldDescription id={`${p}saldo-help`}>
                   O saldo no dia em que você começa a acompanhar.
                 </FieldDescription>
               </Field>
             )}
             <Field>
-              <FieldLabel htmlFor="conta-banco">Banco ou emissor (opcional)</FieldLabel>
-              <Input id="conta-banco" name="institution" maxLength={60} className="h-10" />
+              <FieldLabel htmlFor={`${p}banco`}>Banco ou emissor (opcional)</FieldLabel>
+              <Input id={`${p}banco`} name="institution" maxLength={60} className="h-10" />
             </Field>
-            <Button type="submit" className="self-start" disabled={pending}>
-              {pending ? "Criando…" : "Criar conta"}
-            </Button>
           </>
         );
       }}

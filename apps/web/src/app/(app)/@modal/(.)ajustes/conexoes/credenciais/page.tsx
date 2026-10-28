@@ -1,7 +1,7 @@
 import { RouteModal } from "@/components/ui/route-modal";
 import { getCredentialsForm } from "@/features/bank/server/queries";
 import { CredentialsForm } from "@/features/bank/ui/credentials-form";
-import { StepFooter } from "@/features/bank/ui/form-footer";
+import { StepFooter } from "@/components/feedback/step-footer";
 import { requireRecentAuth } from "@/lib/auth/session";
 
 // Passo 1 de 2 em modal, por cima de Ajustes › Conexões (prancha E-Conectar). A mesma prova de

@@ -1,7 +1,7 @@
 "use client";
 
-// Rodapé dos passos de "Conectar o Meu Pluggy" (M09.1) e do "Confirmar o par" (M09.2):
-// Cancelar/Voltar e o botão principal,
+// Rodapé dos formulários em passos e em modal (Conectar o Meu Pluggy no M09.1, Confirmar o par
+// no M09.2, Nova conta e Adicionar cartão no M12.3a): Cancelar/Voltar e o botão principal,
 // ligado ao formulário pelo atributo form="…" (o rodapé do modal fica fora do <form>, sempre à
 // vista mesmo quando o meio rola). Na página inteira, o mesmo rodapé vai embaixo do formulário.
 import Link from "next/link";

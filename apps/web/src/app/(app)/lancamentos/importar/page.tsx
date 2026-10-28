@@ -26,6 +26,7 @@ export default async function ImportPage({ searchParams }: PageProps<"/lancament
   return (
     <>
       <PageHeader
+        help="importar"
         crumb={{
           href: "/lancamentos/recebidos",
           label: "Recebidos do banco",

@@ -67,6 +67,7 @@ export default async function UiCatalogPage() {
   return (
     <>
       <PageHeader
+        help={null}
         title="Catálogo de componentes"
         description="Tudo o que o app usa, em um lugar. Teste com o teclado e nos dois temas."
       />

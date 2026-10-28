@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
-import { CheckCircle2, CreditCard } from "lucide-react";
+import Link from "next/link";
+import { CheckCircle2, CreditCard, Plus } from "lucide-react";
 import { ActionButton } from "@/components/feedback/action-button";
 import { PageHeader } from "@/components/layout/page-header";
+import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/visual/icon-tile";
 import { setCardArchivedAction } from "@/features/accounts/server/actions";
+import { getCardFormPage } from "@/features/accounts/server/queries";
 import { getAccountCardsPage } from "@/features/bank/server/review";
 import { FinalForm } from "@/features/bank/ui/review/final-form";
 import { notFoundOnDenied } from "@/lib/access";
@@ -33,13 +36,26 @@ export default async function AccountCardsPage({
     .filter(Boolean)
     .join(" · ");
   const active = account.cards.filter((c) => !c.archivedAt);
+  // Adicionar cartão (M12.3a): só quem é dono da carteira, numa conta de cartão ou de vale ativa
+  const canAddCard = (await getCardFormPage(session, accountId)) !== null;
 
   return (
     <>
       <PageHeader
+        help="contas-e-cartoes"
         crumb={{ href: "/ajustes/contas", label: "Ajustes · Contas" }}
         title={account.name}
         description={description}
+        actions={
+          canAddCard ? (
+            <Button asChild variant="outline" className="h-11 gap-2 rounded-xl px-4 font-bold">
+              <Link href={`/ajustes/contas/${account.id}/cartao?volta=conta`}>
+                <Plus aria-hidden />
+                Adicionar cartão
+              </Link>
+            </Button>
+          ) : null
+        }
       />
       {Number.isInteger(moved) && moved >= 0 ? (
         <p role="status" className="text-income mb-4 flex items-center gap-2 text-sm font-semibold">

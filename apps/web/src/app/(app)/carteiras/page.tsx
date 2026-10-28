@@ -24,7 +24,11 @@ export default async function WalletsPage() {
   if (!hasHousehold) {
     return (
       <>
-        <PageHeader title="Carteiras" description="Pessoais e compartilhadas" />
+        <PageHeader
+          help="lar-e-carteiras"
+          title="Carteiras"
+          description="Pessoais e compartilhadas"
+        />
         <EmptyState
           icon={House}
           title="Você ainda não tem um lar"
@@ -42,6 +46,7 @@ export default async function WalletsPage() {
   return (
     <>
       <PageHeader
+        help="lar-e-carteiras"
         title="Carteiras"
         description="Cada carteira junta os gastos de quem participa dela"
         actions={

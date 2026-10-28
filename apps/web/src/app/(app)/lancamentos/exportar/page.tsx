@@ -21,6 +21,7 @@ export default async function ExportPage({ searchParams }: PageProps<"/lancament
   return (
     <>
       <PageHeader
+        help="exportar"
         title="Exportar lançamentos"
         description="Um arquivo CSV que abre direto no Excel (separador ; e vírgula decimal)"
       />

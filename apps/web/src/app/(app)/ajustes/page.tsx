@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import {
   ChevronRight,
+  CircleHelp,
   House,
   Landmark,
   Link2,
@@ -73,6 +74,14 @@ const LINKS: { href: string; title: string; detail: string; icon: LucideIcon; to
     icon: ShieldCheck,
     tone: 5,
   },
+  // M12.3a: no celular a barra de baixo não tem a Ajuda; ela fica aqui (e no "?" de cada tela)
+  {
+    href: "/ajuda",
+    title: "Ajuda",
+    detail: "Como usar o FinTrack, tela por tela",
+    icon: CircleHelp,
+    tone: 1,
+  },
 ];
 
 // Ajustes (M07.2): o perfil no painel elétrico e os caminhos numa lista agrupada.
@@ -87,7 +96,7 @@ export default async function SettingsPage() {
 
   return (
     <>
-      <PageHeader title="Ajustes" actions={<NewTransactionButton />} />
+      <PageHeader help={null} title="Ajustes" actions={<NewTransactionButton />} />
       <div className="flex max-w-2xl flex-col gap-6">
         <SoftPanel labelledBy="conta" className="flex items-center gap-4 p-5">
           <span

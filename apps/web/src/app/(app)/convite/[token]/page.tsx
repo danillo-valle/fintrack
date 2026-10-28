@@ -37,7 +37,7 @@ export default async function InvitePage({ params }: PageProps<"/convite/[token]
   if (!invite || problem) {
     return (
       <>
-        <PageHeader title="Convite" />
+        <PageHeader help="lar-e-carteiras" title="Convite" />
         <EmptyState
           icon={MailX}
           title="Não dá para aceitar este convite"
@@ -54,7 +54,7 @@ export default async function InvitePage({ params }: PageProps<"/convite/[token]
 
   return (
     <>
-      <PageHeader title="Convite para um lar" />
+      <PageHeader help="lar-e-carteiras" title="Convite para um lar" />
       <section aria-labelledby="convite" className="bg-card max-w-md rounded-xl border p-5">
         <h2 id="convite" className="mb-2 text-lg font-semibold break-words">
           {invite.householdName}

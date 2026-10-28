@@ -22,7 +22,11 @@ export default async function HouseholdPage() {
   if (!page) {
     return (
       <>
-        <PageHeader title="Lar" description="O grupo de pessoas que divide as finanças" />
+        <PageHeader
+          help="lar-e-carteiras"
+          title="Lar"
+          description="O grupo de pessoas que divide as finanças"
+        />
         <section aria-labelledby="criar-lar" className={`${SECTION} max-w-xl`}>
           <h2 id="criar-lar" className="mb-1 font-semibold">
             Crie o seu lar
@@ -41,6 +45,7 @@ export default async function HouseholdPage() {
   return (
     <>
       <PageHeader
+        help="lar-e-carteiras"
         title={household.name}
         description={`Lar · você é ${HOUSEHOLD_ROLE_LABEL[myRole].toLowerCase()}`}
       />

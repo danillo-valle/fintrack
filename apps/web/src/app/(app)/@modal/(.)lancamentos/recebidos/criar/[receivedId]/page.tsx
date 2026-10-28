@@ -1,6 +1,6 @@
 import { RouteModal } from "@/components/ui/route-modal";
 import { getProposalPage } from "@/features/bank/server/review";
-import { StepFooter } from "@/features/bank/ui/form-footer";
+import { StepFooter } from "@/components/feedback/step-footer";
 import { ProposalForm } from "@/features/bank/ui/review/proposal-form";
 import { proposalSubtitle, proposalTitle } from "@/features/bank/ui/review/proposal-text";
 import { requireUser } from "@/lib/auth/session";

@@ -31,6 +31,7 @@ export default async function RecurrencesPage() {
   return (
     <>
       <PageHeader
+        help="parcelada-e-fixa"
         title="Recorrências"
         description="Aluguel, assinaturas, salário: o que se repete todo mês"
       />

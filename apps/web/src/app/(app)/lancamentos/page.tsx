@@ -47,6 +47,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/lan
     <>
       <BackLink parsed={parsed} categories={page.options.categories} />
       <PageHeader
+        help="lancamentos"
         title="Lançamentos"
         description={period}
         actions={

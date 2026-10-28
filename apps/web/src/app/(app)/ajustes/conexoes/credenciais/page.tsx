@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { PageHeader } from "@/components/layout/page-header";
 import { getCredentialsForm } from "@/features/bank/server/queries";
 import { CredentialsForm } from "@/features/bank/ui/credentials-form";
-import { StepFooter } from "@/features/bank/ui/form-footer";
+import { StepFooter } from "@/components/feedback/step-footer";
 import { requireRecentAuth } from "@/lib/auth/session";
 import { notFound } from "next/navigation";
 
@@ -17,7 +17,11 @@ export default async function CredentialsPage() {
   if (!form) notFound();
   return (
     <>
-      <PageHeader title="Conectar o Meu Pluggy" description="Passo 1 de 2 · Credenciais" />
+      <PageHeader
+        help="meu-pluggy"
+        title="Conectar o Meu Pluggy"
+        description="Passo 1 de 2 · Credenciais"
+      />
       <div className="bg-card flex max-w-xl flex-col gap-5 rounded-[1.25rem] border p-4 md:p-6">
         <CredentialsForm idPrefix="cred-" formId="form-credenciais" {...form} />
         <StepFooter

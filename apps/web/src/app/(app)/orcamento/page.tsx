@@ -65,6 +65,7 @@ export default async function BudgetPage({ searchParams }: PageProps<"/orcamento
   return (
     <>
       <PageHeader
+        help="orcamento"
         title="Orçamento"
         description={
           <>

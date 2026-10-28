@@ -81,6 +81,7 @@ export default async function ReviewPage({ searchParams }: PageProps<"/lancament
   return (
     <ReviewActions returned={returned}>
       <PageHeader
+        help="recebidos"
         crumb={{ href: "/lancamentos", label: "Lançamentos" }}
         title="Recebidos do banco"
         description={
