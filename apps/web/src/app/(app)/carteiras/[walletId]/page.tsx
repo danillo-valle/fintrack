@@ -31,6 +31,7 @@ export default async function WalletPage({ params }: PageProps<"/carteiras/[wall
   return (
     <>
       <PageHeader
+        help="lar-e-carteiras"
         title={wallet.name}
         description={`${WALLET_KIND_LABEL[wallet.kind]}${archived ? " · Arquivada" : ""} · você é ${WALLET_ROLE_LABEL[wallet.myRole].toLowerCase()} (${WALLET_ROLE_HELP[wallet.myRole]})`}
       />

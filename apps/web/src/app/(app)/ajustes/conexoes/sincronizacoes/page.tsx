@@ -62,6 +62,7 @@ export default async function SyncHistoryPage() {
         </Link>
       </nav>
       <PageHeader
+        help="meu-pluggy"
         title="Sincronizações"
         description={`Meu Pluggy de ${session.user.name.split(" ")[0] ?? session.user.name} · cada busca fica registrada aqui`}
         actions={<RequestSyncButton />}

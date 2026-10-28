@@ -45,7 +45,13 @@ export function SignUpForm() {
       setPending(false);
       setError(authErrorMessage(error));
       // Foco no campo que provavelmente precisa mudar
-      const passwordProblem = ["PASSWORD_TOO_SHORT", "PASSWORD_TOO_LONG", "PASSWORD_COMPROMISED"];
+      // A conferência das senhas vazadas sem resposta (M12.3a) também volta para a senha
+      const passwordProblem = [
+        "PASSWORD_TOO_SHORT",
+        "PASSWORD_TOO_LONG",
+        "PASSWORD_COMPROMISED",
+        "PASSWORD_CHECK_UNAVAILABLE",
+      ];
       // O aviso fica ligado ao campo que recebe o foco
       if (error.code && passwordProblem.includes(error.code)) {
         markAlert("password");

@@ -36,12 +36,17 @@ export default async function SignInPage({ searchParams }: PageProps<"/entrar">)
       title="Entrar no FinTrack"
       description={erro ?? "Use o e-mail e a senha da sua conta, ou a sua passkey."}
       footer={
-        <>
-          Ainda não tem conta?{" "}
-          <Link href="/cadastro" className={TEXT_LINK}>
-            Criar conta
+        <span className="flex flex-col gap-2">
+          <span>
+            Ainda não tem conta?{" "}
+            <Link href="/cadastro" className={TEXT_LINK}>
+              Criar conta
+            </Link>
+          </span>
+          <Link href="/primeiro-acesso" className={TEXT_LINK}>
+            Primeira vez? Veja o passo a passo
           </Link>
-        </>
+        </span>
       }
     >
       <SignInForm next={next} googleEnabled={googleEnabled} notice={aviso} />

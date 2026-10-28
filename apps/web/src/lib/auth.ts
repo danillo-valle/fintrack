@@ -14,11 +14,12 @@ import { APIError, betterAuth } from "better-auth";
 import { createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
-import { haveIBeenPwned, jwt, twoFactor } from "better-auth/plugins";
+import { jwt, twoFactor } from "better-auth/plugins";
 import { isEmailAllowed } from "./auth/allowlist";
 import { AUTH_ADVANCED, AUTH_SESSION } from "./auth/cookies";
 import { ML_TOKEN } from "./auth/ml-token-claims";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "./auth/password-policy";
+import { leakedPasswordCheck } from "./auth/leaked-password";
 import { isRecentlyAuthenticated, isSensitiveAuthPath } from "./auth/reauth";
 import { formatDateTime } from "./dates";
 import { passwordChangedEmail, resetPasswordEmail, verificationEmail } from "./email-templates";
@@ -42,7 +43,7 @@ export const auth = betterAuth({
   // ── E-mail e senha ─────────────────────────────────────────────────────────
   // Política do NIST SP 800-63B-4 para senha usada junto com um segundo fator:
   // mínimo de 8 caracteres, máximo generoso (frases-senha), sem regras de composição
-  // ("1 maiúscula, 1 símbolo") e sem troca periódica. Senhas vazadas são recusadas (plugin HIBP).
+  // ("1 maiúscula, 1 símbolo") e sem troca periódica. Senhas vazadas são recusadas (HIBP, com tempo limite).
   emailAndPassword: {
     enabled: true,
     minPasswordLength: PASSWORD_MIN_LENGTH,
@@ -191,12 +192,9 @@ export const auth = betterAuth({
       rpName: "FinTrack",
       origin: [env.BETTER_AUTH_URL, ...env.BETTER_AUTH_TRUSTED_ORIGINS],
     }),
-    // Recusa senhas que já apareceram em vazamentos (envia só 5 caracteres do hash SHA-1)
-    haveIBeenPwned({
-      enabled: env.HIBP_CHECK === "on",
-      customPasswordCompromisedMessage:
-        "Esta senha já apareceu em vazamentos de dados. Escolha outra, de preferência uma frase.",
-    }),
+    // Recusa senhas que já apareceram em vazamentos (envia só 5 caracteres do hash SHA-1). Com
+    // tempo limite de 3 s (M12.3a): sem resposta, recusa com "tente de novo" (auth/leaked-password.ts)
+    leakedPasswordCheck({ enabled: env.HIBP_CHECK === "on" }),
     // M09.4 (ADR-014): o app assina um token CURTO para chamar o serviço Python (services/ml),
     // que confere pela chave pública em /api/auth/jwks. Chave EdDSA guardada na tabela jwks, com a
     // parte privada cifrada pelo BETTER_AUTH_SECRET. O /token (que daria o JWT ao navegador) fica

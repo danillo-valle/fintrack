@@ -20,6 +20,7 @@ export default async function TransferPage() {
   return (
     <>
       <PageHeader
+        help="transferencia"
         title="Transferência"
         description="Dinheiro que muda de conta: guardar, sacar, pagar a fatura. Não é gasto."
       />

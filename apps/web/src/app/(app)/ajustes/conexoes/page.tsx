@@ -46,6 +46,7 @@ export default async function ConnectionsPage() {
         </Link>
       </nav>
       <PageHeader
+        help="meu-pluggy"
         title="Conexões bancárias"
         description="Cada pessoa conecta só as próprias contas, com a própria conta do Meu Pluggy."
       />

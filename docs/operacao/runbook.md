@@ -452,13 +452,14 @@ O que cada item do OWASP Top 10 tem no FinTrack e as pendências: `docs/seguranc
 O `fintrack-status` mostra, na seção "Segurança (últimas 24 h)", quantas vezes cada evento
 apareceu no log do app:
 
-| Evento                 | Significa                                                        | Normal                     | Agir quando                                                       |
-| ---------------------- | ---------------------------------------------------------------- | -------------------------- | ----------------------------------------------------------------- |
-| `auth.failed`          | Senha, código do 2FA, código de backup, passkey ou link recusado | Alguns por dia (digitação) | Dezenas num dia, ou o mesmo IP em sequência: veja o IP abaixo     |
-| `auth.rate_limited`    | O limite de tentativas barrou alguém (429)                       | Raro                       | Qualquer um que não foi você: alguém tentou muitas vezes seguidas |
-| `auth.origin_rejected` | Pedido ao login vindo de outro site, ou sem origem               | Zero                       | Qualquer um: um site tentou agir em nome de quem estava logado    |
-| `access.denied`        | Alguém logado tentou abrir um recurso que não é dele             | Zero                       | Qualquer um: veja o caminho e quem foi                            |
-| `webhook.rejected`     | Webhook com assinatura ou segredo errado                         | Zero ou poucos             | Muitos: alguém está chamando o webhook por fora                   |
+| Evento                            | Significa                                                                                            | Normal                     | Agir quando                                                                    |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------ |
+| `auth.failed`                     | Senha, código do 2FA, código de backup, passkey ou link recusado                                     | Alguns por dia (digitação) | Dezenas num dia, ou o mesmo IP em sequência: veja o IP abaixo                  |
+| `auth.rate_limited`               | O limite de tentativas barrou alguém (429)                                                           | Raro                       | Qualquer um que não foi você: alguém tentou muitas vezes seguidas              |
+| `auth.origin_rejected`            | Pedido ao login vindo de outro site, ou sem origem                                                   | Zero                       | Qualquer um: um site tentou agir em nome de quem estava logado                 |
+| `access.denied`                   | Alguém logado tentou abrir um recurso que não é dele                                                 | Zero                       | Qualquer um: veja o caminho e quem foi                                         |
+| `auth.password_check_unavailable` | A consulta de senhas vazadas não respondeu em 3 s; a senha foi recusada com "tente de novo" (M12.3a) | Zero                       | Vários seguidos: o servidor não alcança o api.pwnedpasswords.com (veja abaixo) |
+| `webhook.rejected`                | Webhook com assinatura ou segredo errado                                                             | Zero ou poucos             | Muitos: alguém está chamando o webhook por fora                                |
 
 ```bash
 # Os eventos de segurança das últimas 24 h, com o IP (nunca há senha, e-mail ou código no log)
@@ -469,6 +470,12 @@ sudo -u fintrack fintrack-compose logs --since 24h --no-log-prefix web \
 sudo -u fintrack fintrack-compose logs --since 24h --no-log-prefix web \
   | jq -rR 'fromjson? | select(.event == "auth.failed") | .ip' | sort | uniq -c | sort -rn | head
 ```
+
+`auth.password_check_unavailable` seguidos: ninguém consegue criar conta, trocar ou redefinir a
+senha até o servidor voltar a falar com o HIBP. Confira de dentro do container:
+`sudo -u fintrack fintrack-compose exec web node -e "fetch('https://api.pwnedpasswords.com/range/21BD1',{signal:AbortSignal.timeout(3000)}).then(r=>console.log(r.status)).catch(e=>console.log(e.name))"`.
+`200` = o serviço voltou; `TimeoutError` ou `TypeError` = rede ou DNS do servidor (o túnel não
+importa aqui: é tráfego de saída). Status do serviço: https://haveibeenpwned.com.
 
 Tentativas em sequência de um IP que não é seu: o limite de tentativas já barra (5 por minuto no
 login e no 2FA), e sem o código do 2FA a senha sozinha não entra. Se continuar por horas, troque a

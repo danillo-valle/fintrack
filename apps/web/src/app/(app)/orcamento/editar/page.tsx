@@ -19,7 +19,7 @@ export default async function BudgetEditPage({ searchParams }: PageProps<"/orcam
   if (!editor) {
     return (
       <>
-        <PageHeader title="Editar valores" />
+        <PageHeader help="orcamento" title="Editar valores" />
         <EmptyState
           icon={PiggyBank}
           title="Nenhum ambiente para editar"
@@ -37,6 +37,7 @@ export default async function BudgetEditPage({ searchParams }: PageProps<"/orcam
   return (
     <>
       <PageHeader
+        help="orcamento"
         title="Editar valores"
         description={`No ambiente ${editor.walletName} · ${editor.monthLabel}`}
       />

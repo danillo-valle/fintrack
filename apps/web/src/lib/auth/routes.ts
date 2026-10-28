@@ -9,6 +9,8 @@ export const AUTH_PAGES = [
   "/verifique-seu-email",
   "/esqueci-a-senha",
   "/redefinir-senha",
+  // M12.3a: a parte pública da Ajuda (o passo a passo do primeiro acesso)
+  "/primeiro-acesso",
 ] as const;
 
 /** Prefixos que nunca exigem sessão: a API do Better Auth, o health check e arquivos do app. */

@@ -26,6 +26,7 @@ export default async function BotSettingsPage() {
   const page = await getBotSettings(session, now);
   const header = (
     <PageHeader
+      help="bot-vincular"
       crumb={{ href: "/ajustes", label: "Ajustes" }}
       title="Bot de lançamento"
       description="Lance um gasto mandando uma mensagem pelo WhatsApp ou pelo Telegram. Ele chega como provisório e só vale depois do seu Confirmar."

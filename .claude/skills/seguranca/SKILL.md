@@ -40,10 +40,15 @@ seção "Segurança".
 7. **SQL só parametrizado**: `$queryRaw` com template ou `Prisma.sql`. O ESLint recusa
    `$queryRawUnsafe`, `$executeRawUnsafe` e `Prisma.raw` (`RAW_SQL_RESTRICTIONS` em
    `packages/config/eslint.mjs`, na mesma regra da trava de dinheiro: uma lista só).
-8. **CI**: ação nova do GitHub entra presa pelo commit, com a versão no comentário
+8. **CodeQL** (configuração padrão do GitHub, sem arquivo no repositório): alerta barra o PR.
+   Corrija o código. Falso positivo só é dispensado (`gh api -X PATCH .../code-scanning/alerts/N`,
+   `dismissed_reason` e `dismissed_comment` com o motivo) com a linha na tabela "Exceções do
+   CodeQL" do documento e um comentário no código. Em teste, tire o padrão (valor escrito à mão)
+   em vez de dispensar. Nunca desligue a regra nem a análise.
+9. **CI**: ação nova do GitHub entra presa pelo commit, com a versão no comentário
    (`uses: dono/acao@<sha40> # vX.Y.Z`); o Dependabot propõe as versões novas.
-9. **Erro**: falha fechada (dúvida no crachá = 404; webhook responde igual para tudo); a tela de
-   erro mostra o código do log (o `digest`), nunca a mensagem ou a pilha do erro.
+10. **Erro**: falha fechada (dúvida no crachá = 404; webhook responde igual para tudo); a tela de
+    erro mostra o código do log (o `digest`), nunca a mensagem ou a pilha do erro.
 
 ## Conferir
 

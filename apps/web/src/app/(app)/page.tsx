@@ -44,6 +44,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
     return (
       <>
         <PageHeader
+          help="inicio"
           title="Início"
           description={`Olá, ${session.user.name.split(" ")[0] ?? session.user.name}. Como estamos este mês.`}
         />
@@ -72,6 +73,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
   return (
     <>
       <PageHeader
+        help="inicio"
         title="Início"
         description={`${home.todayLabel.charAt(0).toUpperCase()}${home.todayLabel.slice(1)} · dia ${home.elapsedDays} de ${home.monthDays}`}
         actions={<NewTransactionButton />}

@@ -175,6 +175,9 @@ Veja [Pendências](#pendências).
 - **HTTPS** de ponta a ponta até a Cloudflare; HSTS de 1 ano; `upgrade-insecure-requests` na CSP.
 - **Senhas** com o hash do Better Auth (scrypt), nunca guardadas nem logadas; política do NIST
   (mínimo 8, frases longas, senhas vazadas recusadas).
+- **Senha vazada conferida sem sair do servidor** (novo no M12.3a): o SHA-1 que o protocolo do
+  HIBP pede é calculado na memória, nunca gravado nem logado, e só os 5 primeiros caracteres saem
+  (`apps/web/src/lib/auth/leaked-password.ts`). Veja "Exceções do CodeQL" abaixo.
 - **Segredos guardados cifrados**: o Client Secret do Meu Pluggy com AES-256-GCM, a versão da
   chave no primeiro byte e o id da conexão como dado associado
   (`packages/db/src/connection-secret.ts`); rotação pela chave nova na frente.
@@ -192,6 +195,16 @@ Veja [Pendências](#pendências).
 (**novo no M12.1**: os atributos do cookie com as opções de verdade do `auth.ts`, em HTTP e em
 HTTPS); `apps/web/e2e/cabecalhos.spec.ts`, bloco "cookie da sessão" (o `Set-Cookie` real do
 login).
+
+**Exceções do CodeQL** (alerta dispensado no GitHub, com o comentário; cada uma aqui, com a prova).
+
+| Alerta                                                       | Onde                                                               | Por que não é falha                                                                                                                                                                                                                                                                         | Prova                                                                                                                                                                             |
+| ------------------------------------------------------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `js/insufficient-password-hash` (alto), dispensado no M12.3a | `apps/web/src/lib/auth/leaked-password.ts`, o `createHash("sha1")` | O SHA-1 é o protocolo do Pwned Passwords (k-anonimato), não o jeito de guardar: fica na memória, só os 5 primeiros caracteres saem, nada é gravado nem logado. A senha guardada usa o scrypt do Better Auth. O plugin antigo fazia o mesmo dentro do `node_modules`, onde o CodeQL não olha | `leaked-password.test.ts`: o exemplo publicado do HIBP com o SHA-1 escrito à mão, a URL só com o prefixo e o log sem o prefixo; o teste não calcula hash de senha (nenhum alerta) |
+
+Uma exceção nova do CodeQL segue a mesma regra das do OSV e do ZAP: o motivo, a prova e a linha
+nesta tabela no mesmo PR. Alerta em código de teste se resolve tirando o padrão do teste (valor
+escrito à mão), não dispensando.
 
 ## A05 Injeção
 
@@ -253,6 +266,13 @@ link de recuperação de 1 hora e uso único; sessão de 7 dias sem uso; reauten
 minutos para o que é sensível; Google só entra numa conta que já existe.
 
 **Novo no M12.1.** As tentativas recusadas passam a ficar no log (veja A09).
+
+**Novo no M12.3a (ADR-022).** A consulta de senhas vazadas tem tempo limite de 3 segundos
+(`apps/web/src/lib/auth/leaked-password.ts`, no lugar do plugin do Better Auth, que esperava sem
+limite). Sem resposta, a senha é recusada (`PASSWORD_CHECK_UNAVAILABLE`, "tente de novo"): a regra
+continua "senha nova só passa conferida". Só os 5 primeiros caracteres do SHA-1 saem do servidor, e
+o log guarda só o evento `auth.password_check_unavailable`. Provas: `leaked-password.test.ts` (com
+o tempo limite tirado, os dois testes de "sem resposta" ficam parados até o limite do teste).
 
 **Pendência.** Não há aviso por e-mail de "novo acesso" num aparelho novo.
 

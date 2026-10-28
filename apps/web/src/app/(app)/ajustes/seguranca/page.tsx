@@ -41,7 +41,11 @@ export default async function SecurityPage() {
 
   return (
     <>
-      <PageHeader title="Segurança" description="Como você entra e onde a sua conta está aberta" />
+      <PageHeader
+        help="seguranca"
+        title="Segurança"
+        description="Como você entra e onde a sua conta está aberta"
+      />
       <div className="flex max-w-2xl flex-col gap-6">
         <Section
           id="senha"

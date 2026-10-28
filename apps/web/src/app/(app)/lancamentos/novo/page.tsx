@@ -20,7 +20,11 @@ export default async function NewTransactionPage() {
 
   return (
     <>
-      <PageHeader title="Novo lançamento" description="Leva menos de 10 segundos" />
+      <PageHeader
+        help="lancar-um-gasto"
+        title="Novo lançamento"
+        description="Leva menos de 10 segundos"
+      />
       {ready ? (
         <>
           <TransactionForm options={options} />

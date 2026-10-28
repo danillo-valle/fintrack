@@ -11,6 +11,7 @@ import {
   setCardSharedPurchases,
 } from "@fintrack/db";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requestContext, requireWalletAccess, runAction, type ActionState } from "@/lib/access";
 import { requireUser } from "@/lib/auth/session";
 import { financeChanged } from "@/lib/finance-cache";
@@ -28,6 +29,11 @@ function invalid(error: { issues: { message: string }[] }): ActionState {
   return { error: error.issues[0]?.message ?? "Confira o que foi digitado.", success: null };
 }
 
+/**
+ * Nova conta (M07; em modal desde o M12.3a, prancha J-NovaConta). Deu certo: volta para a lista
+ * com ?criada=<id>, que mostra o aviso no topo e marca a conta (o aviso no fim do formulário
+ * passava despercebido e a mesma conta era criada de novo).
+ */
 export async function createAccountAction(
   _prev: ActionState,
   formData: FormData,
@@ -36,15 +42,16 @@ export async function createAccountAction(
   const parsed = accountSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return invalid(parsed.error);
   const { walletId, ...input } = parsed.data;
+  let created: string | null = null;
   const result = await runAction(async () => {
     const grant = await requireWalletAccess(session, walletId, "manage_accounts");
-    await createAccount(prisma, grant, input, await requestContext());
-    return `Conta "${input.name}" criada.`;
+    created = (await createAccount(prisma, grant, input, await requestContext())).id;
   });
-  if (!result.error) await financeChanged(session);
+  if (result.error || !created) return result;
+  await financeChanged(session);
   revalidatePath(PAGE);
   revalidatePath(`${PAGE}/[accountId]`, "page");
-  return result;
+  redirect(`${PAGE}?criada=${created}`);
 }
 
 export async function setAccountArchivedAction(
@@ -72,6 +79,11 @@ export async function setAccountArchivedAction(
   return result;
 }
 
+/**
+ * Adicionar cartão (M07; em modal desde o M12.3a, prancha J-AdicionarCartao). Deu certo: volta
+ * para a lista (?cartao=<id>) ou para a página da conta (?movidos=N), conforme de onde veio. Os
+ * recebidos do banco com este final que esperavam o cadastro (M09.2) vão para ele.
+ */
 export async function createCardAction(
   _prev: ActionState,
   formData: FormData,
@@ -79,7 +91,8 @@ export async function createCardAction(
   const session = await requireUser();
   const parsed = cardSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return invalid(parsed.error);
-  const { walletId, accountId, holderId, ...input } = parsed.data;
+  const { walletId, accountId, holderId, volta, ...input } = parsed.data;
+  let created: { id: string; rerouted: number } | null = null;
   const result = await runAction(async () => {
     const grant = await requireWalletAccess(session, walletId, "manage_accounts");
     const card = await createCard(
@@ -89,19 +102,18 @@ export async function createCardAction(
       { ...input, holderId: holderId || null },
       await requestContext(),
     );
-    // M09.2: recebidos do banco com este final já estavam esperando o cadastro
-    const moved =
-      card.rerouted === 0
-        ? ""
-        : card.rerouted === 1
-          ? " 1 recebido do banco foi para ele."
-          : ` ${card.rerouted} recebidos do banco foram para ele.`;
-    return `Cartão "${input.nickname}" cadastrado.${moved}`;
+    created = { id: card.id, rerouted: card.rerouted };
   });
-  if (!result.error) await financeChanged(session);
+  if (result.error || !created) return result;
+  const { id, rerouted } = created;
+  await financeChanged(session);
   revalidatePath(PAGE);
   revalidatePath(`${PAGE}/[accountId]`, "page");
-  return result;
+  redirect(
+    volta === "conta"
+      ? `${PAGE}/${accountId}?movidos=${rerouted}`
+      : `${PAGE}?cartao=${id}&movidos=${rerouted}`,
+  );
 }
 
 export async function setCardArchivedAction(

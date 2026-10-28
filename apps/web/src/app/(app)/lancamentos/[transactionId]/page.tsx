@@ -30,6 +30,7 @@ export default async function TransactionPage({
   return (
     <>
       <PageHeader
+        help="lancamentos"
         title={t.description}
         description={`${formatDate(new Date(`${t.occurredOn}T12:00:00Z`))} · ${t.wallet.name}`}
       />

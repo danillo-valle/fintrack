@@ -68,6 +68,7 @@ export default async function CardPage({ params }: PageProps<"/carteiras/conta/[
         </Link>
       </nav>
       <PageHeader
+        help="meu-pluggy"
         title={title}
         description={`${account.institution ?? "Banco"} · ambiente ${page.wallet.name}`}
         actions={

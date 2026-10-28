@@ -29,3 +29,4 @@ Modelo para um ADR novo: copie `0001-stack-e-monorepo.md` e troque o conteúdo.
 | 019 | [O Telegram como segundo canal do bot](0019-bot-telegram.md)                                           | aceita |
 | 020 | [Segurança contínua: OWASP Top 10:2025, ZAP e OSV no CI](0020-seguranca-continua.md)                   | aceita |
 | 021 | [E2E em escala: o build de produção em 3 partes no CI](0021-e2e-em-escala.md)                          | aceita |
+| 022 | [A Ajuda no app e o HIBP com tempo limite](0022-ajuda-no-app.md)                                       | aceita |

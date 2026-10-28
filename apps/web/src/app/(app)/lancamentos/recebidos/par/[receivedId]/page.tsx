@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getPairPage } from "@/features/bank/server/review";
-import { StepFooter } from "@/features/bank/ui/form-footer";
+import { StepFooter } from "@/components/feedback/step-footer";
 import { PairDialogBody, pairSubtitle } from "@/features/bank/ui/review/pair-dialog-body";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/feedback/empty-state";
@@ -24,6 +24,7 @@ export default async function PairPage({
   return (
     <>
       <PageHeader
+        help="recebidos"
         crumb={{ href: "/lancamentos/recebidos", label: "Recebidos do banco" }}
         title="Confirmar o par"
         description={preview ? pairSubtitle(preview) : undefined}

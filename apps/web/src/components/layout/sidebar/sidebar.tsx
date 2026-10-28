@@ -1,3 +1,4 @@
+import { CircleHelp } from "lucide-react";
 import { Brand } from "../brand";
 import { NAV_ITEMS } from "../nav-items";
 import { ThemeToggle } from "../theme-toggle";
@@ -32,7 +33,15 @@ export function Sidebar() {
           ))}
         </ul>
       </nav>
-      <div className="collapsed:w-full mt-auto">
+      {/* A Ajuda (M12.3a, prancha J-Ajuda): no fim, separada da navegação principal */}
+      <div className="collapsed:w-full mt-auto flex flex-col gap-3">
+        <nav aria-label="Ajuda" className="border-sidebar-border border-t pt-3">
+          <SidebarNavItem
+            href="/ajuda"
+            label="Ajuda"
+            icon={<CircleHelp aria-hidden className="size-5 shrink-0" />}
+          />
+        </nav>
         <ThemeToggle placement="sidebar" />
       </div>
       <SidebarHandle controls={ID} />

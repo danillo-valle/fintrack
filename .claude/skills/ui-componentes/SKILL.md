@@ -31,7 +31,9 @@ description: Como construir telas e componentes no FinTrack com shadcn/ui, Tailw
 | Formulário por cima da página          | `<RouteModal title description footer>` numa rota `@modal/(.)rota` | `src/components/ui/route-modal.tsx` (exemplo: novo lançamento)          |
 | Formulário de lançamento               | `EntryProvider` + `EntryForm` + `EntrySubmit`/`EntryModalActions`  | `src/features/transactions/ui/entry/`                                   |
 | Erro                                   | `<ErrorState onRetry />` ou `error.tsx` da rota                    | `src/components/feedback/error-state.tsx`                               |
-| Título da página                       | `<PageHeader title description actions />`                         | `src/components/layout/page-header.tsx`                                 |
+| Título da página                       | `<PageHeader title description actions help />`                    | `src/components/layout/page-header.tsx`                                 |
+| O "?" da tela (Ajuda, M12.3a)          | `help="<artigo>"` no `PageHeader` (obrigatório; `null` na Ajuda)   | `src/features/help/content.ts`                                          |
+| Rodapé de formulário em modal          | `<StepFooter formId submitLabel backLabel backHref closesModal />` | `src/components/feedback/step-footer.tsx`                               |
 | Excluir                                | Sem "tem certeza?": exclua e ofereça "Desfazer" com `undoToast`    | `src/components/feedback/undo-toast.ts` (exemplo em `dev/ui/demos.tsx`) |
 | Mover o foco depois de um aviso        | `focusAfterToast(() => elemento)`                                  | `src/lib/focus.ts`                                                      |
 
@@ -138,6 +140,16 @@ Regras do padrão:
 
 - Ação que pode ser desfeita: `undoToast(mensagem, { onUndo })`. Ele já usa 10 s e a dica "Alt+T leva aos avisos e pausa o tempo" (critério 2.2.1).
 - Textos em português, inclusive os que só o leitor de tela lê (os rótulos do `Toaster` estão em `src/components/providers.tsx`).
+
+## Ajuda (M12.3a, ADR-022)
+
+- Toda tela tem um artigo em `features/help/content.ts`; o `PageHeader` exige `help` (o tipo não
+  deixa esquecer). Tela nova: escreva o artigo (ou acrescente a tela a um que já existe) no mesmo PR.
+- Mudou um botão, um texto de tela ou um fluxo: o artigo que fala dele muda junto. Os nomes dos
+  botões no artigo são os da tela, entre `**`.
+- Criar algo em modal (Nova conta, Adicionar cartão): a action volta para a lista com um parâmetro
+  (`?criada=`) e o aviso vem no TOPO da tela, com a linha nova marcada. Aviso no fim de um
+  formulário longo passa despercebido.
 
 ## Antes de concluir
 

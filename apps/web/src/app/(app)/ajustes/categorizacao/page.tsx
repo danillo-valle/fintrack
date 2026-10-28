@@ -24,7 +24,11 @@ export default async function CategorizationSettingsPage() {
   if (!page) {
     return (
       <>
-        <PageHeader crumb={{ href: "/ajustes", label: "Ajustes" }} title="Categorização" />
+        <PageHeader
+          help="por-que-essa-categoria"
+          crumb={{ href: "/ajustes", label: "Ajustes" }}
+          title="Categorização"
+        />
         <EmptyState
           icon={Sparkles}
           title="Você ainda não tem um lar"
@@ -36,6 +40,7 @@ export default async function CategorizationSettingsPage() {
   return (
     <>
       <PageHeader
+        help="por-que-essa-categoria"
         crumb={{ href: "/ajustes", label: "Ajustes" }}
         title="Categorização"
         description="Quem sugere a categoria de cada lançamento, na ordem em que tenta"

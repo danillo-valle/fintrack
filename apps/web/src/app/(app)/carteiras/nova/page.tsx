@@ -16,7 +16,11 @@ export default async function NewWalletPage() {
 
   return (
     <>
-      <PageHeader title="Nova carteira compartilhada" description="Você será dono desta carteira" />
+      <PageHeader
+        help="lar-e-carteiras"
+        title="Nova carteira compartilhada"
+        description="Você será dono desta carteira"
+      />
       {page ? (
         <CreateWalletForm
           others={page.others.map((m) => ({ userId: m.userId, name: m.user.name }))}
