@@ -10,11 +10,12 @@ source "$(dirname "$(readlink -f "$0")")/lib.sh"
 section() { printf '\n\033[1m%s\033[0m\n' "$1"; }
 
 # Quantas vezes cada evento de segurança apareceu no log do app nas últimas 24 h (M12.1, OWASP
-# A09). O que cada um significa e quando agir: runbook, seção "Eventos de segurança".
+# A09; a conferência de senhas sem resposta desde o M12.3a). O que cada um significa e quando agir:
+# runbook, seção "Eventos de segurança".
 security_events() {
   local counts
   counts=$(compose logs --no-color --since 24h web 2>/dev/null \
-    | grep -oE '"event":"(auth\.(failed|rate_limited|origin_rejected)|access\.denied|webhook\.rejected)"' \
+    | grep -oE '"event":"(auth\.(failed|rate_limited|origin_rejected|password_check_unavailable)|access\.denied|webhook\.rejected)"' \
     | sed -e 's/"event":"//' -e 's/"$//' | sort | uniq -c | sort -rn)
   if [ -n "$counts" ]; then
     printf '%s\n' "$counts" | sed 's/^ */  /'

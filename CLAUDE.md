@@ -68,6 +68,11 @@ Projeto de portfólio construído em módulos (M00 a M12); cada módulo é uma m
   `apps/web/e2e/production-server.ts`) em 3 partes, o job `e2e-dev` para os testes `@dev` e o relatório
   juntado com o trace de cada falha; `partialPrefetching: true`; axe em todas as telas; capturas do
   README em `docs/capturas/` (`pnpm capturas`, com o seed)
+- Ajuda no app (M12.3a, ADR-022): `/ajuda` (tópicos e busca por GET) e `/ajuda/[slug]`, só com sessão; o
+  conteúdo em `apps/web/src/features/help/content.ts`; o "?" de cada tela pelo `help` obrigatório do
+  `PageHeader` (abre em modal); `/primeiro-acesso` público. Contas e cartões com "Nova conta" e "Adicionar
+  cartão" em modal e o aviso no topo. Senhas vazadas (HIBP) com tempo limite de 3 s, recusando sem resposta
+  (`lib/auth/leaked-password.ts`)
 
 Regras específicas do Next.js 16: @apps/web/AGENTS.md
 
@@ -150,6 +155,7 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
   `apps/web/src/lib/telegram/` o protocolo e o canal do Telegram; `apps/web/src/lib/bot/` as chaves e o erro de canal;
   `apps/web/src/lib/jobs.ts` o pg-boss e todas as filas do app; `packages/db/src/bot.ts` e
   `packages/core/src/bot{,-parse}.ts` as regras
+- `apps/web/src/features/help/` a Ajuda (M12.3a): `content.ts` (os artigos), `search.ts` (a busca) e `ui/`
 - `docs/permissoes.md` quem pode fazer o quê (conferido por teste)
 - `docs/modelo-de-dados.md` diagrama das tabelas (conferido por teste)
 - `apps/web/e2e/` testes Playwright
@@ -197,7 +203,10 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
   mesmo valor (E2E). Toda action que muda dinheiro chama `financeChanged` (cache das somas, ADR-010).
 - Para qualquer trabalho de interface, siga a skill `ui-componentes` (visual "Elétrico", ADR-008: vidro só
   na moldura, contraste conferido pelo `theme-contrast.test.ts`, novo lançamento em modal de rota).
-  A referência visual é o canvas "FinTrack Visual" (linhas C.2 a G): tela nova é desenhada lá antes do código.
+  A referência visual é o canvas "FinTrack Visual" (linhas C.2 a J): tela nova é desenhada lá antes do código.
+- Toda tela tem a sua parte na Ajuda: o `PageHeader` exige `help` (um artigo de `features/help/content.ts`,
+  ou `null` só na própria Ajuda, em Ajustes, que lista a Ajuda, e no catálogo). Mudou uma tela, um botão ou um
+  fluxo? O artigo muda no mesmo PR.
 - Mudança nova entra como estrutura, não como remendo: peça visual repetida vira componente em
   `components/visual/`, peça de domínio fica em `features/<nome>/ui/`, regra de negócio vai para
   `packages/core` (com teste). Se a peça nova muda quem a chama, atualize toda a cadeia de chamadas.

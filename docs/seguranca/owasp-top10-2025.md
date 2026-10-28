@@ -254,6 +254,13 @@ minutos para o que é sensível; Google só entra numa conta que já existe.
 
 **Novo no M12.1.** As tentativas recusadas passam a ficar no log (veja A09).
 
+**Novo no M12.3a (ADR-022).** A consulta de senhas vazadas tem tempo limite de 3 segundos
+(`apps/web/src/lib/auth/leaked-password.ts`, no lugar do plugin do Better Auth, que esperava sem
+limite). Sem resposta, a senha é recusada (`PASSWORD_CHECK_UNAVAILABLE`, "tente de novo"): a regra
+continua "senha nova só passa conferida". Só os 5 primeiros caracteres do SHA-1 saem do servidor, e
+o log guarda só o evento `auth.password_check_unavailable`. Provas: `leaked-password.test.ts` (com
+o tempo limite tirado, os dois testes de "sem resposta" ficam parados até o limite do teste).
+
 **Pendência.** Não há aviso por e-mail de "novo acesso" num aparelho novo.
 
 ## A08 Falhas de integridade de software e de dados
