@@ -1,0 +1,31 @@
+{
+  "name": "@fintrack/flow-map",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint --max-warnings=0",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vitest run",
+    "generate": "tsx src/cli.ts",
+    "site": "tsx src/site/build.ts",
+    "site:serve": "tsx src/site/serve.ts",
+    "test:site": "playwright test"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@fintrack/config": "workspace:*",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^24.19.0",
+    "esbuild": "0.28.2",
+    "eslint": "^9.39.5",
+    "geist": "^1.8.2",
+    "mermaid": "^12.2.0",
+    "tsx": "4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.5"
+  }
+}
