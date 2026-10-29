@@ -16,10 +16,10 @@
     "test:site": "playwright test"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.13.0",
+    "@axe-core/playwright": "^4.14.0",
     "@fintrack/config": "workspace:*",
-    "@playwright/test": "^1.63.0",
-    "@types/node": "^24.19.0",
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^24.19.2",
     "esbuild": "0.28.2",
     "eslint": "^9.39.5",
     "geist": "^1.8.2",
