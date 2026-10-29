@@ -173,12 +173,28 @@ def candidatos(modelos: dict[str, Modelo], descricao: str, tipo: str) -> list[di
     ]
 
 
+def chave_do_modelo(nome: str) -> uuid.UUID:
+    """O id da carteira (uuid na forma canônica), já como UUID.
+
+    O nome do arquivo do modelo sai deste UUID, nunca do texto que chegou: nada de caminho vindo de
+    fora (CodeQL py/path-injection). Qualquer outra forma (maiúsculas à parte) é recusada.
+    """
+    try:
+        chave = uuid.UUID(nome)
+    except (ValueError, TypeError, AttributeError):
+        raise ClassificadorErro("CLASSIFIER_BAD_MODEL_ID") from None
+    if len(nome) != 36 or str(chave) != nome.lower():
+        raise ClassificadorErro("CLASSIFIER_BAD_MODEL_ID")
+    return chave
+
+
 def nome_valido(nome: str) -> bool:
     """O nome do modelo é o id da carteira (uuid): nada de caminho vindo de fora."""
     try:
-        return str(uuid.UUID(nome)) == nome.lower() and len(nome) == 36
-    except ValueError:
+        chave_do_modelo(nome)
+    except ClassificadorErro:
         return False
+    return True
 
 
 class Armazem:
@@ -190,43 +206,45 @@ class Armazem:
 
     def __init__(self, pasta: Path):
         self.pasta = pasta
-        self._memoria: dict[str, tuple[float, Modelo]] = {}
+        self._memoria: dict[uuid.UUID, tuple[float, Modelo]] = {}
         self._trava = threading.Lock()
 
-    def _arquivo(self, nome: str) -> Path:
-        if not nome_valido(nome):
-            raise ClassificadorErro("CLASSIFIER_BAD_MODEL_ID")
-        return self.pasta / f"{nome.lower()}.joblib"
+    def _arquivo(self, chave: uuid.UUID) -> Path:
+        # O nome sai do UUID (32 dígitos hexadecimais e hífens), então fica sempre dentro da pasta
+        return self.pasta / f"{chave}.joblib"
 
     def gravar(self, nome: str, modelo: Modelo) -> None:
-        destino = self._arquivo(nome)
+        chave = chave_do_modelo(nome)
+        destino = self._arquivo(chave)
         self.pasta.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile(dir=self.pasta, suffix=".tmp", delete=False) as tmp:
             joblib.dump(modelo, tmp)
         os.replace(tmp.name, destino)
         with self._trava:
-            self._memoria.pop(nome.lower(), None)
+            self._memoria.pop(chave, None)
 
     def apagar(self, nome: str) -> None:
-        self._arquivo(nome).unlink(missing_ok=True)
+        chave = chave_do_modelo(nome)
+        self._arquivo(chave).unlink(missing_ok=True)
         with self._trava:
-            self._memoria.pop(nome.lower(), None)
+            self._memoria.pop(chave, None)
 
     def ler(self, nome: str) -> Modelo | None:
-        arquivo = self._arquivo(nome)
+        chave = chave_do_modelo(nome)
+        arquivo = self._arquivo(chave)
         try:
             quando = arquivo.stat().st_mtime
         except FileNotFoundError:
             return None
         with self._trava:
-            guardado = self._memoria.get(nome.lower())
+            guardado = self._memoria.get(chave)
             if guardado and guardado[0] == quando:
                 return guardado[1]
         modelo = joblib.load(arquivo)
         if not isinstance(modelo, Modelo) or modelo.versao != VERSAO:
             return None
         with self._trava:
-            self._memoria[nome.lower()] = (quando, modelo)
+            self._memoria[chave] = (quando, modelo)
         return modelo
 
 

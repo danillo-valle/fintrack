@@ -44,7 +44,10 @@ seção "Segurança".
    Corrija o código. Falso positivo só é dispensado (`gh api -X PATCH .../code-scanning/alerts/N`,
    `dismissed_reason` e `dismissed_comment` com o motivo) com a linha na tabela "Exceções do
    CodeQL" do documento e um comentário no código. Em teste, tire o padrão (valor escrito à mão)
-   em vez de dispensar. Nunca desligue a regra nem a análise.
+   em vez de dispensar. Nunca desligue a regra nem a análise. Alerta aberto na `main` conta como o
+   do PR: o check de cada módulo exige `code-scanning/alerts?ref=refs/heads/main&state=open` vazio.
+   Caminho de arquivo nunca sai do texto que chegou: sai do valor já lido e conferido (o UUID do
+   `services/ml`, `chave_do_modelo`).
 9. **CI**: ação nova do GitHub entra presa pelo commit, com a versão no comentário
    (`uses: dono/acao@<sha40> # vX.Y.Z`); o Dependabot propõe as versões novas.
 10. **Erro**: falha fechada (dúvida no crachá = 404; webhook responde igual para tudo); a tela de

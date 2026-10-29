@@ -145,6 +145,12 @@ publicado no npm, uma ação do GitHub trocada, uma imagem adulterada.
 - **Dependabot**: npm, ações do GitHub e, desde o M12.1, o serviço Python (`uv`) e as imagens dos
   compose (Postgres, Caddy, cloudflared, Mailpit).
 - **gitleaks** em todo o histórico e **CodeQL** em todo PR.
+- **CodeQL também na main (M12.3b)**: o alerta de um PR aparece no PR, mas o que ficou aberto na
+  `main` ninguém via. O check do módulo passou a exigir nenhum alerta aberto na `main`, e isso
+  achou o `py/path-injection` (alto) aberto desde o M10.1 no armazém de modelos do `services/ml`
+  (`DELETE /v1/classificador/{modelo}`). O nome já era conferido como UUID antes de virar
+  caminho, então não havia como sair da pasta; mesmo assim o arquivo passou a ser nomeado pelo
+  UUID já lido (`chave_do_modelo`), não pelo texto que chegou, com teste provado por mutação.
 
 **O que a revisão achou e corrigiu.** Ao preparar o OSV-Scanner, a base mostrou o que já estava no
 ar e ninguém tinha visto:
