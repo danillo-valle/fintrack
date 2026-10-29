@@ -4,7 +4,7 @@ import { routeMatches } from "../routes";
 import { MapIndex, screenKey } from "./client/index";
 import { sizeOf, withSize } from "./diagrams";
 import { esc } from "./html";
-import { HOSTILE, timed } from "../testing/timing";
+import { cost, HOSTILE, MAX_COST } from "../testing/timing";
 import { c4Sections, markdownBlocks } from "./markdown";
 
 const fn = (id: string, extra: Partial<ServerFunction> = {}): ServerFunction => ({
@@ -137,8 +137,12 @@ describe("o markdown do c4.md", () => {
   });
 
   it("não fica lento com um texto estranho (CodeQL js/polynomial-redos)", () => {
-    for (const text of ["[".repeat(HOSTILE), "](https://".repeat(HOSTILE), "**`".repeat(HOSTILE)]) {
-      expect(timed(() => markdownBlocks(text))).toBeLessThan(300);
+    for (const piece of ["[", "](https://", "**`"]) {
+      const text = piece.repeat(HOSTILE);
+      expect(
+        cost(text, () => markdownBlocks(text)),
+        piece,
+      ).toBeLessThan(MAX_COST);
     }
   });
 
@@ -176,7 +180,7 @@ describe("o SVG do Mermaid como imagem", () => {
 
   it("não fica lento com uma tag estranha (CodeQL js/polynomial-redos)", () => {
     const tag = `<svg viewBox="0 0 1 1"${' width="100%"'.repeat(HOSTILE)}>`;
-    expect(timed(() => withSize(tag))).toBeLessThan(300);
+    expect(cost(tag, () => withSize(tag))).toBeLessThan(MAX_COST);
   });
 
   it("escapa aspas e sinais no HTML", () => {

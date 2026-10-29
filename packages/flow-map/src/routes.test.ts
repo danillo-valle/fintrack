@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isDynamicSegment, routeMatches, routeParams, segmentParam } from "./routes";
-import { HOSTILE, timed } from "./testing/timing";
+import { cost, HOSTILE, MAX_COST } from "./testing/timing";
 
 describe("os endereços do app, pedaço por pedaço", () => {
   it("lê os parâmetros: simples, pega-tudo e pega-tudo opcional", () => {
@@ -24,7 +24,8 @@ describe("os endereços do app, pedaço por pedaço", () => {
 
   it("não fica lento com um endereço estranho (muitos [ sem ], CodeQL js/polynomial-redos)", () => {
     const route = "/" + "[\\".repeat(HOSTILE);
-    expect(timed(() => routeParams(route))).toBeLessThan(300);
-    expect(timed(() => routeMatches(route, "/" + "[".repeat(HOSTILE)))).toBeLessThan(300);
+    const link = "/" + "[".repeat(HOSTILE);
+    expect(cost(route, () => routeParams(route))).toBeLessThan(MAX_COST);
+    expect(cost(route, () => routeMatches(route, link))).toBeLessThan(MAX_COST);
   });
 });
