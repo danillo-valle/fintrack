@@ -140,3 +140,13 @@ depois do backup das 03:30, e a tempo de a IA local (ADR-016) olhar a carga entr
 - **Recebido somando direto no painel**: mais rápido, mas compras duplicadas ou erradas iriam
   para o orçamento sem ninguém ver. A revisão vem primeiro.
 - **Guardar o Client Secret em texto**: um backup vazado entregaria o acesso ao banco.
+
+## Revisão do M12.3b (28/10/2026)
+
+**Continua valendo.** Provedor atrás de uma interface, credenciais cifradas, a fila `bank-sync`
+no pg-boss e os recebidos fora das somas.
+
+- O "a confirmar" do adicional do Itaú foi resolvido no M09.2 (ADR-012, decisão 7: o final que o
+  banco manda fica em `providerCardLastFour`).
+- O worker continua no mesmo processo do site; o mapa do fluxo (ADR-023) mostra as 6 filas e quem
+  põe trabalho em cada uma.

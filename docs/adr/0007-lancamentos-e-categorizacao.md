@@ -190,3 +190,13 @@ produção, a temperatura e o clock medidos em paralelo). Em vez do `llama-bench
 `timings` do próprio llama-server com o prompt real (leitura e geração em tokens/s). O
 "impacto na produção" usa o `/api/health` (que consulta o banco); diferença de menos de 5 ms no
 p95 conta como ruído. Os números e a decisão ficam no ADR-016.
+
+## Revisão do M12.3b (28/10/2026)
+
+**Continua valendo.** Crachás de conta, lançamento e escopo, filtros na URL, cursor, CSV com
+reautenticação e a cascata com interface única (hoje com 5 camadas, ADR-015 e ADR-016).
+
+- **Substituído pelo ADR-016:** a seção "LLM local" virou medição (M10.2a) e decisão (M10.2b).
+- **Em aberto:** a decisão 10 previa a fila gerando as recorrências todo dia 1º; isso não foi
+  feito, e "Lançar as deste mês" continua sendo um botão. A busca por texto ainda não ignora
+  acentos (`contains` com `insensitive`). As duas estão nas pendências do README.

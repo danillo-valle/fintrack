@@ -148,3 +148,8 @@ devolve o desafio, e um POST com assinatura forjada recebe 200 sem gravar nada.
    `nome_de_exibicao_sem_aprovacao`, e o runbook, a consulta do `health_status` e os passos do nome e do
    novo registro. Enquanto a Meta não aprova, as mensagens chegam e viram rascunho (confirmados pelo
    app); o Telegram entra como segundo canal no M12.0b.
+
+## Revisão do M12.3b (28/10/2026)
+
+**Continua valendo**, com os adendos do M11.2 e do M12.0. O webhook confere a assinatura antes
+de ler o corpo e responde igual para tudo; nenhum LLM no caminho do bot.

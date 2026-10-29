@@ -56,3 +56,13 @@ Decisões tomadas na revisão 2 do M02 e que faltavam neste registro:
    foco ao lugar certo depois que o aviso aparece, respeitando o `scroll-padding`.
 4. **Avisos com "Desfazer" duram 10 s** (`undoToast`), e `Alt+T` leva o foco aos avisos e pausa
    o tempo (`ToastKeyboard`); o próximo `Tab` volta à página pulando o aviso.
+
+## Revisão do M12.3b (28/10/2026)
+
+**Continua valendo, menos as cores.** shadcn/ui, dinheiro em centavos `bigint`, a entrada no
+estilo maquininha e o axe em todas as telas seguem iguais (o axe passou a cobrir TODAS as telas no
+M12.2, ADR-021).
+
+- **Substituído pelo ADR-008:** os tokens em OKLCH viraram hexadecimal, para o
+  `theme-contrast.test.ts` conferir cada par.
+- O Lighthouse ≥ 95 continua como roteiro manual (`scripts/lighthouse-a11y.sh`), fora do CI.

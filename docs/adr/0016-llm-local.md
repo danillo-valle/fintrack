@@ -148,3 +148,11 @@ servir, a IA pode **propor uma categoria nova**, com a categoria-mãe.
   tirada da lista. Os números entram aqui, num adendo, antes do interruptor ser ligado.
 - O visual da proposta e do "Criar e aplicar" é novo (fora da linha F aprovada): vai ao canvas
   para aprovação antes do código da tela.
+
+## Revisão do M12.3b (28/10/2026)
+
+**Continua valendo.** Qwen2.5 3B só de madrugada, rede interna, filtro antes do LLM, resposta
+presa por schema, nada aplicado sem a pessoa confirmar; desligada por padrão.
+
+- **Em aberto:** Dependabot × Renovate (o Dependabot não olha o modelo nem a imagem do
+  llama-server), nas pendências do README.

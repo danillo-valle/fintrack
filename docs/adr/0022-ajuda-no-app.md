@@ -68,3 +68,7 @@ Decidido pelo Danillo em 27/10/2026 (as recomendações), com o canvas linha J a
   índice é pequeno.
 - **HIBP: deixar passar quando não responde.** Descartada pelo Danillo: uma senha vazada poderia
   entrar exatamente quando o serviço estivesse fora.
+
+## Revisão do M12.3b (28/10/2026)
+
+**Continua valendo.** É a decisão mais nova antes desta revisão; nada mudou.

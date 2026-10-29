@@ -35,3 +35,12 @@ secundário é praticar a stack mais pedida em vagas de desenvolvimento no Brasi
 - Versões fixadas (Node no `.node-version`, pnpm no `packageManager`, Prisma 7) exigem
   revisão periódica; o Dependabot abre PRs semanais.
 - Migrar para o Prisma 8 vira um módulo de manutenção quando o Better Auth suportar.
+
+## Revisão do M12.3b (28/10/2026)
+
+**Continua valendo.** Next.js 16, monorepo pnpm + Turborepo, Prisma 7 fixado e a `main` só por PR
+com CI verde. O monorepo ganhou `services/ml` (Python, M09.4) e `packages/flow-map` (M12.3b) sem
+mudar a decisão.
+
+- O contexto falava em "duas pessoas": desde o ADR-004 o sistema serve a qualquer número de pessoas.
+- O Prisma 8 continua fora: o adaptador do Better Auth 1.7.7 ainda pede o Prisma Client do 7.

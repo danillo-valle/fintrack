@@ -156,3 +156,10 @@ eval), **M10.2** (LLM local assíncrono depois das medições, teto e interrupto
 - **Calibrar só com C menor (regularização)**: derrubou a cobertura no conjunto sintético (de
   88 % para 52 % com C = 5) e ainda dava 82 % a uma loja nova. A trava da evidência resolveu sem
   perder cobertura.
+
+## Revisão do M12.3b (28/10/2026)
+
+**Continua valendo.** As camadas, o modelo por carteira, o eval no CI (mínimo 85 %).
+
+- O cartão "IA local: ainda não existe (M10.2)" do item 17 virou o cartão de verdade no M10.2b
+  (ADR-016).

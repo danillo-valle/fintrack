@@ -77,3 +77,7 @@ Combinado com o Danillo antes do código (14/10/2026, canvas E.3 aprovado):
 - `serverActions.bodySizeLimit` sobe para 3 MB (o leitor recusa mais de 2 MB).
 - Evento de auditoria novo `file.imported`, só com ids e contagens.
 - O PDF da fatura (M09.4) entra pelo mesmo caminho: outro leitor, a mesma conferência (ADR-014).
+
+## Revisão do M12.3b (28/10/2026)
+
+**Continua valendo**, inteira. O PDF (ADR-014) entrou pelo mesmo caminho, como previsto.

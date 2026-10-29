@@ -4,6 +4,9 @@
 #   fintrack-restore-test                  usa o backup local mais novo
 #   fintrack-restore-test <arquivo>        usa um backup específico
 #   fintrack-restore-test --do-drive       baixa o mais novo do Google Drive (prova a cópia de fora)
+#   fintrack-restore-test <arquivo> --manter   deixa o banco temporário no ar, sem rede, para
+#                                              comparar com a produção num incidente
+#   fintrack-restore-test --apagar         apaga o banco temporário deixado pelo --manter
 #
 # Backup que nunca foi restaurado é só esperança. O teste:
 #   1. pede a chave PRIVADA do age (você cola; ela vai para a memória, nunca para o disco)
@@ -18,15 +21,38 @@ source "$(dirname "$(readlink -f "$0")")/lib.sh"
 
 CONTAINER="fintrack-restore-test"
 
+# Apaga o Postgres temporário E o volume dele (-v): sem o -v, o banco decifrado ficaria no disco
+# num volume órfão do Docker (a imagem do Postgres declara um volume para os dados).
+remove_container() {
+  docker rm -f -v "$CONTAINER" >/dev/null 2>&1 || true
+}
+
 main() {
-  local source="${1:-}" file key_file workdir
+  local source="" keep=0 arg file key_file workdir
+  for arg in "$@"; do
+    case "$arg" in
+      --manter) keep=1 ;;
+      --apagar)
+        remove_container
+        log "banco temporário apagado"
+        return 0
+        ;;
+      *) source="$arg" ;;
+    esac
+  done
   # Pasta temporária em memória (/dev/shm): a chave e o backup decifrado não tocam o disco
   workdir=$(mktemp -d /dev/shm/fintrack-restore.XXXXXX)
   chmod 700 "$workdir"
   # Limpeza no fim, aconteça o que acontecer. Aspas duplas: o caminho é gravado AGORA (a variável
   # local "workdir" já não existe quando o script termina e o trap roda)
-  # shellcheck disable=SC2064
-  trap "docker rm -f '$CONTAINER' >/dev/null 2>&1; rm -rf '$workdir'" EXIT
+  # Com --manter, só a pasta temporária some; o banco fica para o incidente (e sai no --apagar).
+  if [ "$keep" = 1 ]; then
+    # shellcheck disable=SC2064
+    trap "rm -rf '$workdir'" EXIT
+  else
+    # shellcheck disable=SC2064
+    trap "docker rm -f -v '$CONTAINER' >/dev/null 2>&1; rm -rf '$workdir'" EXIT
+  fi
 
   # 1. Qual backup
   if [ "$source" = "--do-drive" ]; then
@@ -60,7 +86,7 @@ main() {
 
   # 3. Postgres temporário, sem rede nenhuma (--network none)
   log "subindo um Postgres temporário"
-  docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+  remove_container
   docker run -d --name "$CONTAINER" --network none \
     -e POSTGRES_USER=fintrack -e POSTGRES_DB=fintrack \
     -e POSTGRES_PASSWORD="$(head -c 24 /dev/urandom | base64)" \
@@ -111,6 +137,11 @@ main() {
     "$(basename "$file")" "$migrations" "$users" "$transactions" "$elapsed" >> "$STATE_DIR/restauracoes.log"
   [ "$ok" = 1 ] || die "a restauração rodou, mas as conferências falharam (veja os números acima)"
   log "restauração OK: o backup volta a ser um banco completo"
+  if [ "$keep" = 1 ]; then
+    printf '\n  O banco temporário continua no ar, sem rede, para comparar (runbook de incidente):\n'
+    printf '    docker exec -it %s psql -U fintrack -d fintrack\n' "$CONTAINER"
+    printf '  Ao terminar, apague (ele tem os dados decifrados):\n    fintrack-restore-test --apagar\n\n'
+  fi
 }
 
 main "$@"

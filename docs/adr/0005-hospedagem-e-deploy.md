@@ -119,3 +119,13 @@ Opções pesquisadas em outubro de 2026 (preços mudam; confira antes de decidir
 - Better Auth 1.7.7, `advanced.ipAddress` (`@better-auth/core/dist/utils/ip.mjs`)
 - GitHub Docs, "Working with the Container registry" (visibilidade padrão privada)
 - Oracle Cloud, "Always Free Resources" (limites e recuperação de instâncias ociosas)
+
+## Revisão do M12.3b (28/10/2026)
+
+**Continua valendo.** Servidor de casa atrás do Cloudflare Tunnel, deploy puxado com volta
+automática, imagens no GHCR, backup cifrado com age e os monitores grátis.
+
+- **Substituído pelo ADR-020:** o item 8 (o `<style>` com `unsafe-inline`) já tinha a nota.
+- O Compose de produção ganhou o serviço `ml` (ADR-014) e o `llm` só de madrugada (ADR-016).
+- O `publicar` continua sem esperar o E2E da `main` (`needs: [qualidade, seguranca, imagem]`),
+  pelo mesmo motivo: a árvore é a mesma que passou no PR.

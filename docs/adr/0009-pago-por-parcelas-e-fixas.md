@@ -71,3 +71,9 @@ cartão, e o visual igual ao do canvas C.2.
   canvas. Um teste E2E confere os três tipos nessa tela.
 - Editar ou excluir uma compra parcelada inteira de uma vez fica para um módulo futuro; hoje cada
   parcela é um lançamento.
+
+## Revisão do M12.3b (28/10/2026)
+
+**Continua valendo.** "Pago por" calculado, parcelada e fixa como acréscimos.
+
+- **Em aberto:** editar ou excluir uma compra parcelada inteira de uma vez (pendências do README).

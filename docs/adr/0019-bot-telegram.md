@@ -75,3 +75,7 @@ Decidido pelo Danillo em 24/10/2026 (as recomendações), com a linha H do canva
   pessoa nos testes, no CI e no laboratório; nenhum teste fala com o Telegram.
 - Migração aditiva `*_canal_telegram`: a tabela `bot_telegram_link`, as colunas `bot_message.channel`,
   `bot_link_code.usedChannel` e as três de `bot_reply_count`, e quatro CHECKs.
+
+## Revisão do M12.3b (28/10/2026)
+
+**Continua valendo**, inteira. O Telegram é o segundo canal do mesmo bot.

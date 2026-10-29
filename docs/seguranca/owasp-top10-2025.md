@@ -99,6 +99,10 @@ detalhadas, portas abertas, permissões largas.
 
 **Como o FinTrack se protege.**
 
+- **O site do GitHub Pages (novo no M12.3b, ADR-023)** é estático e só tem nomes do código (telas,
+  funções, tabelas). Sem cabeçalhos no Pages, a CSP vai numa meta: só o próprio site
+  (`script-src 'self'`, nada inline, `base-uri` e `form-action` fechados); fontes servidas por ele.
+  O teste do job `site` falha com qualquer pedido para fora.
 - **Cabeçalhos** (`apps/web/src/lib/security-headers.ts`): CSP com nonce sorteado a cada pedido
   (`script-src` com `'strict-dynamic'`, sem `unsafe-inline` e, em produção, sem `unsafe-eval`),
   `frame-ancestors 'none'`, `object-src 'none'`, `base-uri 'none'`, `form-action 'self'`,
@@ -187,6 +191,11 @@ Veja [Pendências](#pendências).
   (`apps/web/src/lib/auth/ml-token.ts`), conferido pela chave pública (`services/ml/app/auth.py`).
 - **Backups cifrados com age** antes de sair do servidor (`deploy/bin/fintrack-backup`); o servidor
   só tem a chave pública.
+- **O backup decifrado não fica no disco** (corrigido no M12.3b): o teste de restauração
+  (`fintrack-restore-test`) decifra só na memória e num Postgres temporário sem rede, e agora apaga
+  o contêiner **com o volume** (`docker rm -f -v`). Antes, o `docker rm` sem `-v` deixava o banco
+  decifrado num volume órfão do Docker a cada teste mensal. O `--manter` (para um incidente) só
+  deixa o banco no ar até o `--apagar`.
 - **Segredos só no `/srv/fintrack/*.env`** (modo 600, gravados pelo `fintrack-definir`, valor
   escondido), nunca no Git, em log ou no navegador.
 - **Cookie da sessão**: `HttpOnly`, `SameSite=Lax`, e em HTTPS `Secure` com o prefixo `__Secure-`.
