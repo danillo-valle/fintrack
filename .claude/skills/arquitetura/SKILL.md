@@ -43,7 +43,9 @@ testes do pacote (no `pnpm check`) conferem que ele está em dia.
   (`routes.ts`), linha por linha ou por posição (`indexOf`). Regex só ancorada (`^…$`) e sobre
   um pedaço curto; nunca `/g` com repetição sem âncora nem `new RegExp` com nome do código. O
   CodeQL acusa (`js/polynomial-redos`, M12.3b) e cada leitor tem um teste "não fica lento" com
-  100 mil repetições (`testing/timing.ts`).
+  100 mil repetições (`testing/timing.ts`): o tempo é comparado com o de uma passada simples pelo
+  mesmo texto (`cost`, até 25×), nunca com um limite fixo de milissegundos, que estoura no CI
+  ocupado (revisão 4 do M12.3b).
 
 ## O C4 e o site
 

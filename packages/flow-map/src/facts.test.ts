@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { prismaModels, sqlTables } from "./facts";
 import { makeRepo } from "./testing/fixture";
-import { HOSTILE, timed } from "./testing/timing";
+import { cost, HOSTILE, MAX_COST } from "./testing/timing";
 
 describe("as tabelas do Prisma e do SQL escrito à mão", () => {
   const repo = makeRepo({
@@ -41,14 +41,14 @@ describe("as tabelas do Prisma e do SQL escrito à mão", () => {
   });
 
   it("não fica lento com um schema ou um SQL estranho (CodeQL js/polynomial-redos)", () => {
-    const hostile = makeRepo({
-      "packages/db/prisma/schema/a.prisma": "model A {\n".repeat(HOSTILE),
-    });
+    const schema = "model A {\n".repeat(HOSTILE);
+    const hostile = makeRepo({ "packages/db/prisma/schema/a.prisma": schema });
     try {
-      expect(timed(() => prismaModels(hostile.root))).toBeLessThan(300);
+      expect(cost(schema, () => prismaModels(hostile.root))).toBeLessThan(MAX_COST);
     } finally {
       hostile.cleanup();
     }
-    expect(timed(() => sqlTables(["FROM ".repeat(HOSTILE)]))).toBeLessThan(300);
+    const sql = "FROM ".repeat(HOSTILE);
+    expect(cost(sql, () => sqlTables([sql]))).toBeLessThan(MAX_COST);
   });
 });

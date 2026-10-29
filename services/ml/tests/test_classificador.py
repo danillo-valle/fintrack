@@ -62,8 +62,27 @@ def test_dois_modelos_a_maior_probabilidade_vence_e_diz_de_qual_carteira_veio():
 
 def test_nome_do_modelo_so_uuid():
     assert clf.nome_valido(CARTEIRA_A)
+    assert clf.nome_valido(CARTEIRA_A.upper())
+    sem_hifen = CARTEIRA_A.replace("-", "")
+    outras_formas = [f"{{{CARTEIRA_A}}}", f"urn:uuid:{CARTEIRA_A}", sem_hifen]
     for ruim in ["../etc/passwd", "a" * 36, CARTEIRA_A.upper() + "x", "", f"{CARTEIRA_A}/x"]:
         assert not clf.nome_valido(ruim)
+    for ruim in outras_formas:  # o uuid.UUID aceita, o nome do modelo não
+        assert not clf.nome_valido(ruim)
+
+
+def test_arquivo_do_modelo_sai_do_uuid_e_fica_na_pasta(tmp_path):
+    # O nome do arquivo vem do UUID já lido (CodeQL py/path-injection), não do texto que chegou:
+    # em maiúsculas, a mesma carteira cai no mesmo arquivo, sempre dentro da pasta
+    carteira = "5eed0000-aaaa-4bbb-8ccc-dddddddddddd"
+    pasta = tmp_path / "modelos"
+    armazem = clf.Armazem(pasta)
+    modelo = clf.treinar(exemplos(("mercado", MERCADO), ("posto", POSTO)))
+    armazem.gravar(carteira.upper(), modelo)
+    assert [p.name for p in pasta.iterdir()] == [f"{carteira}.joblib"]
+    assert armazem.ler(carteira).exemplos == 22
+    armazem.apagar(carteira.upper())
+    assert list(pasta.iterdir()) == []
 
 
 def test_armazem_grava_le_troca_e_apaga(tmp_path):
