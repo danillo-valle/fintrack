@@ -14,6 +14,7 @@ import {
   accessChain,
 } from "./facts";
 import type { Screen, SessionCheck } from "./model";
+import { routeParams } from "./routes";
 import { strongerSession } from "./server";
 import { moduleInfo, reachLocals } from "./symbols";
 
@@ -165,7 +166,7 @@ export function analyzeScreen(ctx: Context, appDir: string, file: string): Scree
     title: kind === "layout" ? fallbackTitle : (firstText(sf, "title") ?? fallbackTitle),
     area,
     help: firstText(sf, "help"),
-    params: [...route.matchAll(/\[(?:\.\.\.)?([^\]]+)\]/g)].map((m) => m[1] as string),
+    params: routeParams(route),
     searchParams: search.names,
     searchParamsTo: uniqSorted(
       search.passedTo

@@ -39,6 +39,11 @@ testes do pacote (no `pnpm check`) conferem que ele está em dia.
 - Constantes de texto (`PAGE`, `QUEUES.x.name`) são seguidas até o literal.
 - Mudou a regra de análise? Teste com o repositório de mentira (`analyze.test.ts`) antes, e prove
   por mutação que o teste pega o erro.
+- Texto lido (rota, schema, SQL, Markdown, SVG) passa uma vez só: pedaço por pedaço
+  (`routes.ts`), linha por linha ou por posição (`indexOf`). Regex só ancorada (`^…$`) e sobre
+  um pedaço curto; nunca `/g` com repetição sem âncora nem `new RegExp` com nome do código. O
+  CodeQL acusa (`js/polynomial-redos`, M12.3b) e cada leitor tem um teste "não fica lento" com
+  100 mil repetições (`testing/timing.ts`).
 
 ## O C4 e o site
 

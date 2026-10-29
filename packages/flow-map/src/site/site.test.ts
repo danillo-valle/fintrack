@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { FlowMap, Screen, ServerFunction } from "../model";
-import { MapIndex, routeMatches, screenKey } from "./client/index";
+import { routeMatches } from "../routes";
+import { MapIndex, screenKey } from "./client/index";
 import { sizeOf, withSize } from "./diagrams";
 import { esc } from "./html";
+import { HOSTILE, timed } from "../testing/timing";
 import { c4Sections, markdownBlocks } from "./markdown";
 
 const fn = (id: string, extra: Partial<ServerFunction> = {}): ServerFunction => ({
@@ -122,6 +124,24 @@ describe("o markdown do c4.md", () => {
     expect(markdownBlocks("[x](javascript:alert(1))")).not.toContain("<a ");
   });
 
+  it("lê como o Markdown: código sem negrito dentro, link sem espaço no endereço", () => {
+    expect(markdownBlocks("`a **b** c` e **[doc](https://x.dev) `d`**")).toBe(
+      '<p><code class="num">a **b** c</code> e <strong><a href="https://x.dev">doc</a> <code class="num">d</code></strong></p>',
+    );
+    expect(markdownBlocks("[a](https://x.dev b) [](https://x.dev) [c](https://)")).toBe(
+      "<p>[a](https://x.dev b) [](https://x.dev) [c](https://)</p>",
+    );
+    expect(markdownBlocks("[a]b](https://x.dev) **sem fim `sem fim")).toBe(
+      "<p>[a]b](https://x.dev) **sem fim `sem fim</p>",
+    );
+  });
+
+  it("não fica lento com um texto estranho (CodeQL js/polynomial-redos)", () => {
+    for (const text of ["[".repeat(HOSTILE), "](https://".repeat(HOSTILE), "**`".repeat(HOSTILE)]) {
+      expect(timed(() => markdownBlocks(text))).toBeLessThan(300);
+    }
+  });
+
   it("separa as seções do C4 com o diagrama e o texto depois dele", () => {
     const sections = c4Sections(
       "# T\n\n## Nível 1 · Contexto\n\n```mermaid\nflowchart TB\n  a --> b\n```\n\n- nota\n",
@@ -144,6 +164,19 @@ describe("o SVG do Mermaid como imagem", () => {
     );
     expect(svg.startsWith('<svg id="d" width="951" height="735" xmlns="x" viewBox')).toBe(true);
     expect(sizeOf(svg)).toEqual({ width: 951, height: 735 });
+  });
+
+  it("sem width de 100%, o tamanho vai no fim da tag; sem viewBox, para o build", () => {
+    expect(withSize('<svg id="d" viewBox="0 0 10 20"><g/></svg>')).toBe(
+      '<svg id="d" viewBox="0 0 10 20" width="10" height="20"><g/></svg>',
+    );
+    expect(() => withSize('<svg id="d" width="100%"><g/></svg>')).toThrow(/viewBox/);
+    expect(() => sizeOf('<svg id="d"><g/></svg>')).toThrow(/width e height/);
+  });
+
+  it("não fica lento com uma tag estranha (CodeQL js/polynomial-redos)", () => {
+    const tag = `<svg viewBox="0 0 1 1"${' width="100%"'.repeat(HOSTILE)}>`;
+    expect(timed(() => withSize(tag))).toBeLessThan(300);
   });
 
   it("escapa aspas e sinais no HTML", () => {

@@ -1,6 +1,7 @@
 // Os índices do mapa que o site usa nos dois sentidos: da tela até o banco (o mapa do fluxo) e do
 // banco até as telas (quem usa). Puro: recebe o fluxo.json, não toca no DOM (testado no Vitest).
 import type { DbFunction, FlowMap, Queue, Screen, ServerFunction } from "../../model";
+import { routeMatches } from "../../routes";
 
 export type FnKind = "loader" | "action" | "api" | "worker";
 export type IndexedFn = ServerFunction & { kind: FnKind };
@@ -12,12 +13,6 @@ export function screenKey(screen: Screen): string {
     return `moldura-${group}`;
   }
   return screen.kind === "modal" ? `${screen.route}~modal` : screen.route;
-}
-
-/** "/carteiras/[walletId]" casa com "/carteiras/[…]" e "/carteiras/abc". */
-export function routeMatches(pattern: string, link: string): boolean {
-  const escaped = pattern.replace(/[.*+?^${}()|\\]/g, "\\$&").replace(/\\?\[[^/]*?\\?\]/g, "[^/]+");
-  return new RegExp(`^${escaped}$`).test(link.replace(/\[…\]/g, "x"));
 }
 
 export const shortName = (id: string) => id.slice(id.lastIndexOf("#") + 1);

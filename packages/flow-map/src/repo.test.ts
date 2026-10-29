@@ -7,6 +7,7 @@ import { analyze } from "./analyze";
 import { walkFiles } from "./facts";
 import type { FlowMap } from "./model";
 import { serialize } from "./serialize";
+import { routeMatches } from "./routes";
 import { NETWORK_CALL, SERVICES } from "./services";
 
 const ROOT = path.resolve(import.meta.dirname, "../../..");
@@ -19,12 +20,6 @@ function productionFiles(dir: string): string[] {
     path.join(ROOT, dir),
     (n) => /\.tsx?$/.test(n) && !/\.test\.tsx?$/.test(n),
   ).filter((f) => !/[/\\](testing|e2e)[/\\]/.test(f));
-}
-
-/** "/carteiras/[walletId]" casa com "/carteiras/[…]" e com "/carteiras/abc". */
-function routeMatcher(route: string): RegExp {
-  const escaped = route.replace(/[.*+?^${}()|\\]/g, "\\$&").replace(/\\?\[[^/]*?\\?\]/g, "[^/]+");
-  return new RegExp(`^${escaped}$`);
 }
 
 let map: FlowMap;
@@ -60,10 +55,8 @@ describe("o mapa cobre o app inteiro", () => {
   });
 
   it("todo link e todo redirect levam a uma tela que existe", () => {
-    const matchers = map.screens
-      .filter((s) => s.kind !== "layout")
-      .map((s) => routeMatcher(s.route));
-    const exists = (link: string) => matchers.some((m) => m.test(link.replace(/\[…\]/g, "x")));
+    const routes = map.screens.filter((s) => s.kind !== "layout").map((s) => s.route);
+    const exists = (link: string) => routes.some((route) => routeMatches(route, link));
     const broken = [
       ...map.screens.flatMap((s) =>
         s.links.filter((l) => !exists(l)).map((l) => `${s.file} → ${l}`),

@@ -26,11 +26,20 @@ export function prismaModels(root: string): Model[] {
   const dir = path.join(root, "packages/db/prisma/schema");
   const models: Model[] = [];
   for (const file of walkFiles(dir, (n) => n.endsWith(".prisma"))) {
-    const text = readFileSync(file, "utf8");
-    for (const match of text.matchAll(/^model (\w+) \{([\s\S]*?)^\}/gm)) {
-      const name = match[1] as string;
-      const table = /@@map\("([^"]+)"\)/.exec(match[2] ?? "")?.[1] ?? name;
-      models.push({ model: name, table, accessor: name.charAt(0).toLowerCase() + name.slice(1) });
+    // Linha por linha: "model X {" abre, "}" no começo da linha fecha, "@@map("x")" dá a tabela
+    let current: { model: string; table: string } | null = null;
+    for (const line of readFileSync(file, "utf8").split("\n")) {
+      if (current === null) {
+        const open = /^model (\w+) \{\s*$/.exec(line);
+        if (open) current = { model: open[1] as string, table: open[1] as string };
+      } else if (line.startsWith("}")) {
+        const { model, table } = current;
+        models.push({ model, table, accessor: model.charAt(0).toLowerCase() + model.slice(1) });
+        current = null;
+      } else {
+        const map = line.trim();
+        if (map.startsWith('@@map("') && map.endsWith('")')) current.table = map.slice(7, -2);
+      }
     }
   }
   return models.sort((a, b) => a.model.localeCompare(b.model));
@@ -195,14 +204,31 @@ export function collectFacts(nodes: Iterable<ts.Node>, into: Facts, resolve?: Re
   for (const node of nodes) visit(node);
 }
 
+const SQL_TABLE_KEYWORDS = new Set(["FROM", "JOIN", "UPDATE", "INTO"]);
+
+/**
+ * As tabelas que um SQL escrito à mão cita depois de FROM, JOIN, UPDATE ou INTO, com ou sem aspas.
+ * Palavra por palavra (o nome da tabela nunca vira regex), uma passada só.
+ */
+export function sqlTables(sql: string[]): Set<string> {
+  const tables = new Set<string>();
+  for (const text of sql) {
+    const words = text.split(/[\s;(),]+/).filter(Boolean);
+    words.forEach((word, i) => {
+      const next = words[i + 1];
+      if (next && SQL_TABLE_KEYWORDS.has(word.toUpperCase()))
+        tables.add(next.replace(/^"|"$/g, ""));
+    });
+  }
+  return tables;
+}
+
 /** Os modelos que os fatos tocam: pelo cliente do Prisma ou pelo SQL escrito à mão. */
 export function tablesFrom(facts: Facts, models: Model[]): string[] {
   const out = new Set<string>();
-  const sql = facts.rawSql.join("\n");
+  const inSql = sqlTables(facts.rawSql);
   for (const model of models) {
-    if (facts.accessors.has(model.accessor)) out.add(model.model);
-    const inSql = new RegExp(`\\b(?:FROM|JOIN|UPDATE|INTO)\\s+"?${model.table}"?(?=[\\s;)"])`, "i");
-    if (inSql.test(sql)) out.add(model.model);
+    if (facts.accessors.has(model.accessor) || inSql.has(model.table)) out.add(model.model);
   }
   return uniqSorted(out);
 }

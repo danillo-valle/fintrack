@@ -79,6 +79,10 @@ relatório **só escrito**, sem ferramenta nova no CI; o custo mensal **fora** d
 - O mapa é uma análise de texto, não de tipos: o que ele não vê (um link montado em tempo de
   execução, uma chamada indireta por variável) não aparece; os testes de cobertura (toda action
   usada, todo link existe) são o aviso de que algo escapou.
+- O pacote lê texto do repositório como uma biblioteca, e o CodeQL trata assim: no PR #72 ele
+  acusou `js/polynomial-redos` (alto) na regex que tirava os parâmetros da rota. A correção trocou
+  as regex sem âncora do pacote inteiro (rotas, Markdown, a tag do SVG, o schema do Prisma e o SQL)
+  por leitores de uma passada, cada um com um teste de 100 mil repetições provado por mutação.
 - Dependências novas só de desenvolvimento, no `flow-map`: o Mermaid, o Playwright e o axe (os
   mesmos do app), o esbuild (o que o tsx já usa) e a fonte Geist.
 

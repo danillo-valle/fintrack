@@ -2,11 +2,88 @@
 // código, links. Tudo escapado antes; nada de HTML do documento passa para a página.
 import { esc } from "./html";
 
+/**
+ * As posições de cada marca no texto, para achar "a próxima depois de i" sem varrer o texto de
+ * novo a cada abertura (uma regex com /g fazia isso, e um texto com muitos "[" sem "]" ficava
+ * lento: CodeQL js/polynomial-redos). Cada busca é uma busca binária.
+ */
+class Marks {
+  private readonly at = new Map<string, number[]>();
+  constructor(private readonly text: string) {}
+
+  next(mark: string, from: number): number {
+    let list = this.at.get(mark);
+    if (!list) {
+      list = [];
+      for (let i = this.text.indexOf(mark); i !== -1; i = this.text.indexOf(mark, i + mark.length))
+        list.push(i);
+      this.at.set(mark, list);
+    }
+    let lo = 0;
+    let hi = list.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if ((list[mid] as number) < from) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo < list.length ? (list[lo] as number) : -1;
+  }
+
+  /** O primeiro espaço em branco a partir de from (o link https termina antes dele). */
+  nextSpace(from: number): number {
+    return Math.min(
+      ...[" ", "\t", "\n"].map((c) => this.next(c, from)).map((i) => (i === -1 ? Infinity : i)),
+    );
+  }
+}
+
+const LINK = "](https://";
+
+/** `código`, **negrito** e [texto](https://…), num texto já escapado, numa passada só. */
+function render(text: string, marks: Marks, start: number, end: number, links: boolean): string {
+  let out = "";
+  let i = start;
+  while (i < end) {
+    if (text[i] === "`") {
+      const close = marks.next("`", i + 1);
+      if (close > i + 1 && close < end) {
+        out += `<code class="num">${text.slice(i + 1, close)}</code>`;
+        i = close + 1;
+        continue;
+      }
+    } else if (text.startsWith("**", i)) {
+      const close = marks.next("**", i + 2);
+      if (close > i + 2 && close + 2 <= end) {
+        out += `<strong>${render(text, marks, i + 2, close, links)}</strong>`;
+        i = close + 2;
+        continue;
+      }
+    } else if (links && text[i] === "[") {
+      // [texto](https://…): o texto sem "]" e o endereço sem ")" nem espaço, como no Markdown
+      const label = marks.next(LINK, i + 1);
+      const urlStart = label + 2;
+      const close = label === -1 ? -1 : marks.next(")", urlStart);
+      if (
+        label > i + 1 &&
+        marks.next("]", i + 1) === label &&
+        close > urlStart + "https://".length &&
+        close < end &&
+        close < marks.nextSpace(urlStart)
+      ) {
+        out += `<a href="${text.slice(urlStart, close)}">${render(text, marks, i + 1, label, false)}</a>`;
+        i = close + 1;
+        continue;
+      }
+    }
+    out += text[i];
+    i += 1;
+  }
+  return out;
+}
+
 function inline(text: string): string {
-  return esc(text)
-    .replace(/`([^`]+)`/g, '<code class="num">$1</code>')
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\[([^\]]+)\]\((https:\/\/[^)\s]+)\)/g, '<a href="$2">$1</a>');
+  const escaped = esc(text);
+  return render(escaped, new Marks(escaped), 0, escaped.length, true);
 }
 
 /** Parágrafos e listas de "- ", com as linhas quebradas do Prettier juntadas de novo. */
