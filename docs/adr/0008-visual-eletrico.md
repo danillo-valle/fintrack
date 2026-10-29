@@ -82,3 +82,8 @@ canvas ganhou a linha C.2, aprovada antes do código, e o M07.3 a implementa:
   de 720 px de altura não rola. O formulário foi reorganizado em blocos (`features/transactions/ui/entry/`).
 - O hover do botão principal (`primary/80` do shadcn) dava 3,65:1 com texto branco; agora escurece
   a cor em vez de clarear, e o teste de contraste mede os estados de hover.
+
+## Revisão do M12.3b (28/10/2026)
+
+**Continua valendo**, com os adendos do M07.2 e do M07.3. As telas novas do M09 ao M12.3a
+seguiram o canvas (linhas D a J) antes do código; o site do M12.3b (linha K) usa as mesmas cores.

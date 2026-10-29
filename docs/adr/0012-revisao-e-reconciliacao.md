@@ -69,3 +69,7 @@ Combinado com o Danillo antes do código (13/10/2026, canvas E.2 aprovado):
 - `transaction_match` cresce só com decisões (uma linha por par confirmado ou recusado).
 - Regras novas do banco, cada uma com teste de integração: final com 4 dígitos, revisor com
   data, lançamento juntado sempre apagado, par com dois lados diferentes, "desfeito" com data.
+
+## Revisão do M12.3b (28/10/2026)
+
+**Continua valendo**, inteira. Nada da revisão e da reconciliação mudou depois do M09.2.

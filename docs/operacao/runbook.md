@@ -1,7 +1,9 @@
 # Runbook de operação do FinTrack
 
 O que fazer em cada situação da produção, com os comandos prontos. Decisões e motivos estão no
-[ADR-005](../adr/0005-hospedagem-e-deploy.md). Todos os comandos rodam no servidor `home`, no
+[ADR-005](../adr/0005-hospedagem-e-deploy.md). Quando algo dá errado de verdade (fora do ar,
+dinheiro errado, suspeita de invasão), comece pelo [runbook de incidente](incidente.md): ele diz
+a ordem e aponta para as seções daqui. Todos os comandos rodam no servidor `home`, no
 seu usuário, com `sudo -u fintrack` (é o usuário `fintrack` quem lê os arquivos de variáveis).
 
 Dica: crie um atalho no seu `~/.bashrc` para digitar menos.
@@ -23,15 +25,16 @@ alias ft='sudo -u fintrack'   # ft fintrack-status, ft fintrack-compose ps ...
 | Arquivos de deploy (não edite à mão) | `/srv/fintrack/repo/deploy/` (reescrita a cada deploy)          |
 | Ajustes só desta máquina             | `/srv/fintrack/compose.override.yml` (opcional)                 |
 
-| Comando                              | Para quê                                            |
-| ------------------------------------ | --------------------------------------------------- |
-| `fintrack-status`                    | Tudo numa tela: versão, saúde, deploys, backups     |
-| `fintrack-compose <args>`            | O `docker compose` da produção (ps, logs, exec...)  |
-| `fintrack-deploy <commit> [--force]` | Põe um commit no ar (com backup e volta automática) |
-| `fintrack-backup [manual]`           | Backup agora                                        |
-| `fintrack-restore-test [--do-drive]` | Prova que um backup restaura (num banco temporário) |
-| `fintrack-restore-prod <arquivo>`    | Restaura a PRODUÇÃO (desastre)                      |
-| `deploy/bin/smoke-test <endereço>`   | Teste de fumaça de qualquer máquina, sem login      |
+| Comando                                | Para quê                                                        |
+| -------------------------------------- | --------------------------------------------------------------- |
+| `fintrack-status`                      | Tudo numa tela: versão, saúde, deploys, backups                 |
+| `fintrack-compose <args>`              | O `docker compose` da produção (ps, logs, exec...)              |
+| `fintrack-deploy <commit> [--force]`   | Põe um commit no ar (com backup e volta automática)             |
+| `fintrack-backup [manual]`             | Backup agora                                                    |
+| `fintrack-restore-test [--do-drive]`   | Prova que um backup restaura (num banco temporário)             |
+| `fintrack-restore-test <arq> --manter` | O mesmo, deixando o banco no ar para comparar (`--apagar` tira) |
+| `fintrack-restore-prod <arquivo>`      | Restaura a PRODUÇÃO (desastre)                                  |
+| `deploy/bin/smoke-test <endereço>`     | Teste de fumaça de qualquer máquina, sem login                  |
 
 ## Ver o estado
 
@@ -136,6 +139,10 @@ sudo -u fintrack fintrack-restore-test --do-drive   # prova a cópia de fora de 
 
 Cole a chave privada quando pedir (do gerenciador de senhas). O resultado fica em
 `/srv/fintrack/estado/restauracoes.log`. Um backup que nunca foi restaurado não é um backup.
+
+O banco temporário some no fim, **com o volume dele** (desde o M12.3b: antes, o `docker rm` sem o
+`-v` deixava o banco decifrado num volume órfão do Docker). Num incidente, `--manter` deixa o banco
+no ar, sem rede, para comparar com a produção, e `--apagar` o tira (runbook de incidente).
 
 ## Restaurar a produção (desastre)
 
@@ -560,6 +567,25 @@ apps/web/src mais novos") quando o código mudou depois dele.
 5. Para ver se uma falha é instável, repita o mesmo teste várias vezes **um de cada vez**:
    `--repeat-each=10 --workers=1`. Sem o `--workers=1`, as cópias rodam juntas e, como cada teste usa
    a mesma pessoa de teste em todas as cópias, uma apaga a pessoa da outra (`user_email_key`).
+
+## O site "FinTrack por dentro" (GitHub Pages, M12.3b, ADR-023)
+
+O site sai do CI a cada merge na `main` (job `pagina`), sem nada no servidor de casa. Endereço:
+`https://danillo-valle.github.io/fintrack/`. Ligar o Pages é uma vez só, com a fonte "GitHub
+Actions" (o manual do M12.3b tem o comando).
+
+```bash
+gh api repos/{owner}/{repo}/pages --jq '{status, build_type, html_url}'   # ligado e de onde vem
+gh run list --workflow ci.yml --branch main --limit 3                     # o último CI da main
+curl -sI https://danillo-valle.github.io/fintrack/ | head -1              # 200: no ar
+```
+
+| Sintoma                                 | O que fazer                                                                                                                                        |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| O job `site` falhou num PR              | Baixe o artefato `relatorio-site` (o trace de cada falha). Um diagrama do `c4.md` com erro de sintaxe para o build com o nome do diagrama          |
+| O job `pagina` falhou com "not enabled" | O Pages não está ligado com a fonte "GitHub Actions": ligue (manual do M12.3b) e rode de novo o CI da `main`                                       |
+| O `pagina` foi recusado pelo ambiente   | O ambiente `github-pages` só aceita a `main` (Settings › Environments): confira as regras de proteção dele                                         |
+| O site mostra o mapa velho              | O `pagina` só roda depois de `qualidade`, `seguranca` e `site` na `main`; espere o CI acabar. O `fluxo.json` velho nem passa no PR (teste do mapa) |
 
 ## Alertas
 

@@ -78,3 +78,11 @@ Decidido pelo Danillo em 25/10/2026 (as recomendações, menos o vídeo):
   contexto, menos o tempo.
 - **Vídeo no README**: um MP4 só toca dentro do README se for enviado pela página do GitHub (não por
   commit), e um GIF passa de vários MB. As capturas estáticas bastam para mostrar as telas.
+
+## Revisão do M12.3b (28/10/2026)
+
+**Continua valendo.** A suíte inteira contra o build de produção em 3 partes, o `e2e-dev`, o
+relatório juntado e o axe em todas as telas (573 testes no M12.3a).
+
+- **Em aberto:** tirar o `turbopackFileSystemCacheForDev: false` quando o Next corrigir o laço
+  de recarga (pendências do README).

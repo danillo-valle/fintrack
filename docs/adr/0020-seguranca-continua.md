@@ -84,3 +84,11 @@ Decisões de implementação que vieram da revisão:
   regra já exige, faz o mesmo com menos permissão.
 - **Tirar `unsafe-inline` do atributo `style`**: quebraria as barras, as cores por variável e o
   posicionamento dos menus do Radix; o ganho seria pequeno diante do `<style>`, que é o vetor real.
+
+## Revisão do M12.3b (28/10/2026)
+
+**Continua valendo.** O OWASP item por item, o ZAP e o OSV barrando o PR.
+
+- Desde o M12.2 há uma exceção do OSV (o `deepmerge` do CLI do shadcn, rever até 31/01/2027) e,
+  desde o M12.3a, uma do CodeQL (o SHA-1 do HIBP), cada uma com o motivo e a prova no documento.
+- As 6 pendências do documento do OWASP continuam lá, com o risco e a sugestão.

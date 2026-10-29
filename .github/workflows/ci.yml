@@ -459,9 +459,54 @@ jobs:
 
   # O check "e2e" que o ruleset exige: junta os relatórios num HTML só (com os traces) e reprova se
   # a integração, alguma parte ou o dev falhou. Roda sempre, para o relatório existir na falha.
+  # ── M12.3b: o site "FinTrack por dentro" (ADR-023) ──────────────────────────────────────
+  # Monta o site a partir do código (o mapa do fluxo e o C4), confere no Chromium (axe nos dois
+  # temas, nada de fora, as páginas respondendo) e guarda o pacote que o job pagina publica.
+  site:
+    name: site
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Baixa o código
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Instala o pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - name: Instala o Node e reaproveita o cache do pnpm
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Instala as dependências
+        run: pnpm install --frozen-lockfile
+
+      - name: Instala o Chromium do Playwright e as bibliotecas do sistema
+        run: pnpm --filter @fintrack/flow-map exec playwright install --with-deps chromium
+
+      - name: Monta o site (o C4 vira SVG; um diagrama com erro para aqui)
+        run: pnpm --filter @fintrack/flow-map site
+
+      - name: Confere o site (axe, nada de fora, o mapa e o quem usa)
+        run: pnpm --filter @fintrack/flow-map test:site
+
+      - name: Guarda o relatório se algo falhar
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: relatorio-site
+          path: packages/flow-map/playwright-report/
+          retention-days: 14
+
+      - name: Guarda o pacote do GitHub Pages
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: packages/flow-map/dist/site/
+
   e2e:
     name: e2e
-    needs: [integracao, e2e-parte, e2e-dev]
+    needs: [integracao, e2e-parte, e2e-dev, site]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -500,14 +545,16 @@ jobs:
           path: apps/web/playwright-report/
           retention-days: 14
 
-      - name: Confere a integração, as 3 partes e o dev
+      - name: Confere a integração, as 3 partes, o dev e o site
         env:
           INTEGRACAO: ${{ needs.integracao.result }}
           PARTES: ${{ needs.e2e-parte.result }}
           DEV: ${{ needs.e2e-dev.result }}
+          SITE: ${{ needs.site.result }}
         run: |
-          echo "integracao: $INTEGRACAO · partes: $PARTES · dev: $DEV"
-          test "$INTEGRACAO" = success && test "$PARTES" = success && test "$DEV" = success
+          echo "integracao: $INTEGRACAO · partes: $PARTES · dev: $DEV · site: $SITE"
+          test "$INTEGRACAO" = success && test "$PARTES" = success && test "$DEV" = success \
+            && test "$SITE" = success
 
   # ── M05: as imagens de produção ─────────────────────────────────────────────────────────
   # Em todo PR: prova que as imagens constroem, que as migrações rodam num banco limpo e que o
@@ -734,3 +781,21 @@ jobs:
               "ghcr.io/danillo-valle/fintrack-$name:${{ github.sha }}"
           done
           echo "Publicado: ${{ github.sha }}. O servidor faz o deploy em até 1 minuto."
+
+  # ── M12.3b: publica o site no GitHub Pages, só da main e só com os checks que barram o PR ──
+  pagina:
+    name: pagina
+    needs: [qualidade, seguranca, site]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.publica.outputs.page_url }}
+    steps:
+      - name: Publica o pacote do job site
+        id: publica
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

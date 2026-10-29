@@ -1,0 +1,6443 @@
+{
+  "version": 1,
+  "screens": [
+    {
+      "route": "/",
+      "file": "apps/web/src/app/(app)/layout.tsx",
+      "kind": "layout",
+      "title": "Moldura do app (menu)",
+      "area": "Moldura",
+      "help": null,
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "none",
+      "loaders": [],
+      "actions": [],
+      "clientComponents": [
+        "apps/web/src/components/layout/bottom-nav-item.tsx",
+        "apps/web/src/components/layout/new-transaction-fab.tsx",
+        "apps/web/src/components/layout/sidebar/sidebar-handle.tsx",
+        "apps/web/src/components/layout/sidebar/sidebar-nav-item.tsx",
+        "apps/web/src/components/layout/sidebar/sidebar-provider.tsx",
+        "apps/web/src/components/layout/theme-toggle.tsx"
+      ],
+      "authCalls": [],
+      "links": [
+        "/",
+        "/ajuda",
+        "/ajustes",
+        "/carteiras",
+        "/lancamentos",
+        "/lancamentos/novo",
+        "/orcamento"
+      ]
+    },
+    {
+      "route": "/",
+      "file": "apps/web/src/app/(auth)/layout.tsx",
+      "kind": "layout",
+      "title": "Moldura da entrada",
+      "area": "Moldura",
+      "help": null,
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "none",
+      "loaders": [],
+      "actions": [],
+      "clientComponents": [],
+      "authCalls": [],
+      "links": []
+    },
+    {
+      "route": "/",
+      "file": "apps/web/src/app/layout.tsx",
+      "kind": "layout",
+      "title": "Documento (tema e avisos)",
+      "area": "Moldura",
+      "help": null,
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "none",
+      "loaders": [],
+      "actions": [],
+      "clientComponents": [
+        "apps/web/src/components/feedback/toast-keyboard.tsx",
+        "apps/web/src/components/providers.tsx"
+      ],
+      "authCalls": [],
+      "links": []
+    },
+    {
+      "route": "/",
+      "file": "apps/web/src/app/(app)/page.tsx",
+      "kind": "page",
+      "title": "Início",
+      "area": "Início",
+      "help": "inicio",
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [
+        "apps/web/src/features/budget/server/queries.ts#getHomeDashboard"
+      ],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/bank/server/queries.ts#getBankHome",
+        "apps/web/src/features/budget/server/queries.ts#getHomeDashboard"
+      ],
+      "actions": [
+        "apps/web/src/features/bank/server/actions.ts#requestSyncAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/bank/ui/request-sync-button.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/carteiras",
+        "/carteiras/conta/[…]",
+        "/lancamentos",
+        "/lancamentos/novo",
+        "/lancamentos/recebidos",
+        "/orcamento/fluxo"
+      ]
+    },
+    {
+      "route": "/ajuda",
+      "file": "apps/web/src/app/(app)/ajuda/page.tsx",
+      "kind": "page",
+      "title": "Ajuda",
+      "area": "Ajuda",
+      "help": null,
+      "params": [],
+      "searchParams": [
+        "q"
+      ],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [],
+      "actions": [],
+      "clientComponents": [
+        "apps/web/src/components/layout/content-ready.tsx"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]"
+      ]
+    },
+    {
+      "route": "/ajuda/[slug]",
+      "file": "apps/web/src/app/(app)/ajuda/[slug]/page.tsx",
+      "kind": "page",
+      "title": "/ajuda/[slug]",
+      "area": "Ajuda",
+      "help": null,
+      "params": [
+        "slug"
+      ],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [],
+      "actions": [],
+      "clientComponents": [
+        "apps/web/src/components/layout/content-ready.tsx"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda",
+        "/ajuda/[…]"
+      ]
+    },
+    {
+      "route": "/ajuda/[slug]",
+      "file": "apps/web/src/app/(app)/@modal/(.)ajuda/[slug]/page.tsx",
+      "kind": "modal",
+      "title": "Ajuda",
+      "area": "Ajuda",
+      "help": null,
+      "params": [
+        "slug"
+      ],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [],
+      "actions": [],
+      "clientComponents": [],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]"
+      ]
+    },
+    {
+      "route": "/ajustes",
+      "file": "apps/web/src/app/(app)/ajustes/page.tsx",
+      "kind": "page",
+      "title": "Ajustes",
+      "area": "Ajustes",
+      "help": null,
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [],
+      "actions": [],
+      "clientComponents": [
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/components/layout/theme-toggle.tsx",
+        "apps/web/src/features/auth/ui/sign-out-button.tsx",
+        "apps/web/src/lib/auth-client.ts"
+      ],
+      "authCalls": [
+        "signOut"
+      ],
+      "links": [
+        "/ajuda",
+        "/ajuda/[…]",
+        "/ajustes/bot",
+        "/ajustes/categorias",
+        "/ajustes/categorizacao",
+        "/ajustes/conexoes",
+        "/ajustes/contas",
+        "/ajustes/lar",
+        "/ajustes/seguranca",
+        "/lancamentos/novo"
+      ]
+    },
+    {
+      "route": "/ajustes/bot",
+      "file": "apps/web/src/app/(app)/ajustes/bot/page.tsx",
+      "kind": "page",
+      "title": "Bot de lançamento",
+      "area": "Ajustes",
+      "help": "bot-vincular",
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/bot/server/queries.ts#getBotSettings"
+      ],
+      "actions": [
+        "apps/web/src/features/bot/server/actions.ts#saveBotPreferenceAction",
+        "apps/web/src/features/bot/server/actions.ts#setBotEnabledAction",
+        "apps/web/src/features/bot/server/actions.ts#startLinkAction",
+        "apps/web/src/features/bot/server/actions.ts#unlinkAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-button.tsx",
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/bot/ui/forms.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/ajustes",
+        "/ajustes/contas",
+        "/lancamentos/recebidos"
+      ]
+    },
+    {
+      "route": "/ajustes/bot/vincular",
+      "file": "apps/web/src/app/(app)/ajustes/bot/vincular/page.tsx",
+      "kind": "page",
+      "title": "Vincular um canal do bot",
+      "area": "Ajustes",
+      "help": "bot-vincular",
+      "params": [],
+      "searchParams": [
+        "canal",
+        "codigo"
+      ],
+      "searchParamsTo": [],
+      "session": "recent",
+      "loaders": [
+        "apps/web/src/features/bot/server/queries.ts#getLinkCode"
+      ],
+      "actions": [
+        "apps/web/src/features/bot/server/actions.ts#startLinkAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/feedback/copy-button.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/bot/ui/forms.tsx",
+        "apps/web/src/features/bot/ui/link-code-refresher.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/ajustes/bot"
+      ]
+    },
+    {
+      "route": "/ajustes/bot/vincular",
+      "file": "apps/web/src/app/(app)/@modal/(.)ajustes/bot/vincular/page.tsx",
+      "kind": "modal",
+      "title": "Vincular",
+      "area": "Ajustes",
+      "help": null,
+      "params": [],
+      "searchParams": [
+        "canal",
+        "codigo"
+      ],
+      "searchParamsTo": [],
+      "session": "recent",
+      "loaders": [
+        "apps/web/src/features/bot/server/queries.ts#getLinkCode"
+      ],
+      "actions": [
+        "apps/web/src/features/bot/server/actions.ts#startLinkAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/feedback/copy-button.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/bot/ui/forms.tsx",
+        "apps/web/src/features/bot/ui/link-code-footer.tsx",
+        "apps/web/src/features/bot/ui/link-code-refresher.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": []
+    },
+    {
+      "route": "/ajustes/categorias",
+      "file": "apps/web/src/app/(app)/ajustes/categorias/page.tsx",
+      "kind": "page",
+      "title": "Categorias e regras",
+      "area": "Ajustes",
+      "help": "categorias-e-regras",
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/categories/server/queries.ts#getCategoriesPage"
+      ],
+      "actions": [
+        "apps/web/src/features/categories/server/actions.ts#createCategoryAction",
+        "apps/web/src/features/categories/server/actions.ts#createRuleAction",
+        "apps/web/src/features/categories/server/actions.ts#deleteRuleAction",
+        "apps/web/src/features/categories/server/actions.ts#setCategoryArchivedAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-button.tsx",
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/categories/ui/category-forms.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]"
+      ]
+    },
+    {
+      "route": "/ajustes/categorizacao",
+      "file": "apps/web/src/app/(app)/ajustes/categorizacao/page.tsx",
+      "kind": "page",
+      "title": "Categorização",
+      "area": "Ajustes",
+      "help": "por-que-essa-categoria",
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/categories/server/categorization.ts#getCategorizationPage"
+      ],
+      "actions": [
+        "apps/web/src/features/categories/server/actions.ts#setLocalAiAction",
+        "apps/web/src/features/categories/server/actions.ts#trainNowAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/categories/ui/local-ai-switch.tsx",
+        "apps/web/src/features/categories/ui/train-button.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/ajustes"
+      ]
+    },
+    {
+      "route": "/ajustes/conexoes",
+      "file": "apps/web/src/app/(app)/ajustes/conexoes/page.tsx",
+      "kind": "page",
+      "title": "Conexões bancárias",
+      "area": "Ajustes",
+      "help": "meu-pluggy",
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/bank/server/queries.ts#getConnectionsPage"
+      ],
+      "actions": [],
+      "clientComponents": [
+        "apps/web/src/components/layout/content-ready.tsx"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/ajustes",
+        "/ajustes/conexoes/credenciais",
+        "/ajustes/conexoes/ligar",
+        "/ajustes/conexoes/sincronizacoes"
+      ]
+    },
+    {
+      "route": "/ajustes/conexoes/credenciais",
+      "file": "apps/web/src/app/(app)/ajustes/conexoes/credenciais/page.tsx",
+      "kind": "page",
+      "title": "Conectar o Meu Pluggy",
+      "area": "Ajustes",
+      "help": "meu-pluggy",
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "recent",
+      "loaders": [
+        "apps/web/src/features/bank/server/queries.ts#getCredentialsForm"
+      ],
+      "actions": [
+        "apps/web/src/features/bank/server/actions.ts#saveCredentialsAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/feedback/step-footer.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/auth/ui/password-input.tsx",
+        "apps/web/src/features/bank/ui/credentials-form.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/ajustes/conexoes"
+      ]
+    },
+    {
+      "route": "/ajustes/conexoes/credenciais",
+      "file": "apps/web/src/app/(app)/@modal/(.)ajustes/conexoes/credenciais/page.tsx",
+      "kind": "modal",
+      "title": "Conectar o Meu Pluggy",
+      "area": "Ajustes",
+      "help": null,
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "recent",
+      "loaders": [
+        "apps/web/src/features/bank/server/queries.ts#getCredentialsForm"
+      ],
+      "actions": [
+        "apps/web/src/features/bank/server/actions.ts#saveCredentialsAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/feedback/step-footer.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/auth/ui/password-input.tsx",
+        "apps/web/src/features/bank/ui/credentials-form.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajustes/conexoes"
+      ]
+    },
+    {
+      "route": "/ajustes/conexoes/ligar",
+      "file": "apps/web/src/app/(app)/ajustes/conexoes/ligar/page.tsx",
+      "kind": "page",
+      "title": "Ligar as contas",
+      "area": "Ajustes",
+      "help": "meu-pluggy",
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "recent",
+      "loaders": [
+        "apps/web/src/features/bank/server/queries.ts#getLinkPage"
+      ],
+      "actions": [
+        "apps/web/src/features/bank/server/actions.ts#linkAccountsAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/feedback/step-footer.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/bank/ui/link-form.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/ajustes/conexoes/credenciais"
+      ]
+    },
+    {
+      "route": "/ajustes/conexoes/ligar",
+      "file": "apps/web/src/app/(app)/@modal/(.)ajustes/conexoes/ligar/page.tsx",
+      "kind": "modal",
+      "title": "Ligar as contas",
+      "area": "Ajustes",
+      "help": null,
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "recent",
+      "loaders": [
+        "apps/web/src/features/bank/server/queries.ts#getLinkPage"
+      ],
+      "actions": [
+        "apps/web/src/features/bank/server/actions.ts#linkAccountsAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/feedback/step-footer.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/bank/ui/link-form.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajustes/conexoes/credenciais"
+      ]
+    },
+    {
+      "route": "/ajustes/conexoes/sincronizacoes",
+      "file": "apps/web/src/app/(app)/ajustes/conexoes/sincronizacoes/page.tsx",
+      "kind": "page",
+      "title": "Sincronizações",
+      "area": "Ajustes",
+      "help": "meu-pluggy",
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/bank/server/queries.ts#getSyncHistory"
+      ],
+      "actions": [
+        "apps/web/src/features/bank/server/actions.ts#requestSyncAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/bank/ui/request-sync-button.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/ajustes/conexoes",
+        "/ajustes/conexoes/credenciais",
+        "/lancamentos/recebidos"
+      ]
+    },
+    {
+      "route": "/ajustes/contas",
+      "file": "apps/web/src/app/(app)/ajustes/contas/page.tsx",
+      "kind": "page",
+      "title": "Contas e cartões",
+      "area": "Ajustes",
+      "help": "contas-e-cartoes",
+      "params": [],
+      "searchParams": [
+        "cartao",
+        "criada",
+        "movidos"
+      ],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/accounts/server/queries.ts#getAccountsPage"
+      ],
+      "actions": [
+        "apps/web/src/features/accounts/server/actions.ts#setAccountArchivedAction",
+        "apps/web/src/features/accounts/server/actions.ts#setCardArchivedAction",
+        "apps/web/src/features/accounts/server/actions.ts#setCardSharedPurchasesAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-button.tsx",
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/ajustes/contas",
+        "/ajustes/contas/[…]",
+        "/ajustes/contas/[…]/cartao",
+        "/ajustes/contas/nova"
+      ]
+    },
+    {
+      "route": "/ajustes/contas/[accountId]",
+      "file": "apps/web/src/app/(app)/ajustes/contas/[accountId]/page.tsx",
+      "kind": "page",
+      "title": "Conta",
+      "area": "Ajustes",
+      "help": "contas-e-cartoes",
+      "params": [
+        "accountId"
+      ],
+      "searchParams": [
+        "movidos"
+      ],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/accounts/server/queries.ts#getCardFormPage",
+        "apps/web/src/features/bank/server/review.ts#getAccountCardsPage"
+      ],
+      "actions": [
+        "apps/web/src/features/accounts/server/actions.ts#setCardArchivedAction",
+        "apps/web/src/features/bank/server/review-actions.ts#registerFinalAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-button.tsx",
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/bank/ui/review/final-form.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/ajustes/contas",
+        "/ajustes/contas/[…]/cartao",
+        "/lancamentos/recebidos"
+      ]
+    },
+    {
+      "route": "/ajustes/contas/[accountId]/cartao",
+      "file": "apps/web/src/app/(app)/ajustes/contas/[accountId]/cartao/page.tsx",
+      "kind": "page",
+      "title": "Adicionar cartão",
+      "area": "Ajustes",
+      "help": "contas-e-cartoes",
+      "params": [
+        "accountId"
+      ],
+      "searchParams": [
+        "volta"
+      ],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/accounts/server/queries.ts#getCardFormPage"
+      ],
+      "actions": [
+        "apps/web/src/features/accounts/server/actions.ts#createCardAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/feedback/step-footer.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/accounts/ui/card-form.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]"
+      ]
+    },
+    {
+      "route": "/ajustes/contas/[accountId]/cartao",
+      "file": "apps/web/src/app/(app)/@modal/(.)ajustes/contas/[accountId]/cartao/page.tsx",
+      "kind": "modal",
+      "title": "Adicionar cartão",
+      "area": "Ajustes",
+      "help": null,
+      "params": [
+        "accountId"
+      ],
+      "searchParams": [
+        "volta"
+      ],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/accounts/server/queries.ts#getCardFormPage"
+      ],
+      "actions": [
+        "apps/web/src/features/accounts/server/actions.ts#createCardAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/feedback/step-footer.tsx",
+        "apps/web/src/features/accounts/ui/card-form.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": []
+    },
+    {
+      "route": "/ajustes/contas/nova",
+      "file": "apps/web/src/app/(app)/ajustes/contas/nova/page.tsx",
+      "kind": "page",
+      "title": "Nova conta",
+      "area": "Ajustes",
+      "help": "contas-e-cartoes",
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/accounts/server/queries.ts#getNewAccountPage"
+      ],
+      "actions": [
+        "apps/web/src/features/accounts/server/actions.ts#createAccountAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/feedback/step-footer.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/components/money/money-input.tsx",
+        "apps/web/src/features/accounts/ui/account-form.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/ajustes/contas"
+      ]
+    },
+    {
+      "route": "/ajustes/contas/nova",
+      "file": "apps/web/src/app/(app)/@modal/(.)ajustes/contas/nova/page.tsx",
+      "kind": "modal",
+      "title": "Nova conta",
+      "area": "Ajustes",
+      "help": null,
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/accounts/server/queries.ts#getNewAccountPage"
+      ],
+      "actions": [
+        "apps/web/src/features/accounts/server/actions.ts#createAccountAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/feedback/step-footer.tsx",
+        "apps/web/src/components/money/money-input.tsx",
+        "apps/web/src/features/accounts/ui/account-form.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajustes/contas"
+      ]
+    },
+    {
+      "route": "/ajustes/lar",
+      "file": "apps/web/src/app/(app)/ajustes/lar/page.tsx",
+      "kind": "page",
+      "title": "Lar",
+      "area": "Ajustes",
+      "help": "lar-e-carteiras",
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/households/server/queries.ts#getHouseholdPage"
+      ],
+      "actions": [
+        "apps/web/src/features/households/server/actions.ts#createHouseholdAction",
+        "apps/web/src/features/households/server/actions.ts#createInviteAction",
+        "apps/web/src/features/households/server/actions.ts#removeMemberAction",
+        "apps/web/src/features/households/server/actions.ts#revokeInviteAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-button.tsx",
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/households/ui/copy-link.tsx",
+        "apps/web/src/features/households/ui/create-household-form.tsx",
+        "apps/web/src/features/households/ui/invite-form.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]"
+      ]
+    },
+    {
+      "route": "/ajustes/seguranca",
+      "file": "apps/web/src/app/(app)/ajustes/seguranca/page.tsx",
+      "kind": "page",
+      "title": "Segurança",
+      "area": "Ajustes",
+      "help": "seguranca",
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/auth/server/queries.ts#listMyPasskeys",
+        "apps/web/src/features/auth/server/queries.ts#listMySessions"
+      ],
+      "actions": [
+        "apps/web/src/features/auth/server/actions.ts#revokeOtherSessions",
+        "apps/web/src/features/auth/server/actions.ts#revokeSession"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/backup-codes.tsx",
+        "apps/web/src/features/auth/ui/change-password-form.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/auth/ui/passkey-manager.tsx",
+        "apps/web/src/features/auth/ui/password-input.tsx",
+        "apps/web/src/features/auth/ui/regenerate-backup-codes.tsx",
+        "apps/web/src/lib/auth-client.ts",
+        "apps/web/src/lib/use-field-errors.ts"
+      ],
+      "authCalls": [
+        "changePassword",
+        "passkey.addPasskey",
+        "passkey.deletePasskey",
+        "twoFactor.generateBackupCodes"
+      ],
+      "links": [
+        "/ajuda/[…]",
+        "/reautenticar"
+      ]
+    },
+    {
+      "route": "/cadastro",
+      "file": "apps/web/src/app/(auth)/cadastro/page.tsx",
+      "kind": "public",
+      "title": "Criar conta",
+      "area": "Entrada",
+      "help": null,
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "none",
+      "loaders": [],
+      "actions": [],
+      "clientComponents": [
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/auth/ui/password-input.tsx",
+        "apps/web/src/features/auth/ui/sign-up-form.tsx",
+        "apps/web/src/lib/auth-client.ts",
+        "apps/web/src/lib/use-field-errors.ts"
+      ],
+      "authCalls": [
+        "signUp.email"
+      ],
+      "links": [
+        "/",
+        "/entrar",
+        "/primeiro-acesso",
+        "/verifique-seu-email"
+      ]
+    },
+    {
+      "route": "/carteiras",
+      "file": "apps/web/src/app/(app)/carteiras/page.tsx",
+      "kind": "page",
+      "title": "Carteiras",
+      "area": "Carteiras",
+      "help": "lar-e-carteiras",
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/wallets/server/queries.ts#getWalletsPage"
+      ],
+      "actions": [],
+      "clientComponents": [
+        "apps/web/src/components/layout/content-ready.tsx"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/ajustes/lar",
+        "/carteiras/[…]",
+        "/carteiras/nova",
+        "/lancamentos/novo"
+      ]
+    },
+    {
+      "route": "/carteiras/[walletId]",
+      "file": "apps/web/src/app/(app)/carteiras/[walletId]/page.tsx",
+      "kind": "page",
+      "title": "Carteira",
+      "area": "Carteiras",
+      "help": "lar-e-carteiras",
+      "params": [
+        "walletId"
+      ],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/wallets/server/queries.ts#getWalletPage"
+      ],
+      "actions": [
+        "apps/web/src/features/wallets/server/actions.ts#addMemberAction",
+        "apps/web/src/features/wallets/server/actions.ts#leaveWalletAction",
+        "apps/web/src/features/wallets/server/actions.ts#removeMemberFromWalletAction",
+        "apps/web/src/features/wallets/server/actions.ts#renameWalletAction",
+        "apps/web/src/features/wallets/server/actions.ts#setArchivedAction",
+        "apps/web/src/features/wallets/server/actions.ts#setRoleAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-button.tsx",
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/wallets/ui/add-member-form.tsx",
+        "apps/web/src/features/wallets/ui/member-role-form.tsx",
+        "apps/web/src/features/wallets/ui/rename-wallet-form.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]"
+      ]
+    },
+    {
+      "route": "/carteiras/conta/[accountId]",
+      "file": "apps/web/src/app/(app)/carteiras/conta/[accountId]/page.tsx",
+      "kind": "page",
+      "title": "Cartão",
+      "area": "Carteiras",
+      "help": "meu-pluggy",
+      "params": [
+        "accountId"
+      ],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/bank/server/queries.ts#getCardPage"
+      ],
+      "actions": [
+        "apps/web/src/features/bank/server/actions.ts#requestSyncAction",
+        "apps/web/src/features/bank/server/actions.ts#setCategoryAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/bank/ui/category-picker.tsx",
+        "apps/web/src/features/bank/ui/request-sync-button.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/carteiras"
+      ]
+    },
+    {
+      "route": "/carteiras/nova",
+      "file": "apps/web/src/app/(app)/carteiras/nova/page.tsx",
+      "kind": "page",
+      "title": "Nova carteira",
+      "area": "Carteiras",
+      "help": "lar-e-carteiras",
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/wallets/server/queries.ts#getNewWalletPage"
+      ],
+      "actions": [
+        "apps/web/src/features/wallets/server/actions.ts#createWalletAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/wallets/ui/create-wallet-form.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/ajustes/lar"
+      ]
+    },
+    {
+      "route": "/configurar-2fa",
+      "file": "apps/web/src/app/(auth)/configurar-2fa/page.tsx",
+      "kind": "public",
+      "title": "Ligar a verificação em duas etapas",
+      "area": "Entrada",
+      "help": null,
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "none",
+      "loaders": [],
+      "actions": [],
+      "clientComponents": [
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/backup-codes.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/auth/ui/password-input.tsx",
+        "apps/web/src/features/auth/ui/sign-out-button.tsx",
+        "apps/web/src/features/auth/ui/two-factor-setup.tsx",
+        "apps/web/src/lib/auth-client.ts"
+      ],
+      "authCalls": [
+        "signOut",
+        "twoFactor.enable",
+        "twoFactor.verifyTotp"
+      ],
+      "links": [
+        "/"
+      ]
+    },
+    {
+      "route": "/convite/[token]",
+      "file": "apps/web/src/app/(app)/convite/[token]/page.tsx",
+      "kind": "page",
+      "title": "Convite",
+      "area": "Convite",
+      "help": "lar-e-carteiras",
+      "params": [
+        "token"
+      ],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/households/server/queries.ts#getInvitePreview",
+        "apps/web/src/features/households/server/queries.ts#hasHousehold"
+      ],
+      "actions": [
+        "apps/web/src/features/households/server/actions.ts#acceptInviteAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/households/ui/accept-invite-form.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/",
+        "/ajuda/[…]"
+      ]
+    },
+    {
+      "route": "/dev/ui",
+      "file": "apps/web/src/app/(app)/dev/ui/page.tsx",
+      "kind": "page",
+      "title": "Catálogo de componentes",
+      "area": "Desenvolvimento",
+      "help": null,
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [],
+      "actions": [],
+      "clientComponents": [
+        "apps/web/src/app/(app)/dev/ui/demos.tsx",
+        "apps/web/src/components/feedback/copy-button.tsx",
+        "apps/web/src/components/feedback/error-state.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/components/money/money-input.tsx",
+        "apps/web/src/components/visual/list-toolbar.tsx"
+      ],
+      "authCalls": [],
+      "links": [
+        "/",
+        "/ajuda/[…]"
+      ]
+    },
+    {
+      "route": "/entrar",
+      "file": "apps/web/src/app/(auth)/entrar/page.tsx",
+      "kind": "public",
+      "title": "Entrar",
+      "area": "Entrada",
+      "help": null,
+      "params": [],
+      "searchParams": [
+        "aviso",
+        "erro",
+        "next"
+      ],
+      "searchParamsTo": [],
+      "session": "none",
+      "loaders": [],
+      "actions": [],
+      "clientComponents": [
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/auth/ui/password-input.tsx",
+        "apps/web/src/features/auth/ui/sign-in-form.tsx",
+        "apps/web/src/lib/auth-client.ts",
+        "apps/web/src/lib/use-field-errors.ts"
+      ],
+      "authCalls": [
+        "signIn.email",
+        "signIn.passkey",
+        "signIn.social"
+      ],
+      "links": [
+        "/",
+        "/cadastro",
+        "/esqueci-a-senha",
+        "/primeiro-acesso"
+      ]
+    },
+    {
+      "route": "/entrar/dois-fatores",
+      "file": "apps/web/src/app/(auth)/entrar/dois-fatores/page.tsx",
+      "kind": "public",
+      "title": "Verificação em duas etapas",
+      "area": "Entrada",
+      "help": null,
+      "params": [],
+      "searchParams": [
+        "next"
+      ],
+      "searchParamsTo": [],
+      "session": "none",
+      "loaders": [],
+      "actions": [],
+      "clientComponents": [
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/auth/ui/two-factor-form.tsx",
+        "apps/web/src/lib/auth-client.ts",
+        "apps/web/src/lib/use-field-errors.ts"
+      ],
+      "authCalls": [
+        "twoFactor.verifyBackupCode",
+        "twoFactor.verifyTotp"
+      ],
+      "links": [
+        "/",
+        "/entrar"
+      ]
+    },
+    {
+      "route": "/esqueci-a-senha",
+      "file": "apps/web/src/app/(auth)/esqueci-a-senha/page.tsx",
+      "kind": "public",
+      "title": "Esqueci a senha",
+      "area": "Entrada",
+      "help": null,
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "none",
+      "loaders": [],
+      "actions": [],
+      "clientComponents": [
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/forgot-password-form.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/lib/auth-client.ts",
+        "apps/web/src/lib/use-field-errors.ts"
+      ],
+      "authCalls": [
+        "requestPasswordReset"
+      ],
+      "links": [
+        "/",
+        "/entrar"
+      ]
+    },
+    {
+      "route": "/lancamentos",
+      "file": "apps/web/src/app/(app)/lancamentos/page.tsx",
+      "kind": "page",
+      "title": "Lançamentos",
+      "area": "Lançamentos",
+      "help": "lancamentos",
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [
+        "apps/web/src/features/transactions/server/queries.ts#getTransactionsPage"
+      ],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/bank/server/queries.ts#categoryChoices",
+        "apps/web/src/features/transactions/server/queries.ts#getTransactionsPage"
+      ],
+      "actions": [
+        "apps/web/src/features/bank/server/actions.ts#setCategoryAction",
+        "apps/web/src/features/transactions/server/actions.ts#deleteTransactionAction",
+        "apps/web/src/features/transactions/server/actions.ts#restoreTransactionAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/components/visual/list-toolbar.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/bank/ui/category-picker.tsx",
+        "apps/web/src/features/transactions/ui/transaction-list.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/lancamentos",
+        "/lancamentos/[…]",
+        "/lancamentos/exportar",
+        "/lancamentos/importar",
+        "/lancamentos/novo",
+        "/lancamentos/recebidos",
+        "/lancamentos/recorrencias",
+        "/lancamentos/transferencia"
+      ]
+    },
+    {
+      "route": "/lancamentos/[transactionId]",
+      "file": "apps/web/src/app/(app)/lancamentos/[transactionId]/page.tsx",
+      "kind": "page",
+      "title": "Lançamento",
+      "area": "Lançamentos",
+      "help": "lancamentos",
+      "params": [
+        "transactionId"
+      ],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/transactions/server/queries.ts#getTransactionPage"
+      ],
+      "actions": [
+        "apps/web/src/features/transactions/server/actions.ts#confirmTransactionAction",
+        "apps/web/src/features/transactions/server/actions.ts#createTransactionAction",
+        "apps/web/src/features/transactions/server/actions.ts#deleteTransactionAction",
+        "apps/web/src/features/transactions/server/actions.ts#restoreTransactionAction",
+        "apps/web/src/features/transactions/server/actions.ts#suggestCategoryAction",
+        "apps/web/src/features/transactions/server/actions.ts#updateTransactionAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-button.tsx",
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/components/money/money-input.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/transactions/ui/delete-transaction.tsx",
+        "apps/web/src/features/transactions/ui/entry/entry-actions.tsx",
+        "apps/web/src/features/transactions/ui/entry/entry-fields.tsx",
+        "apps/web/src/features/transactions/ui/entry/entry-form.tsx",
+        "apps/web/src/features/transactions/ui/entry/entry-provider.tsx",
+        "apps/web/src/features/transactions/ui/transaction-form.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/lancamentos",
+        "/lancamentos/transferencia"
+      ]
+    },
+    {
+      "route": "/lancamentos/exportar",
+      "file": "apps/web/src/app/(app)/lancamentos/exportar/page.tsx",
+      "kind": "page",
+      "title": "Exportar lançamentos",
+      "area": "Lançamentos",
+      "help": "exportar",
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "recent",
+      "loaders": [
+        "apps/web/src/features/transactions/server/queries.ts#getExportPage"
+      ],
+      "actions": [
+        "apps/web/src/features/transactions/server/actions.ts#exportTransactionsAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/transactions/ui/export-form.tsx"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]"
+      ]
+    },
+    {
+      "route": "/lancamentos/importar",
+      "file": "apps/web/src/app/(app)/lancamentos/importar/page.tsx",
+      "kind": "page",
+      "title": "Importar extrato",
+      "area": "Lançamentos",
+      "help": "importar",
+      "params": [],
+      "searchParams": [
+        "importado"
+      ],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/bank/server/imports.ts#getImportPage"
+      ],
+      "actions": [
+        "apps/web/src/features/bank/server/import-actions.ts#previewFileAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/auth/ui/password-input.tsx",
+        "apps/web/src/features/bank/ui/import/upload-form.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/lancamentos/recebidos"
+      ]
+    },
+    {
+      "route": "/lancamentos/importar/[importId]",
+      "file": "apps/web/src/app/(app)/lancamentos/importar/[importId]/page.tsx",
+      "kind": "page",
+      "title": "Conferir antes de importar",
+      "area": "Lançamentos",
+      "help": "importar",
+      "params": [
+        "importId"
+      ],
+      "searchParams": [
+        "conta"
+      ],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/bank/server/imports.ts#getPreviewPage"
+      ],
+      "actions": [
+        "apps/web/src/features/bank/server/import-actions.ts#cancelImportAction",
+        "apps/web/src/features/bank/server/import-actions.ts#importFileAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/bank/ui/import/account-picker.tsx",
+        "apps/web/src/features/bank/ui/import/import-footer.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/ajustes/contas",
+        "/lancamentos/importar",
+        "/lancamentos/recebidos"
+      ]
+    },
+    {
+      "route": "/lancamentos/novo",
+      "file": "apps/web/src/app/(app)/lancamentos/novo/page.tsx",
+      "kind": "page",
+      "title": "Novo lançamento",
+      "area": "Lançamentos",
+      "help": "lancar-um-gasto",
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/transactions/server/queries.ts#getQuickEntryPage"
+      ],
+      "actions": [
+        "apps/web/src/features/transactions/server/actions.ts#createTransactionAction",
+        "apps/web/src/features/transactions/server/actions.ts#deleteTransactionAction",
+        "apps/web/src/features/transactions/server/actions.ts#suggestCategoryAction",
+        "apps/web/src/features/transactions/server/actions.ts#updateTransactionAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/components/money/money-input.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/transactions/ui/entry/entry-actions.tsx",
+        "apps/web/src/features/transactions/ui/entry/entry-fields.tsx",
+        "apps/web/src/features/transactions/ui/entry/entry-form.tsx",
+        "apps/web/src/features/transactions/ui/entry/entry-provider.tsx",
+        "apps/web/src/features/transactions/ui/transaction-form.tsx"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/lancamentos/transferencia"
+      ]
+    },
+    {
+      "route": "/lancamentos/novo",
+      "file": "apps/web/src/app/(app)/@modal/(.)lancamentos/novo/page.tsx",
+      "kind": "modal",
+      "title": "Novo lançamento",
+      "area": "Lançamentos",
+      "help": null,
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/transactions/server/queries.ts#getQuickEntryPage"
+      ],
+      "actions": [
+        "apps/web/src/features/transactions/server/actions.ts#createTransactionAction",
+        "apps/web/src/features/transactions/server/actions.ts#deleteTransactionAction",
+        "apps/web/src/features/transactions/server/actions.ts#suggestCategoryAction",
+        "apps/web/src/features/transactions/server/actions.ts#updateTransactionAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/money/money-input.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/transactions/ui/entry/entry-actions.tsx",
+        "apps/web/src/features/transactions/ui/entry/entry-fields.tsx",
+        "apps/web/src/features/transactions/ui/entry/entry-form.tsx",
+        "apps/web/src/features/transactions/ui/entry/entry-provider.tsx"
+      ],
+      "authCalls": [],
+      "links": [
+        "/lancamentos/novo",
+        "/lancamentos/transferencia"
+      ]
+    },
+    {
+      "route": "/lancamentos/recebidos",
+      "file": "apps/web/src/app/(app)/lancamentos/recebidos/page.tsx",
+      "kind": "page",
+      "title": "Recebidos do banco",
+      "area": "Lançamentos",
+      "help": "recebidos",
+      "params": [],
+      "searchParams": [
+        "abrir",
+        "aplicados",
+        "confirmado",
+        "criada",
+        "juntado",
+        "ver"
+      ],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/bank/server/review.ts#getReviewPage",
+        "apps/web/src/features/bot/server/queries.ts#getOpenDrafts"
+      ],
+      "actions": [
+        "apps/web/src/features/bank/server/actions.ts#requestSyncAction",
+        "apps/web/src/features/bank/server/actions.ts#setCategoryAction",
+        "apps/web/src/features/bank/server/review-actions.ts#reviewAction",
+        "apps/web/src/features/bank/server/review-actions.ts#undoReviewAction",
+        "apps/web/src/features/bot/server/actions.ts#botDraftAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/bank/ui/category-picker.tsx",
+        "apps/web/src/features/bank/ui/request-sync-button.tsx",
+        "apps/web/src/features/bank/ui/review/review-actions.tsx",
+        "apps/web/src/features/bot/ui/drafts.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/ajustes/bot",
+        "/lancamentos",
+        "/lancamentos/importar",
+        "/lancamentos/recebidos/criar/[…]",
+        "/lancamentos/recebidos/par/[…]",
+        "/lancamentos/recebidos/por-que/[…]"
+      ]
+    },
+    {
+      "route": "/lancamentos/recebidos/criar/[receivedId]",
+      "file": "apps/web/src/app/(app)/lancamentos/recebidos/criar/[receivedId]/page.tsx",
+      "kind": "page",
+      "title": "Criar a categoria proposta",
+      "area": "Lançamentos",
+      "help": "ia-local",
+      "params": [
+        "receivedId"
+      ],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/bank/server/review.ts#getProposalPage"
+      ],
+      "actions": [
+        "apps/web/src/features/bank/server/review-actions.ts#applyLocalAiProposalAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/feedback/step-footer.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/bank/ui/review/proposal-form.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/lancamentos/recebidos"
+      ]
+    },
+    {
+      "route": "/lancamentos/recebidos/criar/[receivedId]",
+      "file": "apps/web/src/app/(app)/@modal/(.)lancamentos/recebidos/criar/[receivedId]/page.tsx",
+      "kind": "modal",
+      "title": "Criar a categoria proposta",
+      "area": "Lançamentos",
+      "help": null,
+      "params": [
+        "receivedId"
+      ],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/bank/server/review.ts#getProposalPage"
+      ],
+      "actions": [
+        "apps/web/src/features/bank/server/review-actions.ts#applyLocalAiProposalAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/feedback/step-footer.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/bank/ui/review/proposal-form.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/lancamentos/recebidos"
+      ]
+    },
+    {
+      "route": "/lancamentos/recebidos/par/[receivedId]",
+      "file": "apps/web/src/app/(app)/lancamentos/recebidos/par/[receivedId]/page.tsx",
+      "kind": "page",
+      "title": "Confirmar o par",
+      "area": "Lançamentos",
+      "help": "recebidos",
+      "params": [
+        "receivedId"
+      ],
+      "searchParams": [
+        "com"
+      ],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/bank/server/review.ts#getPairPage"
+      ],
+      "actions": [
+        "apps/web/src/features/bank/server/review-actions.ts#confirmPairAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/feedback/step-footer.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/bank/ui/review/pair-confirm-form.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/lancamentos/recebidos"
+      ]
+    },
+    {
+      "route": "/lancamentos/recebidos/par/[receivedId]",
+      "file": "apps/web/src/app/(app)/@modal/(.)lancamentos/recebidos/par/[receivedId]/page.tsx",
+      "kind": "modal",
+      "title": "Confirmar o par",
+      "area": "Lançamentos",
+      "help": null,
+      "params": [
+        "receivedId"
+      ],
+      "searchParams": [
+        "com"
+      ],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/bank/server/review.ts#getPairPage"
+      ],
+      "actions": [
+        "apps/web/src/features/bank/server/review-actions.ts#confirmPairAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/feedback/step-footer.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/bank/ui/review/pair-confirm-form.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/lancamentos/recebidos"
+      ]
+    },
+    {
+      "route": "/lancamentos/recebidos/por-que/[receivedId]",
+      "file": "apps/web/src/app/(app)/lancamentos/recebidos/por-que/[receivedId]/page.tsx",
+      "kind": "page",
+      "title": "Por que essa categoria?",
+      "area": "Lançamentos",
+      "help": "por-que-essa-categoria",
+      "params": [
+        "receivedId"
+      ],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/bank/server/review.ts#getExplanationPage"
+      ],
+      "actions": [
+        "apps/web/src/features/bank/server/review-actions.ts#confirmExplainedAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/feedback/step-footer.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/bank/ui/review/explanation-confirm-form.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/lancamentos/recebidos"
+      ]
+    },
+    {
+      "route": "/lancamentos/recebidos/por-que/[receivedId]",
+      "file": "apps/web/src/app/(app)/@modal/(.)lancamentos/recebidos/por-que/[receivedId]/page.tsx",
+      "kind": "modal",
+      "title": "Por que essa categoria?",
+      "area": "Lançamentos",
+      "help": null,
+      "params": [
+        "receivedId"
+      ],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/bank/server/review.ts#getExplanationPage"
+      ],
+      "actions": [
+        "apps/web/src/features/bank/server/review-actions.ts#confirmExplainedAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/feedback/step-footer.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/bank/ui/review/explanation-confirm-form.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/lancamentos/recebidos"
+      ]
+    },
+    {
+      "route": "/lancamentos/recorrencias",
+      "file": "apps/web/src/app/(app)/lancamentos/recorrencias/page.tsx",
+      "kind": "page",
+      "title": "Recorrências",
+      "area": "Lançamentos",
+      "help": "parcelada-e-fixa",
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/transactions/server/queries.ts#getRecurrencesPage"
+      ],
+      "actions": [
+        "apps/web/src/features/transactions/server/actions.ts#archiveRecurrenceAction",
+        "apps/web/src/features/transactions/server/actions.ts#createRecurrenceAction",
+        "apps/web/src/features/transactions/server/actions.ts#generateRecurrencesAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-button.tsx",
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/components/money/money-input.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/transactions/ui/recurrence-form.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]"
+      ]
+    },
+    {
+      "route": "/lancamentos/transferencia",
+      "file": "apps/web/src/app/(app)/lancamentos/transferencia/page.tsx",
+      "kind": "page",
+      "title": "Transferência",
+      "area": "Lançamentos",
+      "help": "transferencia",
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/transactions/server/queries.ts#getQuickEntryPage"
+      ],
+      "actions": [
+        "apps/web/src/features/transactions/server/actions.ts#createTransferAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/components/money/money-input.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/transactions/ui/transfer-form.tsx"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/ajustes/contas"
+      ]
+    },
+    {
+      "route": "/orcamento",
+      "file": "apps/web/src/app/(app)/orcamento/page.tsx",
+      "kind": "page",
+      "title": "Orçamento",
+      "area": "Orçamento",
+      "help": "orcamento",
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [
+        "apps/web/src/features/budget/server/queries.ts#getBudgetPage"
+      ],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/budget/server/queries.ts#getBudgetPage"
+      ],
+      "actions": [
+        "apps/web/src/features/budget/server/actions.ts#copyBudgetsAction",
+        "apps/web/src/features/budget/server/actions.ts#undoCopyBudgetsAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/budget/ui/budget-actions.tsx",
+        "apps/web/src/features/budget/ui/budget-table.tsx"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/carteiras",
+        "/orcamento",
+        "/orcamento/evolucao",
+        "/orcamento/fluxo"
+      ]
+    },
+    {
+      "route": "/orcamento/editar",
+      "file": "apps/web/src/app/(app)/orcamento/editar/page.tsx",
+      "kind": "page",
+      "title": "Editar valores",
+      "area": "Orçamento",
+      "help": "orcamento",
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [
+        "apps/web/src/features/budget/server/queries.ts#getBudgetEditor"
+      ],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/budget/server/queries.ts#getBudgetEditor"
+      ],
+      "actions": [
+        "apps/web/src/features/budget/server/actions.ts#saveBudgetAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/components/money/money-input.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/budget/ui/budget-form.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/orcamento"
+      ]
+    },
+    {
+      "route": "/orcamento/editar",
+      "file": "apps/web/src/app/(app)/@modal/(.)orcamento/editar/page.tsx",
+      "kind": "modal",
+      "title": "Editar valores",
+      "area": "Orçamento",
+      "help": null,
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [
+        "apps/web/src/features/budget/server/queries.ts#getBudgetEditor"
+      ],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/budget/server/queries.ts#getBudgetEditor"
+      ],
+      "actions": [
+        "apps/web/src/features/budget/server/actions.ts#saveBudgetAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/money/money-input.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/budget/ui/budget-form.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": []
+    },
+    {
+      "route": "/orcamento/evolucao",
+      "file": "apps/web/src/app/(app)/orcamento/evolucao/page.tsx",
+      "kind": "page",
+      "title": "Evolução",
+      "area": "Orçamento",
+      "help": "fluxo-e-evolucao",
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [
+        "apps/web/src/features/budget/server/queries.ts#getEvolutionPage"
+      ],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/budget/server/queries.ts#getEvolutionPage"
+      ],
+      "actions": [],
+      "clientComponents": [
+        "apps/web/src/components/layout/content-ready.tsx"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/lancamentos/novo",
+        "/orcamento",
+        "/orcamento/evolucao",
+        "/orcamento/fluxo"
+      ]
+    },
+    {
+      "route": "/orcamento/fluxo",
+      "file": "apps/web/src/app/(app)/orcamento/fluxo/page.tsx",
+      "kind": "page",
+      "title": "Fluxo de caixa",
+      "area": "Orçamento",
+      "help": "fluxo-e-evolucao",
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [
+        "apps/web/src/features/budget/server/queries.ts#getCashFlowPage"
+      ],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/budget/server/queries.ts#getCashFlowPage"
+      ],
+      "actions": [],
+      "clientComponents": [
+        "apps/web/src/components/layout/content-ready.tsx"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/lancamentos/novo",
+        "/lancamentos/recorrencias",
+        "/orcamento",
+        "/orcamento/evolucao",
+        "/orcamento/fluxo"
+      ]
+    },
+    {
+      "route": "/primeiro-acesso",
+      "file": "apps/web/src/app/(auth)/primeiro-acesso/page.tsx",
+      "kind": "public",
+      "title": "Primeiro acesso",
+      "area": "Entrada",
+      "help": null,
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "none",
+      "loaders": [],
+      "actions": [],
+      "clientComponents": [
+        "apps/web/src/components/layout/content-ready.tsx"
+      ],
+      "authCalls": [],
+      "links": [
+        "/",
+        "/cadastro",
+        "/entrar"
+      ]
+    },
+    {
+      "route": "/reautenticar",
+      "file": "apps/web/src/app/(auth)/reautenticar/page.tsx",
+      "kind": "public",
+      "title": "Confirme que é você",
+      "area": "Entrada",
+      "help": null,
+      "params": [],
+      "searchParams": [
+        "next"
+      ],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [],
+      "actions": [
+        "apps/web/src/features/auth/server/actions.ts#finishPasskeyReauth",
+        "apps/web/src/features/auth/server/actions.ts#reauthenticate"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/auth/ui/password-input.tsx",
+        "apps/web/src/features/auth/ui/reauth-form.tsx",
+        "apps/web/src/lib/auth-client.ts",
+        "apps/web/src/lib/use-field-errors.ts"
+      ],
+      "authCalls": [
+        "signIn.passkey"
+      ],
+      "links": [
+        "/"
+      ]
+    },
+    {
+      "route": "/redefinir-senha",
+      "file": "apps/web/src/app/(auth)/redefinir-senha/page.tsx",
+      "kind": "public",
+      "title": "Criar senha nova",
+      "area": "Entrada",
+      "help": null,
+      "params": [],
+      "searchParams": [
+        "token"
+      ],
+      "searchParamsTo": [],
+      "session": "none",
+      "loaders": [],
+      "actions": [],
+      "clientComponents": [
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/auth/ui/password-input.tsx",
+        "apps/web/src/features/auth/ui/reset-password-form.tsx",
+        "apps/web/src/lib/auth-client.ts",
+        "apps/web/src/lib/use-field-errors.ts"
+      ],
+      "authCalls": [
+        "resetPassword"
+      ],
+      "links": [
+        "/",
+        "/entrar",
+        "/esqueci-a-senha"
+      ]
+    },
+    {
+      "route": "/verifique-seu-email",
+      "file": "apps/web/src/app/(auth)/verifique-seu-email/page.tsx",
+      "kind": "public",
+      "title": "Confirme seu e-mail",
+      "area": "Entrada",
+      "help": null,
+      "params": [],
+      "searchParams": [
+        "email"
+      ],
+      "searchParamsTo": [],
+      "session": "none",
+      "loaders": [],
+      "actions": [],
+      "clientComponents": [
+        "apps/web/src/components/layout/content-ready.tsx"
+      ],
+      "authCalls": [],
+      "links": [
+        "/",
+        "/entrar"
+      ]
+    }
+  ],
+  "loaders": [
+    {
+      "id": "apps/web/src/features/accounts/server/queries.ts#getAccountsPage",
+      "file": "apps/web/src/features/accounts/server/queries.ts",
+      "name": "getAccountsPage",
+      "input": [],
+      "permissions": [
+        "view"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeWallet",
+        "packages/db/src/accounts.ts#listWalletAccounts",
+        "packages/db/src/households.ts#listHouseholdMembers",
+        "packages/db/src/wallets.ts#listMyWallets"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/access.ts#canInWallet"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/accounts/server/queries.ts#getCardFormPage",
+      "file": "apps/web/src/features/accounts/server/queries.ts",
+      "name": "getCardFormPage",
+      "input": [],
+      "permissions": [
+        "view"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeWallet",
+        "packages/db/src/accounts.ts#listWalletAccounts",
+        "packages/db/src/households.ts#listHouseholdMembers",
+        "packages/db/src/wallets.ts#listMyWallets"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/access.ts#canInWallet"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/accounts/server/queries.ts#getNewAccountPage",
+      "file": "apps/web/src/features/accounts/server/queries.ts",
+      "name": "getNewAccountPage",
+      "input": [],
+      "permissions": [
+        "view"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeWallet",
+        "packages/db/src/accounts.ts#listWalletAccounts",
+        "packages/db/src/households.ts#listHouseholdMembers",
+        "packages/db/src/wallets.ts#listMyWallets"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/access.ts#canInWallet"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/auth/server/queries.ts#listMyPasskeys",
+      "file": "apps/web/src/features/auth/server/queries.ts",
+      "name": "listMyPasskeys",
+      "input": [],
+      "permissions": [],
+      "db": [],
+      "tables": [
+        "Passkey"
+      ],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/auth/server/queries.ts#listMySessions",
+      "file": "apps/web/src/features/auth/server/queries.ts",
+      "name": "listMySessions",
+      "input": [],
+      "permissions": [],
+      "db": [],
+      "tables": [
+        "Session"
+      ],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/bank/server/imports.ts#getImportPage",
+      "file": "apps/web/src/features/bank/server/imports.ts",
+      "name": "getImportPage",
+      "input": [],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/file-imports.ts#fileImportFor",
+        "packages/db/src/file-imports.ts#listFileImports"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/bank/server/imports.ts#getPreviewPage",
+      "file": "apps/web/src/features/bank/server/imports.ts",
+      "name": "getPreviewPage",
+      "input": [],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#isUuid",
+        "packages/db/src/file-imports.ts#classifyPreviewRows",
+        "packages/db/src/file-imports.ts#filePreviewFor"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/bank/server/queries.ts#categoryChoices",
+      "file": "apps/web/src/features/bank/server/queries.ts",
+      "name": "categoryChoices",
+      "input": [],
+      "permissions": [
+        "view"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/categories.ts#listCategories"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/bank/server/queries.ts#getBankHome",
+      "file": "apps/web/src/features/bank/server/queries.ts",
+      "name": "getBankHome",
+      "input": [],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeConnectionOwner",
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/connections.ts#bankLinkedAccounts",
+        "packages/db/src/statements.ts#openStatementTotals",
+        "packages/db/src/statements.ts#receivedSummary"
+      ],
+      "tables": [
+        "FinancialAccount",
+        "ProviderConnection",
+        "ProviderItem"
+      ],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/dates.ts#todayCivil"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/bank/server/queries.ts#getCardPage",
+      "file": "apps/web/src/features/bank/server/queries.ts",
+      "name": "getCardPage",
+      "input": [],
+      "permissions": [
+        "view"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeAccountView",
+        "packages/db/src/access.ts#authorizeConnectionOwner",
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/categories.ts#listCategories",
+        "packages/db/src/statements.ts#cardStatementView"
+      ],
+      "tables": [
+        "PaymentCard",
+        "ProviderConnection"
+      ],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/dates.ts#todayCivil"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/bank/server/queries.ts#getConnectionsPage",
+      "file": "apps/web/src/features/bank/server/queries.ts",
+      "name": "getConnectionsPage",
+      "input": [],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeConnectionOwner",
+        "packages/db/src/connections.ts#getConnection"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/bank/server/queries.ts#getCredentialsForm",
+      "file": "apps/web/src/features/bank/server/queries.ts",
+      "name": "getCredentialsForm",
+      "input": [],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeConnectionOwner",
+        "packages/db/src/connections.ts#connectionItemIds",
+        "packages/db/src/connections.ts#getConnection"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/bank/server/queries.ts#getLinkPage",
+      "file": "apps/web/src/features/bank/server/queries.ts",
+      "name": "getLinkPage",
+      "input": [],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeConnectionOwner",
+        "packages/db/src/connection-secret.ts#parseKeyring",
+        "packages/db/src/connections.ts#connectionItemIds",
+        "packages/db/src/connections.ts#getConnection",
+        "packages/db/src/connections.ts#importWalletOptions",
+        "packages/db/src/connections.ts#linkableAccounts",
+        "packages/db/src/connections.ts#suggestLinks",
+        "packages/db/src/sync.ts#providerForConnection"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [
+        "pluggy"
+      ],
+      "rules": [
+        "packages/core/src/dates.ts#addMonthsToKey",
+        "packages/core/src/dates.ts#firstDayOf",
+        "packages/core/src/dates.ts#monthOf",
+        "packages/core/src/dates.ts#todayCivil"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/bank/server/queries.ts#getSyncHistory",
+      "file": "apps/web/src/features/bank/server/queries.ts",
+      "name": "getSyncHistory",
+      "input": [],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeConnectionOwner",
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/connections.ts#getConnection",
+        "packages/db/src/statements.ts#receivedSummary"
+      ],
+      "tables": [
+        "SyncRun"
+      ],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/dates.ts#addDays",
+        "packages/core/src/dates.ts#todayCivil"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/bank/server/review.ts#getAccountCardsPage",
+      "file": "apps/web/src/features/bank/server/review.ts",
+      "name": "getAccountCardsPage",
+      "input": [],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeAccountView",
+        "packages/db/src/access.ts#authorizeWallet"
+      ],
+      "tables": [
+        "FinancialAccount",
+        "HouseholdMember",
+        "Transaction"
+      ],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/bank/server/review.ts#getExplanationPage",
+      "file": "apps/web/src/features/bank/server/review.ts",
+      "name": "getExplanationPage",
+      "input": [],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/categories.ts#explainTransaction"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [
+        "ml"
+      ],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/bank/server/review.ts#getPairPage",
+      "file": "apps/web/src/features/bank/server/review.ts",
+      "name": "getPairPage",
+      "input": [],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/access.ts#isUuid",
+        "packages/db/src/review.ts#pairPreview"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/bank/server/review.ts#getProposalPage",
+      "file": "apps/web/src/features/bank/server/review.ts",
+      "name": "getProposalPage",
+      "input": [],
+      "permissions": [
+        "view"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/access.ts#isUuid",
+        "packages/db/src/local-ai.ts#localAiProposalPreview"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/access.ts#canInHousehold"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/bank/server/review.ts#getReviewPage",
+      "file": "apps/web/src/features/bank/server/review.ts",
+      "name": "getReviewPage",
+      "input": [],
+      "permissions": [
+        "view"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeConnectionOwner",
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/categories.ts#listCategories",
+        "packages/db/src/review.ts#reviewQueue"
+      ],
+      "tables": [
+        "ProviderConnection",
+        "Wallet"
+      ],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/access.ts#canInHousehold"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/bot/server/queries.ts#getBotSettings",
+      "file": "apps/web/src/features/bot/server/queries.ts",
+      "name": "getBotSettings",
+      "input": [],
+      "permissions": [
+        "view"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/bot.ts#botSettings"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/bot/server/queries.ts#getLinkCode",
+      "file": "apps/web/src/features/bot/server/queries.ts",
+      "name": "getLinkCode",
+      "input": [],
+      "permissions": [],
+      "db": [
+        "packages/db/src/bot.ts#botPhoneKey",
+        "packages/db/src/bot.ts#linkCodeStatus",
+        "packages/db/src/connection-secret.ts#parseKeyring"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/bot.ts#telegramStartLink"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/bot/server/queries.ts#getOpenDrafts",
+      "file": "apps/web/src/features/bot/server/queries.ts",
+      "name": "getOpenDrafts",
+      "input": [],
+      "permissions": [],
+      "db": [
+        "packages/db/src/bot.ts#openDrafts"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/budget/server/queries.ts#getBudgetEditor",
+      "file": "apps/web/src/features/budget/server/queries.ts",
+      "name": "getBudgetEditor",
+      "input": [],
+      "permissions": [
+        "view"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/budgets.ts#listBudgets",
+        "packages/db/src/categories.ts#categoryNodes",
+        "packages/db/src/categories.ts#listCategories",
+        "packages/db/src/households.ts#listHouseholdMembers",
+        "packages/db/src/wallets.ts#listMyWallets"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/dates.ts#monthOf",
+        "packages/core/src/dates.ts#todayCivil",
+        "packages/core/src/payer.ts#initialsOf",
+        "packages/core/src/payer.ts#parsePayerParam",
+        "packages/core/src/payer.ts#payerParam",
+        "packages/core/src/payer.ts#payerTones"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/budget/server/queries.ts#getBudgetPage",
+      "file": "apps/web/src/features/budget/server/queries.ts",
+      "name": "getBudgetPage",
+      "input": [],
+      "permissions": [
+        "view"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/budgets.ts#listBudgets",
+        "packages/db/src/categories.ts#categoryNodes",
+        "packages/db/src/categories.ts#listCategories",
+        "packages/db/src/dashboard.ts#recurrencePlans",
+        "packages/db/src/dashboard.ts#spendingRows",
+        "packages/db/src/households.ts#listHouseholdMembers",
+        "packages/db/src/wallets.ts#listMyWallets"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/budget.ts#monthPhase",
+        "packages/core/src/budget.ts#monthsBefore",
+        "packages/core/src/budget.ts#projectMonth",
+        "packages/core/src/cashflow.ts#pendingOccurrences",
+        "packages/core/src/dashboard.ts#budgetRows",
+        "packages/core/src/dates.ts#addMonthsToKey",
+        "packages/core/src/dates.ts#dayOfMonth",
+        "packages/core/src/dates.ts#firstDayOf",
+        "packages/core/src/dates.ts#monthOf",
+        "packages/core/src/dates.ts#todayCivil",
+        "packages/core/src/money.ts#sumCents",
+        "packages/core/src/payer.ts#initialsOf",
+        "packages/core/src/payer.ts#parsePayerParam",
+        "packages/core/src/payer.ts#payerParam",
+        "packages/core/src/payer.ts#payerTones"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/budget/server/queries.ts#getCashFlowPage",
+      "file": "apps/web/src/features/budget/server/queries.ts",
+      "name": "getCashFlowPage",
+      "input": [],
+      "permissions": [
+        "view"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/categories.ts#categoryNodes",
+        "packages/db/src/categories.ts#listCategories",
+        "packages/db/src/dashboard.ts#cashRows",
+        "packages/db/src/dashboard.ts#recurrencePlans",
+        "packages/db/src/households.ts#listHouseholdMembers",
+        "packages/db/src/wallets.ts#listMyWallets"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/budget.ts#monthsStartingAt",
+        "packages/core/src/card.ts#statementOfMonth",
+        "packages/core/src/cashflow.ts#cashBucketOf",
+        "packages/core/src/cashflow.ts#cashDateFor",
+        "packages/core/src/cashflow.ts#cashFlow",
+        "packages/core/src/cashflow.ts#pendingOccurrences",
+        "packages/core/src/dates.ts#addDays",
+        "packages/core/src/dates.ts#addMonthsToKey",
+        "packages/core/src/dates.ts#dayOfMonth",
+        "packages/core/src/dates.ts#firstDayOf",
+        "packages/core/src/dates.ts#monthOf",
+        "packages/core/src/dates.ts#todayCivil",
+        "packages/core/src/money.ts#sumCents",
+        "packages/core/src/payer.ts#initialsOf",
+        "packages/core/src/payer.ts#parsePayerParam",
+        "packages/core/src/payer.ts#payerParam",
+        "packages/core/src/payer.ts#payerTones"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/budget/server/queries.ts#getEvolutionPage",
+      "file": "apps/web/src/features/budget/server/queries.ts",
+      "name": "getEvolutionPage",
+      "input": [],
+      "permissions": [
+        "view"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/budgets.ts#listBudgets",
+        "packages/db/src/categories.ts#categoryNodes",
+        "packages/db/src/categories.ts#listCategories",
+        "packages/db/src/dashboard.ts#recurrencePlans",
+        "packages/db/src/dashboard.ts#spendingRows",
+        "packages/db/src/households.ts#listHouseholdMembers",
+        "packages/db/src/wallets.ts#listMyWallets"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/budget.ts#averageCents",
+        "packages/core/src/budget.ts#categoryGroupOf",
+        "packages/core/src/budget.ts#monthsBefore",
+        "packages/core/src/budget.ts#monthsEndingAt",
+        "packages/core/src/budget.ts#percentVersus",
+        "packages/core/src/budget.ts#subtreeOf",
+        "packages/core/src/cashflow.ts#pendingOccurrences",
+        "packages/core/src/dashboard.ts#comparisonFor",
+        "packages/core/src/dashboard.ts#monthlySeries",
+        "packages/core/src/dates.ts#dayOfMonth",
+        "packages/core/src/dates.ts#firstDayOf",
+        "packages/core/src/dates.ts#monthOf",
+        "packages/core/src/dates.ts#todayCivil",
+        "packages/core/src/money.ts#sumCents",
+        "packages/core/src/payer.ts#initialsOf",
+        "packages/core/src/payer.ts#parsePayerParam",
+        "packages/core/src/payer.ts#payerParam",
+        "packages/core/src/payer.ts#payerTones"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/budget/server/queries.ts#getHomeDashboard",
+      "file": "apps/web/src/features/budget/server/queries.ts",
+      "name": "getHomeDashboard",
+      "input": [],
+      "permissions": [
+        "view"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/budgets.ts#listBudgets",
+        "packages/db/src/categories.ts#categoryNodes",
+        "packages/db/src/categories.ts#listCategories",
+        "packages/db/src/dashboard.ts#cashRows",
+        "packages/db/src/dashboard.ts#recurrencePlans",
+        "packages/db/src/dashboard.ts#recurrencesStartedIn",
+        "packages/db/src/dashboard.ts#spendingRows",
+        "packages/db/src/households.ts#listHouseholdMembers",
+        "packages/db/src/wallets.ts#listMyWallets"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/budget.ts#budgetStatus",
+        "packages/core/src/budget.ts#monthsBefore",
+        "packages/core/src/budget.ts#monthsStartingAt",
+        "packages/core/src/budget.ts#projectMonth",
+        "packages/core/src/budget.ts#subtreeOf",
+        "packages/core/src/cashflow.ts#cashBucketOf",
+        "packages/core/src/cashflow.ts#cashDateFor",
+        "packages/core/src/cashflow.ts#cashFlow",
+        "packages/core/src/cashflow.ts#pendingOccurrences",
+        "packages/core/src/dashboard.ts#budgetRows",
+        "packages/core/src/dashboard.ts#figuresFor",
+        "packages/core/src/dashboard.ts#incomeUpToToday",
+        "packages/core/src/dashboard.ts#spendingByGroup",
+        "packages/core/src/dates.ts#addMonthsToKey",
+        "packages/core/src/dates.ts#dayOfMonth",
+        "packages/core/src/dates.ts#firstDayOf",
+        "packages/core/src/dates.ts#monthOf",
+        "packages/core/src/dates.ts#todayCivil",
+        "packages/core/src/money.ts#sumCents",
+        "packages/core/src/month-summary.ts#monthSummary",
+        "packages/core/src/month-summary.ts#summaryPeriod",
+        "packages/core/src/payer.ts#initialsOf",
+        "packages/core/src/payer.ts#parsePayerParam",
+        "packages/core/src/payer.ts#payerParam",
+        "packages/core/src/payer.ts#payerTones"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/categories/server/categorization.ts#getCategorizationPage",
+      "file": "apps/web/src/features/categories/server/categorization.ts",
+      "name": "getCategorizationPage",
+      "input": [],
+      "permissions": [
+        "view"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/classifier.ts#categorizationStats",
+        "packages/db/src/classifier.ts#classifierSummary",
+        "packages/db/src/classifier.ts#statsPeriod",
+        "packages/db/src/local-ai.ts#localAiSummary"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [
+        "ml"
+      ],
+      "rules": [
+        "packages/core/src/access.ts#canInHousehold"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/categories/server/queries.ts#getCategoriesPage",
+      "file": "apps/web/src/features/categories/server/queries.ts",
+      "name": "getCategoriesPage",
+      "input": [],
+      "permissions": [
+        "view"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/categories.ts#listCategories",
+        "packages/db/src/categories.ts#listRules"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/access.ts#canInHousehold"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/households/server/queries.ts#getHouseholdPage",
+      "file": "apps/web/src/features/households/server/queries.ts",
+      "name": "getHouseholdPage",
+      "input": [],
+      "permissions": [
+        "invite",
+        "view",
+        "view_activity"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/households.ts#listHouseholdActivity",
+        "packages/db/src/households.ts#listHouseholdMembers",
+        "packages/db/src/households.ts#listOpenInvites"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/access.ts#canInHousehold"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/households/server/queries.ts#getInvitePreview",
+      "file": "apps/web/src/features/households/server/queries.ts",
+      "name": "getInvitePreview",
+      "input": [],
+      "permissions": [],
+      "db": [
+        "packages/db/src/households.ts#findInviteByToken"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/households/server/queries.ts#hasHousehold",
+      "file": "apps/web/src/features/households/server/queries.ts",
+      "name": "hasHousehold",
+      "input": [],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/transactions/server/queries.ts#getExportPage",
+      "file": "apps/web/src/features/transactions/server/queries.ts",
+      "name": "getExportPage",
+      "input": [],
+      "permissions": [],
+      "db": [
+        "packages/db/src/wallets.ts#listMyWallets"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/transactions/server/queries.ts#getQuickEntryPage",
+      "file": "apps/web/src/features/transactions/server/queries.ts",
+      "name": "getQuickEntryPage",
+      "input": [],
+      "permissions": [
+        "view"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/accounts.ts#listUsableAccounts",
+        "packages/db/src/categories.ts#listCategories",
+        "packages/db/src/households.ts#listHouseholdMembers",
+        "packages/db/src/transactions.ts#lastUsedChoice",
+        "packages/db/src/wallets.ts#listMyWallets"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/access.ts#canInHousehold",
+        "packages/core/src/dates.ts#todayCivil",
+        "packages/core/src/payer.ts#initialsOf",
+        "packages/core/src/payer.ts#payerTones"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/transactions/server/queries.ts#getRecurrencesPage",
+      "file": "apps/web/src/features/transactions/server/queries.ts",
+      "name": "getRecurrencesPage",
+      "input": [],
+      "permissions": [
+        "view"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/accounts.ts#listUsableAccounts",
+        "packages/db/src/categories.ts#listCategories",
+        "packages/db/src/households.ts#listHouseholdMembers",
+        "packages/db/src/recurrences.ts#listRecurrences",
+        "packages/db/src/transactions.ts#lastUsedChoice",
+        "packages/db/src/wallets.ts#listMyWallets"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/access.ts#canInHousehold",
+        "packages/core/src/dates.ts#todayCivil",
+        "packages/core/src/payer.ts#initialsOf",
+        "packages/core/src/payer.ts#payerTones"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/transactions/server/queries.ts#getTransactionPage",
+      "file": "apps/web/src/features/transactions/server/queries.ts",
+      "name": "getTransactionPage",
+      "input": [],
+      "permissions": [
+        "view"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeTransaction",
+        "packages/db/src/accounts.ts#listUsableAccounts",
+        "packages/db/src/categories.ts#listCategories",
+        "packages/db/src/households.ts#listHouseholdMembers",
+        "packages/db/src/transactions.ts#getTransaction",
+        "packages/db/src/transactions.ts#lastUsedChoice",
+        "packages/db/src/wallets.ts#listMyWallets"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/access.ts#canInHousehold",
+        "packages/core/src/dates.ts#todayCivil",
+        "packages/core/src/payer.ts#initialsOf",
+        "packages/core/src/payer.ts#payerTones"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/transactions/server/queries.ts#getTransactionsPage",
+      "file": "apps/web/src/features/transactions/server/queries.ts",
+      "name": "getTransactionsPage",
+      "input": [],
+      "permissions": [
+        "view"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/accounts.ts#listUsableAccounts",
+        "packages/db/src/categories.ts#listCategories",
+        "packages/db/src/households.ts#listHouseholdMembers",
+        "packages/db/src/statements.ts#receivedSummary",
+        "packages/db/src/transactions.ts#listTransactions",
+        "packages/db/src/transactions.ts#sumTransactions",
+        "packages/db/src/wallets.ts#listMyWallets"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/access.ts#canInHousehold",
+        "packages/core/src/dates.ts#addMonths",
+        "packages/core/src/dates.ts#isCivilDate",
+        "packages/core/src/dates.ts#todayCivil",
+        "packages/core/src/payer.ts#initialsOf",
+        "packages/core/src/payer.ts#parsePayerParam",
+        "packages/core/src/payer.ts#payerTones",
+        "packages/core/src/transactions.ts#monthRange"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/wallets/server/queries.ts#getNewWalletPage",
+      "file": "apps/web/src/features/wallets/server/queries.ts",
+      "name": "getNewWalletPage",
+      "input": [],
+      "permissions": [
+        "create_wallet",
+        "view"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/households.ts#listHouseholdMembers"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/wallets/server/queries.ts#getWalletPage",
+      "file": "apps/web/src/features/wallets/server/queries.ts",
+      "name": "getWalletPage",
+      "input": [],
+      "permissions": [
+        "manage_members",
+        "view"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeWallet",
+        "packages/db/src/wallets.ts#getWalletDetails",
+        "packages/db/src/wallets.ts#listAddableMembers"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/access.ts#canInWallet"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/wallets/server/queries.ts#getWalletsPage",
+      "file": "apps/web/src/features/wallets/server/queries.ts",
+      "name": "getWalletsPage",
+      "input": [],
+      "permissions": [
+        "view"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/wallets.ts#listMyWallets"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/access.ts#canInHousehold"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    }
+  ],
+  "actions": [
+    {
+      "id": "apps/web/src/features/accounts/server/actions.ts#createAccountAction",
+      "file": "apps/web/src/features/accounts/server/actions.ts",
+      "name": "createAccountAction",
+      "input": [
+        "closingDay",
+        "dueDay",
+        "initialBalance",
+        "institution",
+        "kind",
+        "name",
+        "walletId"
+      ],
+      "permissions": [
+        "manage_accounts"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/access.ts#authorizeWallet",
+        "packages/db/src/accounts.ts#createAccount"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/money.ts#decimalToCents"
+      ],
+      "redirects": [
+        "/ajustes/contas"
+      ],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/accounts/server/actions.ts#createCardAction",
+      "file": "apps/web/src/features/accounts/server/actions.ts",
+      "name": "createCardAction",
+      "input": [
+        "accountId",
+        "brand",
+        "form",
+        "holderId",
+        "isAdditional",
+        "lastFour",
+        "nickname",
+        "sharedPurchases",
+        "volta",
+        "walletId"
+      ],
+      "permissions": [
+        "manage_accounts"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/access.ts#authorizeWallet",
+        "packages/db/src/accounts.ts#createCard"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/accounts/server/actions.ts#setAccountArchivedAction",
+      "file": "apps/web/src/features/accounts/server/actions.ts",
+      "name": "setAccountArchivedAction",
+      "input": [
+        "accountId",
+        "archived",
+        "walletId"
+      ],
+      "permissions": [
+        "manage_accounts"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/access.ts#authorizeWallet",
+        "packages/db/src/accounts.ts#setAccountArchived"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/accounts/server/actions.ts#setCardArchivedAction",
+      "file": "apps/web/src/features/accounts/server/actions.ts",
+      "name": "setCardArchivedAction",
+      "input": [
+        "archived",
+        "cardId",
+        "walletId"
+      ],
+      "permissions": [
+        "manage_accounts"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/access.ts#authorizeWallet",
+        "packages/db/src/accounts.ts#setCardArchived"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/accounts/server/actions.ts#setCardSharedPurchasesAction",
+      "file": "apps/web/src/features/accounts/server/actions.ts",
+      "name": "setCardSharedPurchasesAction",
+      "input": [
+        "cardId",
+        "sharedPurchases",
+        "walletId"
+      ],
+      "permissions": [
+        "manage_accounts"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/access.ts#authorizeWallet",
+        "packages/db/src/accounts.ts#setCardSharedPurchases"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/auth/server/actions.ts#finishPasskeyReauth",
+      "file": "apps/web/src/features/auth/server/actions.ts",
+      "name": "finishPasskeyReauth",
+      "input": [
+        "sessionId"
+      ],
+      "permissions": [],
+      "db": [],
+      "tables": [
+        "Session"
+      ],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/auth/server/actions.ts#reauthenticate",
+      "file": "apps/web/src/features/auth/server/actions.ts",
+      "name": "reauthenticate",
+      "input": [
+        "code",
+        "method",
+        "next",
+        "password"
+      ],
+      "permissions": [],
+      "db": [],
+      "tables": [
+        "RateLimit",
+        "Session"
+      ],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/auth/server/actions.ts#revokeOtherSessions",
+      "file": "apps/web/src/features/auth/server/actions.ts",
+      "name": "revokeOtherSessions",
+      "input": [],
+      "permissions": [],
+      "db": [],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/auth/server/actions.ts#revokeSession",
+      "file": "apps/web/src/features/auth/server/actions.ts",
+      "name": "revokeSession",
+      "input": [
+        "sessionId"
+      ],
+      "permissions": [],
+      "db": [],
+      "tables": [
+        "Session"
+      ],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/bank/server/actions.ts#linkAccountsAction",
+      "file": "apps/web/src/features/bank/server/actions.ts",
+      "name": "linkAccountsAction",
+      "input": [],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeConnectionOwner",
+        "packages/db/src/connection-secret.ts#parseKeyring",
+        "packages/db/src/connections.ts#connectionItemIds",
+        "packages/db/src/connections.ts#linkAccounts",
+        "packages/db/src/sync.ts#providerForConnection"
+      ],
+      "tables": [],
+      "enqueues": [
+        "bank-sync"
+      ],
+      "services": [
+        "pluggy"
+      ],
+      "rules": [
+        "packages/core/src/dates.ts#isCivilDate",
+        "packages/core/src/dates.ts#todayCivil"
+      ],
+      "redirects": [
+        "/ajustes/conexoes/sincronizacoes"
+      ],
+      "financeChanged": false,
+      "session": "recent"
+    },
+    {
+      "id": "apps/web/src/features/bank/server/actions.ts#requestSyncAction",
+      "file": "apps/web/src/features/bank/server/actions.ts",
+      "name": "requestSyncAction",
+      "input": [],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeConnectionOwner",
+        "packages/db/src/connections.ts#recordSyncRequest"
+      ],
+      "tables": [],
+      "enqueues": [
+        "bank-sync"
+      ],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/bank/server/actions.ts#saveCredentialsAction",
+      "file": "apps/web/src/features/bank/server/actions.ts",
+      "name": "saveCredentialsAction",
+      "input": [
+        "clientId",
+        "clientSecret",
+        "itemIds"
+      ],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeConnectionOwner",
+        "packages/db/src/connection-secret.ts#openSecret",
+        "packages/db/src/connection-secret.ts#parseKeyring",
+        "packages/db/src/connections.ts#saveCredentials"
+      ],
+      "tables": [
+        "ProviderConnection"
+      ],
+      "enqueues": [],
+      "services": [
+        "pluggy"
+      ],
+      "rules": [
+        "packages/core/src/sync.ts#civilFromProviderTimestamp",
+        "packages/core/src/sync.ts#lastFourOf"
+      ],
+      "redirects": [
+        "/ajustes/conexoes/ligar"
+      ],
+      "financeChanged": false,
+      "session": "recent"
+    },
+    {
+      "id": "apps/web/src/features/bank/server/actions.ts#setCategoryAction",
+      "file": "apps/web/src/features/bank/server/actions.ts",
+      "name": "setCategoryAction",
+      "input": [
+        "categoryId",
+        "newCategory",
+        "rememberRule",
+        "transactionId"
+      ],
+      "permissions": [
+        "manage_categories"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/access.ts#authorizeTransaction",
+        "packages/db/src/categories.ts#createCategory",
+        "packages/db/src/transactions.ts#setTransactionCategory"
+      ],
+      "tables": [
+        "Transaction"
+      ],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/bank/server/import-actions.ts#cancelImportAction",
+      "file": "apps/web/src/features/bank/server/import-actions.ts",
+      "name": "cancelImportAction",
+      "input": [
+        "importId"
+      ],
+      "permissions": [],
+      "db": [
+        "packages/db/src/file-imports.ts#cancelFilePreview"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [
+        "/lancamentos/importar"
+      ],
+      "financeChanged": false,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/bank/server/import-actions.ts#importFileAction",
+      "file": "apps/web/src/features/bank/server/import-actions.ts",
+      "name": "importFileAction",
+      "input": [
+        "accountId",
+        "importId"
+      ],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeAccountUse",
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/file-imports.ts#importFilePreview"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [
+        "ml"
+      ],
+      "rules": [],
+      "redirects": [
+        "/lancamentos/importar"
+      ],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/bank/server/import-actions.ts#previewFileAction",
+      "file": "apps/web/src/features/bank/server/import-actions.ts",
+      "name": "previewFileAction",
+      "input": [
+        "acao",
+        "arquivo",
+        "senha"
+      ],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/file-imports.ts#createFilePreview"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [
+        "ml",
+        "pluggy"
+      ],
+      "rules": [
+        "packages/core/src/dates.ts#isCivilDate",
+        "packages/core/src/file-import.ts#installmentFromDescription",
+        "packages/core/src/file-import.ts#paymentHintFromText",
+        "packages/core/src/money.ts#fitsInColumn",
+        "packages/core/src/sync.ts#importedDescription",
+        "packages/core/src/sync.ts#lastFourOf"
+      ],
+      "redirects": [
+        "/lancamentos/importar/[…]"
+      ],
+      "financeChanged": false,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/bank/server/review-actions.ts#applyLocalAiProposalAction",
+      "file": "apps/web/src/features/bank/server/review-actions.ts",
+      "name": "applyLocalAiProposalAction",
+      "input": [
+        "name",
+        "parentId",
+        "transactionId"
+      ],
+      "permissions": [
+        "manage_categories"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/local-ai.ts#applyLocalAiProposal"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [
+        "/lancamentos/recebidos"
+      ],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/bank/server/review-actions.ts#confirmExplainedAction",
+      "file": "apps/web/src/features/bank/server/review-actions.ts",
+      "name": "confirmExplainedAction",
+      "input": [
+        "transactionId",
+        "walletId"
+      ],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/review.ts#confirmReceived"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [
+        "/lancamentos/recebidos"
+      ],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/bank/server/review-actions.ts#confirmPairAction",
+      "file": "apps/web/src/features/bank/server/review-actions.ts",
+      "name": "confirmPairAction",
+      "input": [
+        "ownId",
+        "receivedId"
+      ],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/review.ts#confirmPair"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [
+        "/lancamentos/recebidos"
+      ],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/bank/server/review-actions.ts#registerFinalAction",
+      "file": "apps/web/src/features/bank/server/review-actions.ts",
+      "name": "registerFinalAction",
+      "input": [
+        "accountId",
+        "holderId",
+        "lastFour",
+        "nickname"
+      ],
+      "permissions": [
+        "manage_accounts"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeAccountView",
+        "packages/db/src/access.ts#authorizeWallet",
+        "packages/db/src/accounts.ts#createCard"
+      ],
+      "tables": [
+        "FinancialAccount",
+        "PaymentCard"
+      ],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [
+        "/ajustes/contas/[…]"
+      ],
+      "financeChanged": false,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/bank/server/review-actions.ts#reviewAction",
+      "file": "apps/web/src/features/bank/server/review-actions.ts",
+      "name": "reviewAction",
+      "input": [
+        "accountId",
+        "intent",
+        "ownId",
+        "receivedId",
+        "statementId",
+        "transactionId",
+        "walletId"
+      ],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/review.ts#confirmBulk",
+        "packages/db/src/review.ts#confirmReceived",
+        "packages/db/src/review.ts#linkRefund",
+        "packages/db/src/review.ts#rejectPair"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/bank/server/review-actions.ts#undoReviewAction",
+      "file": "apps/web/src/features/bank/server/review-actions.ts",
+      "name": "undoReviewAction",
+      "input": [
+        "ids",
+        "kind",
+        "matchId"
+      ],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/review.ts#undoMatch",
+        "packages/db/src/review.ts#undoReview"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/bot/server/actions.ts#botDraftAction",
+      "file": "apps/web/src/features/bot/server/actions.ts",
+      "name": "botDraftAction",
+      "input": [
+        "draftId",
+        "intent"
+      ],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/bot.ts#cancelDraft",
+        "packages/db/src/bot.ts#confirmDraft"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [
+        "ml"
+      ],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/bot/server/actions.ts#saveBotPreferenceAction",
+      "file": "apps/web/src/features/bot/server/actions.ts",
+      "name": "saveBotPreferenceAction",
+      "input": [
+        "creditCardId",
+        "debitAccountId",
+        "walletId"
+      ],
+      "permissions": [
+        "view"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/bot.ts#saveBotPreference"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/bot/server/actions.ts#setBotEnabledAction",
+      "file": "apps/web/src/features/bot/server/actions.ts",
+      "name": "setBotEnabledAction",
+      "input": [
+        "enabled"
+      ],
+      "permissions": [
+        "manage_bot"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/bot.ts#setBotEnabled"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/bot/server/actions.ts#startLinkAction",
+      "file": "apps/web/src/features/bot/server/actions.ts",
+      "name": "startLinkAction",
+      "input": [
+        "canal"
+      ],
+      "permissions": [
+        "view"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/bot.ts#botPhoneKey",
+        "packages/db/src/bot.ts#createLinkCode",
+        "packages/db/src/connection-secret.ts#parseKeyring"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "recent"
+    },
+    {
+      "id": "apps/web/src/features/bot/server/actions.ts#unlinkAction",
+      "file": "apps/web/src/features/bot/server/actions.ts",
+      "name": "unlinkAction",
+      "input": [
+        "canal"
+      ],
+      "permissions": [
+        "view"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/bot.ts#unlinkBot"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/budget/server/actions.ts#copyBudgetsAction",
+      "file": "apps/web/src/features/budget/server/actions.ts",
+      "name": "copyBudgetsAction",
+      "input": [
+        "month",
+        "walletId"
+      ],
+      "permissions": [
+        "edit"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/access.ts#authorizeWallet",
+        "packages/db/src/budgets.ts#copyBudgets"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/dates.ts#addMonthsToKey"
+      ],
+      "redirects": [],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/budget/server/actions.ts#saveBudgetAction",
+      "file": "apps/web/src/features/budget/server/actions.ts",
+      "name": "saveBudgetAction",
+      "input": [
+        "amount",
+        "categoryId",
+        "month",
+        "split",
+        "walletId"
+      ],
+      "permissions": [
+        "edit"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/access.ts#authorizeWallet",
+        "packages/db/src/budgets.ts#setBudget"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/money.ts#centsToDecimal",
+        "packages/core/src/money.ts#decimalToCents",
+        "packages/core/src/money.ts#sumCents",
+        "packages/core/src/payer.ts#parsePayerParam",
+        "packages/core/src/payer.ts#payerParam"
+      ],
+      "redirects": [],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/budget/server/actions.ts#undoCopyBudgetsAction",
+      "file": "apps/web/src/features/budget/server/actions.ts",
+      "name": "undoCopyBudgetsAction",
+      "input": [
+        "categoryIds",
+        "copiedAt",
+        "month",
+        "walletId"
+      ],
+      "permissions": [
+        "edit"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/access.ts#authorizeWallet",
+        "packages/db/src/budgets.ts#undoCopyBudgets"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/categories/server/actions.ts#createCategoryAction",
+      "file": "apps/web/src/features/categories/server/actions.ts",
+      "name": "createCategoryAction",
+      "input": [
+        "kind",
+        "name",
+        "parentId"
+      ],
+      "permissions": [
+        "manage_categories"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/categories.ts#createCategory"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/categories/server/actions.ts#createRuleAction",
+      "file": "apps/web/src/features/categories/server/actions.ts",
+      "name": "createRuleAction",
+      "input": [
+        "categoryId",
+        "match",
+        "pattern"
+      ],
+      "permissions": [
+        "manage_categories"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/categories.ts#createRule"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/categories/server/actions.ts#deleteRuleAction",
+      "file": "apps/web/src/features/categories/server/actions.ts",
+      "name": "deleteRuleAction",
+      "input": [
+        "ruleId"
+      ],
+      "permissions": [
+        "manage_categories"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/categories.ts#deleteRule"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/categories/server/actions.ts#setCategoryArchivedAction",
+      "file": "apps/web/src/features/categories/server/actions.ts",
+      "name": "setCategoryArchivedAction",
+      "input": [
+        "archived",
+        "categoryId"
+      ],
+      "permissions": [
+        "manage_categories"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/categories.ts#setCategoryArchived"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/categories/server/actions.ts#setLocalAiAction",
+      "file": "apps/web/src/features/categories/server/actions.ts",
+      "name": "setLocalAiAction",
+      "input": [
+        "enabled"
+      ],
+      "permissions": [
+        "manage_categories"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/local-ai.ts#setLocalAi"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/categories/server/actions.ts#trainNowAction",
+      "file": "apps/web/src/features/categories/server/actions.ts",
+      "name": "trainNowAction",
+      "input": [],
+      "permissions": [
+        "manage_categories"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/classifier.ts#trainNow"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [
+        "ml"
+      ],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/households/server/actions.ts#acceptInviteAction",
+      "file": "apps/web/src/features/households/server/actions.ts",
+      "name": "acceptInviteAction",
+      "input": [
+        "token"
+      ],
+      "permissions": [],
+      "db": [
+        "packages/db/src/households.ts#acceptInvite"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [
+        "/carteiras"
+      ],
+      "financeChanged": false,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/households/server/actions.ts#createHouseholdAction",
+      "file": "apps/web/src/features/households/server/actions.ts",
+      "name": "createHouseholdAction",
+      "input": [
+        "name"
+      ],
+      "permissions": [],
+      "db": [
+        "packages/db/src/households.ts#createHousehold"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [
+        "/ajustes/lar"
+      ],
+      "financeChanged": false,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/households/server/actions.ts#createInviteAction",
+      "file": "apps/web/src/features/households/server/actions.ts",
+      "name": "createInviteAction",
+      "input": [
+        "email",
+        "role"
+      ],
+      "permissions": [
+        "invite"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/households.ts#createInvite"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [
+        "smtp"
+      ],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/households/server/actions.ts#removeMemberAction",
+      "file": "apps/web/src/features/households/server/actions.ts",
+      "name": "removeMemberAction",
+      "input": [
+        "userId"
+      ],
+      "permissions": [
+        "remove_member"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/households.ts#removeHouseholdMember"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/households/server/actions.ts#revokeInviteAction",
+      "file": "apps/web/src/features/households/server/actions.ts",
+      "name": "revokeInviteAction",
+      "input": [
+        "inviteId"
+      ],
+      "permissions": [
+        "invite"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/households.ts#revokeInvite"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/transactions/server/actions.ts#archiveRecurrenceAction",
+      "file": "apps/web/src/features/transactions/server/actions.ts",
+      "name": "archiveRecurrenceAction",
+      "input": [
+        "recurrenceId",
+        "walletId"
+      ],
+      "permissions": [
+        "edit"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/access.ts#authorizeWallet",
+        "packages/db/src/recurrences.ts#archiveRecurrence"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/transactions/server/actions.ts#confirmTransactionAction",
+      "file": "apps/web/src/features/transactions/server/actions.ts",
+      "name": "confirmTransactionAction",
+      "input": [
+        "transactionId"
+      ],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/access.ts#authorizeTransaction",
+        "packages/db/src/transactions.ts#confirmTransaction"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/transactions/server/actions.ts#createRecurrenceAction",
+      "file": "apps/web/src/features/transactions/server/actions.ts",
+      "name": "createRecurrenceAction",
+      "input": [
+        "accountId",
+        "amount",
+        "categoryId",
+        "dayOfMonth",
+        "description",
+        "endsOn",
+        "kind",
+        "startsOn",
+        "walletId"
+      ],
+      "permissions": [
+        "edit"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeAccountUse",
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/access.ts#authorizeWallet",
+        "packages/db/src/recurrences.ts#createRecurrence"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/dates.ts#isCivilDate",
+        "packages/core/src/money.ts#decimalToCents"
+      ],
+      "redirects": [],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/transactions/server/actions.ts#createTransactionAction",
+      "file": "apps/web/src/features/transactions/server/actions.ts",
+      "name": "createTransactionAction",
+      "input": [
+        "accountId",
+        "amount",
+        "cardId",
+        "categoryId",
+        "description",
+        "dueDay",
+        "endsOn",
+        "expenseType",
+        "fixedKind",
+        "installments",
+        "kind",
+        "method",
+        "notes",
+        "occurredOn",
+        "rememberRule",
+        "walletId"
+      ],
+      "permissions": [
+        "edit",
+        "manage_categories"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeAccountUse",
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/access.ts#authorizeWallet",
+        "packages/db/src/installments.ts#createInstallmentPurchase",
+        "packages/db/src/recurrences.ts#createFixedExpense",
+        "packages/db/src/transactions.ts#createTransaction"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [
+        "ml"
+      ],
+      "rules": [
+        "packages/core/src/dates.ts#isCivilDate",
+        "packages/core/src/money.ts#centsToDecimal",
+        "packages/core/src/money.ts#decimalToCents"
+      ],
+      "redirects": [],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/transactions/server/actions.ts#createTransferAction",
+      "file": "apps/web/src/features/transactions/server/actions.ts",
+      "name": "createTransferAction",
+      "input": [
+        "amount",
+        "description",
+        "fromAccountId",
+        "method",
+        "occurredOn",
+        "toAccountId"
+      ],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeAccountUse",
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/transactions.ts#createTransfer"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/dates.ts#isCivilDate",
+        "packages/core/src/money.ts#decimalToCents"
+      ],
+      "redirects": [],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/transactions/server/actions.ts#deleteTransactionAction",
+      "file": "apps/web/src/features/transactions/server/actions.ts",
+      "name": "deleteTransactionAction",
+      "input": [
+        "transactionId"
+      ],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/access.ts#authorizeTransaction",
+        "packages/db/src/transactions.ts#deleteTransaction"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/transactions/server/actions.ts#exportTransactionsAction",
+      "file": "apps/web/src/features/transactions/server/actions.ts",
+      "name": "exportTransactionsAction",
+      "input": [
+        "from",
+        "to",
+        "walletId"
+      ],
+      "permissions": [
+        "export"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeWallet",
+        "packages/db/src/transactions.ts#exportTransactions"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/dates.ts#isCivilDate"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "recent"
+    },
+    {
+      "id": "apps/web/src/features/transactions/server/actions.ts#generateRecurrencesAction",
+      "file": "apps/web/src/features/transactions/server/actions.ts",
+      "name": "generateRecurrencesAction",
+      "input": [
+        "month"
+      ],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/recurrences.ts#generateRecurrences"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/transactions/server/actions.ts#restoreTransactionAction",
+      "file": "apps/web/src/features/transactions/server/actions.ts",
+      "name": "restoreTransactionAction",
+      "input": [
+        "transactionId"
+      ],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/access.ts#authorizeTransaction",
+        "packages/db/src/transactions.ts#restoreTransaction"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/transactions/server/actions.ts#suggestCategoryAction",
+      "file": "apps/web/src/features/transactions/server/actions.ts",
+      "name": "suggestCategoryAction",
+      "input": [
+        "description",
+        "kind"
+      ],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/categories.ts#suggestCategory"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [
+        "ml"
+      ],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/transactions/server/actions.ts#updateTransactionAction",
+      "file": "apps/web/src/features/transactions/server/actions.ts",
+      "name": "updateTransactionAction",
+      "input": [
+        "accountId",
+        "amount",
+        "cardId",
+        "categoryId",
+        "description",
+        "kind",
+        "method",
+        "notes",
+        "occurredOn",
+        "rememberRule",
+        "transactionId",
+        "walletId"
+      ],
+      "permissions": [
+        "edit",
+        "manage_categories"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeAccountUse",
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/access.ts#authorizeTransaction",
+        "packages/db/src/access.ts#authorizeWallet",
+        "packages/db/src/transactions.ts#updateTransaction"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [
+        "ml"
+      ],
+      "rules": [
+        "packages/core/src/dates.ts#isCivilDate",
+        "packages/core/src/money.ts#decimalToCents"
+      ],
+      "redirects": [],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/wallets/server/actions.ts#addMemberAction",
+      "file": "apps/web/src/features/wallets/server/actions.ts",
+      "name": "addMemberAction",
+      "input": [
+        "role",
+        "userId",
+        "walletId"
+      ],
+      "permissions": [
+        "manage_members"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeWallet",
+        "packages/db/src/wallets.ts#addWalletMember"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/wallets/server/actions.ts#createWalletAction",
+      "file": "apps/web/src/features/wallets/server/actions.ts",
+      "name": "createWalletAction",
+      "input": [],
+      "permissions": [
+        "create_wallet"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/wallets.ts#createSharedWallet"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/wallets/server/actions.ts#leaveWalletAction",
+      "file": "apps/web/src/features/wallets/server/actions.ts",
+      "name": "leaveWalletAction",
+      "input": [
+        "walletId"
+      ],
+      "permissions": [
+        "leave"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeWallet",
+        "packages/db/src/wallets.ts#leaveWallet"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [
+        "/carteiras"
+      ],
+      "financeChanged": false,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/wallets/server/actions.ts#removeMemberFromWalletAction",
+      "file": "apps/web/src/features/wallets/server/actions.ts",
+      "name": "removeMemberFromWalletAction",
+      "input": [
+        "userId",
+        "walletId"
+      ],
+      "permissions": [
+        "manage_members"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeWallet",
+        "packages/db/src/wallets.ts#removeWalletMember"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/wallets/server/actions.ts#renameWalletAction",
+      "file": "apps/web/src/features/wallets/server/actions.ts",
+      "name": "renameWalletAction",
+      "input": [
+        "name",
+        "walletId"
+      ],
+      "permissions": [
+        "rename"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeWallet",
+        "packages/db/src/wallets.ts#renameWallet"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/wallets/server/actions.ts#setArchivedAction",
+      "file": "apps/web/src/features/wallets/server/actions.ts",
+      "name": "setArchivedAction",
+      "input": [
+        "archived",
+        "walletId"
+      ],
+      "permissions": [
+        "archive"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeWallet",
+        "packages/db/src/wallets.ts#setWalletArchived"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/wallets/server/actions.ts#setRoleAction",
+      "file": "apps/web/src/features/wallets/server/actions.ts",
+      "name": "setRoleAction",
+      "input": [
+        "role",
+        "userId",
+        "walletId"
+      ],
+      "permissions": [
+        "manage_members"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeWallet",
+        "packages/db/src/wallets.ts#setWalletMemberRole"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "user"
+    }
+  ],
+  "apis": [
+    {
+      "id": "apps/web/src/app/api/auth/[...all]/route.ts#GET,POST",
+      "file": "apps/web/src/app/api/auth/[...all]/route.ts",
+      "name": "GET, POST",
+      "input": [],
+      "permissions": [],
+      "db": [],
+      "tables": [],
+      "enqueues": [],
+      "services": [
+        "hibp",
+        "smtp"
+      ],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none",
+      "route": "/api/auth/[...all]",
+      "methods": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "id": "apps/web/src/app/api/health/route.ts#GET",
+      "file": "apps/web/src/app/api/health/route.ts",
+      "name": "GET",
+      "input": [],
+      "permissions": [],
+      "db": [],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none",
+      "route": "/api/health",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "id": "apps/web/src/app/api/telegram/webhook/route.ts#POST",
+      "file": "apps/web/src/app/api/telegram/webhook/route.ts",
+      "name": "POST",
+      "input": [],
+      "permissions": [],
+      "db": [
+        "packages/db/src/bot.ts#botPhoneKey",
+        "packages/db/src/bot.ts#recordIncoming",
+        "packages/db/src/connection-secret.ts#parseKeyring"
+      ],
+      "tables": [],
+      "enqueues": [
+        "bot-message"
+      ],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none",
+      "route": "/api/telegram/webhook",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "id": "apps/web/src/app/api/whatsapp/webhook/route.ts#GET,POST",
+      "file": "apps/web/src/app/api/whatsapp/webhook/route.ts",
+      "name": "GET, POST",
+      "input": [],
+      "permissions": [],
+      "db": [
+        "packages/db/src/bot.ts#botPhoneKey",
+        "packages/db/src/bot.ts#recordIncoming",
+        "packages/db/src/connection-secret.ts#parseKeyring"
+      ],
+      "tables": [],
+      "enqueues": [
+        "bot-message"
+      ],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none",
+      "route": "/api/whatsapp/webhook",
+      "methods": [
+        "GET",
+        "POST"
+      ]
+    }
+  ],
+  "queues": [
+    {
+      "name": "bank-sync",
+      "enqueuedBy": [
+        "apps/web/src/features/bank/server/actions.ts#linkAccountsAction",
+        "apps/web/src/features/bank/server/actions.ts#requestSyncAction",
+        "apps/web/src/features/bank/server/jobs.ts#work(bank-sync-daily)"
+      ],
+      "schedule": null,
+      "worker": {
+        "id": "apps/web/src/features/bank/server/jobs.ts#work(bank-sync)",
+        "file": "apps/web/src/features/bank/server/jobs.ts",
+        "name": "trabalhador de bank-sync",
+        "input": [],
+        "permissions": [],
+        "db": [
+          "packages/db/src/connection-secret.ts#parseKeyring",
+          "packages/db/src/sync.ts#describeOutcome",
+          "packages/db/src/sync.ts#providerForConnection",
+          "packages/db/src/sync.ts#runSync"
+        ],
+        "tables": [],
+        "enqueues": [],
+        "services": [
+          "ml",
+          "pluggy"
+        ],
+        "rules": [],
+        "redirects": [],
+        "financeChanged": false,
+        "session": "none"
+      }
+    },
+    {
+      "name": "bank-sync-daily",
+      "enqueuedBy": [],
+      "schedule": "30 4 * * *",
+      "worker": {
+        "id": "apps/web/src/features/bank/server/jobs.ts#work(bank-sync-daily)",
+        "file": "apps/web/src/features/bank/server/jobs.ts",
+        "name": "trabalhador de bank-sync-daily",
+        "input": [],
+        "permissions": [],
+        "db": [
+          "packages/db/src/sync.ts#connectionsDueForSync"
+        ],
+        "tables": [],
+        "enqueues": [
+          "bank-sync"
+        ],
+        "services": [],
+        "rules": [],
+        "redirects": [],
+        "financeChanged": false,
+        "session": "none"
+      }
+    },
+    {
+      "name": "bot-daily",
+      "enqueuedBy": [],
+      "schedule": "45 3 * * *",
+      "worker": {
+        "id": "apps/web/src/features/bot/server/jobs.ts#work(bot-daily)",
+        "file": "apps/web/src/features/bot/server/jobs.ts",
+        "name": "trabalhador de bot-daily",
+        "input": [],
+        "permissions": [],
+        "db": [
+          "packages/db/src/bot.ts#purgeBotMessages"
+        ],
+        "tables": [],
+        "enqueues": [],
+        "services": [],
+        "rules": [],
+        "redirects": [],
+        "financeChanged": false,
+        "session": "none"
+      }
+    },
+    {
+      "name": "bot-message",
+      "enqueuedBy": [
+        "apps/web/src/app/api/telegram/webhook/route.ts#POST",
+        "apps/web/src/app/api/whatsapp/webhook/route.ts#GET,POST"
+      ],
+      "schedule": null,
+      "worker": {
+        "id": "apps/web/src/features/bot/server/jobs.ts#work(bot-message)",
+        "file": "apps/web/src/features/bot/server/jobs.ts",
+        "name": "trabalhador de bot-message",
+        "input": [],
+        "permissions": [],
+        "db": [
+          "packages/db/src/bot.ts#botPhoneKey",
+          "packages/db/src/bot.ts#processBotMessage",
+          "packages/db/src/bot.ts#recordReplyResult",
+          "packages/db/src/bot.ts#reserveReply",
+          "packages/db/src/connection-secret.ts#parseKeyring"
+        ],
+        "tables": [],
+        "enqueues": [],
+        "services": [
+          "ml",
+          "telegram",
+          "whatsapp"
+        ],
+        "rules": [],
+        "redirects": [],
+        "financeChanged": false,
+        "session": "none"
+      }
+    },
+    {
+      "name": "classifier-train-daily",
+      "enqueuedBy": [],
+      "schedule": "15 3 * * *",
+      "worker": {
+        "id": "apps/web/src/features/bank/server/jobs.ts#work(classifier-train-daily)",
+        "file": "apps/web/src/features/bank/server/jobs.ts",
+        "name": "trabalhador de classifier-train-daily",
+        "input": [],
+        "permissions": [],
+        "db": [
+          "packages/db/src/classifier.ts#trainWallets",
+          "packages/db/src/classifier.ts#walletsForTraining"
+        ],
+        "tables": [],
+        "enqueues": [],
+        "services": [
+          "ml"
+        ],
+        "rules": [],
+        "redirects": [],
+        "financeChanged": false,
+        "session": "none"
+      }
+    },
+    {
+      "name": "local-ai-nightly",
+      "enqueuedBy": [],
+      "schedule": "*/10 4-6 * * *",
+      "worker": {
+        "id": "apps/web/src/features/bank/server/jobs.ts#work(local-ai-nightly)",
+        "file": "apps/web/src/features/bank/server/jobs.ts",
+        "name": "trabalhador de local-ai-nightly",
+        "input": [],
+        "permissions": [],
+        "db": [
+          "packages/db/src/local-ai.ts#runLocalAiNight"
+        ],
+        "tables": [],
+        "enqueues": [],
+        "services": [
+          "ml"
+        ],
+        "rules": [
+          "packages/core/src/local-ai.ts#inLocalAiWindow",
+          "packages/core/src/local-ai.ts#localAiWindowEnd"
+        ],
+        "redirects": [],
+        "financeChanged": false,
+        "session": "none"
+      }
+    }
+  ],
+  "db": [
+    {
+      "id": "packages/db/src/access.ts#authorizeAccountUse",
+      "file": "packages/db/src/access.ts",
+      "name": "authorizeAccountUse",
+      "tables": [
+        "FinancialAccount",
+        "WalletMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/access.ts#authorizeAccountView",
+      "file": "packages/db/src/access.ts",
+      "name": "authorizeAccountView",
+      "tables": [
+        "FinancialAccount",
+        "WalletMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/access.ts#authorizeConnectionOwner",
+      "file": "packages/db/src/access.ts",
+      "name": "authorizeConnectionOwner",
+      "tables": [
+        "HouseholdMember",
+        "ProviderConnection",
+        "WalletMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/access.ts#authorizeHousehold",
+      "file": "packages/db/src/access.ts",
+      "name": "authorizeHousehold",
+      "tables": [
+        "HouseholdMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/access.ts#authorizeScope",
+      "file": "packages/db/src/access.ts",
+      "name": "authorizeScope",
+      "tables": [
+        "WalletMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/access.ts#authorizeTransaction",
+      "file": "packages/db/src/access.ts",
+      "name": "authorizeTransaction",
+      "tables": [
+        "Transaction",
+        "WalletMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/access.ts#authorizeWallet",
+      "file": "packages/db/src/access.ts",
+      "name": "authorizeWallet",
+      "tables": [
+        "WalletMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/access.ts#isUuid",
+      "file": "packages/db/src/access.ts",
+      "name": "isUuid",
+      "tables": [],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/accounts.ts#createAccount",
+      "file": "packages/db/src/accounts.ts",
+      "name": "createAccount",
+      "tables": [
+        "AuditLog",
+        "FinancialAccount"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/accounts.ts#createCard",
+      "file": "packages/db/src/accounts.ts",
+      "name": "createCard",
+      "tables": [
+        "AuditLog",
+        "FinancialAccount",
+        "HouseholdMember",
+        "PaymentCard",
+        "Transaction",
+        "WalletMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/accounts.ts#listUsableAccounts",
+      "file": "packages/db/src/accounts.ts",
+      "name": "listUsableAccounts",
+      "tables": [
+        "FinancialAccount",
+        "WalletMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/accounts.ts#listWalletAccounts",
+      "file": "packages/db/src/accounts.ts",
+      "name": "listWalletAccounts",
+      "tables": [
+        "FinancialAccount"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/accounts.ts#setAccountArchived",
+      "file": "packages/db/src/accounts.ts",
+      "name": "setAccountArchived",
+      "tables": [
+        "AuditLog",
+        "FinancialAccount"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/accounts.ts#setCardArchived",
+      "file": "packages/db/src/accounts.ts",
+      "name": "setCardArchived",
+      "tables": [
+        "AuditLog",
+        "FinancialAccount",
+        "PaymentCard",
+        "Transaction",
+        "WalletMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/accounts.ts#setCardSharedPurchases",
+      "file": "packages/db/src/accounts.ts",
+      "name": "setCardSharedPurchases",
+      "tables": [
+        "AuditLog",
+        "PaymentCard"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/bot.ts#botPhoneKey",
+      "file": "packages/db/src/bot.ts",
+      "name": "botPhoneKey",
+      "tables": [],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/bot.ts#botSettings",
+      "file": "packages/db/src/bot.ts",
+      "name": "botSettings",
+      "tables": [
+        "BotDraft",
+        "BotLink",
+        "BotMessage",
+        "BotPreference",
+        "BotReplyCount",
+        "BotTelegramLink",
+        "Category",
+        "FinancialAccount",
+        "Household",
+        "HouseholdMember",
+        "Wallet",
+        "WalletMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/bot.ts#cancelDraft",
+      "file": "packages/db/src/bot.ts",
+      "name": "cancelDraft",
+      "tables": [
+        "BotDraft"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/bot.ts#confirmDraft",
+      "file": "packages/db/src/bot.ts",
+      "name": "confirmDraft",
+      "tables": [
+        "AuditLog",
+        "BotDraft",
+        "CardStatement",
+        "CategorizationExample",
+        "Category",
+        "CategoryRule",
+        "ClassifierModel",
+        "FinancialAccount",
+        "InstallmentGroup",
+        "Transaction",
+        "WalletMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/bot.ts#createLinkCode",
+      "file": "packages/db/src/bot.ts",
+      "name": "createLinkCode",
+      "tables": [
+        "AuditLog",
+        "BotLinkCode"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/bot.ts#linkCodeStatus",
+      "file": "packages/db/src/bot.ts",
+      "name": "linkCodeStatus",
+      "tables": [
+        "BotLink",
+        "BotLinkCode",
+        "BotTelegramLink"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/bot.ts#openDrafts",
+      "file": "packages/db/src/bot.ts",
+      "name": "openDrafts",
+      "tables": [
+        "BotDraft",
+        "Category",
+        "FinancialAccount",
+        "Wallet",
+        "WalletMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/bot.ts#processBotMessage",
+      "file": "packages/db/src/bot.ts",
+      "name": "processBotMessage",
+      "tables": [
+        "AuditLog",
+        "BotDraft",
+        "BotLink",
+        "BotLinkCode",
+        "BotMessage",
+        "BotPreference",
+        "BotTelegramLink",
+        "CardStatement",
+        "CategorizationExample",
+        "Category",
+        "CategoryRule",
+        "ClassifierModel",
+        "FinancialAccount",
+        "Household",
+        "InstallmentGroup",
+        "Transaction",
+        "User",
+        "Wallet",
+        "WalletMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/bot.ts#purgeBotMessages",
+      "file": "packages/db/src/bot.ts",
+      "name": "purgeBotMessages",
+      "tables": [
+        "BotMessage"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/bot.ts#recordIncoming",
+      "file": "packages/db/src/bot.ts",
+      "name": "recordIncoming",
+      "tables": [
+        "BotLink",
+        "BotMessage",
+        "BotTelegramLink"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/bot.ts#recordReplyResult",
+      "file": "packages/db/src/bot.ts",
+      "name": "recordReplyResult",
+      "tables": [
+        "BotReplyCount"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/bot.ts#reserveReply",
+      "file": "packages/db/src/bot.ts",
+      "name": "reserveReply",
+      "tables": [
+        "BotReplyCount"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/bot.ts#saveBotPreference",
+      "file": "packages/db/src/bot.ts",
+      "name": "saveBotPreference",
+      "tables": [
+        "BotPreference",
+        "FinancialAccount",
+        "Wallet",
+        "WalletMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/bot.ts#setBotEnabled",
+      "file": "packages/db/src/bot.ts",
+      "name": "setBotEnabled",
+      "tables": [
+        "AuditLog",
+        "Household"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/bot.ts#unlinkBot",
+      "file": "packages/db/src/bot.ts",
+      "name": "unlinkBot",
+      "tables": [
+        "AuditLog",
+        "BotLink",
+        "BotTelegramLink"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/budgets.ts#copyBudgets",
+      "file": "packages/db/src/budgets.ts",
+      "name": "copyBudgets",
+      "tables": [
+        "AuditLog",
+        "Budget",
+        "BudgetShare",
+        "Category",
+        "HouseholdMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/budgets.ts#listBudgets",
+      "file": "packages/db/src/budgets.ts",
+      "name": "listBudgets",
+      "tables": [
+        "Budget"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/budgets.ts#setBudget",
+      "file": "packages/db/src/budgets.ts",
+      "name": "setBudget",
+      "tables": [
+        "AuditLog",
+        "Budget",
+        "BudgetShare",
+        "Category",
+        "HouseholdMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/budgets.ts#undoCopyBudgets",
+      "file": "packages/db/src/budgets.ts",
+      "name": "undoCopyBudgets",
+      "tables": [
+        "AuditLog",
+        "Budget"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/categories.ts#categoryNodes",
+      "file": "packages/db/src/categories.ts",
+      "name": "categoryNodes",
+      "tables": [
+        "Category"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/categories.ts#createCategory",
+      "file": "packages/db/src/categories.ts",
+      "name": "createCategory",
+      "tables": [
+        "AuditLog",
+        "Category"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/categories.ts#createRule",
+      "file": "packages/db/src/categories.ts",
+      "name": "createRule",
+      "tables": [
+        "AuditLog",
+        "Category",
+        "CategoryRule"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/categories.ts#deleteRule",
+      "file": "packages/db/src/categories.ts",
+      "name": "deleteRule",
+      "tables": [
+        "AuditLog",
+        "CategoryRule"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/categories.ts#explainTransaction",
+      "file": "packages/db/src/categories.ts",
+      "name": "explainTransaction",
+      "tables": [
+        "Category",
+        "CategoryRule",
+        "ClassifierModel",
+        "Household",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/categories.ts#listCategories",
+      "file": "packages/db/src/categories.ts",
+      "name": "listCategories",
+      "tables": [
+        "Category"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/categories.ts#listRules",
+      "file": "packages/db/src/categories.ts",
+      "name": "listRules",
+      "tables": [
+        "CategoryRule"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/categories.ts#setCategoryArchived",
+      "file": "packages/db/src/categories.ts",
+      "name": "setCategoryArchived",
+      "tables": [
+        "AuditLog",
+        "Category"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/categories.ts#suggestCategory",
+      "file": "packages/db/src/categories.ts",
+      "name": "suggestCategory",
+      "tables": [
+        "Category",
+        "CategoryRule",
+        "ClassifierModel",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/classifier.ts#categorizationStats",
+      "file": "packages/db/src/classifier.ts",
+      "name": "categorizationStats",
+      "tables": [
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/classifier.ts#classifierSummary",
+      "file": "packages/db/src/classifier.ts",
+      "name": "classifierSummary",
+      "tables": [
+        "ClassifierModel"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/classifier.ts#statsPeriod",
+      "file": "packages/db/src/classifier.ts",
+      "name": "statsPeriod",
+      "tables": [],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/classifier.ts#trainNow",
+      "file": "packages/db/src/classifier.ts",
+      "name": "trainNow",
+      "tables": [
+        "AuditLog",
+        "Category",
+        "ClassifierModel",
+        "Transaction",
+        "Wallet"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/classifier.ts#trainWallets",
+      "file": "packages/db/src/classifier.ts",
+      "name": "trainWallets",
+      "tables": [
+        "Category",
+        "ClassifierModel",
+        "Transaction",
+        "Wallet"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/classifier.ts#walletsForTraining",
+      "file": "packages/db/src/classifier.ts",
+      "name": "walletsForTraining",
+      "tables": [
+        "Wallet"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/connection-secret.ts#openSecret",
+      "file": "packages/db/src/connection-secret.ts",
+      "name": "openSecret",
+      "tables": [],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/connection-secret.ts#parseKeyring",
+      "file": "packages/db/src/connection-secret.ts",
+      "name": "parseKeyring",
+      "tables": [],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/connections.ts#bankLinkedAccounts",
+      "file": "packages/db/src/connections.ts",
+      "name": "bankLinkedAccounts",
+      "tables": [
+        "FinancialAccount"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/connections.ts#connectionItemIds",
+      "file": "packages/db/src/connections.ts",
+      "name": "connectionItemIds",
+      "tables": [
+        "ProviderItem"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/connections.ts#getConnection",
+      "file": "packages/db/src/connections.ts",
+      "name": "getConnection",
+      "tables": [
+        "ProviderConnection"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/connections.ts#importWalletOptions",
+      "file": "packages/db/src/connections.ts",
+      "name": "importWalletOptions",
+      "tables": [
+        "Wallet"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/connections.ts#linkableAccounts",
+      "file": "packages/db/src/connections.ts",
+      "name": "linkableAccounts",
+      "tables": [
+        "FinancialAccount",
+        "WalletMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/connections.ts#linkAccounts",
+      "file": "packages/db/src/connections.ts",
+      "name": "linkAccounts",
+      "tables": [
+        "AuditLog",
+        "FinancialAccount",
+        "PaymentCard",
+        "ProviderConnection",
+        "Wallet",
+        "WalletMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/connections.ts#recordSyncRequest",
+      "file": "packages/db/src/connections.ts",
+      "name": "recordSyncRequest",
+      "tables": [
+        "AuditLog"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/connections.ts#saveCredentials",
+      "file": "packages/db/src/connections.ts",
+      "name": "saveCredentials",
+      "tables": [
+        "AuditLog",
+        "ProviderConnection",
+        "ProviderItem"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/connections.ts#suggestLinks",
+      "file": "packages/db/src/connections.ts",
+      "name": "suggestLinks",
+      "tables": [],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/dashboard.ts#cashRows",
+      "file": "packages/db/src/dashboard.ts",
+      "name": "cashRows",
+      "tables": [
+        "CardStatement",
+        "FinancialAccount",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/dashboard.ts#recurrencePlans",
+      "file": "packages/db/src/dashboard.ts",
+      "name": "recurrencePlans",
+      "tables": [
+        "Recurrence"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/dashboard.ts#recurrencesStartedIn",
+      "file": "packages/db/src/dashboard.ts",
+      "name": "recurrencesStartedIn",
+      "tables": [
+        "Recurrence"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/dashboard.ts#spendingRows",
+      "file": "packages/db/src/dashboard.ts",
+      "name": "spendingRows",
+      "tables": [
+        "FinancialAccount",
+        "PaymentCard",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/file-imports.ts#cancelFilePreview",
+      "file": "packages/db/src/file-imports.ts",
+      "name": "cancelFilePreview",
+      "tables": [
+        "FileImport"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/file-imports.ts#classifyPreviewRows",
+      "file": "packages/db/src/file-imports.ts",
+      "name": "classifyPreviewRows",
+      "tables": [
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/file-imports.ts#createFilePreview",
+      "file": "packages/db/src/file-imports.ts",
+      "name": "createFilePreview",
+      "tables": [
+        "FileImport"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/file-imports.ts#fileImportFor",
+      "file": "packages/db/src/file-imports.ts",
+      "name": "fileImportFor",
+      "tables": [
+        "FileImport"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/file-imports.ts#filePreviewFor",
+      "file": "packages/db/src/file-imports.ts",
+      "name": "filePreviewFor",
+      "tables": [
+        "FileImport",
+        "FinancialAccount",
+        "WalletMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/file-imports.ts#importFilePreview",
+      "file": "packages/db/src/file-imports.ts",
+      "name": "importFilePreview",
+      "tables": [
+        "AuditLog",
+        "CardStatement",
+        "Category",
+        "CategoryRule",
+        "ClassifierModel",
+        "FileImport",
+        "FinancialAccount",
+        "StatementCharge",
+        "Transaction",
+        "WalletMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/file-imports.ts#listFileImports",
+      "file": "packages/db/src/file-imports.ts",
+      "name": "listFileImports",
+      "tables": [
+        "FileImport"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/households.ts#acceptInvite",
+      "file": "packages/db/src/households.ts",
+      "name": "acceptInvite",
+      "tables": [
+        "AuditLog",
+        "HouseholdInvite",
+        "HouseholdMember",
+        "Wallet"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/households.ts#createHousehold",
+      "file": "packages/db/src/households.ts",
+      "name": "createHousehold",
+      "tables": [
+        "AuditLog",
+        "Household",
+        "HouseholdMember",
+        "Wallet"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/households.ts#createInvite",
+      "file": "packages/db/src/households.ts",
+      "name": "createInvite",
+      "tables": [
+        "AuditLog",
+        "HouseholdInvite",
+        "HouseholdMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/households.ts#findInviteByToken",
+      "file": "packages/db/src/households.ts",
+      "name": "findInviteByToken",
+      "tables": [
+        "HouseholdInvite"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/households.ts#listHouseholdActivity",
+      "file": "packages/db/src/households.ts",
+      "name": "listHouseholdActivity",
+      "tables": [
+        "AuditLog",
+        "User"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/households.ts#listHouseholdMembers",
+      "file": "packages/db/src/households.ts",
+      "name": "listHouseholdMembers",
+      "tables": [
+        "HouseholdMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/households.ts#listOpenInvites",
+      "file": "packages/db/src/households.ts",
+      "name": "listOpenInvites",
+      "tables": [
+        "HouseholdInvite"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/households.ts#removeHouseholdMember",
+      "file": "packages/db/src/households.ts",
+      "name": "removeHouseholdMember",
+      "tables": [
+        "AuditLog",
+        "HouseholdMember",
+        "Wallet"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/households.ts#revokeInvite",
+      "file": "packages/db/src/households.ts",
+      "name": "revokeInvite",
+      "tables": [
+        "AuditLog",
+        "HouseholdInvite"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/installments.ts#createInstallmentPurchase",
+      "file": "packages/db/src/installments.ts",
+      "name": "createInstallmentPurchase",
+      "tables": [
+        "AuditLog",
+        "CardStatement",
+        "CategorizationExample",
+        "Category",
+        "CategoryRule",
+        "ClassifierModel",
+        "FinancialAccount",
+        "InstallmentGroup",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/local-ai.ts#applyLocalAiProposal",
+      "file": "packages/db/src/local-ai.ts",
+      "name": "applyLocalAiProposal",
+      "tables": [
+        "AuditLog",
+        "Category",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/local-ai.ts#localAiProposalPreview",
+      "file": "packages/db/src/local-ai.ts",
+      "name": "localAiProposalPreview",
+      "tables": [
+        "Category",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/local-ai.ts#localAiSummary",
+      "file": "packages/db/src/local-ai.ts",
+      "name": "localAiSummary",
+      "tables": [
+        "Household",
+        "LocalAiAttempt",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/local-ai.ts#runLocalAiNight",
+      "file": "packages/db/src/local-ai.ts",
+      "name": "runLocalAiNight",
+      "tables": [
+        "Category",
+        "Household",
+        "LocalAiAttempt",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/local-ai.ts#setLocalAi",
+      "file": "packages/db/src/local-ai.ts",
+      "name": "setLocalAi",
+      "tables": [
+        "AuditLog",
+        "Household"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/recurrences.ts#archiveRecurrence",
+      "file": "packages/db/src/recurrences.ts",
+      "name": "archiveRecurrence",
+      "tables": [
+        "AuditLog",
+        "Recurrence"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/recurrences.ts#createFixedExpense",
+      "file": "packages/db/src/recurrences.ts",
+      "name": "createFixedExpense",
+      "tables": [
+        "AuditLog",
+        "Category",
+        "Recurrence",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/recurrences.ts#createRecurrence",
+      "file": "packages/db/src/recurrences.ts",
+      "name": "createRecurrence",
+      "tables": [
+        "AuditLog",
+        "Category",
+        "Recurrence"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/recurrences.ts#generateRecurrences",
+      "file": "packages/db/src/recurrences.ts",
+      "name": "generateRecurrences",
+      "tables": [
+        "AuditLog",
+        "Recurrence",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/recurrences.ts#listRecurrences",
+      "file": "packages/db/src/recurrences.ts",
+      "name": "listRecurrences",
+      "tables": [
+        "Recurrence"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/review.ts#confirmBulk",
+      "file": "packages/db/src/review.ts",
+      "name": "confirmBulk",
+      "tables": [
+        "AuditLog",
+        "Transaction",
+        "TransactionMatch"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/review.ts#confirmPair",
+      "file": "packages/db/src/review.ts",
+      "name": "confirmPair",
+      "tables": [
+        "AuditLog",
+        "Transaction",
+        "TransactionMatch"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/review.ts#confirmReceived",
+      "file": "packages/db/src/review.ts",
+      "name": "confirmReceived",
+      "tables": [
+        "AuditLog",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/review.ts#linkRefund",
+      "file": "packages/db/src/review.ts",
+      "name": "linkRefund",
+      "tables": [
+        "AuditLog",
+        "Transaction",
+        "TransactionMatch"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/review.ts#pairPreview",
+      "file": "packages/db/src/review.ts",
+      "name": "pairPreview",
+      "tables": [
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/review.ts#rejectPair",
+      "file": "packages/db/src/review.ts",
+      "name": "rejectPair",
+      "tables": [
+        "AuditLog",
+        "Transaction",
+        "TransactionMatch"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/review.ts#reviewQueue",
+      "file": "packages/db/src/review.ts",
+      "name": "reviewQueue",
+      "tables": [
+        "Household",
+        "Transaction",
+        "TransactionMatch"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/review.ts#undoMatch",
+      "file": "packages/db/src/review.ts",
+      "name": "undoMatch",
+      "tables": [
+        "AuditLog",
+        "Transaction",
+        "TransactionMatch"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/review.ts#undoReview",
+      "file": "packages/db/src/review.ts",
+      "name": "undoReview",
+      "tables": [
+        "AuditLog",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/statements.ts#cardStatementView",
+      "file": "packages/db/src/statements.ts",
+      "name": "cardStatementView",
+      "tables": [
+        "AccountBalance",
+        "CardStatement",
+        "ProviderConnection",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/statements.ts#openStatementTotals",
+      "file": "packages/db/src/statements.ts",
+      "name": "openStatementTotals",
+      "tables": [
+        "FinancialAccount",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/statements.ts#receivedSummary",
+      "file": "packages/db/src/statements.ts",
+      "name": "receivedSummary",
+      "tables": [
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/sync.ts#connectionsDueForSync",
+      "file": "packages/db/src/sync.ts",
+      "name": "connectionsDueForSync",
+      "tables": [
+        "ProviderConnection"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/sync.ts#describeOutcome",
+      "file": "packages/db/src/sync.ts",
+      "name": "describeOutcome",
+      "tables": [],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/sync.ts#providerForConnection",
+      "file": "packages/db/src/sync.ts",
+      "name": "providerForConnection",
+      "tables": [
+        "ProviderConnection"
+      ],
+      "services": [
+        "pluggy"
+      ]
+    },
+    {
+      "id": "packages/db/src/sync.ts#runSync",
+      "file": "packages/db/src/sync.ts",
+      "name": "runSync",
+      "tables": [
+        "AccountBalance",
+        "CardStatement",
+        "Category",
+        "CategoryRule",
+        "ClassifierModel",
+        "ProviderConnection",
+        "ProviderItem",
+        "StatementCharge",
+        "StatementPayment",
+        "SyncRun",
+        "Transaction",
+        "WalletMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/transactions.ts#confirmTransaction",
+      "file": "packages/db/src/transactions.ts",
+      "name": "confirmTransaction",
+      "tables": [
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/transactions.ts#createTransaction",
+      "file": "packages/db/src/transactions.ts",
+      "name": "createTransaction",
+      "tables": [
+        "AuditLog",
+        "CategorizationExample",
+        "Category",
+        "CategoryRule",
+        "ClassifierModel",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/transactions.ts#createTransfer",
+      "file": "packages/db/src/transactions.ts",
+      "name": "createTransfer",
+      "tables": [
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/transactions.ts#deleteTransaction",
+      "file": "packages/db/src/transactions.ts",
+      "name": "deleteTransaction",
+      "tables": [
+        "AuditLog",
+        "Transaction",
+        "WalletMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/transactions.ts#exportTransactions",
+      "file": "packages/db/src/transactions.ts",
+      "name": "exportTransactions",
+      "tables": [
+        "AuditLog",
+        "Category",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/transactions.ts#getTransaction",
+      "file": "packages/db/src/transactions.ts",
+      "name": "getTransaction",
+      "tables": [
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/transactions.ts#lastUsedChoice",
+      "file": "packages/db/src/transactions.ts",
+      "name": "lastUsedChoice",
+      "tables": [
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/transactions.ts#listTransactions",
+      "file": "packages/db/src/transactions.ts",
+      "name": "listTransactions",
+      "tables": [
+        "Category",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/transactions.ts#restoreTransaction",
+      "file": "packages/db/src/transactions.ts",
+      "name": "restoreTransaction",
+      "tables": [
+        "AuditLog",
+        "Transaction",
+        "WalletMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/transactions.ts#setTransactionCategory",
+      "file": "packages/db/src/transactions.ts",
+      "name": "setTransactionCategory",
+      "tables": [
+        "AuditLog",
+        "CategorizationExample",
+        "Category",
+        "CategoryRule",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/transactions.ts#sumTransactions",
+      "file": "packages/db/src/transactions.ts",
+      "name": "sumTransactions",
+      "tables": [
+        "Category",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/transactions.ts#updateTransaction",
+      "file": "packages/db/src/transactions.ts",
+      "name": "updateTransaction",
+      "tables": [
+        "AuditLog",
+        "CategorizationExample",
+        "Category",
+        "CategoryRule",
+        "ClassifierModel",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/wallets.ts#addWalletMember",
+      "file": "packages/db/src/wallets.ts",
+      "name": "addWalletMember",
+      "tables": [
+        "AuditLog",
+        "HouseholdMember",
+        "Wallet",
+        "WalletMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/wallets.ts#createSharedWallet",
+      "file": "packages/db/src/wallets.ts",
+      "name": "createSharedWallet",
+      "tables": [
+        "AuditLog",
+        "HouseholdMember",
+        "Wallet"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/wallets.ts#getWalletDetails",
+      "file": "packages/db/src/wallets.ts",
+      "name": "getWalletDetails",
+      "tables": [
+        "WalletMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/wallets.ts#leaveWallet",
+      "file": "packages/db/src/wallets.ts",
+      "name": "leaveWallet",
+      "tables": [
+        "AuditLog",
+        "Wallet",
+        "WalletMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/wallets.ts#listAddableMembers",
+      "file": "packages/db/src/wallets.ts",
+      "name": "listAddableMembers",
+      "tables": [
+        "HouseholdMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/wallets.ts#listMyWallets",
+      "file": "packages/db/src/wallets.ts",
+      "name": "listMyWallets",
+      "tables": [
+        "WalletMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/wallets.ts#removeWalletMember",
+      "file": "packages/db/src/wallets.ts",
+      "name": "removeWalletMember",
+      "tables": [
+        "AuditLog",
+        "Wallet",
+        "WalletMember"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/wallets.ts#renameWallet",
+      "file": "packages/db/src/wallets.ts",
+      "name": "renameWallet",
+      "tables": [
+        "AuditLog",
+        "Wallet"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/wallets.ts#setWalletArchived",
+      "file": "packages/db/src/wallets.ts",
+      "name": "setWalletArchived",
+      "tables": [
+        "AuditLog",
+        "Wallet"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/wallets.ts#setWalletMemberRole",
+      "file": "packages/db/src/wallets.ts",
+      "name": "setWalletMemberRole",
+      "tables": [
+        "AuditLog",
+        "Wallet",
+        "WalletMember"
+      ],
+      "services": []
+    }
+  ],
+  "tables": [
+    {
+      "model": "Account",
+      "table": "account"
+    },
+    {
+      "model": "AccountBalance",
+      "table": "account_balance"
+    },
+    {
+      "model": "AuditLog",
+      "table": "audit_log"
+    },
+    {
+      "model": "BotDraft",
+      "table": "bot_draft"
+    },
+    {
+      "model": "BotLink",
+      "table": "bot_link"
+    },
+    {
+      "model": "BotLinkCode",
+      "table": "bot_link_code"
+    },
+    {
+      "model": "BotMessage",
+      "table": "bot_message"
+    },
+    {
+      "model": "BotPreference",
+      "table": "bot_preference"
+    },
+    {
+      "model": "BotReplyCount",
+      "table": "bot_reply_count"
+    },
+    {
+      "model": "BotTelegramLink",
+      "table": "bot_telegram_link"
+    },
+    {
+      "model": "Budget",
+      "table": "budget"
+    },
+    {
+      "model": "BudgetShare",
+      "table": "budget_share"
+    },
+    {
+      "model": "CardStatement",
+      "table": "card_statement"
+    },
+    {
+      "model": "CategorizationExample",
+      "table": "categorization_example"
+    },
+    {
+      "model": "Category",
+      "table": "category"
+    },
+    {
+      "model": "CategoryRule",
+      "table": "category_rule"
+    },
+    {
+      "model": "ClassifierModel",
+      "table": "classifier_model"
+    },
+    {
+      "model": "FileImport",
+      "table": "file_import"
+    },
+    {
+      "model": "FinancialAccount",
+      "table": "financial_account"
+    },
+    {
+      "model": "Household",
+      "table": "household"
+    },
+    {
+      "model": "HouseholdInvite",
+      "table": "household_invite"
+    },
+    {
+      "model": "HouseholdMember",
+      "table": "household_member"
+    },
+    {
+      "model": "InstallmentGroup",
+      "table": "installment_group"
+    },
+    {
+      "model": "Jwks",
+      "table": "jwks"
+    },
+    {
+      "model": "LocalAiAttempt",
+      "table": "local_ai_attempt"
+    },
+    {
+      "model": "Passkey",
+      "table": "passkey"
+    },
+    {
+      "model": "PaymentCard",
+      "table": "payment_card"
+    },
+    {
+      "model": "ProviderConnection",
+      "table": "provider_connection"
+    },
+    {
+      "model": "ProviderItem",
+      "table": "provider_item"
+    },
+    {
+      "model": "RateLimit",
+      "table": "rateLimit"
+    },
+    {
+      "model": "Recurrence",
+      "table": "recurrence"
+    },
+    {
+      "model": "Session",
+      "table": "session"
+    },
+    {
+      "model": "StatementCharge",
+      "table": "statement_charge"
+    },
+    {
+      "model": "StatementPayment",
+      "table": "statement_payment"
+    },
+    {
+      "model": "SyncRun",
+      "table": "sync_run"
+    },
+    {
+      "model": "Transaction",
+      "table": "transaction"
+    },
+    {
+      "model": "TransactionMatch",
+      "table": "transaction_match"
+    },
+    {
+      "model": "TwoFactor",
+      "table": "twoFactor"
+    },
+    {
+      "model": "User",
+      "table": "user"
+    },
+    {
+      "model": "Verification",
+      "table": "verification"
+    },
+    {
+      "model": "Wallet",
+      "table": "wallet"
+    },
+    {
+      "model": "WalletMember",
+      "table": "wallet_member"
+    }
+  ],
+  "services": [
+    {
+      "id": "ml",
+      "name": "Serviço Python",
+      "description": "Fatura em PDF, classificador e IA local (FastAPI, só na rede interna)",
+      "files": [
+        "apps/web/src/lib/ml/classifier.ts",
+        "apps/web/src/lib/ml/local-ai.ts",
+        "packages/importers/src/pdf/invoice.ts"
+      ]
+    },
+    {
+      "id": "pluggy",
+      "name": "Meu Pluggy",
+      "description": "Contas e cartões do banco (Open Finance)",
+      "files": [
+        "packages/importers/src/pluggy/client.ts"
+      ]
+    },
+    {
+      "id": "whatsapp",
+      "name": "WhatsApp (Meta)",
+      "description": "As respostas do bot pela Cloud API",
+      "files": [
+        "apps/web/src/lib/whatsapp/channel.ts"
+      ]
+    },
+    {
+      "id": "telegram",
+      "name": "Telegram",
+      "description": "As respostas do bot pela Bot API",
+      "files": [
+        "apps/web/src/lib/telegram/channel.ts"
+      ]
+    },
+    {
+      "id": "hibp",
+      "name": "Have I Been Pwned",
+      "description": "Senhas vazadas (só 5 caracteres do hash saem do servidor)",
+      "files": [
+        "apps/web/src/lib/auth/leaked-password.ts"
+      ]
+    },
+    {
+      "id": "smtp",
+      "name": "E-mail (SMTP)",
+      "description": "Confirmação de e-mail, convite e redefinição de senha",
+      "files": [
+        "apps/web/src/lib/mailer.ts"
+      ]
+    }
+  ]
+}

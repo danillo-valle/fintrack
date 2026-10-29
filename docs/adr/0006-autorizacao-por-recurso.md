@@ -93,3 +93,15 @@ mensagem de verdade. Se um dia o status da página precisar ser 404, o caminho �
   `transactions.exported`.
 - Mudar uma permissão é mudar `WALLET_MATRIX`, o teste escrito à mão e `docs/permissoes.md`;
   três lugares de propósito, e os testes avisam se um ficar para trás.
+
+## Revisão do M12.3b (28/10/2026)
+
+**Continua valendo.** Matriz pura, ponto único com crachá tipado, 404 para recurso alheio e
+auditoria na mesma transação.
+
+- **RLS do Postgres (deixado para o M12): não adotado.** O crachá tipado, os testes de acesso
+  negado e o mapa do fluxo (que confere a sessão em toda tela e action) cobrem o risco; o RLS
+  segue como reforço possível, com ADR próprio se um dia entrar.
+- O status 200 do 404 com o `loading.tsx` continua (limitação conhecida, mesmo corpo para "não
+  é seu" e "não existe").
+- Um lar por pessoa continua (`ALREADY_IN_HOUSEHOLD`).

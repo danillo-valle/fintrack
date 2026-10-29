@@ -78,3 +78,15 @@ formulário mandava e-mail, senha ou código na URL. Visto no N150, num E2E da s
 - **Fica para depois (não é bug):** fazer esses formulários funcionarem antes do React, como Server
   Actions chamando o `auth.api` no servidor (a reautenticação já é assim). É uma mudança de todos os
   fluxos de entrada, que pede módulo próprio.
+
+## Revisão do M12.3b (28/10/2026)
+
+**Continua valendo.** Better Auth, 2FA obrigatório, passkeys, cadastro fechado e as camadas
+(`requireUser` em toda tela e action). O mapa do fluxo (ADR-023) passou a conferir isso por teste:
+toda tela de `(app)` e toda Server Action pedem a sessão.
+
+- **Substituído pelo ADR-022:** o plugin `haveIBeenPwned` deu lugar ao
+  `lib/auth/leaked-password.ts`, com tempo limite de 3 s (sem resposta, a senha é recusada).
+- **Em aberto:** os formulários de entrada continuam enviando pelo cliente do Better Auth (o
+  `ClientForm` do adendo M10.0 só impede o vazamento na URL). Passá-los a Server Actions é o
+  item 1 das pendências do README.

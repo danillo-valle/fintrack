@@ -112,3 +112,11 @@ membro); mês de referência manual; anexos; importação da planilha antiga (M1
   `CardStatement` sem migração nova, exceto a cifragem do segredo.
 - O Prisma 7 recusa `migrate reset` quando chamado por um agente de IA sem consentimento
   explícito: o reset do banco é sempre um comando digitado pela pessoa.
+
+## Revisão do M12.3b (28/10/2026)
+
+**Continua valendo**, inteira. Todas as migrações até o M12.3a foram aditivas, como manda a
+regra de crescimento; o banco tem 42 tabelas e cada regra de integridade segue com teste.
+
+- A tela ainda chama `Wallet` de "Ambiente" em umas telas e "Carteira" em outras (a Ajuda explica
+  que são a mesma coisa). Um nome só é decisão do Danillo (pendências do README).

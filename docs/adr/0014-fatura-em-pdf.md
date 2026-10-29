@@ -107,3 +107,12 @@ Combinado com o Danillo antes do código (15/10/2026, canvas E.4 aprovado):
   ligadas de qualquer origem importada (Meu Pluggy, OFX, PDF).
 - O CI ganha o uv e o Python no job de qualidade e no E2E, e uma imagem a mais para construir,
   testar e publicar.
+
+## Revisão do M12.3b (28/10/2026)
+
+**Continua valendo.** Serviço Python só na rede interna, token curto pelo JWKS, senha do PDF
+nunca guardada. O serviço também passou a hospedar o classificador (ADR-015) e a ponte da IA
+local (ADR-016).
+
+- **Em aberto:** o perfil do PDF do banco do Danillo, que depende da estrutura (`app.estrutura`)
+  de uma fatura real lida no computador dele (pendências do README).

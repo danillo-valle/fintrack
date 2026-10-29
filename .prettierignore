@@ -7,3 +7,6 @@ next-env.d.ts
 src/generated/
 # Respostas gravadas da Pluggy (sintéticas): o texto exato dos números importa (exact-json.ts)
 packages/importers/fixtures/
+# Gerado pelo packages/flow-map (pnpm --filter @fintrack/flow-map generate): o teste confere
+# o arquivo byte a byte com o que o gerador escreve, então o Prettier não mexe nele
+docs/arquitetura/fluxo.json

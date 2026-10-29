@@ -155,3 +155,12 @@ Decisões tomadas com o Danillo antes do código: orçado **por ambiente e por p
   saídas" (o canvas dizia "Faturas e parcelas", mas a coluna também tem débitos e Pix que não
   são fixos); o total do orçamento não é link (soma categorias diferentes); a tela "Editar
   valores" foi desenhada depois, na prancha D-Editar.
+
+## Revisão do M12.3b (28/10/2026)
+
+**Continua valendo.** Orçado por ambiente e pessoa, as somas no banco e o significado no core,
+`"use cache"` com a etiqueta do lar e todo número levando à lista. O M12.2 ligou o
+`partialPrefetching` (ADR-021).
+
+- **Em aberto:** o React #418 depois de um envio antes do React no build de produção. Não foi
+  conferido de novo no Next 16.4.3 (pendências do README).

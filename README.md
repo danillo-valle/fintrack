@@ -6,6 +6,12 @@ Controle financeiro pessoal e da casa: ambientes pessoais e compartilhados, cart
 adicionais, orçamento e importação de extratos e faturas. Construído em 12 módulos, cada um
 acompanhado por uma [milestone](https://github.com/danillo-valle/fintrack/milestones).
 
+**[FinTrack por dentro](https://danillo-valle.github.io/fintrack/)**: a arquitetura em C4 e o mapa
+do fluxo de cada tela (o que roda no navegador, o que chama no servidor, o que toca no banco e o
+que sai para fora), gerados do código a cada versão. Também: as
+[decisões de arquitetura](docs/adr/README.md), o [relatório com nota](docs/arquitetura/relatorio.md)
+e o [runbook de incidente](docs/operacao/incidente.md).
+
 ## Telas
 
 Capturas com a casa fictícia do seed (24 meses de dados sintéticos), no tema do seu GitHub (claro
@@ -56,6 +62,8 @@ pnpm e2e               # testes de ponta a ponta
 pnpm e2e:producao      # os mesmos, contra o build de produção (como o CI)
 pnpm capturas          # refaz as capturas desta página (roda o seed de novo)
 pnpm test:integration  # regras do banco contra o Postgres
+pnpm --filter @fintrack/flow-map generate   # refaz o mapa do fluxo (docs/arquitetura/fluxo.json)
+pnpm --filter @fintrack/flow-map site       # monta o site "FinTrack por dentro" em dist/site
 ```
 
 ## Estrutura
@@ -65,7 +73,12 @@ apps/web/          app Next.js
 packages/core/     regras puras: dinheiro em centavos, datas, fatura do cartão
 packages/db/       schema, migrações, seed e cliente do Prisma
 packages/config/   configuração compartilhada de TypeScript
+packages/importers/  dados do banco: Meu Pluggy, OFX e o cliente do PDF
+packages/flow-map/ o mapa do fluxo tirado do código e o site do GitHub Pages
+services/ml/       o serviço Python: fatura em PDF, classificador e IA local
 docs/adr/          decisões de arquitetura
+docs/arquitetura/  o C4, o mapa do fluxo (fluxo.json) e o relatório com nota
+docs/operacao/     runbook de operação e de incidente
 docs/modelo-de-dados.md  diagrama das tabelas
 samples/           dados sintéticos para testes (nunca dados reais)
 ```

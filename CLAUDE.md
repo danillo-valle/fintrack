@@ -73,6 +73,10 @@ Projeto de portfólio construído em módulos (M00 a M12); cada módulo é uma m
   `PageHeader` (abre em modal); `/primeiro-acesso` público. Contas e cartões com "Nova conta" e "Adicionar
   cartão" em modal e o aviso no topo. Senhas vazadas (HIBP) com tempo limite de 3 s, recusando sem resposta
   (`lib/auth/leaked-password.ts`)
+- Arquitetura documentada (M12.3b, ADR-023): o mapa do fluxo gerado do código (`packages/flow-map` →
+  `docs/arquitetura/fluxo.json`, conferido no `pnpm check`), o C4 em Mermaid (`docs/arquitetura/c4.md`),
+  o site "FinTrack por dentro" no GitHub Pages (job `site` e `pagina` do CI), os ADRs revisados, o
+  runbook de incidente (`docs/operacao/incidente.md`) e o relatório com nota (`docs/arquitetura/relatorio.md`)
 
 Regras específicas do Next.js 16: @apps/web/AGENTS.md
 
@@ -101,6 +105,8 @@ Regras específicas do Next.js 16: @apps/web/AGENTS.md
 - `bash scripts/zap/varrer.sh http://localhost:3000 relatorios-zap [cookie]` roda a varredura passiva do ZAP
   (a mesma do CI; precisa do Docker e do build de produção no ar, não do `pnpm dev`: runbook, "Segurança")
 - `bash scripts/lighthouse-a11y.sh` mede a acessibilidade com o Lighthouse (precisa do `pnpm dev`)
+- `pnpm --filter @fintrack/flow-map generate` refaz o mapa do fluxo (`docs/arquitetura/fluxo.json`); `site` monta o
+  site do GitHub Pages em `packages/flow-map/dist/site`, `site:serve` o serve e `test:site` o confere (Playwright + axe)
 - `pnpm format` formata tudo com Prettier
 - `docker build --target web .` constrói a imagem de produção; `bash deploy/bin/smoke-test <url>` confere uma instância
 - Produção (no servidor): `sudo -u fintrack fintrack-status` e o runbook (`docs/operacao/runbook.md`)
@@ -156,6 +162,8 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
   `apps/web/src/lib/jobs.ts` o pg-boss e todas as filas do app; `packages/db/src/bot.ts` e
   `packages/core/src/bot{,-parse}.ts` as regras
 - `apps/web/src/features/help/` a Ajuda (M12.3a): `content.ts` (os artigos), `search.ts` (a busca) e `ui/`
+- `packages/flow-map/` o mapa do fluxo (análise do código: `analyze.ts`, `screens.ts`, `server.ts`, `services.ts`)
+  e o site (`src/site/`); `docs/arquitetura/` o C4, o `fluxo.json` (gerado) e o relatório
 - `docs/permissoes.md` quem pode fazer o quê (conferido por teste)
 - `docs/modelo-de-dados.md` diagrama das tabelas (conferido por teste)
 - `apps/web/e2e/` testes Playwright
@@ -203,10 +211,13 @@ Rode `pnpm check` antes de dizer que uma tarefa está pronta.
   mesmo valor (E2E). Toda action que muda dinheiro chama `financeChanged` (cache das somas, ADR-010).
 - Para qualquer trabalho de interface, siga a skill `ui-componentes` (visual "Elétrico", ADR-008: vidro só
   na moldura, contraste conferido pelo `theme-contrast.test.ts`, novo lançamento em modal de rota).
-  A referência visual é o canvas "FinTrack Visual" (linhas C.2 a J): tela nova é desenhada lá antes do código.
+  A referência visual é o canvas "FinTrack Visual" (linhas C.2 a K): tela nova é desenhada lá antes do código.
 - Toda tela tem a sua parte na Ajuda: o `PageHeader` exige `help` (um artigo de `features/help/content.ts`,
   ou `null` só na própria Ajuda, em Ajustes, que lista a Ajuda, e no catálogo). Mudou uma tela, um botão ou um
   fluxo? O artigo muda no mesmo PR.
+- Mudou uma tela, action, rota de API, fila ou chamada de rede? `pnpm --filter @fintrack/flow-map generate` no mesmo
+  PR (siga a skill `arquitetura`): o teste do mapa barra o `fluxo.json` velho, a tela ou action sem sessão, a action
+  que nenhuma tela chama, o link para tela que não existe e a chamada de rede fora de `SERVICES`.
 - Mudança nova entra como estrutura, não como remendo: peça visual repetida vira componente em
   `components/visual/`, peça de domínio fica em `features/<nome>/ui/`, regra de negócio vai para
   `packages/core` (com teste). Se a peça nova muda quem a chama, atualize toda a cadeia de chamadas.

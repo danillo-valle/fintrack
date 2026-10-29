@@ -61,3 +61,7 @@ Decidido pelo Danillo em 20/10/2026 (as três recomendações), com a linha F.3 
   seria mais uma tabela. O cache do M08 já resolve o custo.
 - **Mais tipos** (abaixo do costume, parcelas que terminam, fatura acima da média): ficam para
   depois, se o Danillo quiser; a regra de escolha comporta um tipo novo sem mudar a tela.
+
+## Revisão do M12.3b (28/10/2026)
+
+**Continua valendo**, inteira: três observações por regras puras, sem IA.

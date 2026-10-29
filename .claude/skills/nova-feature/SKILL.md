@@ -78,7 +78,10 @@ Recurso novo com id na URL que não é uma carteira? Crie um `authorizeX` em
    IDOR (URL de outra pessoa → página 404 sem dados) e o fluxo principal no celular.
    Lista com totais: um teste em lar próprio confere a soma da tela contra o SQL, ao centavo.
    Número do painel: o teste abre o link (`data-cents`) e confere o total da lista (`painel.spec.ts`).
-10. `pnpm check`, `pnpm test:integration` e `pnpm e2e` inteiros antes do PR.
+10. **Mapa do fluxo** (skill `arquitetura`): `pnpm --filter @fintrack/flow-map generate` e o
+    `docs/arquitetura/fluxo.json` no mesmo commit; o teste do mapa barra tela ou action sem sessão,
+    action que nenhuma tela chama e link para tela que não existe.
+11. `pnpm check`, `pnpm test:integration` e `pnpm e2e` inteiros antes do PR.
 
 ## Proibido
 
