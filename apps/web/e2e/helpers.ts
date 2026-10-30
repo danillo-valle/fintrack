@@ -210,6 +210,8 @@ export const PAGES = [
   "/ajuda/contas-e-cartoes",
   "/ajuda?q=fatura",
   `/ajustes/contas/${ANA_FINANCE.cardAccountId}/cartao`,
+  // M13.1: Editar cartão na página inteira (o modal é testado em editar-cartao.spec.ts)
+  `/ajustes/contas/${ANA_FINANCE.cardAccountId}/cartao/${ANA_FINANCE.cardId}`,
   "/ajustes/categorias",
   // M10.1: o percentual sem IA e o classificador
   "/ajustes/categorizacao",
