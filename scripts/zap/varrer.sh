@@ -20,6 +20,10 @@
 #
 # Por padrão usa a imagem oficial do ZAP com a versão fixa. ZAP_SH=/caminho/zap.sh usa um ZAP
 # instalado na máquina (o laboratório, sem Docker).
+#
+# Enquanto o ZAP trabalha, uma linha por minuto diz há quanto tempo a rodada está no ar (M12.4b): a
+# varredura ativa passa até 30 minutos sem nenhuma saída do ZAP, e um terminal calado parece travado.
+# ZAP_PROGRESSO_SEGUNDOS troca o intervalo (os testes usam 1).
 set -euo pipefail
 
 ZAP_IMAGE="${ZAP_IMAGE:-ghcr.io/zaproxy/zaproxy:2.17.0}"
@@ -109,17 +113,45 @@ else
 fi
 chmod -R a+rX "$plan_dir"
 
+every="${ZAP_PROGRESSO_SEGUNDOS:-60}"
+[[ "$every" =~ ^[1-9][0-9]{0,3}$ ]] || {
+  echo "varrer: ZAP_PROGRESSO_SEGUNDOS precisa ser um número de segundos ($every)" >&2
+  exit 2
+}
+limit_note=""
+[ "$mode" = ativo ] && limit_note=" (teto de $minutes min nesta rodada)"
+
+# Roda o ZAP em segundo plano e, enquanto ele trabalha, escreve uma linha a cada $every segundos.
+# Devolve a saída do próprio ZAP. Confere a cada segundo, então o fim nunca espera o próximo aviso.
+# Num script, o que roda em segundo plano ignora o Ctrl+C: o trap repassa o pedido de parar (o
+# docker run repassa ao container), para nenhum ZAP ficar atacando sozinho depois do Ctrl+C.
+run_with_progress() {
+  local started=$SECONDS next=$every
+  "$@" &
+  zap_pid=$!
+  trap 'kill "$zap_pid" 2>/dev/null; wait "$zap_pid" 2>/dev/null; exit 130' INT TERM
+  while kill -0 "$zap_pid" 2>/dev/null; do
+    sleep 1
+    if [ $((SECONDS - started)) -ge "$next" ]; then
+      echo "varrer: $name rodando há $(((SECONDS - started) / 60)) min $(((SECONDS - started) % 60)) s$limit_note"
+      next=$((next + every))
+    fi
+  done
+  trap - INT TERM
+  wait "$zap_pid"
+}
+
 echo "varrer: $name em $target (relatórios em $reports)"
 set +e
 if [ -n "${ZAP_SH:-}" ]; then
   home="$(mktemp -d)"
-  ZAP_RELATORIOS="$reports" "$ZAP_SH" -cmd -silent -dir "$home" -autorun "$plan_dir/plano.yaml"
+  ZAP_RELATORIOS="$reports" run_with_progress "$ZAP_SH" -cmd -silent -dir "$home" -autorun "$plan_dir/plano.yaml"
   status=$?
   rm -rf "$home"
 else
   # O ZAP da imagem roda como o usuário "zap": a pasta dos relatórios precisa aceitar gravação
   chmod a+rwx "$reports"
-  docker run --rm --network host \
+  run_with_progress docker run --rm --network host \
     -v "$plan_dir:/zap/plano:ro" -v "$reports:/zap/wrk:rw" \
     -e ZAP_ALVO -e ZAP_NOME -e ZAP_RELATORIOS=/zap/wrk \
     ${cookie_file:+-e ZAP_AUTH_HEADER -e ZAP_AUTH_HEADER_VALUE -e ZAP_AUTH_HEADER_SITE} \

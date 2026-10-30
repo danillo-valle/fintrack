@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Testes dos scripts de operação (deploy/bin) que dá para rodar sem servidor: o fintrack-alerta, o
 # aviso ao Healthchecks (hc_ping), a contagem dos eventos de segurança, a seção Segurança do
-# fintrack-status e o fintrack-definir.
+# fintrack-status e o fintrack-definir; e o progresso do scripts/zap/varrer.sh (M12.4b).
 # Roda no CI (job imagem, logo depois do shellcheck) e em qualquer máquina com bash, curl e python3:
 #
 #   bash deploy/testes/operacao.test.sh
@@ -280,6 +280,35 @@ for ruim in "https://hc-ping.com/59https://hc-ping.com/$CODE" "https://hc-ping.c
   confere "explica" saida_tem "não parece um endereço de ping"
   confere "nunca mostra o valor" saida_sem "${CODE:0:30}"
 done
+
+echo "varrer.sh (progresso da varredura)"
+
+# Um ZAP de mentira (ZAP_SH): espera 3 s e grava um relatório sem alertas, como o ZAP de verdade
+cat > "$WORK/zap.sh" <<'ZAP'
+#!/usr/bin/env bash
+sleep 3
+printf '{"site": [{"alerts": []}]}\n' > "$ZAP_RELATORIOS/zap-$ZAP_NOME.json"
+ZAP
+chmod +x "$WORK/zap.sh"
+varre() { ZAP_SH="$WORK/zap.sh" ZAP_PROGRESSO_SEGUNDOS=1 bash "$ROOT/scripts/zap/varrer.sh" "$@"; }
+
+caso "rodada passiva"
+roda varre http://127.0.0.1:3000 "$WORK/zap-relatorios"
+confere "termina bem" terminou_bem
+confere "mostra o progresso enquanto o ZAP trabalha" saida_tem "varrer: publico rodando há 0 min 1 s"
+confere "termina com o resumo" saida_tem "varrer: publico OK"
+
+caso "rodada ativa"
+roda env ZAP_MODO=ativo ZAP_ATIVO_MINUTOS=5 ZAP_SH="$WORK/zap.sh" ZAP_PROGRESSO_SEGUNDOS=1 \
+  bash "$ROOT/scripts/zap/varrer.sh" http://127.0.0.1:3000 "$WORK/zap-relatorios"
+confere "diz o teto da rodada" saida_tem "(teto de 5 min nesta rodada)"
+confere "termina com o resumo" saida_tem "varrer: publico-ativo OK"
+
+caso "intervalo inválido"
+roda env ZAP_SH="$WORK/zap.sh" ZAP_PROGRESSO_SEGUNDOS=0 bash "$ROOT/scripts/zap/varrer.sh" \
+  http://127.0.0.1:3000 "$WORK/zap-relatorios"
+confere "recusa" terminou_com_erro
+confere "explica" saida_tem "ZAP_PROGRESSO_SEGUNDOS precisa ser um número"
 
 echo "backup e deploy"
 
