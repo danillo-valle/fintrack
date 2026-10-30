@@ -96,6 +96,17 @@ describe("parseOfx: extrato da conta (OFX 1, SGML, latin-1)", () => {
     expect(statement.transactions[0]!.occurredOn).toBe("2026-09-26");
   });
 
+  it("o texto do arquivo chega limpo: sem caractere nulo nem controle (M12.4a)", () => {
+    // Um nulo nos primeiros 4 KB faz o arquivo parecer binário (recusado antes): aqui vem depois
+    const row = trn(
+      "<DTPOSTED>20261001<TRNAMT>-12.50<FITID>A\u00001<MEMO>PADA\u0000RIA\u0007\u00a0CENTRAL",
+    );
+    const file = sgml(`${" ".repeat(4096)}${list(row)}`);
+    const [parsed] = parseOfx(latin1(file)).transactions;
+    expect(parsed!.description).toBe("PADARIA CENTRAL");
+    expect(parsed!.externalId).toBe("A1");
+  });
+
   it("CRLF e o BOM do UTF-8 não mudam nada", () => {
     const crlf = Buffer.from(
       Buffer.from(aurora).toString("latin1").replace(/\n/g, "\r\n"),

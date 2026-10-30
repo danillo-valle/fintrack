@@ -16,6 +16,8 @@ Este documento é a fotografia da revisão. O que segura a fotografia no lugar, 
 - **ZAP** (`scripts/zap/`): varredura passiva da imagem de produção no job `imagem` do CI, sem
   sessão e com uma conta de teste criada pelo caminho de verdade (cadastro, e-mail, 2FA). Barra o
   PR com alerta de risco Baixo ou maior. Detalhes em [A ferramenta ZAP](#a-ferramenta-zap).
+  **Novo no M12.4a**: a varredura ativa (ataque de verdade) numa cópia local, fora do CI, antes de
+  cada versão grande ([A varredura ativa](#a-varredura-ativa-m124a)).
 - **OSV-Scanner** (`osv-scanner.toml`): os dois lockfiles (`pnpm-lock.yaml` e
   `services/ml/uv.lock`) contra a base pública de vulnerabilidades, no job `seguranca`. Barra o PR
   com qualquer vulnerabilidade conhecida.
@@ -28,20 +30,21 @@ Funcionalidade nova que mexer num destes itens atualiza a linha dele aqui, no me
 
 ## Resumo
 
-| Item                                       | Situação                      | O que o M12.1 mudou                                                 |
-| ------------------------------------------ | ----------------------------- | ------------------------------------------------------------------- |
-| A01 Controle de acesso quebrado            | Coberto                       | Teste de CSRF nas duas portas (API do login e Server Actions)       |
-| A02 Configuração de segurança incorreta    | Coberto                       | CSP: `<style>` só com nonce ou hash; o ZAP confere a imagem         |
-| A03 Falhas na cadeia de suprimentos        | Coberto, com 1 pendência      | OSV no CI, 76 alertas corrigidos, ações presas pelo commit          |
-| A04 Falhas de criptografia                 | Coberto                       | Teste dos atributos do cookie da sessão, inclusive em HTTPS         |
-| A05 Injeção                                | Coberto                       | Trava do ESLint para SQL montado com texto                          |
-| A06 Design inseguro                        | Coberto, com 1 risco residual | O bot diz o que falta em vez de uma frase genérica                  |
-| A07 Falhas de autenticação                 | Coberto, com 1 pendência      | Tentativas recusadas no log                                         |
-| A08 Falhas de integridade de software/dado | Coberto, com 1 pendência      | Ações do CI presas pelo commit                                      |
-| A09 Falhas de registro e alerta            | Coberto, com 1 pendência      | Eventos `auth.*` e a seção "Segurança" no `fintrack-status`         |
-| A10 Condições excepcionais                 | Coberto                       | Tela de erro com o código do log; erro próprio nas telas de entrada |
+| Item                                       | Situação                      | O que o M12.1 (e o M12.4a) mudou                                              |
+| ------------------------------------------ | ----------------------------- | ----------------------------------------------------------------------------- |
+| A01 Controle de acesso quebrado            | Coberto                       | Teste de CSRF nas duas portas (API do login e Server Actions)                 |
+| A02 Configuração de segurança incorreta    | Coberto                       | CSP: `<style>` só com nonce ou hash; o ZAP confere a imagem                   |
+| A03 Falhas na cadeia de suprimentos        | Coberto, com 1 pendência      | OSV no CI, 76 alertas corrigidos, ações presas pelo commit                    |
+| A04 Falhas de criptografia                 | Coberto                       | Teste dos atributos do cookie da sessão, inclusive em HTTPS                   |
+| A05 Injeção                                | Coberto                       | Trava do ESLint para SQL montado com texto                                    |
+| A06 Design inseguro                        | Coberto, com 1 risco residual | O bot diz o que falta; no M12.4a, nenhum invisível esconde um cartão          |
+| A07 Falhas de autenticação                 | Coberto, com 1 pendência      | Tentativas recusadas no log                                                   |
+| A08 Falhas de integridade de software/dado | Coberto, com 1 pendência      | Ações do CI presas pelo commit                                                |
+| A09 Falhas de registro e alerta            | Coberto                       | Eventos `auth.*` e, no M12.4a, o alerta automático por e-mail                 |
+| A10 Condições excepcionais                 | Coberto                       | Tela de erro com o código do log; no M12.4a, o texto de fora limpo na entrada |
 
 As pendências (o que é grande demais para o módulo) estão juntas no fim, com o risco e a sugestão.
+O M12.4a (ADR-024) fechou duas: o alerta automático (A09) e a varredura ativa do ZAP.
 
 ---
 
@@ -263,6 +266,14 @@ tinha o que escolher (caso real na produção em 24/10). Agora cada motivo tem a
 (`missingChoiceMessage`) e o Confirmar que perdeu o acesso no meio diz isso
 (`CONFIRM_NOT_ALLOWED_MESSAGE`). Provado em `packages/db/src/integration/bot.integration.test.ts`.
 
+**Novo no M12.4a (achado na revisão das entradas de texto, ADR-024).** Um caractere invisível
+entre os dígitos ("4111<largura zero>1111...") passava pela conferência de número de cartão do
+bot, e a mensagem ficaria guardada com um número que aparece inteiro na tela. Agora a mensagem é
+limpa (`cleanText`) antes de tudo, e a conferência olha o texto como ele aparece: sem invisíveis,
+com os dígitos largos (`４１１１`), os espaços e os traços diferentes trocados pelos comuns. Provado
+em `packages/core/src/bot-parse.test.ts` (oito separadores invisíveis ou diferentes e os dígitos
+largos).
+
 **Risco residual (consciente).** O limite do código de vínculo é por remetente: 5 erros em uma
 hora bloqueiam aquela conta por 24 h. No Telegram, quem criar muitas contas tenta mais. O código
 tem 1 milhão de valores, vale 10 minutos e só existe enquanto alguém está vinculando; com 5
@@ -324,14 +335,21 @@ proveniência da imagem.
   status, o código e o IP, nunca o corpo do pedido.
 - **`sudo -u fintrack fintrack-status`** mostra a contagem das últimas 24 h (novo); o runbook diz
   o que cada uma significa e quando agir.
-- **Disponibilidade**: UptimeRobot no `/api/health` e Healthchecks.io no backup e no deploy.
+- **Alerta automático (novo no M12.4a, ADR-024)**: o `fintrack-alerta` (timer a cada 15 minutos)
+  conta os mesmos eventos do `fintrack-status` nos últimos 15 minutos e, acima do limite de algum
+  (`auth.failed` 10, `auth.password_check_unavailable` 3, `webhook.rejected` 20, os outros 1;
+  trocáveis em `operacao.env`), avisa o Healthchecks.io com `/fail`, que manda o e-mail. O texto
+  leva só o nome do evento, a quantidade e o limite: nunca IP, e-mail ou caminho. Abaixo do limite,
+  avisa "ok", e o Healthchecks também denuncia o alerta parado. A lista dos eventos é uma só
+  (`SECURITY_EVENTS` em `deploy/bin/lib.sh`), usada pelo status e pelo alerta.
+- **Disponibilidade**: UptimeRobot no `/api/health` e Healthchecks.io no backup, no deploy e no
+  alerta.
 
 **Provas.** `apps/web/src/lib/logger.test.ts` (o que é apagado);
 `apps/web/src/lib/auth/security-log.test.ts` (cada evento, e que nem e-mail nem senha vão para o
-log).
-
-**Pendência.** Os eventos de segurança não disparam alerta sozinhos: é preciso olhar o
-`fintrack-status`.
+log). O alerta, no laboratório do M12.4a com o Docker e o Healthchecks de mentira: abaixo do
+limite, ping de "ok"; acima, `/fail` com o texto só de contagens e a linha no `alertas.log`;
+limite inválido no `operacao.env`, erro; sem `HC_SEGURANCA_URL`, aviso e nada enviado.
 
 ## A10 Tratamento incorreto de condições excepcionais
 
@@ -357,15 +375,26 @@ sistema num estado pela metade.
   não aparece na página.
 - Na varredura logada do ZAP (cerca de 8 mil pedidos, inclusive com filtros em combinações que
   ninguém digitaria), o servidor não registrou nenhum erro.
+- **Novo no M12.4a (achado da varredura ativa, ADR-024)**: um caractere nulo na busca da lista
+  (`/lancamentos?q=`) chegava ao Postgres, que não guarda U+0000, e a tela caía com erro 500 (sem
+  detalhe na tela e sem nada gravado: a falha era fechada, mas era falha). O mesmo valia para
+  qualquer campo de texto livre dos formulários, para o nome no cadastro e para o texto vindo do
+  banco ou de um arquivo (uma importação inteira pararia). Agora todo texto de fora é limpo na
+  entrada, antes de qualquer conferência: `textField()` nos schemas (o `text-field.test.ts` barra
+  um `z.string()` sem ele nem formato fixo), `cleanText` na busca, no nome do Better Auth, no bot e
+  nos leitores da Pluggy, do OFX e do PDF. Conferido no laboratório: os 22 endereços do app com
+  todos os parâmetros conhecidos valendo um nulo ou um invisível, 66 pedidos, nenhum erro; e a
+  varredura ativa de novo (veja [A varredura ativa](#a-varredura-ativa-m124a)).
 
 ---
 
 ## A ferramenta ZAP
 
 O [ZAP](https://www.zaproxy.org/) (Zed Attack Proxy, da OWASP) navega pelo app e examina cada
-resposta. No FinTrack ele roda **só no modo passivo**: segue links e formulários GET, nunca envia
-um POST, nunca tenta atacar. Assim ele pode rodar a cada PR contra um banco limpo sem risco e sem
-falso alarme de teste agressivo.
+resposta. No CI ele roda **no modo passivo**: segue links e formulários GET, nunca envia um POST,
+nunca tenta atacar. Assim ele pode rodar a cada PR contra um banco limpo sem risco e sem falso
+alarme de teste agressivo. O modo ativo roda à mão, numa cópia local (veja
+[A varredura ativa](#a-varredura-ativa-m124a)).
 
 - `scripts/zap/plano.yaml`: o plano (Automation Framework do ZAP), as exceções e o critério.
 - `scripts/zap/varrer.sh`: roda o plano (ZAP da imagem oficial, versão fixa) e resume os alertas.
@@ -391,15 +420,49 @@ como "query" e "user" no JavaScript minificado do Next.js); 10109 "Modern Web Ap
 Controllable HTML Element Attribute" (os filtros da lista voltam nos links; o React escapa, e o
 `volta=` só aceita uma lista fixa de telas, com teste).
 
+## A varredura ativa (M12.4a)
+
+A passiva só olha as respostas. A **ativa ataca**: injeção de SQL e de comando, XSS, travessia
+de pasta, SSRF, cabeçalhos forjados e campos com valores estranhos em cada pedido que o spider
+achou, inclusive enviando os formulários POST. Por isso só roda numa cópia local descartável, à
+mão, antes de cada versão grande (`scripts/zap/copia-local.sh`; o `varrer.sh` com `ZAP_MODO=ativo`
+recusa endereço que não seja local). O plano é o mesmo do CI, com as mesmas exceções e o mesmo
+critério; o job ativo (`scripts/zap/ativo.yaml`) entra no lugar da linha `# @ativo`.
+
+Como o ZAP não acusa um erro 500 que não mostra detalhe, a cópia também conta os `request.error`
+do log do app durante o ataque (`relatorios-zap-ativo/erros-do-app.txt`): uma linha ali é defeito.
+
+**Resultado no laboratório (29/10/2026, ZAP 2.17.0, política média, 30 minutos por rodada)**:
+
+| Rodada     | Endereços      | Alertas de risco Baixo ou maior | Informativos                      | Erros do app |
+| ---------- | -------------- | ------------------------------- | --------------------------------- | ------------ |
+| Sem sessão | 77             | nenhum                          | 10111, 10019, 10058, 10027, 10104 | nenhum       |
+| Com sessão | cerca de 4 mil | nenhum                          | 10111, 10027, 10109, 10031        | nenhum       |
+
+- **O achado**: na primeira rodada com sessão, 33 erros 500 na lista de lançamentos, todos com
+  um caractere nulo na busca (`?q=`), que o Postgres não guarda. Corrigido na entrada, com a
+  revisão de todas as outras (A10 e A06 acima); a rodada de novo, contra o app corrigido, não teve
+  nenhum erro do app.
+- A rodada com sessão chega ao teto de 30 minutos: o spider acha cerca de 4 mil endereços, quase
+  todos a mesma tela com filtros em combinações diferentes. Com `ZAP_ATIVO_MINUTOS=60` (ou mais), a
+  varredura cobre mais combinações; as regras são as mesmas.
+- **10058 "GET for POST"** (informativo, só na rodada sem sessão): o ZAP mandou como GET os
+  formulários de `/entrar`, `/cadastro` e `/esqueci-a-senha`, e a tela respondeu. É a própria
+  página do formulário (GET mostra a tela, sem entrar, cadastrar nem enviar nada); o envio é pela
+  API do Better Auth, só POST e com a conferência da origem.
+- **10104 "User Agent Fuzzer"** (informativo): o ZAP troca o navegador do pedido e compara; as
+  telas públicas não mudam por isso.
+- Os outros informativos são os mesmos da passiva (veja a lista acima).
+
 ## Pendências
 
 Grandes demais para o M12.1, ou que pedem uma decisão. Cada uma com o risco e uma sugestão.
 
 | #   | Item | O quê                                                                             | Risco         | Sugestão                                                                                                                                     |
 | --- | ---- | --------------------------------------------------------------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | A09  | Eventos de segurança sem alerta automático                                        | Médio         | Um timer de hora em hora no servidor que conta `auth.failed` e `auth.rate_limited` e avisa o Healthchecks acima de um limite                 |
+| 1   | A09  | Eventos de segurança sem alerta automático                                        | Feita         | M12.4a: o `fintrack-alerta`, a cada 15 minutos, com limites por evento (A09)                                                                 |
 | 2   | A08  | A imagem do GHCR não é assinada; o servidor não confere a proveniência            | Baixo a médio | `actions/attest-build-provenance` no CI e `gh attestation verify` no `fintrack-deploy` antes de trocar a versão                              |
 | 3   | A03  | Imagens-base do Dockerfile por etiqueta, sem digest, fora do Dependabot           | Baixo         | Digest no `FROM` com o Renovate (que lê `ARG`), junto da pendência Dependabot × Renovate; até lá, cada build pega o patch mais novo da linha |
 | 4   | A07  | Sem e-mail de "novo acesso" em aparelho novo                                      | Baixo         | Gancho `after` no 2FA confirmado, comparando o aparelho com as sessões anteriores                                                            |
 | 5   | A06  | Limite do código de vínculo por remetente (várias contas no Telegram tentam mais) | Baixo         | Matar o código ativo do lar depois de N erros de quaisquer remetentes (com o cuidado de não virar um jeito de impedir o vínculo legítimo)    |
-| 6   | —    | ZAP só passivo                                                                    | Decisão       | Uma varredura ativa (ataque de verdade) só contra uma cópia local, fora do CI, antes do v1.0.0                                               |
+| 6   | —    | ZAP só passivo                                                                    | Feita         | M12.4a: a varredura ativa numa cópia local, fora do CI ([A varredura ativa](#a-varredura-ativa-m124a))                                       |

@@ -15,6 +15,7 @@
 // (ADR-011). Por isso a sincronização pode rodar quantas vezes quiser: o lançamento é achado
 // pela chave (conta, origem, id no banco), e buscar de novo só atualiza o que mudou.
 import { sumCents, type Cents } from "./money";
+import { cleanText } from "./text";
 import {
   addDays,
   addMonthsToKey,
@@ -320,9 +321,9 @@ export function importChanges(
   return changed;
 }
 
-/** Descrição do banco no tamanho da coluna (1 a 200 caracteres, CHECK do M07). */
+/** Descrição do banco limpa (cleanText, M12.4a) e no tamanho da coluna (1 a 200, CHECK do M07). */
 export function importedDescription(raw: string): string {
-  const text = raw.replace(/\s+/g, " ").trim();
+  const text = cleanText(raw).replace(/\s+/g, " ").trim();
   if (text.length === 0) return "Lançamento do banco";
   return text.length > 200 ? `${text.slice(0, 199)}…` : text;
 }

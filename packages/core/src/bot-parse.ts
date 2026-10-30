@@ -12,7 +12,9 @@
 //
 // O que ele recusa: mensagem sem valor, com mais de um valor, com data no futuro, e qualquer
 // sequência de 13 a 19 dígitos (parece número de cartão: a mensagem nem é guardada; ADR-018).
+// A mensagem é limpa antes de tudo (cleanText, M12.4a): um invisível no meio não esconde nada.
 import { decimalToCents, MAX_ABS_CENTS, type Cents } from "./money";
+import { cleanText } from "./text";
 import {
   addDays,
   civilDate,
@@ -81,10 +83,17 @@ export type BotParseResult =
 
 // ── Texto ───────────────────────────────────────────────────────────────────────
 
-/** Sequência de 13 a 19 dígitos, mesmo com espaço, ponto ou hífen no meio (cartão). */
+/**
+ * Sequência de 13 a 19 dígitos, mesmo com espaço, ponto ou hífen no meio (cartão). Olha o texto
+ * como ele aparece na tela (M12.4a): sem invisíveis, com os dígitos largos ("４１１１") e os
+ * traços e espaços diferentes trocados pelos comuns.
+ */
 export function looksLikeCardNumber(text: string): boolean {
+  const shown = cleanText(text)
+    .normalize("NFKC")
+    .replace(/\p{Pd}/gu, "-");
   // Junta dígitos separados só por espaço, ponto ou hífen: "4111 2222 3333 4444"
-  for (const run of text.match(/\d[\d .-]*\d/g) ?? []) {
+  for (const run of shown.match(/\d[\d .-]*\d/g) ?? []) {
     const digits = run.replace(/\D/g, "");
     if (digits.length >= 13 && digits.length <= 19) return true;
     // Uma sequência maior também pode esconder um cartão (dois números colados)
@@ -342,7 +351,7 @@ function describe(tokens: Token[]): string {
  * cartão, ambiente) sai antes de procurar o valor, para "dia 19" e "3x" não virarem valor.
  */
 export function parseBotMessage(text: string, context: BotParseContext): BotParseResult {
-  const trimmed = text.trim();
+  const trimmed = cleanText(text).trim();
   if (trimmed === "") return { ok: false, error: "EMPTY" };
   if (trimmed.length > BOT_MESSAGE_MAX) return { ok: false, error: "TOO_LONG" };
   // Antes de tudo: um número de cartão nunca é lido, nem vira valor

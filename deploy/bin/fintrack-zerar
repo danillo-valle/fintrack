@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+# Zera o FinTrack para começar com dados reais (M12.4, ADR-024): apaga TODOS os dados do app e
+# mantém só os logins (as pessoas, as senhas, o 2FA, as passkeys e as sessões).
+#
+#   sudo -u fintrack fintrack-zerar --ensaio   ensaio no banco do teste de restauração (nunca na
+#                                              produção): rode antes "fintrack-restore-test --manter"
+#   sudo -u fintrack fintrack-zerar            a produção, de verdade
+#
+# O que sai: lares, carteiras, contas, cartões, lançamentos, faturas, orçamentos, conexões com o
+# banco, importações, o bot (vínculos, rascunhos e mensagens), a auditoria, os trabalhos
+# pendentes da fila e os modelos do classificador. A lista é do que FICA (deploy/sql/zerar.sql):
+# uma tabela nova sai sem precisar mexer aqui. Depois, cada pessoa entra como no primeiro acesso.
+#
+# Na produção, nesta ordem:
+#   1. mostra o que vai sair e pede que você digite ZERAR O FINTRACK (nada acontece antes)
+#   2. faz um backup "manual" (sem ele, para aqui): é o caminho de volta, com o fintrack-restore-prod
+#   3. para o app e o serviço Python (ninguém grava no meio)
+#   4. roda o deploy/sql/zerar.sql numa transação só: ou apaga tudo, ou nada
+#   5. apaga os modelos do classificador (treinados com os dados que saíram)
+#   6. liga o app de novo e espera o /api/health responder ok
+#
+# Segura o cadeado dos scripts o tempo todo: nenhum deploy ou backup começa no meio.
+# shellcheck source=deploy/bin/lib.sh
+source "$(dirname "$(readlink -f "$0")")/lib.sh"
+
+SQL_FILE="$REPO_DIR/deploy/sql/zerar.sql"
+RESTORE_CONTAINER="fintrack-restore-test"
+CONFIRM="ZERAR O FINTRACK"
+
+# As contagens que importam, antes e depois (só números: nenhum dado aparece na tela)
+summary_sql() {
+  cat <<'SQL'
+SELECT 'pessoas (ficam)', count(*) FROM "user"
+UNION ALL SELECT 'logins com senha (ficam)', count(*) FROM account
+UNION ALL SELECT 'lares', count(*) FROM household
+UNION ALL SELECT 'carteiras', count(*) FROM wallet
+UNION ALL SELECT 'lançamentos', count(*) FROM "transaction"
+UNION ALL SELECT 'auditoria', count(*) FROM audit_log
+SQL
+}
+
+print_counts() {
+  # $1: o comando que roda o psql (lê o SQL da entrada)
+  summary_sql | "$@" -At -F ' ' | while read -r line; do printf '    %s\n' "$line"; done
+}
+
+ensaio() {
+  docker inspect -f '{{.State.Running}}' "$RESTORE_CONTAINER" 2>/dev/null | grep -qx true \
+    || die "não há banco de ensaio: rode antes sudo -u fintrack fintrack-restore-test --manter"
+  [ -s "$SQL_FILE" ] || die "não achei $SQL_FILE (o deploy/ do servidor está em dia?)"
+  local run=(docker exec -i "$RESTORE_CONTAINER" psql -U fintrack -d fintrack -X -q -v ON_ERROR_STOP=1)
+  log "ensaio no banco do teste de restauração (a produção não é tocada)"
+  printf '  Antes:\n'
+  print_counts "${run[@]}"
+  # O zerar.sql confere no fim, dentro da transação, que só os logins ficaram (senão desfaz)
+  "${run[@]}" < "$SQL_FILE" || die "o zerar.sql falhou no ensaio; nada mudou (a transação voltou)"
+  printf '  Depois:\n'
+  print_counts "${run[@]}"
+  printf '%s ENSAIO OK\n' "$(date -Is)" >> "$STATE_DIR/zerar.log"
+  log "ensaio OK: só os logins ficaram. Apague o banco de ensaio: fintrack-restore-test --apagar"
+}
+
+producao() {
+  local version answer backup
+  version=$(current_version)
+  is_commit "$version" || die "não há versão no ar (o primeiro deploy já aconteceu?)"
+  [ -s "$SQL_FILE" ] || die "não achei $SQL_FILE (o deploy/ do servidor está em dia?)"
+  local run=(compose exec -T db psql -U fintrack -d fintrack -X -q -v ON_ERROR_STOP=1)
+
+  printf '\nIsto APAGA todos os dados do FinTrack na produção e mantém só os logins.\n'
+  printf 'Hoje há:\n'
+  print_counts "${run[@]}"
+  printf '\nAntes de apagar, um backup "manual" é feito (o caminho de volta).\n'
+  printf 'Digite %s para continuar: ' "$CONFIRM"
+  read -r answer
+  [ "$answer" = "$CONFIRM" ] || die "cancelado: nada foi alterado"
+
+  take_lock 600
+
+  log "1/5 backup antes de zerar"
+  local marker
+  marker=$(mktemp)
+  # shellcheck disable=SC2064
+  trap "rm -f '$marker'" EXIT
+  "$REPO_DIR/deploy/bin/fintrack-backup" manual --sem-lock || die "o backup falhou; nada foi apagado"
+  backup=$(find "$BACKUP_DIR" -maxdepth 1 -name 'fintrack-*-manual.dump.age' -newer "$marker" | sort | tail -n 1)
+  [ -s "$backup" ] || die "não achei o backup que acabou de ser feito; nada foi apagado"
+
+  log "2/5 parando o app e o serviço Python"
+  compose stop web ml
+
+  log "3/5 apagando os dados (uma transação só)"
+  if ! "${run[@]}" < "$SQL_FILE"; then
+    compose up -d --no-deps web ml
+    die "o zerar.sql falhou e a transação voltou: nada foi apagado (o app foi ligado de novo)"
+  fi
+
+  log "4/5 apagando os modelos do classificador"
+  compose run --rm --no-deps --entrypoint sh ml -c 'rm -f /data/modelos/*.joblib' \
+    || warn "não consegui apagar os modelos; o treino das 03:15 os refaz só com os dados novos"
+
+  log "5/5 ligando o app"
+  compose up -d --no-deps web ml
+  wait_healthy "$version" 120 || die "o app não respondeu ok depois do zerar (fintrack-compose logs web)"
+
+  printf '  Depois:\n'
+  print_counts "${run[@]}"
+  printf '%s ZERADO backup=%s versao=%s\n' "$(date -Is)" "$(basename "$backup")" "$version" >> "$STATE_DIR/zerar.log"
+  log "pronto: só os logins ficaram. Para voltar ao que era: fintrack-restore-prod $backup"
+}
+
+main() {
+  case "${1:-}" in
+    --ensaio) ensaio ;;
+    "") producao ;;
+    *) die "uso: fintrack-zerar [--ensaio]" ;;
+  esac
+}
+
+main "$@"

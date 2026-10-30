@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# Alerta automático dos eventos de segurança (M12.4, OWASP A09, ADR-024). O timer
+# fintrack-alerta.timer roda a cada 15 minutos; você também pode rodar à mão:
+#
+#   sudo -u fintrack fintrack-alerta            olha os últimos 15 minutos do log do app
+#   sudo -u fintrack fintrack-alerta --teste    manda um alerta de teste (confere o e-mail)
+#
+# Conta os eventos de segurança que o app grava no log (os mesmos do fintrack-status) e compara
+# com os limites. Passou de algum: avisa o Healthchecks.io com /fail, que manda o e-mail (grátis);
+# tudo dentro do limite: avisa "ok". Assim o Healthchecks também avisa se o próprio alerta parar
+# de rodar (servidor desligado, timer parado).
+#
+# O e-mail leva só o nome de cada evento, quantas vezes apareceu e o limite. Nunca IP, e-mail,
+# caminho ou outro dado: para ver quem foi, o runbook ("Eventos de segurança") e o fintrack-status.
+#
+# Os limites (por janela de 15 min) ficam em operacao.env e têm estes padrões:
+#   ALERTA_AUTH_FAILED=10              senhas ou códigos errados (alguns por dia é digitação)
+#   ALERTA_AUTH_RATE_LIMITED=1         o limite de tentativas barrou alguém
+#   ALERTA_AUTH_ORIGIN_REJECTED=1      pedido ao login vindo de outro site
+#   ALERTA_ACCESS_DENIED=1             alguém logado tentou abrir o que não é dele
+#   ALERTA_AUTH_PASSWORD_CHECK_UNAVAILABLE=3   a consulta de senhas vazadas não respondeu
+#   ALERTA_WEBHOOK_REJECTED=20         webhook com assinatura ou segredo errado
+# shellcheck source=deploy/bin/lib.sh
+source "$(dirname "$(readlink -f "$0")")/lib.sh"
+
+WINDOW="15m"
+
+# O limite de um evento: ALERTA_ + o nome em maiúsculas, com _ no lugar de . (auth.failed →
+# ALERTA_AUTH_FAILED), ou o padrão
+limit_for() {
+  local event="$1" var default
+  var="ALERTA_$(printf '%s' "$event" | tr '[:lower:].' '[:upper:]_')"
+  case "$event" in
+    auth.failed) default=10 ;;
+    auth.password_check_unavailable) default=3 ;;
+    webhook.rejected) default=20 ;;
+    *) default=1 ;;
+  esac
+  local value="${!var:-$default}"
+  [[ "$value" =~ ^[1-9][0-9]*$ ]] || die "$var em operacao.env precisa ser um número maior que zero"
+  printf '%s' "$value"
+}
+
+main() {
+  [ -n "${HC_SEGURANCA_URL:-}" ] || {
+    warn "sem HC_SEGURANCA_URL em operacao.env: o alerta está desligado (manual do M12.4a)"
+    return 0
+  }
+
+  if [ "${1:-}" = "--teste" ]; then
+    hc_ping "$HC_SEGURANCA_URL" /fail "Teste do alerta do FinTrack (fintrack-alerta --teste): nenhum evento real."
+    log "alerta de teste enviado: o e-mail do Healthchecks deve chegar em alguns minutos"
+    log "depois, rode fintrack-alerta sem --teste para o Healthchecks voltar a ok"
+    return 0
+  fi
+  [ -z "${1:-}" ] || die "uso: fintrack-alerta [--teste]"
+
+  local counts over="" count event limit
+  counts=$(security_event_counts "$WINDOW") || die "não consegui ler o log do app"
+  while read -r count event; do
+    [ -n "$event" ] || continue
+    limit=$(limit_for "$event")
+    if [ "$count" -ge "$limit" ]; then
+      over+="$event: $count em $WINDOW (limite $limit)"$'\n'
+    fi
+  done <<< "$counts"
+
+  if [ -n "$over" ]; then
+    local body
+    body="FinTrack: eventos de segurança acima do limite"$'\n'"$over"
+    body+="Veja: sudo -u fintrack fintrack-status (e o runbook, seção Eventos de segurança)."
+    hc_ping "$HC_SEGURANCA_URL" /fail "$body"
+    printf '%s %s\n' "$(date -Is)" "$(printf '%s' "$over" | paste -sd ';' -)" >> "$STATE_DIR/alertas.log"
+    warn "eventos acima do limite: $(printf '%s' "$over" | paste -sd ';' -)"
+  else
+    hc_ping "$HC_SEGURANCA_URL"
+  fi
+}
+
+main "$@"

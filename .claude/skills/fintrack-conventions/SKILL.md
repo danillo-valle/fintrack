@@ -40,6 +40,13 @@ Uma feature só importa outra pelo `server/index.ts` dela. Nunca importe arquivo
 - Datas de lançamento são datas civis `AAAA-MM-DD` (`CivilDate`); no banco, coluna `DATE`.
 - Datas exibidas sempre no fuso `America/Sao_Paulo`; datas guardadas sempre em UTC.
 
+## Texto que chega de fora
+
+- Campo de texto livre no zod: `textField().trim().min().max()` (`@/lib/text-field`), que limpa o
+  caractere nulo e os invisíveis antes de conferir (M12.4a). Id, data, valor e código usam um
+  formato (`z.uuid()`, `.regex()`), que já recusa o resto.
+- Fora do zod (URL, bot, importadores): `cleanText` do `@fintrack/core`, antes de conferir.
+
 ## Antes de concluir
 
 1. `pnpm check` passa sem erros.

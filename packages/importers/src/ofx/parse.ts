@@ -16,6 +16,7 @@ import {
   fitsInColumn,
   importedDescription,
   installmentFromDescription,
+  cleanText,
   isCivilDate,
   lastFourOf,
   paymentHintFromText,
@@ -164,7 +165,11 @@ function parseTree(text: string): OfxNode {
 
 const child = (node: OfxNode | undefined, name: string) =>
   node?.children.find((c) => c.name === name);
-const text = (node: OfxNode | undefined, name: string) => child(node, name)?.value ?? null;
+/** Todo texto do arquivo passa por aqui, limpo (cleanText, M12.4a) */
+const text = (node: OfxNode | undefined, name: string) => {
+  const value = child(node, name)?.value;
+  return value == null ? null : cleanText(value);
+};
 
 function findAll(node: OfxNode, names: readonly string[], found: OfxNode[] = []): OfxNode[] {
   for (const c of node.children) {

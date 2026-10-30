@@ -21,6 +21,7 @@ import { ML_TOKEN } from "./auth/ml-token-claims";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "./auth/password-policy";
 import { leakedPasswordCheck } from "./auth/leaked-password";
 import { isRecentlyAuthenticated, isSensitiveAuthPath } from "./auth/reauth";
+import { cleanUserName } from "./auth/user-name";
 import { formatDateTime } from "./dates";
 import { passwordChangedEmail, resetPasswordEmail, verificationEmail } from "./email-templates";
 import { env, googleEnabled } from "./env";
@@ -127,8 +128,14 @@ export const auth = betterAuth({
               message: "Este e-mail não está autorizado a criar conta no FinTrack.",
             });
           }
-          return { data: user };
+          return { data: { ...user, name: cleanUserName(user.name) } };
         },
+      },
+      // O nome também muda pelo /api/auth/update-user: a mesma limpeza (M12.4a)
+      update: {
+        before: async (user) => ({
+          data: typeof user.name === "string" ? { ...user, name: cleanUserName(user.name) } : user,
+        }),
       },
     },
   },

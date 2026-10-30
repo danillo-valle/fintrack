@@ -1,6 +1,7 @@
 // Validação das entradas de contas e cartões (zod). Os mesmos limites do banco (M04).
 import { decimalToCents } from "@fintrack/core";
 import { z } from "zod";
+import { textField } from "@/lib/text-field";
 import { displayName } from "../households/schemas";
 
 const day = z.coerce
@@ -20,8 +21,7 @@ export const accountSchema = z
     kind: z.enum(["CHECKING", "SAVINGS", "CREDIT_CARD", "MEAL_VOUCHER", "CASH"], {
       error: "Escolha o tipo de conta.",
     }),
-    institution: z
-      .string()
+    institution: textField()
       .trim()
       .max(60, "Use no máximo 60 caracteres.")
       .default("")
@@ -62,8 +62,7 @@ export const cardSchema = z.object({
   walletId: z.uuid(),
   accountId: z.uuid(),
   nickname: displayName("ao cartão"),
-  brand: z
-    .string()
+  brand: textField()
     .trim()
     .min(2, "Informe a bandeira (ex.: Visa).")
     .max(30, "Use no máximo 30 caracteres."),
@@ -72,7 +71,7 @@ export const cardSchema = z.object({
   form: z.enum(["PHYSICAL", "VIRTUAL", "VIRTUAL_TEMPORARY"]),
   // Para onde voltar depois de cadastrar (M12.3a): a lista de contas ou a página da conta
   volta: z.enum(["contas", "conta"]).default("contas"),
-  holderId: z.string().max(100).default(""),
+  holderId: textField().max(100).default(""),
   isAdditional: z
     .literal("on")
     .optional()

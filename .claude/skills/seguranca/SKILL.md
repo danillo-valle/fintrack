@@ -1,6 +1,6 @@
 ---
 name: seguranca
-description: A segurança do FinTrack contra o OWASP Top 10:2025 (ADR-020) - o documento item por item, o ZAP passivo e o OSV-Scanner no CI, a CSP com nonce e hash, os eventos de segurança do login, a trava do SQL e as ações presas pelo commit. Use ao criar rota pública, mexer em cabeçalhos ou na CSP, acrescentar ou atualizar dependência, mexer no login, no log ou em scripts/zap, quando o ZAP ou o OSV barrarem um PR, ou ao revisar a segurança de uma funcionalidade.
+description: A segurança do FinTrack contra o OWASP Top 10:2025 (ADR-020) - o documento item por item, o ZAP passivo e o OSV-Scanner no CI, o ZAP ativo numa cópia local, o alerta dos eventos de segurança, a CSP com nonce e hash, os eventos de segurança do login, a trava do SQL e as ações presas pelo commit. Use ao criar rota pública, mexer em cabeçalhos ou na CSP, acrescentar ou atualizar dependência, mexer no login, no log ou em scripts/zap, quando o ZAP ou o OSV barrarem um PR, ou ao revisar a segurança de uma funcionalidade.
 ---
 
 # Segurança do FinTrack
@@ -33,10 +33,16 @@ seção "Segurança".
    "Exceções em vigor" do documento. Nunca subir o `errorLevel`, tirar a rodada logada ou excluir
    telas do contexto para o CI passar. A conta da rodada logada nasce pelo caminho de verdade
    (`scripts/zap/conta-de-teste.mjs`), nunca por SQL; o cookie só por variável de ambiente.
+   A varredura ATIVA (M12.4) é o mesmo plano com o `scripts/zap/ativo.yaml`, só numa cópia local
+   descartável (`scripts/zap/copia-local.sh`, o `varrer.sh` recusa endereço que não seja local),
+   antes de cada versão grande; o resultado vai para o documento do OWASP. Nunca contra a produção.
+   Ela também conta os `request.error` do app durante o ataque (`erros-do-app.txt`): erro 500 sem
+   detalhe não vira alerta do ZAP, mas é defeito (regra 11).
 6. **Login e log**: tentativa recusada no login vira evento pela rota `/api/auth/[...all]`
-   (`apps/web/src/lib/auth/security-log.ts`). Evento de segurança novo: o nome estável, o teste, a
-   regex do `security_events` em `deploy/bin/fintrack-status` e a linha na tabela do runbook. Nunca
-   o corpo do pedido, e-mail inteiro, senha, código ou token no log.
+   (`apps/web/src/lib/auth/security-log.ts`). Evento de segurança novo: o nome estável, o teste, o
+   `SECURITY_EVENTS` do `deploy/bin/lib.sh` (que o `fintrack-status` e o `fintrack-alerta` usam), o
+   limite do alerta (`limit_for` no `fintrack-alerta`) e as linhas no runbook. Nunca o corpo do
+   pedido, e-mail inteiro, senha, código ou token no log, nem no texto do alerta.
 7. **SQL só parametrizado**: `$queryRaw` com template ou `Prisma.sql`. O ESLint recusa
    `$queryRawUnsafe`, `$executeRawUnsafe` e `Prisma.raw` (`RAW_SQL_RESTRICTIONS` em
    `packages/config/eslint.mjs`, na mesma regra da trava de dinheiro: uma lista só).
@@ -52,6 +58,11 @@ seção "Segurança".
    (`uses: dono/acao@<sha40> # vX.Y.Z`); o Dependabot propõe as versões novas.
 10. **Erro**: falha fechada (dúvida no crachá = 404; webhook responde igual para tudo); a tela de
     erro mostra o código do log (o `digest`), nunca a mensagem ou a pilha do erro.
+11. **Texto de fora, limpo na entrada** (M12.4a, ADR-024): campo de texto livre num schema é
+    `textField()` (`apps/web/src/lib/text-field.ts`), nunca `z.string()` sem formato (o
+    `text-field.test.ts` barra); busca na URL, mensagem do bot e texto de banco ou arquivo passam
+    pelo `cleanText` do `@fintrack/core` ANTES de qualquer conferência. Nunca limpe só na hora de
+    gravar: a conferência olharia um texto e o banco guardaria outro.
 
 ## Conferir
 

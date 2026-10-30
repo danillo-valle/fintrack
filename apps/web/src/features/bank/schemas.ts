@@ -2,6 +2,7 @@
 // a categoria em um clique. O servidor é quem decide; nada do formulário é confiável.
 import { isCivilDate } from "@fintrack/core";
 import { z } from "zod";
+import { textField } from "@/lib/text-field";
 
 /** Até 5 bancos por pessoa (limite do Meu Pluggy); o formulário manda item-1 … item-5. */
 export const MAX_ITEMS = 5;
@@ -9,8 +10,7 @@ const ITEM_ID = /^[A-Za-z0-9-]{8,64}$/;
 
 export const credentialsSchema = z.object({
   // Vazio = manter o Client ID já gravado (o servidor confere se existe um)
-  clientId: z
-    .string()
+  clientId: textField()
     .trim()
     .max(100, "O Client ID tem no máximo 100 caracteres.")
     .refine((v) => v === "" || v.length >= 8, "Cole o Client ID do painel da Pluggy.")
@@ -22,7 +22,7 @@ export const credentialsSchema = z.object({
     .max(200, "O Client Secret tem no máximo 200 caracteres.")
     .transform((v) => v || null),
   itemIds: z
-    .array(z.string().trim())
+    .array(textField().trim())
     .transform((ids) => [...new Set(ids.filter(Boolean))])
     .refine((ids) => ids.length >= 1, "Informe o Item ID de pelo menos um banco.")
     .refine((ids) => ids.length <= MAX_ITEMS, `No máximo ${MAX_ITEMS} bancos.`)
@@ -105,8 +105,7 @@ export const setCategorySchema = z
       .union([z.literal(""), z.uuid()])
       .default("")
       .transform((v) => v || null),
-    newCategory: z
-      .string()
+    newCategory: textField()
       .trim()
       .max(60, "Use no máximo 60 caracteres.")
       .default("")
@@ -173,13 +172,12 @@ export const explainedConfirmSchema = z.object({ transactionId: z.uuid(), wallet
 /** "Cadastrar e reorganizar": o cartão de um final que o banco mandou (só os 4 dígitos). */
 export const registerFinalSchema = z.object({
   accountId: z.uuid(),
-  nickname: z
-    .string()
+  nickname: textField()
     .trim()
     .min(1, "Dê um apelido ao cartão.")
     .max(60, "Use no máximo 60 caracteres."),
   lastFour: z.string().regex(/^\d{4}$/, "Digite só os 4 últimos dígitos."),
-  holderId: z.string().trim().min(1, "Escolha o portador.").max(100),
+  holderId: textField().trim().min(1, "Escolha o portador.").max(100),
 });
 
 /** O filtro da revisão (?ver=pares | sem-categoria). */

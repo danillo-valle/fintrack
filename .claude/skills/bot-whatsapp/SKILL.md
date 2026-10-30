@@ -38,7 +38,9 @@ lançamento, o código de vínculo e as conversas).
 3. **Número não vinculado: nenhuma resposta, nada gravado além da linha de contagem.** Código
    errado: o mesmo silêncio. Nunca use o número vinculado como login.
 4. **Nada de LLM** no caminho do bot. Regra nova de leitura vai em `bot-parse.ts`, com teste (e de
-   propriedade quando couber). A categoria é a da cascata de sempre.
+   propriedade quando couber). A categoria é a da cascata de sempre. A mensagem é limpa
+   (`cleanText`) na primeira linha do `parseBotMessage`, antes da conferência de cartão, e a
+   conferência olha o texto como ele aparece (NFKC: dígitos largos e traços diferentes); M12.4a.
 5. **A resposta só repete o que a pessoa mandou e o que se decidiu sobre ESTE lançamento.** Nunca
    final de cartão, saldo, total, orçamento. Texto novo de resposta vai no `bot.ts` do core e entra
    no teste de privacidade (`bot.test.ts`).

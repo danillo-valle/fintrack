@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
-# Varredura PASSIVA do ZAP contra um FinTrack já no ar (M12.1). Roda o plano scripts/zap/plano.yaml
-# e resume os alertas no fim. O CI roda contra a imagem de produção; dá para rodar igual no seu
-# servidor contra o "pnpm dev" ou uma imagem local.
+# Varredura do ZAP contra um FinTrack já no ar. Roda o plano scripts/zap/plano.yaml e resume os
+# alertas no fim. PASSIVA por padrão (M12.1): o CI roda contra a imagem de produção; dá para rodar
+# igual no seu servidor contra o "pnpm dev" ou uma imagem local.
+#
+# ATIVA com ZAP_MODO=ativo (M12.4): o ZAP também ATACA cada pedido (o job do scripts/zap/ativo.yaml
+# entra no plano). Grava e apaga dados, então só aceita um endereço local (127.0.0.1 ou
+# localhost); quem sobe a cópia descartável e chama este script é o scripts/zap/copia-local.sh.
+# ZAP_ATIVO_MINUTOS (padrão 30) é o teto de cada rodada.
 #
 #   bash scripts/zap/varrer.sh http://localhost:3000 relatorios-zap            # público
 #   bash scripts/zap/varrer.sh http://localhost:3000 relatorios-zap cookie.txt # logado
@@ -37,6 +42,31 @@ case "$target" in
 esac
 host="$(printf '%s' "$target" | sed -E 's#^https?://([^/:]+).*#\1#')"
 
+mode="${ZAP_MODO:-passivo}"
+case "$mode" in
+  passivo) suffix="" ;;
+  ativo)
+    suffix="-ativo"
+    # A varredura ativa ataca de verdade: nunca fora desta máquina (nem na produção)
+    case "$host" in
+      127.0.0.1 | localhost) ;;
+      *)
+        echo "varrer: a varredura ativa só roda num endereço local (127.0.0.1); recebi $host" >&2
+        exit 2
+        ;;
+    esac
+    minutes="${ZAP_ATIVO_MINUTOS:-30}"
+    [[ "$minutes" =~ ^[1-9][0-9]{0,2}$ ]] || {
+      echo "varrer: ZAP_ATIVO_MINUTOS precisa ser um número de minutos ($minutes)" >&2
+      exit 2
+    }
+    ;;
+  *)
+    echo "varrer: ZAP_MODO precisa ser passivo ou ativo ($mode)" >&2
+    exit 2
+    ;;
+esac
+
 name=publico
 if [ -n "$cookie_file" ]; then
   name=logado
@@ -53,20 +83,44 @@ fi
 
 mkdir -p "$reports"
 reports="$(cd "$reports" && pwd)"
+name="$name$suffix"
 export ZAP_ALVO="$target" ZAP_NOME="$name"
+
+# O plano desta rodada, numa pasta temporária: o plano.yaml como está (passiva) ou com o job do
+# ativo.yaml no lugar da linha "# @ativo" e o spider enviando também os formulários POST (ativa)
+plan_dir="$(mktemp -d)"
+trap 'rm -rf "$plan_dir"' EXIT
+if [ "$mode" = ativo ]; then
+  awk -v extra="$here/ativo.yaml" -v minutes="$minutes" '
+    /^  # @ativo$/ { while ((getline line < extra) > 0) { if (line ~ /# @minutos$/) sub(/: [0-9]+ /, ": " minutes " ", line); print (line == "" ? "" : "  " line) }; next }
+    /^      postForm: false$/ { print "      postForm: true"; next }
+    { print }
+  ' "$here/plano.yaml" > "$plan_dir/plano.yaml"
+  grep -q "type: activeScan" "$plan_dir/plano.yaml" || {
+    echo "varrer: não consegui montar o plano ativo (a linha # @ativo sumiu do plano.yaml?)" >&2
+    exit 2
+  }
+  grep -q "maxScanDurationInMins: $minutes # @minutos$" "$plan_dir/plano.yaml" || {
+    echo "varrer: não consegui pôr o teto de $minutes min (a marca # @minutos sumiu do ativo.yaml?)" >&2
+    exit 2
+  }
+else
+  cp "$here/plano.yaml" "$plan_dir/plano.yaml"
+fi
+chmod -R a+rX "$plan_dir"
 
 echo "varrer: $name em $target (relatórios em $reports)"
 set +e
 if [ -n "${ZAP_SH:-}" ]; then
   home="$(mktemp -d)"
-  ZAP_RELATORIOS="$reports" "$ZAP_SH" -cmd -silent -dir "$home" -autorun "$here/plano.yaml"
+  ZAP_RELATORIOS="$reports" "$ZAP_SH" -cmd -silent -dir "$home" -autorun "$plan_dir/plano.yaml"
   status=$?
   rm -rf "$home"
 else
   # O ZAP da imagem roda como o usuário "zap": a pasta dos relatórios precisa aceitar gravação
   chmod a+rwx "$reports"
   docker run --rm --network host \
-    -v "$here:/zap/plano:ro" -v "$reports:/zap/wrk:rw" \
+    -v "$plan_dir:/zap/plano:ro" -v "$reports:/zap/wrk:rw" \
     -e ZAP_ALVO -e ZAP_NOME -e ZAP_RELATORIOS=/zap/wrk \
     ${cookie_file:+-e ZAP_AUTH_HEADER -e ZAP_AUTH_HEADER_VALUE -e ZAP_AUTH_HEADER_SITE} \
     "$ZAP_IMAGE" zap.sh -cmd -silent -autorun /zap/plano/plano.yaml

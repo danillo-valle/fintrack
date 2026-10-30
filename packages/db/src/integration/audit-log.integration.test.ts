@@ -51,4 +51,29 @@ describe("audit_log: só acrescenta", () => {
       await client.query("ROLLBACK");
     });
   });
+
+  it("a marca do fintrack-zerar libera só o TRUNCATE, e só na própria transação (M12.4)", async () => {
+    await withPgClient(async (client) => {
+      await client.query("BEGIN");
+      await client.query("SET LOCAL fintrack.zerar = 'sim'");
+      const id = await insertEvent(client);
+      // Com a marca, UPDATE e DELETE continuam recusados: o zerar só esvazia a tabela inteira
+      expect(
+        await attempt(client, `UPDATE audit_log SET action = 'x' WHERE id = $1`, [id]),
+      ).toMatch(/tentativa de UPDATE/);
+      expect(await attempt(client, `DELETE FROM audit_log WHERE id = $1`, [id])).toMatch(
+        /tentativa de DELETE/,
+      );
+      // Outro valor na marca não serve (só "sim")
+      await client.query("SET LOCAL fintrack.zerar = 'talvez'");
+      expect(await attempt(client, `TRUNCATE audit_log`)).toMatch(/tentativa de TRUNCATE/);
+      await client.query("SET LOCAL fintrack.zerar = 'sim'");
+      expect(await attempt(client, `TRUNCATE audit_log`)).toBe("passou");
+      await client.query("ROLLBACK");
+      // Fora da transação a marca sumiu (SET LOCAL): a trava volta sozinha
+      await client.query("BEGIN");
+      expect(await attempt(client, `TRUNCATE audit_log`)).toMatch(/tentativa de TRUNCATE/);
+      await client.query("ROLLBACK");
+    });
+  });
 });

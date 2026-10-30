@@ -1,6 +1,7 @@
 // Validação das entradas das actions de autenticação (zod). Usado no servidor;
 // os formulários repetem os limites como atributos HTML para ajudar quem digita.
 import { z } from "zod";
+import { textField } from "@/lib/text-field";
 
 export const reauthSchema = z.discriminatedUnion("method", [
   z.object({
@@ -18,4 +19,4 @@ export const reauthSchema = z.discriminatedUnion("method", [
   }),
 ]);
 
-export const sessionIdSchema = z.object({ sessionId: z.string().min(1).max(100) });
+export const sessionIdSchema = z.object({ sessionId: textField().min(1).max(100) });

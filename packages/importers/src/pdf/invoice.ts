@@ -10,6 +10,7 @@
 // cabeçalho só nesta chamada e não é guardada em lugar nenhum.
 import {
   fitsInColumn,
+  cleanText,
   importedDescription,
   installmentFromDescription,
   isCivilDate,
@@ -98,7 +99,8 @@ const CHARGE_KINDS = new Set<StatementChargeKind>([
 type Json = Record<string, unknown>;
 const isObject = (v: unknown): v is Json =>
   typeof v === "object" && v !== null && !Array.isArray(v);
-const text = (v: unknown): string | null => (typeof v === "string" ? v : null);
+/** Todo texto lido do PDF (pelo serviço Python) passa por aqui, limpo (cleanText, M12.4a) */
+const text = (v: unknown): string | null => (typeof v === "string" ? cleanText(v) : null);
 
 function civil(v: unknown): CivilDate {
   if (typeof v !== "string" || !isCivilDate(v)) throw new PdfError("PDF_BAD_DATA", "data");
