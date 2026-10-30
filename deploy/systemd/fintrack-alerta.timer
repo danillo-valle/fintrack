@@ -1,0 +1,13 @@
+# A cada 15 minutos, olha os eventos de segurança dos últimos 15 minutos (a janela do
+# fintrack-alerta): cada evento é contado uma vez. Sem Persistent: com o servidor desligado não
+# há log novo para olhar (e o Healthchecks avisa que os pings pararam).
+# Ligar:  sudo systemctl enable --now fintrack-alerta.timer
+[Unit]
+Description=FinTrack: alerta dos eventos de segurança a cada 15 minutos
+
+[Timer]
+OnCalendar=*:0/15
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

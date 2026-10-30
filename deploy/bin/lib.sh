@@ -88,11 +88,29 @@ take_lock() {
 }
 
 # ── Healthchecks.io ──────────────────────────────────────────────────────────────────────
-# ping URL [sufixo]   sufixo vazio = sucesso, "/fail" = falha, "/start" = começou
+# ping URL [sufixo] [texto]   sufixo vazio = sucesso, "/fail" = falha, "/start" = começou. O texto
+# (opcional) vai no corpo do ping e aparece no e-mail do Healthchecks: só números e nomes de
+# eventos, nunca dado de pessoa.
 hc_ping() {
-  local url="${1:-}" suffix="${2:-}"
+  local url="${1:-}" suffix="${2:-}" body="${3:-}"
   [ -n "$url" ] || return 0
-  curl -fsS -m 10 --retry 3 -o /dev/null "${url}${suffix}" || warn "não consegui avisar o Healthchecks"
+  if [ -n "$body" ]; then
+    curl -fsS -m 10 --retry 3 -o /dev/null --data-raw "$body" "${url}${suffix}" \
+      || warn "não consegui avisar o Healthchecks"
+  else
+    curl -fsS -m 10 --retry 3 -o /dev/null "${url}${suffix}" || warn "não consegui avisar o Healthchecks"
+  fi
+}
+
+# Os eventos de segurança que o app grava no log (M12.1, OWASP A09; o HIBP desde o M12.3a). O
+# fintrack-status conta as últimas 24 h; o fintrack-alerta, a última janela (M12.4).
+SECURITY_EVENTS='auth\.(failed|rate_limited|origin_rejected|password_check_unavailable)|access\.denied|webhook\.rejected'
+
+# Quantas vezes cada evento apareceu no log do app desde $1 (ex.: 24h, 15m): "N evento" por linha
+security_event_counts() {
+  compose logs --no-color --since "$1" web 2>/dev/null \
+    | grep -oE "\"event\":\"($SECURITY_EVENTS)\"" \
+    | sed -e 's/"event":"//' -e 's/"$//' | sort | uniq -c | sort -rn
 }
 
 # ── Saúde do app ─────────────────────────────────────────────────────────────────────────

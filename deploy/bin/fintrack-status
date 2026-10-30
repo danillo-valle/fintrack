@@ -14,13 +14,18 @@ section() { printf '\n\033[1m%s\033[0m\n' "$1"; }
 # runbook, seção "Eventos de segurança".
 security_events() {
   local counts
-  counts=$(compose logs --no-color --since 24h web 2>/dev/null \
-    | grep -oE '"event":"(auth\.(failed|rate_limited|origin_rejected|password_check_unavailable)|access\.denied|webhook\.rejected)"' \
-    | sed -e 's/"event":"//' -e 's/"$//' | sort | uniq -c | sort -rn)
+  counts=$(security_event_counts 24h)
   if [ -n "$counts" ]; then
     printf '%s\n' "$counts" | sed 's/^ */  /'
   else
     printf '  nenhum evento\n'
+  fi
+  # O alerta automático (M12.4): ligado quando há o endereço do Healthchecks
+  if [ -n "${HC_SEGURANCA_URL:-}" ]; then
+    printf '  alerta: ligado (fintrack-alerta a cada 15 min); últimos acionamentos:\n'
+    tail -n 3 "$STATE_DIR/alertas.log" 2>/dev/null | sed 's/^/    /' || printf '    nenhum\n'
+  else
+    printf '  \033[33malerta: desligado (falta HC_SEGURANCA_URL em operacao.env)\033[0m\n'
   fi
 }
 
