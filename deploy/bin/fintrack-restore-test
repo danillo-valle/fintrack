@@ -4,15 +4,22 @@
 #   fintrack-restore-test                  usa o backup local mais novo
 #   fintrack-restore-test <arquivo>        usa um backup específico
 #   fintrack-restore-test --do-drive       baixa o mais novo do Google Drive (prova a cópia de fora)
-#   fintrack-restore-test <arquivo> --manter   deixa o banco temporário no ar, sem rede, para
-#                                              comparar com a produção num incidente
+#   fintrack-restore-test ... --completo   de ponta a ponta (M12.4): também confere o banco contra
+#                                          o manifesto do backup, tabela a tabela, e liga o app
+#                                          (a imagem no ar) sobre o banco restaurado
+#   fintrack-restore-test <arquivo> --manter   deixa o banco temporário no ar, sem saída para a
+#                                              internet, para comparar com a produção num
+#                                              incidente ou ensaiar o fintrack-zerar
 #   fintrack-restore-test --apagar         apaga o banco temporário deixado pelo --manter
 #
 # Backup que nunca foi restaurado é só esperança. O teste:
 #   1. pede a chave PRIVADA do age (você cola; ela vai para a memória, nunca para o disco)
-#   2. decifra o backup e restaura num Postgres TEMPORÁRIO, sem rede, que some no fim
+#   2. decifra o backup e restaura num Postgres TEMPORÁRIO, numa rede interna (sem internet)
 #   3. confere: todas as migrações estão lá, há usuários e lançamentos, e os 3 gatilhos do banco
-#   4. registra o resultado em estado/restauracoes.log
+#   4. com --completo: cada tabela com o mesmo número de linhas do manifesto (feito pelo
+#      fintrack-backup na hora do backup), e o app da versão no ar sobe sobre esse banco, na mesma
+#      rede interna, e responde ok no /api/health e no /entrar
+#   5. registra o resultado em estado/restauracoes.log
 #
 # A produção não é tocada em nenhum momento. Para restaurar a produção de verdade (desastre),
 # siga o runbook (docs/operacao/runbook.md, "Restaurar a produção").
@@ -20,18 +27,23 @@
 source "$(dirname "$(readlink -f "$0")")/lib.sh"
 
 CONTAINER="fintrack-restore-test"
+WEB_CONTAINER="fintrack-restore-web"
+# Rede interna (sem saída para a internet): só o banco temporário e, no --completo, o app
+NETWORK="fintrack-restore-test"
 
 # Apaga o Postgres temporário E o volume dele (-v): sem o -v, o banco decifrado ficaria no disco
 # num volume órfão do Docker (a imagem do Postgres declara um volume para os dados).
 remove_container() {
-  docker rm -f -v "$CONTAINER" >/dev/null 2>&1 || true
+  docker rm -f -v "$WEB_CONTAINER" "$CONTAINER" >/dev/null 2>&1 || true
+  docker network rm "$NETWORK" >/dev/null 2>&1 || true
 }
 
 main() {
-  local source="" keep=0 arg file key_file workdir
+  local source="" keep=0 full=0 arg file key_file workdir
   for arg in "$@"; do
     case "$arg" in
       --manter) keep=1 ;;
+      --completo) full=1 ;;
       --apagar)
         remove_container
         log "banco temporário apagado"
@@ -43,18 +55,19 @@ main() {
   # Pasta temporária em memória (/dev/shm): a chave e o backup decifrado não tocam o disco
   workdir=$(mktemp -d /dev/shm/fintrack-restore.XXXXXX)
   chmod 700 "$workdir"
-  # Limpeza no fim, aconteça o que acontecer. Aspas duplas: o caminho é gravado AGORA (a variável
-  # local "workdir" já não existe quando o script termina e o trap roda)
-  # Com --manter, só a pasta temporária some; o banco fica para o incidente (e sai no --apagar).
+  # Limpeza no fim, aconteça o que acontecer. Aspas duplas: os nomes são gravados AGORA (a
+  # variável local "workdir" já não existe quando o script termina e o trap roda).
+  # Com --manter, só a pasta temporária e o app somem; o banco fica (e sai no --apagar).
   if [ "$keep" = 1 ]; then
     # shellcheck disable=SC2064
-    trap "rm -rf '$workdir'" EXIT
+    trap "docker rm -f '$WEB_CONTAINER' >/dev/null 2>&1; rm -rf '$workdir'" EXIT
   else
     # shellcheck disable=SC2064
-    trap "docker rm -f -v '$CONTAINER' >/dev/null 2>&1; rm -rf '$workdir'" EXIT
+    trap "docker rm -f -v '$WEB_CONTAINER' '$CONTAINER' >/dev/null 2>&1; docker network rm '$NETWORK' >/dev/null 2>&1; rm -rf '$workdir'" EXIT
   fi
 
-  # 1. Qual backup
+  # 1. Qual backup (e o manifesto dele, se houver)
+  local manifest=""
   if [ "$source" = "--do-drive" ]; then
     [ -n "${RCLONE_REMOTE:-}" ] || die "RCLONE_REMOTE vazio em operacao.env"
     local latest
@@ -63,13 +76,27 @@ main() {
     log "baixando $latest do Drive"
     rclone copyto --config "$FINTRACK_HOME/rclone.conf" "$RCLONE_REMOTE/$latest" "$workdir/$latest"
     file="$workdir/$latest"
+    if [ "$full" = 1 ]; then
+      local remote_manifest="${latest%.dump.age}.manifest.age"
+      rclone copyto --config "$FINTRACK_HOME/rclone.conf" "$RCLONE_REMOTE/$remote_manifest" \
+        "$workdir/$remote_manifest" 2>/dev/null && manifest="$workdir/$remote_manifest"
+    fi
   elif [ -n "$source" ]; then
     file="$source"
   else
     file=$(find "$BACKUP_DIR" -maxdepth 1 -name 'fintrack-*.dump.age' | sort | tail -n 1)
   fi
   [ -s "${file:-}" ] || die "nenhum backup encontrado (${file:-pasta $BACKUP_DIR vazia})"
+  if [ "$full" = 1 ] && [ -z "$manifest" ] && [ -s "${file%.dump.age}.manifest.age" ]; then
+    manifest="${file%.dump.age}.manifest.age"
+  fi
   log "backup: $(basename "$file") ($(du -h "$file" | cut -f1))"
+  if [ "$full" = 1 ]; then
+    [ -n "$manifest" ] || die "--completo precisa do manifesto do backup ($(basename "${file%.dump.age}").manifest.age); os backups anteriores ao M12.4 não têm: faça um com fintrack-backup manual"
+    is_commit "$(current_version)" || die "--completo liga o app da versão no ar, e não há versão no ar"
+    docker image inspect "$IMAGE_WEB:$(current_version)" >/dev/null 2>&1 \
+      || die "a imagem do app no ar não está no servidor ($IMAGE_WEB:$(current_version | cut -c1-7))"
+  fi
 
   # 2. A chave privada: de AGE_KEY_FILE (testes automáticos) ou colada por você
   key_file="$workdir/chave.txt"
@@ -84,12 +111,14 @@ main() {
   fi
   grep -q '^AGE-SECRET-KEY-' "$key_file" || die "isso não parece uma chave privada do age"
 
-  # 3. Postgres temporário, sem rede nenhuma (--network none)
+  # 3. Postgres temporário, numa rede interna: nada sai para a internet
   log "subindo um Postgres temporário"
   remove_container
-  docker run -d --name "$CONTAINER" --network none \
-    -e POSTGRES_USER=fintrack -e POSTGRES_DB=fintrack \
-    -e POSTGRES_PASSWORD="$(head -c 24 /dev/urandom | base64)" \
+  docker network create --internal "$NETWORK" >/dev/null
+  local db_password
+  db_password=$(head -c 24 /dev/urandom | base64 | tr -d '/+=')
+  docker run -d --name "$CONTAINER" --network "$NETWORK" \
+    -e POSTGRES_USER=fintrack -e POSTGRES_DB=fintrack -e POSTGRES_PASSWORD="$db_password" \
     postgres:17-alpine >/dev/null
   # "Pronto" pelo TCP (-h 127.0.0.1): na inicialização, a imagem do Postgres sobe um servidor
   # temporário só no socket local, que responde ao pg_isready ANTES de o banco existir.
@@ -113,7 +142,11 @@ main() {
   q() { docker exec "$CONTAINER" psql -U fintrack -d fintrack -tAc "$1"; }
   local migrations expected users transactions households trigger
   migrations=$(q "SELECT count(*) FROM _prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL")
-  expected=$(find "$REPO_DIR/packages/db/prisma/migrations" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
+  # Sem a pasta (repositório só com o deploy/), o find falharia e o pipefail pararia o script
+  expected=0
+  if [ -d "$REPO_DIR/packages/db/prisma/migrations" ]; then
+    expected=$(find "$REPO_DIR/packages/db/prisma/migrations" -mindepth 1 -maxdepth 1 -type d | wc -l)
+  fi
   users=$(q 'SELECT count(*) FROM "user"')
   transactions=$(q 'SELECT count(*) FROM "transaction"')
   households=$(q 'SELECT count(*) FROM household')
@@ -122,7 +155,7 @@ main() {
 
   printf '\n  Migrações aplicadas: %s%s\n' "$migrations" "$([ "$expected" -gt 0 ] && printf ' (o repositório tem %s)' "$expected")"
   printf '  Usuários:            %s\n  Grupos:              %s\n  Lançamentos:         %s\n' "$users" "$households" "$transactions"
-  printf '  Gatilhos do banco:   %s de 3\n  Tempo de restauração: %s s\n\n' "$trigger" "$elapsed"
+  printf '  Gatilhos do banco:   %s de 3\n  Tempo de restauração: %s s\n' "$trigger" "$elapsed"
 
   local ok=1
   [ "$migrations" -ge 1 ] || ok=0
@@ -131,17 +164,94 @@ main() {
   [ "$users" -ge 1 ] || ok=0
   [ "$trigger" = 3 ] || ok=0
 
+  local full_result=""
+  if [ "$full" = 1 ]; then
+    if check_manifest "$key_file" "$manifest" && check_app "$db_password"; then
+      full_result=" completo=OK"
+    else
+      full_result=" completo=FALHOU"
+      ok=0
+    fi
+  fi
+  printf '\n'
+
   local result=FALHOU
   [ "$ok" = 1 ] && result=OK
-  printf '%s %s %s migracoes=%s usuarios=%s lancamentos=%s tempo=%ss\n' "$(date -Is)" "$result" \
-    "$(basename "$file")" "$migrations" "$users" "$transactions" "$elapsed" >> "$STATE_DIR/restauracoes.log"
+  printf '%s %s %s migracoes=%s usuarios=%s lancamentos=%s tempo=%ss%s\n' "$(date -Is)" "$result" \
+    "$(basename "$file")" "$migrations" "$users" "$transactions" "$elapsed" "$full_result" >> "$STATE_DIR/restauracoes.log"
   [ "$ok" = 1 ] || die "a restauração rodou, mas as conferências falharam (veja os números acima)"
-  log "restauração OK: o backup volta a ser um banco completo"
+  if [ "$full" = 1 ]; then
+    log "restauração de ponta a ponta OK: o banco é o do backup, tabela a tabela, e o app roda sobre ele"
+  else
+    log "restauração OK: o backup volta a ser um banco completo"
+  fi
   if [ "$keep" = 1 ]; then
-    printf '\n  O banco temporário continua no ar, sem rede, para comparar (runbook de incidente):\n'
+    printf '\n  O banco temporário continua no ar, sem internet, para comparar (runbook de incidente):\n'
     printf '    docker exec -it %s psql -U fintrack -d fintrack\n' "$CONTAINER"
     printf '  Ao terminar, apague (ele tem os dados decifrados):\n    fintrack-restore-test --apagar\n\n'
   fi
+}
+
+# Cada tabela do banco restaurado tem o mesmo número de linhas do manifesto (feito na hora do
+# backup, cifrado com a mesma chave). Imprime as diferenças, se houver; só números.
+check_manifest() {
+  local key_file="$1" manifest="$2" expected actual differences
+  expected=$(age --decrypt --identity "$key_file" "$manifest") || {
+    printf '  Manifesto:           \033[31mnão abriu com esta chave\033[0m\n'
+    return 1
+  }
+  actual=$(docker exec -i "$CONTAINER" psql -U fintrack -d fintrack -X -At -v ON_ERROR_STOP=1 \
+    < "$REPO_DIR/deploy/sql/contagens.sql")
+  if [ "$expected" = "$actual" ]; then
+    printf '  Manifesto:           %s tabelas, todas com o mesmo número de linhas\n' "$(printf '%s\n' "$actual" | wc -l)"
+    return 0
+  fi
+  differences=$(diff <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") | grep '^[<>]' || true)
+  printf '  Manifesto:           \033[31mdiferente\033[0m (< no backup, > restaurado)\n'
+  printf '%s\n' "$differences" | sed 's/^/    /'
+  return 1
+}
+
+# O app da versão no ar, sobre o banco restaurado, na mesma rede interna (sem internet): sobe e
+# responde ok no /api/health (que consulta o banco) e no /entrar. As filas ficam desligadas
+# (SYNC_WORKER=off): nada roda sozinho contra o banco de teste.
+check_app() {
+  local db_password="$1" version body status _
+  version=$(current_version)
+  docker run -d --name "$WEB_CONTAINER" --network "$NETWORK" \
+    --read-only --tmpfs /tmp --tmpfs /app/apps/web/.next/cache:uid=1000,gid=1000 \
+    --security-opt no-new-privileges:true --cap-drop ALL \
+    --env-file "$FINTRACK_HOME/app.env" \
+    -e DATABASE_URL="postgresql://fintrack:$db_password@$CONTAINER:5432/fintrack" \
+    -e SYNC_WORKER=off \
+    "$IMAGE_WEB:$version" >/dev/null || { printf '  App:                 \033[31mnão subiu\033[0m\n'; return 1; }
+  for _ in $(seq 1 60); do
+    body=$(web_fetch /api/health) && [[ "$body" == *'"status":"ok"'* ]] && break
+    sleep 2
+  done
+  if [[ "$body" != *'"status":"ok"'* ]] || [[ "$body" != *"\"version\":\"$version\""* ]]; then
+    printf '  App:                 \033[31m/api/health não respondeu ok\033[0m (%s)\n' "${body:-sem resposta}"
+    return 1
+  fi
+  status=$(web_fetch /entrar status) || true
+  if [ "$status" != 200 ]; then
+    printf '  App:                 \033[31m/entrar respondeu %s\033[0m\n' "${status:-nada}"
+    return 1
+  fi
+  printf '  App:                 versão %s no ar sobre o banco restaurado (/api/health e /entrar ok)\n' "${version:0:7}"
+}
+
+# Um pedido ao app, de dentro do container dele (o app não publica porta). "status" devolve só o
+# código HTTP; sem ele, o corpo da resposta.
+web_fetch() {
+  docker exec -e WHAT="${2:-body}" "$WEB_CONTAINER" node -e '
+    fetch("http://127.0.0.1:3000" + process.argv[1], { redirect: "manual" })
+      .then(async (r) => {
+        process.stdout.write(process.env.WHAT === "status" ? String(r.status) : await r.text());
+        process.exit(r.ok ? 0 : 1);
+      })
+      .catch(() => process.exit(2));
+  ' "$1" 2>/dev/null
 }
 
 main "$@"
