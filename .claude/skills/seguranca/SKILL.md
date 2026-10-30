@@ -37,7 +37,8 @@ seção "Segurança".
    descartável (`scripts/zap/copia-local.sh`, o `varrer.sh` recusa endereço que não seja local),
    antes de cada versão grande; o resultado vai para o documento do OWASP. Nunca contra a produção.
    Ela também conta os `request.error` do app durante o ataque (`erros-do-app.txt`): erro 500 sem
-   detalhe não vira alerta do ZAP, mas é defeito (regra 11).
+   detalhe não vira alerta do ZAP, mas é defeito (regra 11). Enquanto o ZAP trabalha, o `varrer.sh`
+   escreve uma linha por minuto (`ZAP_PROGRESSO_SEGUNDOS`), e o Ctrl+C para o ZAP junto (M12.4b).
 6. **Login e log**: tentativa recusada no login vira evento pela rota `/api/auth/[...all]`
    (`apps/web/src/lib/auth/security-log.ts`). Evento de segurança novo: o nome estável, o teste, o
    `SECURITY_EVENTS` do `deploy/bin/lib.sh` (que o `fintrack-status` e o `fintrack-alerta` usam), o
@@ -55,7 +56,10 @@ seção "Segurança".
    Caminho de arquivo nunca sai do texto que chegou: sai do valor já lido e conferido (o UUID do
    `services/ml`, `chave_do_modelo`).
 9. **CI**: ação nova do GitHub entra presa pelo commit, com a versão no comentário
-   (`uses: dono/acao@<sha40> # vX.Y.Z`); o Dependabot propõe as versões novas.
+   (`uses: dono/acao@<sha40> # vX.Y.Z`); o Dependabot propõe as versões novas. Ferramenta que roda
+   por imagem num `run:` (o gitleaks, M12.4b) vai presa pelo digest (`imagem:vX@sha256:...`), com
+   `timeout-minutes` no passo; o Dependabot não a vê, então a troca de versão é à mão. Passo que
+   baixa algo da rede nunca depende do cache do Actions para terminar.
 10. **Erro**: falha fechada (dúvida no crachá = 404; webhook responde igual para tudo); a tela de
     erro mostra o código do log (o `digest`), nunca a mensagem ou a pilha do erro.
 11. **Texto de fora, limpo na entrada** (M12.4a, ADR-024): campo de texto livre num schema é

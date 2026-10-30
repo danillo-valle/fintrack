@@ -187,6 +187,14 @@ Para voltar ao que era: `fintrack-restore-prod` com o backup que o zerar mostrou
 em `/srv/fintrack/estado/zerar.log`). A lista do que fica está em `deploy/sql/zerar.sql`; ele
 confere no fim, dentro da transação, que só os logins ficaram (senão desfaz tudo).
 
+**Depois do zerar** (o primeiro uso real, M12.4b): cada pessoa cria o lar em Ajustes › Lar, as
+contas e os cartões (só os 4 últimos dígitos) e liga o Meu Pluggy de novo em Ajustes › Conexões
+bancárias, com o mesmo Client ID e Client Secret (as contas continuam conectadas no Meu Pluggy; o
+zerar só apagou a ligação no FinTrack). Em **Importar a partir de**, o dia 1º do mês: a primeira
+fatura de cada cartão aparece como parcial (as compras de antes da data de corte não entram), e a
+conferência ao centavo vale a partir da fatura seguinte. Tudo chega como Recebido, fora das somas
+até a conferência.
+
 ## Restaurar a produção (desastre)
 
 Banco corrompido, dados apagados por engano: escolha o backup (o mais novo **antes** do problema)
@@ -669,6 +677,23 @@ apps/web/src mais novos") quando o código mudou depois dele.
 5. Para ver se uma falha é instável, repita o mesmo teste várias vezes **um de cada vez**:
    `--repeat-each=10 --workers=1`. Sem o `--workers=1`, as cópias rodam juntas e, como cada teste usa
    a mesma pessoa de teste em todas as cópias, uma apaga a pessoa da outra (`user_email_key`).
+
+### Um job do CI saiu "cancelled" (M12.4b)
+
+"cancelled" não é "failed". Sem outro push na mesma branch (o `concurrency` cancela a execução
+antiga), é um job que passou do `timeout-minutes`. Veja qual passo segurou o tempo:
+
+```bash
+gh run view <id>                                  # o job com X e os avisos (ex.: "exceeded the maximum execution time")
+gh api repos/{owner}/{repo}/actions/jobs/<id-do-job> --jq '.steps[] | "\(.name) | \(.conclusion) | \(.started_at) -> \(.completed_at)"'
+```
+
+Passo que depende da rede e travou (download, cache): `gh run rerun <id> --failed` roda de novo só
+os jobs que não terminaram e os que dependem deles (o `publicar` e o `pagina`, na `main`). Se
+voltar a acontecer no mesmo passo, o passo precisa de limite próprio e de não depender do cache: foi
+o que aconteceu com o gitleaks (M12.4b, OWASP A03). O aviso "Failed to restore: Egress is over the
+account limit" quer dizer que o GitHub recusou o cache da conta naquele momento: os passos ficam
+mais lentos, mas devem terminar.
 
 ## O site "FinTrack por dentro" (GitHub Pages, M12.3b, ADR-023)
 

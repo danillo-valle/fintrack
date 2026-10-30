@@ -83,6 +83,9 @@ Projeto de portfólio construído em módulos (M00 a M12); cada módulo é uma m
   de segurança acima do limite avisam o Healthchecks a cada 15 min) e o ZAP ativo numa cópia local
   (`scripts/zap/copia-local.sh`). Texto de fora é limpo na entrada, antes de conferir: `textField()` nos
   schemas, `cleanText` (`@fintrack/core`) na URL, no bot e nos importadores
+- v1.0.0 (M12.4b, adendo do ADR-024): a produção zerada e em uso real, os dados entrando pelo Meu Pluggy a partir
+  do dia 1º do mês; as skills genéricas reescritas no repositório público `fintrack-skills` (MIT); o ZAP com
+  progresso a cada minuto; o gitleaks do CI pela imagem presa pelo digest
 
 Regras específicas do Next.js 16: @apps/web/AGENTS.md
 

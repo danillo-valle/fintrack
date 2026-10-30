@@ -2,7 +2,7 @@
 
 - Status: aceita
 - Data: 2026-10-29
-- Módulo: M12.4a
+- Módulo: M12.4a (adendo do M12.4b)
 
 ## Contexto
 
@@ -78,6 +78,27 @@ skills genéricas, reescritas (M12.4b).
    - a conferência de cartão do bot olha o texto como ele aparece: além da limpeza, os dígitos
      largos (`４１１１`) e os traços diferentes viram os comuns (NFKC).
      A senha, o segredo da Pluggy e o `next` ficam como chegaram: não vão ao banco como texto.
+
+## Adendo do M12.4b (30/10/2026): a v1.0.0
+
+Decidido pelo Danillo em 30/10/2026, depois do M12.4a concluído:
+
+1. **A produção é zerada** com o `fintrack-zerar` (ensaiado de novo numa cópia antes) e começa só
+   com os logins. Ele usa sozinho no começo; convites para o lar vêm depois, pelo caminho normal.
+2. **A primeira importação real é só pelo Meu Pluggy**, a partir do dia 1º do mês corrente (a
+   data de corte da ligação). Nada da planilha antiga entra: ela tem números de cartão completos e
+   não há importador para ela. A primeira fatura de cada cartão fica parcial, como o app já mostra.
+3. **O `fintrack-skills`** é um repositório público com licença MIT e as sete skills genéricas,
+   reescritas sem nada do FinTrack (commits e PRs, migrações com o Prisma 7, E2E com Playwright,
+   segurança contra o OWASP, deploy num servidor próprio, autenticação com o Better Auth e
+   interface com shadcn/ui), instalável como plugin do Claude Code. Um validador no CI dele recusa
+   qualquer menção ao FinTrack. O FinTrack continua com as suas skills, que apontam para os
+   arquivos dele.
+4. **Antes da release**, três ajustes que o M12.4a mostrou: a varredura do ZAP escreve o progresso
+   a cada minuto e o Ctrl+C para o ZAP junto (`scripts/zap/varrer.sh`, com caso no
+   `deploy/testes/operacao.test.sh`); o gitleaks do CI roda pela imagem oficial presa pelo digest,
+   com limite de tempo no passo, em vez da ação que dependia do cache do Actions (OWASP A03); e o
+   `copia-local.sh` entra no shellcheck do CI.
 
 ## Consequências
 

@@ -147,7 +147,13 @@ publicado no npm, uma ação do GitHub trocada, uma imagem adulterada.
   etiqueta pode ser movida por quem controla o repositório da ação; o commit, não.
 - **Dependabot**: npm, ações do GitHub e, desde o M12.1, o serviço Python (`uv`) e as imagens dos
   compose (Postgres, Caddy, cloudflared, Mailpit).
-- **gitleaks** em todo o histórico e **CodeQL** em todo PR.
+- **gitleaks** em todo o histórico e **CodeQL** em todo PR. **Desde o M12.4b**, o gitleaks roda
+  pela imagem oficial presa pelo digest (`ghcr.io/gitleaks/gitleaks:v8.30.0@sha256:...`), com limite
+  de 3 minutos no passo, em vez da `gitleaks-action`: a ação guardava o programa no cache do
+  Actions, e no dia em que o GitHub recusou o cache da conta o passo ficou 10 minutos parado e
+  cancelou o CI da `main` (a varredura leva menos de 1 s). A imagem não entra no Dependabot (ele
+  não lê imagem dentro de `run:`): a troca de versão é à mão, com o digest novo. O job
+  `seguranca` perdeu a permissão de escrever no PR, que só a ação usava.
 - **CodeQL também na main (M12.3b)**: o alerta de um PR aparece no PR, mas o que ficou aberto na
   `main` ninguém via. O check do módulo passou a exigir nenhum alerta aberto na `main`, e isso
   achou o `py/path-injection` (alto) aberto desde o M10.1 no armazém de modelos do `services/ml`
