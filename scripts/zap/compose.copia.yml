@@ -1,0 +1,71 @@
+# A cópia local DESCARTÁVEL do FinTrack para a varredura ativa do ZAP (M12.4): banco vazio em
+# memória, os dados sintéticos do seed e uma conta de teste. Quem sobe, varre e apaga tudo é o
+# scripts/zap/copia-local.sh; não use este arquivo sozinho.
+#
+# Separada da produção em tudo: outro projeto (fintrack-zap), outra rede, nenhum volume (o banco
+# fica em memória e some no fim) e as portas só no 127.0.0.1 desta máquina (3100 o app, 3125 o
+# Mailpit). Nenhuma variável da produção entra aqui: o segredo do login é sorteado a cada vez.
+name: fintrack-zap
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: fintrack
+      POSTGRES_PASSWORD: fintrack
+      POSTGRES_DB: fintrack
+    tmpfs:
+      - /var/lib/postgresql/data
+    networks: [copia]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U fintrack -d fintrack"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  mail:
+    image: axllent/mailpit:v1.31.3
+    ports:
+      - "127.0.0.1:3125:8025"
+    networks: [copia]
+
+  migrate:
+    image: ghcr.io/danillo-valle/fintrack-migrate:${FINTRACK_VERSION:-main}
+    profiles: [tarefas]
+    environment:
+      DATABASE_URL: postgresql://fintrack:fintrack@db:5432/fintrack
+    networks: [copia]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    image: ghcr.io/danillo-valle/fintrack-web:${FINTRACK_VERSION:-main}
+    environment:
+      DATABASE_URL: postgresql://fintrack:fintrack@db:5432/fintrack
+      BETTER_AUTH_SECRET: ${ZAP_SEGREDO:?o copia-local.sh sorteia o segredo}
+      BETTER_AUTH_URL: http://localhost:3100
+      ALLOWED_EMAILS: zap@fintrack.test
+      EMAIL_FROM: FinTrack <nao-responda@fintrack.local>
+      SMTP_HOST: mail
+      SMTP_PORT: "1025"
+      HIBP_CHECK: "off"
+      # Nenhuma fila rodando sozinha: só o que o ZAP pede
+      SYNC_WORKER: "off"
+    ports:
+      - "127.0.0.1:3100:3000"
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /app/apps/web/.next/cache:uid=1000,gid=1000
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks: [copia]
+    depends_on:
+      db:
+        condition: service_healthy
+
+networks:
+  copia: {}

@@ -1,0 +1,18 @@
+# ── Varredura ATIVA (M12.4, ADR-024) ───────────────────────────────────────────────────
+# O ZAP ATACA cada pedido que o spider achou: injeção de SQL e de comando, XSS, travessia de
+# pasta, SSRF, cabeçalhos forjados... Grava, apaga e troca dados de verdade, por isso só roda
+# numa cópia local descartável (scripts/zap/copia-local.sh), nunca na produção. O varrer.sh
+# põe este job no lugar da linha "# @ativo" do plano.yaml, dois espaços para dentro (a lista
+# jobs), e as exceções do plano valem aqui.
+- type: activeScan
+  parameters:
+    context: fintrack
+    # O teto de cada rodada (sem sessão e com sessão; na linha marcada com @minutos, o
+    # varrer.sh troca o número pelo ZAP_ATIVO_MINUTOS, padrão 30) e de cada regra
+    maxScanDurationInMins: 30 # @minutos
+    maxRuleDurationInMins: 5
+    threadPerHost: 2
+    maxAlertsPerRule: 10
+  policyDefinition:
+    defaultStrength: medium
+    defaultThreshold: medium

@@ -2,7 +2,8 @@
 #
 # PASSIVA: o ZAP navega pelo app como um visitante (o spider segue os links e só envia
 # formulários GET) e examina cada resposta: cabeçalhos, cookies, CSP, cache, vazamento de
-# informação. Não ataca nada (nenhum scan ativo). Roda duas vezes, pelo scripts/zap/varrer.sh:
+# informação. Não ataca nada. Roda duas vezes, pelo scripts/zap/varrer.sh (a ATIVA, do M12.4, é
+# este mesmo plano com o job do ativo.yaml, só numa cópia local: veja o varrer.sh):
 #
 #   publico  sem sessão: as telas de entrada, os dois webhooks e os arquivos públicos;
 #   logado   com o cookie da conta de teste (scripts/zap/conta-de-teste.mjs), que o ZAP manda em
@@ -78,6 +79,11 @@ jobs:
       postForm: false
       processForm: true
       maxChildren: 25
+
+  # Varredura ATIVA (M12.4): só quando o varrer.sh roda com ZAP_MODO=ativo, que põe aqui o job do
+  # scripts/zap/ativo.yaml (numa cópia local descartável, nunca na produção). Sem isso, a linha
+  # abaixo é só um comentário e a varredura continua passiva.
+  # @ativo
 
   - type: passiveScan-wait
     parameters:
