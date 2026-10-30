@@ -55,6 +55,11 @@ export function initialsOf(name: string): string {
   return pair.join("").toLocaleUpperCase("pt-BR");
 }
 
+/** O primeiro nome, para etiquetas curtas: "Caio Moura" → "Caio". Sem nome: "". */
+export function firstNameOf(name: string): string {
+  return name.trim().split(/\s+/)[0] ?? "";
+}
+
 /** As iniciais de "Compartilhado". */
 export const SHARED_INITIALS = "CP";
 
@@ -70,4 +75,33 @@ export function payerTones(memberIdsInJoinOrder: readonly string[]): Map<string,
   return new Map(
     memberIdsInJoinOrder.map((id, index) => [id, PERSON_TONES[index % PERSON_TONES.length]!]),
   );
+}
+
+/** Uma pessoa do lar como as telas a mostram: o nome, as iniciais e a cor dela no "Pago por". */
+export type HouseholdPerson = {
+  userId: string;
+  name: string;
+  /** O primeiro nome, para etiquetas curtas ("Caio") */
+  firstName: string;
+  initials: string;
+  tone: 1 | 2 | 3 | 4;
+};
+
+/**
+ * As pessoas do lar pela ordem em que entraram (é ela que decide a cor, payerTones), com as
+ * iniciais. A mesma fonte para o "Pago por", quem usa cada cartão e quem está na sessão (M13.1):
+ * a mesma pessoa tem a mesma cor e as mesmas letras em todas as telas.
+ */
+export function householdPeople(
+  members: readonly { userId: string; joinedAt: Date; user: { name: string } }[],
+): HouseholdPerson[] {
+  const ordered = members.toSorted((a, b) => a.joinedAt.getTime() - b.joinedAt.getTime());
+  const tones = payerTones(ordered.map((m) => m.userId));
+  return ordered.map((m) => ({
+    userId: m.userId,
+    name: m.user.name,
+    firstName: firstNameOf(m.user.name),
+    initials: initialsOf(m.user.name),
+    tone: tones.get(m.userId) ?? 1,
+  }));
 }

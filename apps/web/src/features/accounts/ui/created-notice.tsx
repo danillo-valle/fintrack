@@ -2,17 +2,25 @@
 // J-Contas). Antes, o "Conta criada." aparecia no fim do formulário, no pé da página, e passava
 // despercebido: a pessoa criava a mesma conta de novo. Agora a ação volta para a lista, o aviso
 // vem em cima e a linha da conta fica marcada. Fechar é um link (funciona antes do React).
+// M13.1: o mesmo aviso depois de editar um cartão.
 import Link from "next/link";
 import { Check, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export type CreatedNotice =
   | { kind: "account"; accountId: string; name: string; wallet: string; acceptsCards: boolean }
-  | { kind: "card"; accountId: string; name: string; account: string; moved: number };
+  | { kind: "card"; accountId: string; name: string; account: string; moved: number }
+  | { kind: "card-updated"; accountId: string; name: string; moved: number };
 
 function movedText(moved: number) {
   if (moved === 1) return " 1 recebido do banco foi para ele.";
   if (moved > 1) return ` ${moved} recebidos do banco foram para ele.`;
+  return "";
+}
+
+function movedOnEditText(moved: number) {
+  if (moved === 1) return " 1 recebido do banco foi para o novo ambiente.";
+  if (moved > 1) return ` ${moved} recebidos do banco foram para o novo ambiente.`;
   return "";
 }
 
@@ -34,12 +42,17 @@ export function CreatedNoticeBanner({ notice }: { notice: CreatedNotice }) {
             </strong>{" "}
             Ela está marcada na lista.{notice.acceptsCards ? " Agora cadastre o cartão." : ""}
           </>
-        ) : (
+        ) : notice.kind === "card" ? (
           <>
             <strong className="break-words">
               Cartão “{notice.name}” cadastrado em {notice.account}.
             </strong>
             {movedText(notice.moved)}
+          </>
+        ) : (
+          <>
+            <strong className="break-words">Cartão “{notice.name}” atualizado.</strong>
+            {movedOnEditText(notice.moved)}
           </>
         )}
       </p>

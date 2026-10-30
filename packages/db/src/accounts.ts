@@ -6,12 +6,13 @@
 // portador de um cartão dela (o adicional do cônjuge).
 //
 // Cartão: só os 4 últimos dígitos (CHECK no banco). Nunca o número inteiro, validade ou CVV.
-import type { AccountKind } from "@fintrack/core";
+import { importWalletFor, type AccountKind } from "@fintrack/core";
 import { DomainError, type WalletGrant } from "./access";
 import { writeAudit, type RequestContext } from "./audit";
 import type { PrismaClient } from "./generated/prisma/client";
 import { fromDbDecimal, toDbDecimal } from "./money";
 import { rerouteReceived } from "./review";
+import { personalWalletsOf } from "./sync";
 
 /** Contas em que a pessoa pode lançar: as das carteiras que ela edita e as dos cartões dela. */
 export async function listUsableAccounts(db: PrismaClient, userId: string) {
@@ -79,6 +80,7 @@ export async function listWalletAccounts(db: PrismaClient, grant: WalletGrant<"v
       dueDay: true,
       initialBalance: true,
       archivedAt: true,
+      holderId: true,
       holder: { select: { name: true } },
       cards: {
         orderBy: [{ archivedAt: { sort: "asc", nulls: "first" } }, { nickname: "asc" }],
@@ -91,7 +93,11 @@ export async function listWalletAccounts(db: PrismaClient, grant: WalletGrant<"v
           isAdditional: true,
           sharedPurchases: true,
           archivedAt: true,
+          holderId: true,
           holder: { select: { name: true } },
+          // M13.1: para onde vão as compras deste cartão que vêm do banco (nulo = a regra padrão)
+          importWalletId: true,
+          importWallet: { select: { name: true, kind: true } },
         },
       },
     },
@@ -311,5 +317,131 @@ export async function setCardSharedPurchases(
       },
       ctx,
     );
+  });
+}
+
+/**
+ * Os ambientes do lar em que as compras de um cartão podem entrar (M09.1; M13.1 também no Editar
+ * cartão): os ativos, com quem participa de cada um. A tela só oferece os de que o PORTADOR
+ * participa (senão ele não veria as próprias compras); o servidor confere de novo ao gravar.
+ */
+export async function householdWalletOptions(db: PrismaClient, householdId: string) {
+  const wallets = await db.wallet.findMany({
+    where: { householdId, archivedAt: null },
+    orderBy: [{ kind: "asc" }, { name: "asc" }],
+    select: { id: true, name: true, kind: true, members: { select: { userId: true, role: true } } },
+  });
+  return wallets.map((w) => ({
+    id: w.id,
+    name: w.name,
+    kind: w.kind,
+    memberIds: w.members.map((m) => m.userId),
+    ownerIds: w.members.filter((m) => m.role === "OWNER").map((m) => m.userId),
+  }));
+}
+
+export type CardUpdateInput = {
+  nickname: string;
+  brand: string;
+  form: "PHYSICAL" | "VIRTUAL" | "VIRTUAL_TEMPORARY";
+  /** Portador: quem usa o cartão. Precisa ser do lar */
+  holderId: string;
+  isAdditional: boolean;
+  sharedPurchases: boolean;
+  /** Ambiente das compras que vêm do banco; nulo = a regra padrão (importWalletFor) */
+  importWalletId: string | null;
+};
+
+/**
+ * Editar cartão (M13.1, prancha L-EditarCartao). Tudo menos o final: outro final é outro cartão.
+ * Só cartão ativo de uma conta da carteira (crachá "manage_accounts"); qualquer outro id responde
+ * NOT_FOUND igual (IDOR). O portador precisa ser do lar, e o ambiente de entrada, um ambiente ativo
+ * do lar de que o portador participa (a mesma regra do "Ligar as contas").
+ *
+ * Os recebidos ainda não confirmados deste cartão que estavam no ambiente que a configuração
+ * ANTIGA dava vão para o que a nova dá; um recebido que a pessoa já moveu à mão fica onde está
+ * (a mesma regra da busca, rerouteWallet). O que já foi confirmado nunca muda.
+ */
+export async function updateCard(
+  db: PrismaClient,
+  grant: WalletGrant<"manage_accounts">,
+  cardId: string,
+  input: CardUpdateInput,
+  ctx: RequestContext,
+) {
+  return db.$transaction(async (tx) => {
+    const card = await tx.paymentCard.findFirst({
+      where: { id: cardId, archivedAt: null, account: { walletId: grant.wallet.id } },
+      select: {
+        id: true,
+        accountId: true,
+        nickname: true,
+        brand: true,
+        form: true,
+        holderId: true,
+        isAdditional: true,
+        sharedPurchases: true,
+        importWalletId: true,
+        account: { select: { walletId: true, holderId: true, householdId: true } },
+      },
+    });
+    if (!card) throw new DomainError("NOT_FOUND");
+    const householdId = card.account.householdId;
+    const inHousehold = await tx.householdMember.count({
+      where: { householdId, userId: input.holderId },
+    });
+    if (inHousehold === 0) throw new DomainError("CARD_HOLDER_OUTSIDE_HOUSEHOLD");
+    if (input.importWalletId) {
+      const wallet = await tx.wallet.findFirst({
+        where: { id: input.importWalletId, householdId, archivedAt: null },
+        select: { members: { where: { userId: input.holderId }, select: { userId: true } } },
+      });
+      if (!wallet) throw new DomainError("NOT_FOUND");
+      if (wallet.members.length === 0) throw new DomainError("CARD_WALLET_WITHOUT_HOLDER");
+    }
+
+    const personalWallets = await personalWalletsOf(tx, householdId);
+    const walletFor = (c: { holderId: string | null; importWalletId: string | null }) =>
+      importWalletFor({ account: card.account, card: c, personalWallets }).walletId;
+    // Escolher o mesmo ambiente que a regra padrão já daria grava "padrão" (nulo): assim o cartão
+    // continua seguindo a regra se o portador ou a conta mudarem depois
+    const saved: CardUpdateInput = {
+      ...input,
+      importWalletId:
+        input.importWalletId === walletFor({ holderId: input.holderId, importWalletId: null })
+          ? null
+          : input.importWalletId,
+    };
+    await tx.paymentCard.update({ where: { id: card.id }, data: saved });
+
+    // Os recebidos deste cartão vão para o ambiente que a configuração nova dá
+    const before = walletFor(card);
+    const after = walletFor(saved);
+    let moved = 0;
+    if (before !== after) {
+      const result = await tx.transaction.updateMany({
+        where: { cardId: card.id, status: "PENDING", deletedAt: null, walletId: before },
+        data: { walletId: after },
+      });
+      moved = result.count;
+    }
+
+    const changed = (Object.keys(saved) as (keyof CardUpdateInput)[]).filter(
+      (key) => saved[key] !== card[key],
+    );
+    await writeAudit(
+      tx,
+      {
+        actorId: grant.userId,
+        householdId,
+        action: "card.updated",
+        entity: "payment_card",
+        entityId: card.id,
+        // Só QUAIS campos mudaram (nunca o final, nunca nomes): a auditoria é só de metadados
+        metadata: { accountId: card.accountId, changed, moved },
+      },
+      ctx,
+    );
+    return { id: card.id, accountId: card.accountId, moved };
   });
 }

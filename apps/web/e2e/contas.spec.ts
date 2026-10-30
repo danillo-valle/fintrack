@@ -103,9 +103,13 @@ test("nova conta em modal, o aviso no topo, a linha marcada e o Adicionar cartã
   await expect(page.getByTestId("aviso-criado").filter({ visible: true })).toContainText(
     "Cartão “Exemplo da Lia” cadastrado em Cartão Exemplo.",
   );
-  await expect(
-    page.getByText(/Exemplo da Lia · Visa final 0001/).filter({ visible: true }),
-  ).toBeVisible();
+  // M13.1: o cartão é uma peça com o apelido, a bandeira e o final
+  const tile = page
+    .getByRole("list", { name: "Cartões de Cartão Exemplo" })
+    .filter({ visible: true })
+    .getByRole("listitem");
+  await expect(tile).toContainText("Exemplo da Lia");
+  await expect(tile).toContainText("Visa ···· 0001");
   const [card] = await sql<{ lastFour: string }>(
     `SELECT "lastFour" FROM payment_card WHERE "accountId" = $1`,
     [account!.id],

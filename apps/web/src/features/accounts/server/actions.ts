@@ -9,6 +9,7 @@ import {
   setAccountArchived,
   setCardArchived,
   setCardSharedPurchases,
+  updateCard,
 } from "@fintrack/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -21,6 +22,7 @@ import {
   archiveCardSchema,
   cardSchema,
   cardSharedSchema,
+  editCardSchema,
 } from "../schemas";
 
 const PAGE = "/ajustes/contas";
@@ -156,4 +158,42 @@ export async function setCardSharedPurchasesAction(
   revalidatePath(`${PAGE}/[accountId]`, "page");
   revalidatePath("/lancamentos");
   return result;
+}
+
+/**
+ * Editar cartão (M13.1, em modal, prancha L-EditarCartao). Deu certo: volta para a lista
+ * (?editado=<id>&movidos=N) ou para a página da conta, com o aviso no topo. O "Pago por" é
+ * calculado, então mudar o portador ou a conjunta vale também para as compras antigas.
+ */
+export async function updateCardAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await requireUser();
+  const parsed = editCardSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return invalid(parsed.error);
+  const { walletId, cardId, volta, importWalletId, ...input } = parsed.data;
+  let updated: { accountId: string; moved: number } | null = null;
+  const result = await runAction(async () => {
+    const grant = await requireWalletAccess(session, walletId, "manage_accounts");
+    // A conta é a do cartão, lida no servidor (o formulário não manda conta)
+    updated = await updateCard(
+      prisma,
+      grant,
+      cardId,
+      { ...input, importWalletId: importWalletId === "padrao" ? null : importWalletId },
+      await requestContext(),
+    );
+  });
+  if (result.error || !updated) return result;
+  const { accountId, moved } = updated;
+  await financeChanged(session);
+  revalidatePath(PAGE);
+  revalidatePath(`${PAGE}/[accountId]`, "page");
+  revalidatePath("/lancamentos");
+  redirect(
+    volta === "conta"
+      ? `${PAGE}/${accountId}?editado=${cardId}&movidos=${moved}`
+      : `${PAGE}?editado=${cardId}&movidos=${moved}`,
+  );
 }

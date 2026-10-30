@@ -21,6 +21,8 @@ type Props = {
   confirm?: string;
   /** Texto do botão que confirma ("Sim, remover") */
   confirmLabel?: string;
+  /** Classes do botão (M13.1: o item largo do menu "⋯", MENU_ITEM) */
+  className?: string;
 };
 
 export function ActionButton({
@@ -31,6 +33,7 @@ export function ActionButton({
   variant = "outline",
   confirm,
   confirmLabel = "Sim, confirmar",
+  className,
 }: Props) {
   const [asking, setAsking] = useState(false);
   const confirmRef = useRef<HTMLButtonElement>(null);
@@ -76,6 +79,7 @@ export function ActionButton({
               aria-label={label}
               disabled={pending}
               onClick={confirm ? () => setAsking(true) : undefined}
+              className={className}
             >
               {children}
             </Button>

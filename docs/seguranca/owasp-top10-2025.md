@@ -89,6 +89,9 @@ um endereço escolhido pelo atacante (SSRF, que entrou neste item em 2021).
   `lib/telegram/protocol.ts`); a resposta é a mesma para tudo, e nada é gravado sem a conferência.
 
 **Provas.** `apps/web/e2e/permissoes.spec.ts` (IDOR com duas pessoas, 404 idêntico);
+`apps/web/e2e/editar-cartao.spec.ts` (M13.1: editar o cartão de outra pessoa dá o mesmo 404, sem
+nenhum dado) e `packages/db/src/integration/editar-cartao.integration.test.ts` (o cartão de outra
+carteira, arquivado ou inventado responde igual; o portador e o ambiente são conferidos no banco);
 `packages/db/src/permissoes-doc.test.ts` (o `docs/permissoes.md` bate com a matriz);
 `apps/web/e2e/cabecalhos.spec.ts`, bloco "pedido de outra origem é recusado" (**novo no M12.1**:
 o mesmo pedido de uma Server Action é recusado com outra origem e grava com a origem do app; a
@@ -172,14 +175,21 @@ ar e ninguém tinha visto:
 | Pillow 12.3.0 (imagem `ml`) | 37 alertas; o Pillow lê o PDF que a pessoa envia                                              | Pillow 13.0.0 (pytest e eval iguais)                                                                 |
 | pypdf 6.20.1                | 7 alertas (só nos testes)                                                                     | pypdf 6.21.2                                                                                         |
 
+**Desde o M13.1 (30/10/2026).** O OSV barrou o PR do M13.1 com alertas publicados nos dias 29 e 30,
+nenhum trazido pelo módulo: o pypdf 6.21.2 (4 altos de consumo de CPU e memória com PDF montado;
+o pypdf só gera as faturas sintéticas dos testes) foi para o 6.21.4, que corrige também um quinto
+alerta ainda fora da base OSV, com o piso do `pyproject.toml` no mesmo 6.21.4. O `minimatch`
+(GHSA-g3hv-75wg-m249) não tem correção alcançável: virou exceção, na tabela abaixo.
+
 **Provas.** O passo do OSV-Scanner no job `seguranca`; o `pnpm audit` e o `pip-audit` limpos no
 laboratório (a base OSV junta os mesmos alertas).
 
 **Exceções do OSV (no `osv-scanner.toml`).**
 
-| Pacote          | Alerta                                      | Por que não barra                                                                                                                                                                                                | Rever até  |
-| --------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| deepmerge 4.3.1 | GHSA-gcqx-w48m-w2h4 (CVE-2026-93753), médio | Sem versão corrigida. Só o CLI do shadcn (dependência de desenvolvimento) o usa, ao juntar o `tailwind.config` do Tailwind v3; o app usa do pacote só o `shadcn/tailwind.css`. Fora do build e da imagem (M12.2) | 2027-01-31 |
+| Pacote                   | Alerta                                                        | Por que não barra                                                                                                                                                                                                                                                                                                                                                        | Rever até  |
+| ------------------------ | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
+| deepmerge 4.3.1          | GHSA-gcqx-w48m-w2h4 (CVE-2026-93753), médio                   | Sem versão corrigida. Só o CLI do shadcn (dependência de desenvolvimento) o usa, ao juntar o `tailwind.config` do Tailwind v3; o app usa do pacote só o `shadcn/tailwind.css`. Fora do build e da imagem (M12.2)                                                                                                                                                         | 2027-01-31 |
+| minimatch 3.1.5 e 10.2.6 | GHSA-g3hv-75wg-m249 (CVE-2026-118764), DoS por glob malicioso | Corrigido só no 11, que nenhum pai aceita (os plugins do ESLint pedem ^3; typescript-eslint, `@eslint/config-array` e o CLI do shadcn, ^10), nem nas versões mais novas; forçar o 11 quebra quem pede ^3 (importa o pacote como função). Só ferramentas de desenvolvimento, com globs dos arquivos de configuração do repositório. Fora do build e da imagem web (M13.1) | 2027-01-31 |
 
 **Pendência.** As imagens-base do Dockerfile (`node`, `python`, `uv`) são etiquetas que andam (a
 linha 24, a 3.13), sem digest; o Dependabot não as lê, porque o `FROM` usa `${NODE_VERSION}`.

@@ -2,7 +2,7 @@
 
 - Status: aceita
 - Data: 2026-10-13
-- Módulo: M09.1 (desenho no canvas, linha E)
+- Módulo: M09.1 (desenho no canvas, linha E; adendo do M13.1, linha L)
 
 ## Contexto
 
@@ -150,3 +150,22 @@ no pg-boss e os recebidos fora das somas.
   banco manda fica em `providerCardLastFour`).
 - O worker continua no mesmo processo do site; o mapa do fluxo (ADR-023) mostra as 6 filas e quem
   põe trabalho em cada uma.
+
+## Adendo do M13.1 (30/10/2026): o ambiente de entrada em qualquer cartão
+
+No primeiro uso real, o cartão da casa é um **adicional** da conta Mastercard do titular, e os
+adicionais foram cadastrados com o portador errado. Não havia como corrigir sem arquivar e
+cadastrar de novo, e a escolha "Compras do adicional entram em" só existia no "Ligar as contas".
+
+- **Editar cartão** (`updateCard`, `packages/db/src/accounts.ts`): apelido, bandeira, tipo,
+  portador, adicional, compras conjuntas e o ambiente de entrada (`importWalletId`). O final não se
+  edita: outro final é outro cartão. Crachá `manage_accounts` da carteira da conta; o portador
+  precisa ser do lar e o ambiente, ativo, do lar e com o portador (`CARD_WALLET_WITHOUT_HOLDER`).
+- **O ambiente de entrada vale para qualquer cartão**, também o do titular: `importWalletFor` já
+  dava prioridade ao `importWalletId`; só a tela limitava ao adicional de outra pessoa.
+- **Os recebidos ainda não confirmados** do cartão que estavam no ambiente da configuração antiga
+  vão para o da nova (a mesma regra da busca, `rerouteWallet`); os confirmados e os que a pessoa
+  moveu à mão não mudam.
+- Escolher o ambiente que a regra padrão já daria grava o padrão (nulo), e a tela não oferece esse
+  ambiente duas vezes: o cartão continua seguindo a regra se o portador mudar depois.
+- Auditoria `card.updated` só com os NOMES dos campos que mudaram e a contagem dos movidos.

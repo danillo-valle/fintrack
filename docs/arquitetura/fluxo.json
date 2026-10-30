@@ -20,13 +20,21 @@
         "apps/web/src/components/layout/sidebar/sidebar-handle.tsx",
         "apps/web/src/components/layout/sidebar/sidebar-nav-item.tsx",
         "apps/web/src/components/layout/sidebar/sidebar-provider.tsx",
-        "apps/web/src/components/layout/theme-toggle.tsx"
+        "apps/web/src/components/layout/theme-toggle.tsx",
+        "apps/web/src/components/visual/actions-menu.tsx",
+        "apps/web/src/components/visual/use-popover.ts",
+        "apps/web/src/features/auth/ui/sign-out-button.tsx",
+        "apps/web/src/features/auth/ui/user-menu.tsx",
+        "apps/web/src/lib/auth-client.ts"
       ],
-      "authCalls": [],
+      "authCalls": [
+        "signOut"
+      ],
       "links": [
         "/",
         "/ajuda",
         "/ajustes",
+        "/ajustes/seguranca",
         "/carteiras",
         "/lancamentos",
         "/lancamentos/novo",
@@ -582,6 +590,7 @@
       "searchParams": [
         "cartao",
         "criada",
+        "editado",
         "movidos"
       ],
       "searchParamsTo": [],
@@ -598,6 +607,8 @@
         "apps/web/src/components/feedback/action-button.tsx",
         "apps/web/src/components/feedback/action-form.tsx",
         "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/components/visual/actions-menu.tsx",
+        "apps/web/src/components/visual/use-popover.ts",
         "apps/web/src/features/auth/ui/form-alert.tsx",
         "apps/web/src/lib/use-field-errors.ts",
         "apps/web/src/lib/use-renew-when-hidden.ts"
@@ -608,6 +619,7 @@
         "/ajustes/contas",
         "/ajustes/contas/[…]",
         "/ajustes/contas/[…]/cartao",
+        "/ajustes/contas/[…]/cartao/[…]",
         "/ajustes/contas/nova"
       ]
     },
@@ -622,6 +634,7 @@
         "accountId"
       ],
       "searchParams": [
+        "editado",
         "movidos"
       ],
       "searchParamsTo": [],
@@ -632,12 +645,15 @@
       ],
       "actions": [
         "apps/web/src/features/accounts/server/actions.ts#setCardArchivedAction",
+        "apps/web/src/features/accounts/server/actions.ts#setCardSharedPurchasesAction",
         "apps/web/src/features/bank/server/review-actions.ts#registerFinalAction"
       ],
       "clientComponents": [
         "apps/web/src/components/feedback/action-button.tsx",
         "apps/web/src/components/feedback/action-form.tsx",
         "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/components/visual/actions-menu.tsx",
+        "apps/web/src/components/visual/use-popover.ts",
         "apps/web/src/features/auth/ui/form-alert.tsx",
         "apps/web/src/features/bank/ui/review/final-form.tsx",
         "apps/web/src/lib/use-field-errors.ts",
@@ -648,6 +664,7 @@
         "/ajuda/[…]",
         "/ajustes/contas",
         "/ajustes/contas/[…]/cartao",
+        "/ajustes/contas/[…]/cartao/[…]",
         "/lancamentos/recebidos"
       ]
     },
@@ -670,7 +687,8 @@
         "apps/web/src/features/accounts/server/queries.ts#getCardFormPage"
       ],
       "actions": [
-        "apps/web/src/features/accounts/server/actions.ts#createCardAction"
+        "apps/web/src/features/accounts/server/actions.ts#createCardAction",
+        "apps/web/src/features/accounts/server/actions.ts#updateCardAction"
       ],
       "clientComponents": [
         "apps/web/src/components/feedback/action-form.tsx",
@@ -705,7 +723,79 @@
         "apps/web/src/features/accounts/server/queries.ts#getCardFormPage"
       ],
       "actions": [
-        "apps/web/src/features/accounts/server/actions.ts#createCardAction"
+        "apps/web/src/features/accounts/server/actions.ts#createCardAction",
+        "apps/web/src/features/accounts/server/actions.ts#updateCardAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/feedback/step-footer.tsx",
+        "apps/web/src/features/accounts/ui/card-form.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": []
+    },
+    {
+      "route": "/ajustes/contas/[accountId]/cartao/[cardId]",
+      "file": "apps/web/src/app/(app)/ajustes/contas/[accountId]/cartao/[cardId]/page.tsx",
+      "kind": "page",
+      "title": "Editar cartão",
+      "area": "Ajustes",
+      "help": "contas-e-cartoes",
+      "params": [
+        "accountId",
+        "cardId"
+      ],
+      "searchParams": [
+        "volta"
+      ],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/accounts/server/queries.ts#getEditCardPage"
+      ],
+      "actions": [
+        "apps/web/src/features/accounts/server/actions.ts#createCardAction",
+        "apps/web/src/features/accounts/server/actions.ts#updateCardAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/feedback/step-footer.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/accounts/ui/card-form.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]"
+      ]
+    },
+    {
+      "route": "/ajustes/contas/[accountId]/cartao/[cardId]",
+      "file": "apps/web/src/app/(app)/@modal/(.)ajustes/contas/[accountId]/cartao/[cardId]/page.tsx",
+      "kind": "modal",
+      "title": "Editar cartão",
+      "area": "Ajustes",
+      "help": null,
+      "params": [
+        "accountId",
+        "cardId"
+      ],
+      "searchParams": [
+        "volta"
+      ],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/accounts/server/queries.ts#getEditCardPage"
+      ],
+      "actions": [
+        "apps/web/src/features/accounts/server/actions.ts#createCardAction",
+        "apps/web/src/features/accounts/server/actions.ts#updateCardAction"
       ],
       "clientComponents": [
         "apps/web/src/components/feedback/action-form.tsx",
@@ -2078,7 +2168,8 @@
       "enqueues": [],
       "services": [],
       "rules": [
-        "packages/core/src/access.ts#canInWallet"
+        "packages/core/src/access.ts#canInWallet",
+        "packages/core/src/payer.ts#householdPeople"
       ],
       "redirects": [],
       "financeChanged": false,
@@ -2103,7 +2194,35 @@
       "enqueues": [],
       "services": [],
       "rules": [
-        "packages/core/src/access.ts#canInWallet"
+        "packages/core/src/access.ts#canInWallet",
+        "packages/core/src/payer.ts#householdPeople"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/accounts/server/queries.ts#getEditCardPage",
+      "file": "apps/web/src/features/accounts/server/queries.ts",
+      "name": "getEditCardPage",
+      "input": [],
+      "permissions": [
+        "view"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeWallet",
+        "packages/db/src/accounts.ts#householdWalletOptions",
+        "packages/db/src/accounts.ts#listWalletAccounts",
+        "packages/db/src/households.ts#listHouseholdMembers",
+        "packages/db/src/wallets.ts#listMyWallets"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/access.ts#canInWallet",
+        "packages/core/src/payer.ts#householdPeople"
       ],
       "redirects": [],
       "financeChanged": false,
@@ -2128,7 +2247,8 @@
       "enqueues": [],
       "services": [],
       "rules": [
-        "packages/core/src/access.ts#canInWallet"
+        "packages/core/src/access.ts#canInWallet",
+        "packages/core/src/payer.ts#householdPeople"
       ],
       "redirects": [],
       "financeChanged": false,
@@ -2391,7 +2511,9 @@
       ],
       "enqueues": [],
       "services": [],
-      "rules": [],
+      "rules": [
+        "packages/core/src/payer.ts#householdPeople"
+      ],
       "redirects": [],
       "financeChanged": false,
       "session": "none"
@@ -2568,10 +2690,9 @@
       "rules": [
         "packages/core/src/dates.ts#monthOf",
         "packages/core/src/dates.ts#todayCivil",
-        "packages/core/src/payer.ts#initialsOf",
+        "packages/core/src/payer.ts#householdPeople",
         "packages/core/src/payer.ts#parsePayerParam",
-        "packages/core/src/payer.ts#payerParam",
-        "packages/core/src/payer.ts#payerTones"
+        "packages/core/src/payer.ts#payerParam"
       ],
       "redirects": [],
       "financeChanged": false,
@@ -2611,10 +2732,9 @@
         "packages/core/src/dates.ts#monthOf",
         "packages/core/src/dates.ts#todayCivil",
         "packages/core/src/money.ts#sumCents",
-        "packages/core/src/payer.ts#initialsOf",
+        "packages/core/src/payer.ts#householdPeople",
         "packages/core/src/payer.ts#parsePayerParam",
-        "packages/core/src/payer.ts#payerParam",
-        "packages/core/src/payer.ts#payerTones"
+        "packages/core/src/payer.ts#payerParam"
       ],
       "redirects": [],
       "financeChanged": false,
@@ -2655,10 +2775,9 @@
         "packages/core/src/dates.ts#monthOf",
         "packages/core/src/dates.ts#todayCivil",
         "packages/core/src/money.ts#sumCents",
-        "packages/core/src/payer.ts#initialsOf",
+        "packages/core/src/payer.ts#householdPeople",
         "packages/core/src/payer.ts#parsePayerParam",
-        "packages/core/src/payer.ts#payerParam",
-        "packages/core/src/payer.ts#payerTones"
+        "packages/core/src/payer.ts#payerParam"
       ],
       "redirects": [],
       "financeChanged": false,
@@ -2701,10 +2820,9 @@
         "packages/core/src/dates.ts#monthOf",
         "packages/core/src/dates.ts#todayCivil",
         "packages/core/src/money.ts#sumCents",
-        "packages/core/src/payer.ts#initialsOf",
+        "packages/core/src/payer.ts#householdPeople",
         "packages/core/src/payer.ts#parsePayerParam",
-        "packages/core/src/payer.ts#payerParam",
-        "packages/core/src/payer.ts#payerTones"
+        "packages/core/src/payer.ts#payerParam"
       ],
       "redirects": [],
       "financeChanged": false,
@@ -2756,10 +2874,9 @@
         "packages/core/src/money.ts#sumCents",
         "packages/core/src/month-summary.ts#monthSummary",
         "packages/core/src/month-summary.ts#summaryPeriod",
-        "packages/core/src/payer.ts#initialsOf",
+        "packages/core/src/payer.ts#householdPeople",
         "packages/core/src/payer.ts#parsePayerParam",
-        "packages/core/src/payer.ts#payerParam",
-        "packages/core/src/payer.ts#payerTones"
+        "packages/core/src/payer.ts#payerParam"
       ],
       "redirects": [],
       "financeChanged": false,
@@ -2915,8 +3032,7 @@
       "rules": [
         "packages/core/src/access.ts#canInHousehold",
         "packages/core/src/dates.ts#todayCivil",
-        "packages/core/src/payer.ts#initialsOf",
-        "packages/core/src/payer.ts#payerTones"
+        "packages/core/src/payer.ts#householdPeople"
       ],
       "redirects": [],
       "financeChanged": false,
@@ -2946,8 +3062,7 @@
       "rules": [
         "packages/core/src/access.ts#canInHousehold",
         "packages/core/src/dates.ts#todayCivil",
-        "packages/core/src/payer.ts#initialsOf",
-        "packages/core/src/payer.ts#payerTones"
+        "packages/core/src/payer.ts#householdPeople"
       ],
       "redirects": [],
       "financeChanged": false,
@@ -2977,8 +3092,7 @@
       "rules": [
         "packages/core/src/access.ts#canInHousehold",
         "packages/core/src/dates.ts#todayCivil",
-        "packages/core/src/payer.ts#initialsOf",
-        "packages/core/src/payer.ts#payerTones"
+        "packages/core/src/payer.ts#householdPeople"
       ],
       "redirects": [],
       "financeChanged": false,
@@ -3011,9 +3125,8 @@
         "packages/core/src/dates.ts#addMonths",
         "packages/core/src/dates.ts#isCivilDate",
         "packages/core/src/dates.ts#todayCivil",
-        "packages/core/src/payer.ts#initialsOf",
+        "packages/core/src/payer.ts#householdPeople",
         "packages/core/src/payer.ts#parsePayerParam",
-        "packages/core/src/payer.ts#payerTones",
         "packages/core/src/text.ts#cleanText",
         "packages/core/src/transactions.ts#monthRange"
       ],
@@ -3229,6 +3342,40 @@
       "enqueues": [],
       "services": [],
       "rules": [],
+      "redirects": [],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/accounts/server/actions.ts#updateCardAction",
+      "file": "apps/web/src/features/accounts/server/actions.ts",
+      "name": "updateCardAction",
+      "input": [
+        "brand",
+        "cardId",
+        "form",
+        "holderId",
+        "importWalletId",
+        "isAdditional",
+        "nickname",
+        "sharedPurchases",
+        "volta",
+        "walletId"
+      ],
+      "permissions": [
+        "manage_accounts"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/access.ts#authorizeWallet",
+        "packages/db/src/accounts.ts#updateCard"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/text.ts#cleanText"
+      ],
       "redirects": [],
       "financeChanged": true,
       "session": "user"
@@ -4986,6 +5133,15 @@
       "services": []
     },
     {
+      "id": "packages/db/src/accounts.ts#householdWalletOptions",
+      "file": "packages/db/src/accounts.ts",
+      "name": "householdWalletOptions",
+      "tables": [
+        "Wallet"
+      ],
+      "services": []
+    },
+    {
       "id": "packages/db/src/accounts.ts#listUsableAccounts",
       "file": "packages/db/src/accounts.ts",
       "name": "listUsableAccounts",
@@ -5034,6 +5190,20 @@
       "tables": [
         "AuditLog",
         "PaymentCard"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/accounts.ts#updateCard",
+      "file": "packages/db/src/accounts.ts",
+      "name": "updateCard",
+      "tables": [
+        "AuditLog",
+        "HouseholdMember",
+        "PaymentCard",
+        "Transaction",
+        "Wallet",
+        "WalletMember"
       ],
       "services": []
     },

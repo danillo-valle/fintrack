@@ -3,8 +3,7 @@
 import "server-only";
 import {
   canInHousehold,
-  initialsOf,
-  payerTones,
+  householdPeople,
   SHARED_INITIALS,
   SHARED_PAYER_PARAM,
   SHARED_TONE,
@@ -59,16 +58,13 @@ async function categoriesOf(session: Session) {
 export async function payersOf(session: Session): Promise<PayerOption[]> {
   try {
     const grant = await requireHouseholdAccess(session, "view");
-    const members = (await listHouseholdMembers(prisma, grant)).toSorted(
-      (a, b) => a.joinedAt.getTime() - b.joinedAt.getTime(),
-    );
-    const tones = payerTones(members.map((m) => m.userId));
+    const people = householdPeople(await listHouseholdMembers(prisma, grant));
     return [
-      ...members.map((m) => ({
-        param: m.userId,
-        name: m.user.name.split(" ")[0] ?? m.user.name,
-        initials: initialsOf(m.user.name),
-        tone: tones.get(m.userId) ?? 1,
+      ...people.map((p) => ({
+        param: p.userId,
+        name: p.firstName,
+        initials: p.initials,
+        tone: p.tone,
       })),
       {
         param: SHARED_PAYER_PARAM,

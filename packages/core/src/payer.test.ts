@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  firstNameOf,
+  householdPeople,
   initialsOf,
   parsePayerParam,
   payerParam,
@@ -80,5 +82,35 @@ describe("payerTones", () => {
 
   it("o tom do Compartilhado nunca é o de uma pessoa", () => {
     expect([...payerTones(["a", "b", "c", "d", "e"]).values()]).not.toContain(SHARED_TONE);
+  });
+});
+
+describe("householdPeople", () => {
+  const day = (d: string) => new Date(`${d}T12:00:00Z`);
+
+  it("pela ordem em que entraram: a cor não depende da ordem em que o banco devolve", () => {
+    const people = householdPeople([
+      { userId: "b", user: { name: "Caio Moura" }, joinedAt: day("2026-02-01") },
+      { userId: "a", user: { name: "Lia Moura" }, joinedAt: day("2026-01-01") },
+    ]);
+    expect(people).toEqual([
+      { userId: "a", name: "Lia Moura", firstName: "Lia", initials: "LM", tone: 1 },
+      { userId: "b", name: "Caio Moura", firstName: "Caio", initials: "CM", tone: 4 },
+    ]);
+  });
+
+  it("lar vazio: lista vazia; nome de uma palavra só", () => {
+    expect(householdPeople([])).toEqual([]);
+    expect(
+      householdPeople([{ userId: "a", user: { name: "Ana" }, joinedAt: day("2026-01-01") }])[0],
+    ).toEqual({ userId: "a", name: "Ana", firstName: "Ana", initials: "AN", tone: 1 });
+  });
+});
+
+describe("firstNameOf", () => {
+  it("o primeiro nome, sem espaços sobrando", () => {
+    expect(firstNameOf("  Caio   Moura ")).toBe("Caio");
+    expect(firstNameOf("Ana")).toBe("Ana");
+    expect(firstNameOf("")).toBe("");
   });
 });

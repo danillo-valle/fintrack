@@ -1,4 +1,7 @@
 import { cookies } from "next/headers";
+import { UserMenu } from "@/features/auth/ui/user-menu";
+import { getSessionIdentity } from "@/features/households/server/queries";
+import { getSession } from "@/lib/auth/session";
 import { Brand } from "./brand";
 import { BottomNav } from "./bottom-nav";
 import { NewTransactionFab } from "./new-transaction-fab";
@@ -12,6 +15,7 @@ import { ThemeToggle } from "./theme-toggle";
 // (ShellBackdrop), recolhível pela alça na borda. Celular (abaixo de 768 px): cabeçalho e barra
 // inferior de vidro e o botão flutuante de novo lançamento. O conteúdo é sempre sólido (ADR-008).
 // O estado do menu vem do cookie, lido aqui no servidor, para a página já nascer do jeito certo.
+// M13.1: quem está na sessão no pé do menu lateral e no topo do celular (UserMenu).
 export async function AppShell({
   children,
   modal,
@@ -20,6 +24,10 @@ export async function AppShell({
   modal?: React.ReactNode;
 }) {
   const sidebar = parseSidebarState((await cookies()).get(SIDEBAR_COOKIE)?.value);
+  // Quem está na sessão (M13.1): as páginas conferem a sessão (requireUser); a casca só lê, e
+  // sem sessão (a página vai redirecionar) não mostra o menu
+  const session = await getSession();
+  const who = session ? await getSessionIdentity(session) : null;
 
   return (
     <SidebarProvider initial={sidebar}>
@@ -32,12 +40,15 @@ export async function AppShell({
           Pular para o conteúdo
         </a>
         <ShellBackdrop />
-        <Sidebar />
+        <Sidebar user={who ? <UserMenu who={who} placement="sidebar" /> : null} />
 
         <div className="flex min-w-0 flex-col">
           <header className="glass sticky top-0 z-30 flex h-14 items-center justify-between border-b px-4 md:hidden">
             <Brand />
-            <ThemeToggle />
+            <div className="flex items-center gap-1">
+              <ThemeToggle />
+              {who ? <UserMenu who={who} placement="header" /> : null}
+            </div>
           </header>
           <main
             id="conteudo"

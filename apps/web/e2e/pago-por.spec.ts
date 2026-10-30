@@ -339,6 +339,8 @@ test.describe("compras conjuntas em Ajustes > Contas", () => {
     const page = p.page;
 
     await openPage(page, "/ajustes/contas");
+    // M13.1: as ações do cartão ficam no menu "⋯" dele
+    await page.getByRole("button", { name: "Opções do cartão Visa do Caio" }).click();
     await page
       .getByRole("button", { name: "Marcar o cartão Visa do Caio como de compras conjuntas" })
       .click();

@@ -86,6 +86,10 @@ Projeto de portfólio construído em módulos (M00 a M12); cada módulo é uma m
 - v1.0.0 (M12.4b, adendo do ADR-024): a produção zerada e em uso real, os dados entrando pelo Meu Pluggy a partir
   do dia 1º do mês; as skills genéricas reescritas no repositório público `fintrack-skills` (MIT); o ZAP com
   progresso a cada minuto; o gitleaks do CI pela imagem presa pelo digest
+- v1.1.0 (M13.1, adendo do ADR-011, canvas linha L): Contas e cartões com os cartões como peças (quem usa nas
+  iniciais, as ações no menu "⋯", `ActionsMenu`), Editar cartão (portador, conjunta e o ambiente das compras do
+  banco em qualquer cartão; o final não muda) e quem está na sessão no pé do menu lateral e no topo do celular,
+  com o Sair (`features/auth/ui/user-menu.tsx`)
 
 Regras específicas do Next.js 16: @apps/web/AGENTS.md
 

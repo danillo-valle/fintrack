@@ -171,6 +171,7 @@ export type DomainErrorCode =
   | "TRANSFER_READONLY" // transferência não se edita: exclua e lance de novo
   | "SAME_ACCOUNT" // transferência da conta para ela mesma
   | "CARD_HOLDER_OUTSIDE_HOUSEHOLD" // portador do cartão precisa ser do lar
+  | "CARD_WALLET_WITHOUT_HOLDER" // M13.1: o ambiente de entrada precisa ter o portador
   // ── Parcelas e despesas fixas (M07.4) ──
   | "INSTALLMENTS_NEED_CREDIT_CARD" // só compra no cartão de crédito é parcelada
   | "CARD_CYCLE_MISSING" // o cartão não tem dia de fechamento e vencimento cadastrados
