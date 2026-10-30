@@ -78,6 +78,8 @@ const DOMAIN_ERROR_MESSAGE: Record<DomainErrorCode, string> = {
     "Transferência não se edita: exclua (dá para desfazer) e lance de novo com os dados certos.",
   SAME_ACCOUNT: "Escolha duas contas diferentes.",
   CARD_HOLDER_OUTSIDE_HOUSEHOLD: "O portador do cartão precisa ser uma pessoa do seu lar.",
+  CARD_WALLET_WITHOUT_HOLDER:
+    "Quem usa o cartão não participa desse ambiente. Escolha um ambiente de que ele participa.",
   INSTALLMENTS_NEED_CREDIT_CARD:
     'Só compra no cartão de crédito é parcelada. Escolha um cartão em "Pago com".',
   CARD_CYCLE_MISSING:
@@ -153,6 +155,7 @@ export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
   "card.created": "cadastrou um cartão",
   "card.archived": "arquivou ou desarquivou um cartão",
   "card.shared_purchases_changed": "marcou ou desmarcou um cartão como de compras conjuntas",
+  "card.updated": "editou um cartão",
   "installment_purchase.created": "lançou uma compra parcelada",
   "category.created": "criou uma categoria",
   "category.archived": "arquivou ou restaurou uma categoria",

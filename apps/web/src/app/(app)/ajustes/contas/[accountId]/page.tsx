@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CheckCircle2, CreditCard, Plus } from "lucide-react";
-import { ActionButton } from "@/components/feedback/action-button";
+import { CheckCircle2, Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
-import { IconTile } from "@/components/visual/icon-tile";
-import { setCardArchivedAction } from "@/features/accounts/server/actions";
+import { cardView } from "@/features/accounts/card-view";
 import { getCardFormPage } from "@/features/accounts/server/queries";
+import { CardTile } from "@/features/accounts/ui/card-tile";
 import { getAccountCardsPage } from "@/features/bank/server/review";
 import { FinalForm } from "@/features/bank/ui/review/final-form";
 import { notFoundOnDenied } from "@/lib/access";
@@ -17,14 +16,18 @@ export const metadata: Metadata = { title: "Conta" };
 
 // Uma conta em Ajustes › Contas (M09.2, prancha E2-Finais): os cartões da fatura e, quando o
 // banco mandou compras de um final que não está cadastrado (um adicional novo), o formulário que
-// cadastra o cartão e leva essas compras para o portador e o ambiente certos.
+// cadastra o cartão e leva essas compras para o portador e o ambiente certos. M13.1: os cartões
+// como peças, iguais aos da lista, com o menu "⋯" (Editar, conjunta, Arquivar).
 export default async function AccountCardsPage({
   params,
   searchParams,
 }: PageProps<"/ajustes/contas/[accountId]">) {
   const session = await requireUser(); // toda página do app começa conferindo a sessão
   const { accountId } = await params;
-  const moved = Number.parseInt(String((await searchParams).movidos ?? ""), 10);
+  const query = await searchParams;
+  const moved = Number.parseInt(String(query.movidos ?? ""), 10);
+  // M13.1: voltou do Editar cartão (?editado=<cartão>), e não do Adicionar
+  const edited = typeof query.editado === "string";
   const page = await getAccountCardsPage(session, accountId).catch(notFoundOnDenied);
   const { account } = page;
   const credit = account.kind === "CREDIT_CARD";
@@ -60,12 +63,12 @@ export default async function AccountCardsPage({
       {Number.isInteger(moved) && moved >= 0 ? (
         <p role="status" className="text-income mb-4 flex items-center gap-2 text-sm font-semibold">
           <CheckCircle2 aria-hidden className="size-[1.125rem]" />
-          Cartão cadastrado.{" "}
+          {edited ? "Cartão atualizado." : "Cartão cadastrado."}{" "}
           {moved === 0
             ? ""
             : moved === 1
-              ? "1 recebido foi para ele."
-              : `${moved} recebidos foram para ele.`}
+              ? `1 recebido foi para ${edited ? "o novo ambiente" : "ele"}.`
+              : `${moved} recebidos foram para ${edited ? "o novo ambiente" : "ele"}.`}
         </p>
       ) : null}
       <section
@@ -78,49 +81,16 @@ export default async function AccountCardsPage({
         {account.cards.length === 0 ? (
           <p className="text-muted-foreground text-sm">Nenhum cartão cadastrado.</p>
         ) : (
-          <ul className="divide-y">
+          <ul aria-label="Cartões desta conta" className="grid grid-cols-1 gap-3 md:grid-cols-2">
             {account.cards.map((c) => (
-              <li
+              <CardTile
                 key={c.id}
-                className="grid grid-cols-[2.125rem_minmax(0,1fr)_auto] items-center gap-3 py-3"
-              >
-                <IconTile
-                  tone="neutral"
-                  icon={CreditCard}
-                  size="sm"
-                  className="size-[2.125rem] rounded-[0.625rem]"
-                />
-                <span className="flex min-w-0 flex-col">
-                  <strong className="text-[0.9375rem] break-words">
-                    {c.nickname}
-                    {c.archivedAt ? (
-                      <span className="text-muted-foreground font-normal"> (arquivado)</span>
-                    ) : null}
-                  </strong>
-                  <span className="text-muted-foreground text-[0.8125rem]">
-                    <span className="tabular">final {c.lastFour}</span>
-                    {c.holder ? ` · ${c.holder.name}` : ""} ·{" "}
-                    {c.isAdditional ? "adicional" : "titular"}
-                    {c.importWallet ? ` · compras em: ${c.importWallet.name}` : ""}
-                  </span>
-                </span>
-                {page.canManage ? (
-                  <ActionButton
-                    action={setCardArchivedAction}
-                    fields={{
-                      walletId: account.walletId,
-                      cardId: c.id,
-                      archived: c.archivedAt ? "false" : "true",
-                    }}
-                    label={`${c.archivedAt ? "Desarquivar" : "Arquivar"} o cartão ${c.nickname}`}
-                    variant="outline"
-                  >
-                    {c.archivedAt ? "Desarquivar" : "Arquivar"}
-                  </ActionButton>
-                ) : (
-                  <span />
-                )}
-              </li>
+                card={cardView(c, account.holderId, page.people)}
+                walletId={account.walletId}
+                accountId={account.id}
+                canManage={page.canManage}
+                back="conta"
+              />
             ))}
           </ul>
         )}

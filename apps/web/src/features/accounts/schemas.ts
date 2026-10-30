@@ -83,6 +83,32 @@ export const cardSchema = z.object({
     .transform((v) => v === "on"),
 });
 
+/**
+ * Editar cartão (M13.1, prancha L-EditarCartao): tudo menos o final. O ambiente de entrada vem do
+ * select: "padrao" = a regra padrão (nulo no banco), ou o id de um ambiente do lar.
+ */
+export const editCardSchema = z.object({
+  walletId: z.uuid(),
+  cardId: z.uuid(),
+  nickname: displayName("ao cartão"),
+  brand: textField()
+    .trim()
+    .min(2, "Informe a bandeira (ex.: Visa).")
+    .max(30, "Use no máximo 30 caracteres."),
+  form: z.enum(["PHYSICAL", "VIRTUAL", "VIRTUAL_TEMPORARY"]),
+  volta: z.enum(["contas", "conta"]).default("contas"),
+  holderId: textField().min(1, "Escolha quem usa o cartão.").max(100),
+  importWalletId: z.union([z.literal("padrao"), z.uuid("Escolha o ambiente.")]).default("padrao"),
+  isAdditional: z
+    .literal("on")
+    .optional()
+    .transform((v) => v === "on"),
+  sharedPurchases: z
+    .literal("on")
+    .optional()
+    .transform((v) => v === "on"),
+});
+
 export const cardSharedSchema = z.object({
   walletId: z.uuid(),
   cardId: z.uuid(),

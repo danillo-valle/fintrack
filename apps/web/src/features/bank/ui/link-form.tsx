@@ -6,6 +6,7 @@
 // "Compras do final 0003 (Caio) entram em [ambiente]" (padrão: o ambiente pessoal dela).
 // E a data de corte: nada do banco antes dela entra.
 import { useState } from "react";
+import { firstNameOf } from "@fintrack/core";
 import { CheckCircle2, CreditCard, Landmark, MoveRight } from "lucide-react";
 import { ActionForm } from "@/components/feedback/action-form";
 import { FieldError } from "@/components/ui/field";
@@ -70,7 +71,7 @@ function defaultChoice(b: LinkFormData["bank"][number]): string {
   return b.kind === "SAVINGS" ? "skip" : "new";
 }
 
-const firstName = (name: string | null) => (name ?? "").split(" ")[0] || "outra pessoa";
+const firstName = (name: string | null) => firstNameOf(name ?? "") || "outra pessoa";
 
 /** Mínimo da data de corte: 12 meses atrás (o que o banco guarda de cartão). */
 function minDate(today: string) {

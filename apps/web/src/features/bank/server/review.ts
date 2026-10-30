@@ -1,7 +1,7 @@
 // Leituras da revisão dos recebidos (M09.2, linha E.2 do canvas). Tudo parte do escopo de quem
 // está logado: a fila mostra o que a pessoa vê; pares, estornos e "Confirmar" só onde ela edita.
 import "server-only";
-import { canInHousehold } from "@fintrack/core";
+import { canInHousehold, householdPeople } from "@fintrack/core";
 import {
   authorizeAccountView,
   authorizeWallet,
@@ -164,11 +164,13 @@ export async function getAccountCardsPage(session: Session, accountId: string) {
             nickname: true,
             brand: true,
             lastFour: true,
+            form: true,
             isAdditional: true,
+            sharedPurchases: true,
             archivedAt: true,
             holderId: true,
             holder: { select: { name: true } },
-            importWallet: { select: { name: true } },
+            importWallet: { select: { name: true, kind: true } },
           },
         },
       },
@@ -177,7 +179,7 @@ export async function getAccountCardsPage(session: Session, accountId: string) {
     prisma.householdMember.findMany({
       where: { householdId: access.grant.wallet.wallet.householdId },
       orderBy: { joinedAt: "asc" },
-      select: { userId: true, user: { select: { name: true } } },
+      select: { userId: true, joinedAt: true, user: { select: { name: true } } },
     }),
     // Os recebidos sem cartão com o final que o banco mandou (de qualquer ambiente: o titular vê
     // a fatura inteira, regra do M04)
@@ -201,7 +203,8 @@ export async function getAccountCardsPage(session: Session, accountId: string) {
       details.connection?.items.find((i) => i.institution)?.institution ??
       null,
     canManage: manage.ok,
-    people: members.map((m) => ({ userId: m.userId, name: m.user.name })),
+    // Com as iniciais e a cor do "Pago por" (M13.1: quem usa cada cartão)
+    people: householdPeople(members),
     me: session.user.id,
     finals: pending
       .filter((p) => p.providerCardLastFour && !registered.has(p.providerCardLastFour))
