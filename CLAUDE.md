@@ -77,6 +77,12 @@ Projeto de portfólio construído em módulos (M00 a M12); cada módulo é uma m
   `docs/arquitetura/fluxo.json`, conferido no `pnpm check`), o C4 em Mermaid (`docs/arquitetura/c4.md`),
   o site "FinTrack por dentro" no GitHub Pages (job `site` e `pagina` do CI), os ADRs revisados, o
   runbook de incidente (`docs/operacao/incidente.md`) e o relatório com nota (`docs/arquitetura/relatorio.md`)
+- Preparação para os dados reais (M12.4a, ADR-024): `fintrack-zerar` (apaga os dados do app e mantém os logins;
+  `deploy/sql/zerar.sql`, a auditoria só aceita o TRUNCATE dele), backup com manifesto e
+  `fintrack-restore-test --completo` (tabela a tabela e o app sobre o banco restaurado), `fintrack-alerta` (eventos
+  de segurança acima do limite avisam o Healthchecks a cada 15 min) e o ZAP ativo numa cópia local
+  (`scripts/zap/copia-local.sh`). Texto de fora é limpo na entrada, antes de conferir: `textField()` nos
+  schemas, `cleanText` (`@fintrack/core`) na URL, no bot e nos importadores
 
 Regras específicas do Next.js 16: @apps/web/AGENTS.md
 
@@ -102,6 +108,8 @@ Regras específicas do Next.js 16: @apps/web/AGENTS.md
 - `pnpm whatsapp:fake` sobe a Cloud API do WhatsApp de mentira em http://127.0.0.1:8789 (o papel da Meta e
   da pessoa que escreve para o bot; veja a skill `bot-whatsapp`)
 - `pnpm telegram:fake` sobe o Telegram de mentira em http://127.0.0.1:8790 (o papel da Bot API e da pessoa)
+- `bash scripts/zap/copia-local.sh` roda a varredura ATIVA do ZAP numa cópia local descartável (precisa do Docker;
+  antes de cada versão grande, M12.4)
 - `bash scripts/zap/varrer.sh http://localhost:3000 relatorios-zap [cookie]` roda a varredura passiva do ZAP
   (a mesma do CI; precisa do Docker e do build de produção no ar, não do `pnpm dev`: runbook, "Segurança")
 - `bash scripts/lighthouse-a11y.sh` mede a acessibilidade com o Lighthouse (precisa do `pnpm dev`)

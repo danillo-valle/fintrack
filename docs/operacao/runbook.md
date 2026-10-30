@@ -22,19 +22,23 @@ alias ft='sudo -u fintrack'   # ft fintrack-status, ft fintrack-compose ps ...
 | Backups locais                       | `/srv/fintrack/backups/` (14 diários, 5 pré-deploy, 10 manuais) |
 | Backups fora de casa                 | Google Drive, pasta `fintrack-backups` (30 dias)                |
 | Histórico de deploys e restaurações  | `/srv/fintrack/estado/deploys.log`, `restauracoes.log`          |
+| Alertas de segurança e o zerar       | `/srv/fintrack/estado/alertas.log`, `zerar.log` (M12.4)         |
 | Arquivos de deploy (não edite à mão) | `/srv/fintrack/repo/deploy/` (reescrita a cada deploy)          |
 | Ajustes só desta máquina             | `/srv/fintrack/compose.override.yml` (opcional)                 |
 
-| Comando                                | Para quê                                                        |
-| -------------------------------------- | --------------------------------------------------------------- |
-| `fintrack-status`                      | Tudo numa tela: versão, saúde, deploys, backups                 |
-| `fintrack-compose <args>`              | O `docker compose` da produção (ps, logs, exec...)              |
-| `fintrack-deploy <commit> [--force]`   | Põe um commit no ar (com backup e volta automática)             |
-| `fintrack-backup [manual]`             | Backup agora                                                    |
-| `fintrack-restore-test [--do-drive]`   | Prova que um backup restaura (num banco temporário)             |
-| `fintrack-restore-test <arq> --manter` | O mesmo, deixando o banco no ar para comparar (`--apagar` tira) |
-| `fintrack-restore-prod <arquivo>`      | Restaura a PRODUÇÃO (desastre)                                  |
-| `deploy/bin/smoke-test <endereço>`     | Teste de fumaça de qualquer máquina, sem login                  |
+| Comando                                | Para quê                                                                        |
+| -------------------------------------- | ------------------------------------------------------------------------------- |
+| `fintrack-status`                      | Tudo numa tela: versão, saúde, deploys, backups                                 |
+| `fintrack-compose <args>`              | O `docker compose` da produção (ps, logs, exec...)                              |
+| `fintrack-deploy <commit> [--force]`   | Põe um commit no ar (com backup e volta automática)                             |
+| `fintrack-backup [manual]`             | Backup agora                                                                    |
+| `fintrack-restore-test [--do-drive]`   | Prova que um backup restaura (num banco temporário)                             |
+| `fintrack-restore-test <arq> --manter` | O mesmo, deixando o banco no ar para comparar (`--apagar` tira)                 |
+| `fintrack-restore-test --completo`     | De ponta a ponta: manifesto tabela a tabela e o app no ar sobre o banco (M12.4) |
+| `fintrack-restore-prod <arquivo>`      | Restaura a PRODUÇÃO (desastre)                                                  |
+| `fintrack-alerta [--teste]`            | Alerta dos eventos de segurança (o timer roda a cada 15 min)                    |
+| `fintrack-zerar [--ensaio]`            | Apaga os dados do app e mantém os logins (M12.4, ADR-024)                       |
+| `deploy/bin/smoke-test <endereço>`     | Teste de fumaça de qualquer máquina, sem login                                  |
 
 ## Ver o estado
 
@@ -131,18 +135,57 @@ O app pode estar saudável e a frente parada. `sudo -u fintrack fintrack-compose
 - **Manual**, antes de algo arriscado: `sudo -u fintrack fintrack-backup manual`
 - **Conferir o Drive:** `sudo -u fintrack rclone --config /srv/fintrack/rclone.conf lsl gdrive-fintrack:fintrack-backups | tail`
 
+Cada backup tem, desde o M12.4, um **manifesto** ao lado (`fintrack-...manifest.age`, também no
+Drive): quantas linhas cada tabela tinha, cifrado com a mesma chave. As contagens são feitas antes
+e depois do `pg_dump`; se o banco mudou no meio, o backup é refeito. "backup gravado sem
+manifesto" no log quer dizer que o banco mudou nas duas tentativas (rode `fintrack-backup manual`
+de novo num momento calmo).
+
 ### Teste de restauração (todo mês, no dia 1º)
 
 ```bash
-sudo -u fintrack fintrack-restore-test --do-drive   # prova a cópia de fora de casa
+sudo -u fintrack fintrack-restore-test --do-drive --completo   # de ponta a ponta, desde o M12.4
 ```
 
-Cole a chave privada quando pedir (do gerenciador de senhas). O resultado fica em
-`/srv/fintrack/estado/restauracoes.log`. Um backup que nunca foi restaurado não é um backup.
+Cole a chave privada quando pedir (do gerenciador de senhas). O teste baixa o backup mais novo do
+Drive e o manifesto dele, restaura num banco temporário, confere cada tabela contra o manifesto e
+liga o app da versão no ar sobre esse banco, numa rede interna do Docker (sem internet, filas
+desligadas), exigindo o `/api/health` e o `/entrar`. O resultado fica em
+`/srv/fintrack/estado/restauracoes.log` (`completo=OK`). Um backup que nunca foi restaurado não é
+um backup.
+
+| Mensagem                                     | O que fazer                                                                                                   |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `--completo precisa do manifesto do backup`  | Backup anterior ao M12.4, ou gravado sem manifesto: `fintrack-backup manual` e rode o teste sem `--do-drive`  |
+| `Manifesto: diferente` (com as tabelas)      | O backup não traz o que o banco tinha: guarde a saída, não apague o backup e faça um `fintrack-backup manual` |
+| `a imagem do app no ar não está no servidor` | `sudo -u fintrack fintrack-compose pull web` e rode de novo                                                   |
+| `App: /api/health não respondeu ok`          | O app não sobe sobre o banco restaurado: `docker logs fintrack-restore-web` antes do fim, com `--manter`      |
 
 O banco temporário some no fim, **com o volume dele** (desde o M12.3b: antes, o `docker rm` sem o
 `-v` deixava o banco decifrado num volume órfão do Docker). Num incidente, `--manter` deixa o banco
 no ar, sem rede, para comparar com a produção, e `--apagar` o tira (runbook de incidente).
+
+## Zerar a produção (M12.4, ADR-024)
+
+Apaga **todos os dados do app** e mantém só os logins (as pessoas, as senhas, o 2FA, as passkeys
+e as sessões): lares, carteiras, contas, lançamentos, faturas, conexões, o bot, a auditoria, os
+trabalhos da fila e os modelos do classificador. Depois, cada pessoa entra como no primeiro acesso.
+Feito uma vez, na virada para os dados reais (M12.4b).
+
+```bash
+# 1. Ensaio, nunca na produção: uma cópia do backup mais novo, zerada
+sudo -u fintrack fintrack-restore-test --manter
+sudo -u fintrack fintrack-zerar --ensaio
+sudo -u fintrack fintrack-restore-test --apagar
+
+# 2. De verdade: pede "ZERAR O FINTRACK", faz o backup manual antes (o caminho de volta), para o
+#    app, apaga numa transação só, apaga os modelos e liga o app de novo
+sudo -u fintrack fintrack-zerar
+```
+
+Para voltar ao que era: `fintrack-restore-prod` com o backup que o zerar mostrou no fim (também
+em `/srv/fintrack/estado/zerar.log`). A lista do que fica está em `deploy/sql/zerar.sql`; ele
+confere no fim, dentro da transação, que só os logins ficaram (senão desfaz tudo).
 
 ## Restaurar a produção (desastre)
 
@@ -489,6 +532,47 @@ login e no 2FA), e sem o código do 2FA a senha sozinha não entra. Se continuar
 senha da conta visada (a troca derruba as sessões) e, na Cloudflare, bloqueie o IP em Security ›
 WAF › Tools (grátis).
 
+### O alerta automático (M12.4)
+
+O `fintrack-alerta` roda a cada 15 minutos (`fintrack-alerta.timer`), conta os eventos acima nos
+últimos 15 minutos e avisa o Healthchecks.io (a verificação "segurança", com `HC_SEGURANCA_URL` em
+`operacao.env`): acima de um limite, `/fail` com um texto só com o evento, a quantidade e o limite;
+abaixo, "ok". O e-mail é do Healthchecks; o texto aparece no painel dele, no último ping. Sem o
+endereço, o alerta fica desligado (o `fintrack-status` mostra).
+
+| Limite (`operacao.env`)                  | Padrão em 15 min |
+| ---------------------------------------- | ---------------- |
+| `ALERTA_AUTH_FAILED`                     | 10               |
+| `ALERTA_AUTH_RATE_LIMITED`               | 1                |
+| `ALERTA_AUTH_ORIGIN_REJECTED`            | 1                |
+| `ALERTA_ACCESS_DENIED`                   | 1                |
+| `ALERTA_AUTH_PASSWORD_CHECK_UNAVAILABLE` | 3                |
+| `ALERTA_WEBHOOK_REJECTED`                | 20               |
+
+Chegou o e-mail: rode `sudo -u fintrack fintrack-status` e os comandos acima (quem, de que IP).
+O Healthchecks volta a "ok" sozinho no próximo ciclo sem eventos acima do limite. Para conferir o
+caminho do e-mail: `sudo -u fintrack fintrack-alerta --teste` (e depois `fintrack-alerta`). Os
+acionamentos ficam em `/srv/fintrack/estado/alertas.log`.
+
+### Varredura ativa do ZAP (cópia local, M12.4)
+
+Antes de cada versão grande, no servidor (precisa do Docker e do Node, como o desenvolvimento):
+
+```bash
+cd ~/dev/fintrack && bash scripts/zap/copia-local.sh   # até 30 min por rodada (ZAP_ATIVO_MINUTOS)
+```
+
+Sobe uma cópia descartável (banco em memória, imagem `:main`, só no 127.0.0.1:3100), cria a
+conta de teste e o seed, ataca sem sessão e com sessão e apaga tudo no fim. Relatórios em
+`relatorios-zap-ativo/`. O critério é o mesmo do CI (risco Baixo ou maior); um alerta novo segue
+o mesmo caminho da seção abaixo, e o resultado fica no documento do OWASP.
+
+O ZAP não acusa um erro 500 que não mostra detalhe; por isso a cópia também conta os
+`request.error` do log do app durante o ataque e grava `relatorios-zap-ativo/erros-do-app.txt` (só
+quantas vezes e o caminho). Uma linha ali é um defeito: um pedido estranho derrubou uma tela. Foi
+assim que o caractere nulo na busca apareceu no M12.4a. Reproduza com o caminho do arquivo e um
+valor estranho em cada parâmetro, corrija na entrada (skill `seguranca`, regra 11) e rode de novo.
+
 ### O CI barrou o PR por causa do ZAP
 
 O passo "Varredura do ZAP…" do job `imagem` lista os alertas no fim (`varrer: alertas`). O
@@ -594,6 +678,8 @@ curl -sI https://danillo-valle.github.io/fintrack/ | head -1              # 200:
 | UptimeRobot: FinTrack fora do ar     | O `/api/health` público não respondeu ok    | Luz/internet de casa? Depois `fintrack-status`    |
 | Healthchecks: backup diário atrasado | O backup das 03:30 não rodou ou falhou      | `journalctl -u fintrack-backup --since yesterday` |
 | Healthchecks: deploy (falha)         | Um deploy falhou e a versão anterior voltou | "Um deploy falhou", acima                         |
+| Healthchecks: segurança (falha)      | Eventos de segurança acima do limite        | "O alerta automático", acima                      |
+| Healthchecks: segurança (atrasado)   | O `fintrack-alerta` parou de rodar          | `systemctl list-timers 'fintrack-*'`              |
 
 ## Disco cheio
 

@@ -120,3 +120,11 @@ regra de crescimento; o banco tem 42 tabelas e cada regra de integridade segue c
 
 - A tela ainda chama `Wallet` de "Ambiente" em umas telas e "Carteira" em outras (a Ajuda explica
   que são a mesma coisa). Um nome só é decisão do Danillo (pendências do README).
+
+## Adendo do M12.4a (29/10/2026)
+
+A auditoria (`audit_log`) continua só de acréscimo, com uma saída estreita: o `fintrack-zerar` a
+esvazia junto com os outros dados do app, por um `TRUNCATE` que só passa com a marca
+`fintrack.zerar` ligada na própria transação. `UPDATE` e `DELETE` seguem recusados sempre. A
+migração `*_zerar_auditoria` troca só a função do gatilho. Detalhes no
+[ADR-024](0024-preparacao-para-dados-reais.md).

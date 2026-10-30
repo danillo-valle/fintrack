@@ -176,23 +176,32 @@ mudou).
 ## Pendências consolidadas
 
 As pendências dos ADRs e do OWASP, numa lista só, por prioridade. O README dos ADRs tem a mesma
-lista.
+lista. As notas acima são as de 28/10; o que foi feito depois fica marcado aqui, sem mudar a nota.
 
-| #   | Pendência                                                                  | Onde             | Prioridade |
-| --- | -------------------------------------------------------------------------- | ---------------- | ---------- |
-| 1   | Varredura ativa do ZAP numa cópia local, antes da v1.0.0                   | OWASP 6          | Alta       |
-| 2   | Alerta automático para eventos de segurança (`auth.failed`, limite)        | OWASP 1          | Alta       |
-| 3   | Formulários de entrada como Server Actions (sem o cliente do Better Auth)  | ADR-003          | Média      |
-| 4   | Quebrar `packages/db/src/bot.ts`, `review.ts` e `budget/server/queries.ts` | Relatório 2      | Média      |
-| 5   | Recorrências lançadas pela fila todo dia 1º (hoje é um botão)              | ADR-007          | Média      |
-| 6   | Dependabot × Renovate, com digest nas imagens-base                         | ADR-016, OWASP 3 | Média      |
-| 7   | Atestado de origem das imagens do GHCR                                     | OWASP 2          | Média      |
-| 8   | Busca por texto sem acento (`unaccent`)                                    | ADR-007          | Baixa      |
-| 9   | Editar ou excluir uma compra parcelada inteira                             | ADR-009          | Baixa      |
-| 10  | O React #418 depois de um envio antes do React (conferir no Next 16.4.3)   | ADR-010          | Baixa      |
-| 11  | Perfil do PDF do banco do Danillo                                          | ADR-014          | Baixa      |
-| 12  | "Ambiente" × "Carteira": um nome só na tela (decisão do Danillo)           | ADR-004          | Baixa      |
-| 13  | Tirar o `turbopackFileSystemCacheForDev: false` quando o Next corrigir     | ADR-021          | Baixa      |
-| 14  | E-mail de "novo acesso" em aparelho novo                                   | OWASP 4          | Baixa      |
-| 15  | Limite do código de vínculo por remetente                                  | OWASP 5          | Baixa      |
-| 16  | A exceção do OSV para o `deepmerge` (rever até 31/01/2027)                 | ADR-020          | Data       |
+**Depois da avaliação (M12.4a, 29/10).** As duas de prioridade alta foram feitas antes da v1.0.0
+(ADR-024): o `fintrack-alerta` avisa pelo Healthchecks quando um evento de segurança passa do
+limite, e a varredura ativa do ZAP roda numa cópia local descartável (`scripts/zap/copia-local.sh`),
+com o resultado no documento do OWASP. A varredura achou um defeito, corrigido no mesmo módulo: um
+caractere nulo na busca derrubava a lista (erro 500); na revisão de todas as entradas de texto,
+apareceu também um invisível que escondia um cartão do bot. Todo texto de fora passou a ser limpo
+na entrada (`cleanText`, `textField()`), e a cópia local passou a contar os erros do app durante o
+ataque.
+
+| #   | Pendência                                                                  | Onde             | Prioridade     |
+| --- | -------------------------------------------------------------------------- | ---------------- | -------------- |
+| 1   | Varredura ativa do ZAP numa cópia local, antes da v1.0.0                   | OWASP 6          | Feita (M12.4a) |
+| 2   | Alerta automático para eventos de segurança (`auth.failed`, limite)        | OWASP 1          | Feita (M12.4a) |
+| 3   | Formulários de entrada como Server Actions (sem o cliente do Better Auth)  | ADR-003          | Média          |
+| 4   | Quebrar `packages/db/src/bot.ts`, `review.ts` e `budget/server/queries.ts` | Relatório 2      | Média          |
+| 5   | Recorrências lançadas pela fila todo dia 1º (hoje é um botão)              | ADR-007          | Média          |
+| 6   | Dependabot × Renovate, com digest nas imagens-base                         | ADR-016, OWASP 3 | Média          |
+| 7   | Atestado de origem das imagens do GHCR                                     | OWASP 2          | Média          |
+| 8   | Busca por texto sem acento (`unaccent`)                                    | ADR-007          | Baixa          |
+| 9   | Editar ou excluir uma compra parcelada inteira                             | ADR-009          | Baixa          |
+| 10  | O React #418 depois de um envio antes do React (conferir no Next 16.4.3)   | ADR-010          | Baixa          |
+| 11  | Perfil do PDF do banco do Danillo                                          | ADR-014          | Baixa          |
+| 12  | "Ambiente" × "Carteira": um nome só na tela (decisão do Danillo)           | ADR-004          | Baixa          |
+| 13  | Tirar o `turbopackFileSystemCacheForDev: false` quando o Next corrigir     | ADR-021          | Baixa          |
+| 14  | E-mail de "novo acesso" em aparelho novo                                   | OWASP 4          | Baixa          |
+| 15  | Limite do código de vínculo por remetente                                  | OWASP 5          | Baixa          |
+| 16  | A exceção do OSV para o `deepmerge` (rever até 31/01/2027)                 | ADR-020          | Data           |

@@ -29,6 +29,7 @@ Leia antes: `docs/adr/0005-hospedagem-e-deploy.md` (decisões) e `docs/operacao/
 | Porta de entrada, HSTS, IP do visitante | `deploy/caddy/Caddyfile`                                   |
 | Scripts de operação                     | `deploy/bin/` (todos usam `deploy/bin/lib.sh`)             |
 | Agendamentos                            | `deploy/systemd/*.timer`                                   |
+| SQL dos scripts (M12.4)                 | `deploy/sql/zerar.sql`, `contagens.sql`                    |
 | Modelos das variáveis de produção       | `deploy/env/*.example` (sem valores reais)                 |
 | Saúde                                   | `apps/web/src/lib/health.ts` (puro) e `database-health.ts` |
 | CSP com nonce                           | `apps/web/src/lib/security-headers.ts` + `src/proxy.ts`    |
@@ -62,9 +63,17 @@ Leia antes: `docs/adr/0005-hospedagem-e-deploy.md` (decisões) e `docs/operacao/
    `shellcheck -x` limpo, sem `eval`. Mexeu? Rode o shellcheck e ensaie (o CI só confere sintaxe).
 9. **Nunca** sugira à pessoa: `fintrack-compose down -v`, apagar o volume `fintrack-prod_db-data`,
    editar arquivos em `/srv/fintrack/repo` (o deploy descarta), runner self-hosted do GitHub,
-   ou rodar o seed na produção sem que ela peça (`SEED_TARGET_HOST=db`).
+   ou rodar o seed na produção sem que ela peça (`SEED_TARGET_HOST=db`). O `fintrack-zerar` (sem
+   `--ensaio`) só quando ela pedir, e sempre depois do ensaio (M12.4, ADR-024).
 10. **Antes de dizer que pronto**: `pnpm check`, `pnpm e2e` e, se mexeu em imagem ou deploy,
     `docker build --target web .` e `deploy/bin/smoke-test` contra o container.
+11. **Backup e zerar (M12.4)**: tabela nova de login entra na lista do que fica no
+    `deploy/sql/zerar.sql` (o teste `zerar.integration.test.ts` confere); tabela nova do domínio
+    sai sozinha. Mudou o que o backup guarda? O manifesto (`contagens.sql`) e o
+    `fintrack-restore-test --completo` continuam a prova; nunca tire a conferência de estabilidade.
+12. **Alerta (M12.4)**: evento de segurança novo no log entra no `SECURITY_EVENTS` do `lib.sh` (e
+    no `fintrack-alerta` com o limite), na tabela do runbook e no OWASP A09. O texto do alerta
+    leva só nome do evento, quantidade e limite.
 
 ## Coleta bancária (M09.1, ADR-011)
 
