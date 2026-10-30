@@ -18,7 +18,7 @@ Modelo para um ADR novo: copie `0001-stack-e-monorepo.md` e troque o conteúdo.
 | 008 | [Visual "Elétrico" com vidro só na moldura](0008-visual-eletrico.md)                                                        | aceita | vale                         |
 | 009 | ["Pago por", ambientes, parcelas e despesas fixas](0009-pago-por-parcelas-e-fixas.md)                                       | aceita | vale                         |
 | 010 | [Orçamento, painel e cache das somas](0010-orcamento-e-painel.md)                                                           | aceita | vale                         |
-| 011 | [Coleta bancária com o Meu Pluggy](0011-coleta-bancaria.md)                                                                 | aceita | vale                         |
+| 011 | [Coleta bancária com o Meu Pluggy](0011-coleta-bancaria.md)                                                                 | aceita | vale; adendo M13.1           |
 | 012 | [Revisão e reconciliação do que vem do banco](0012-revisao-e-reconciliacao.md)                                              | aceita | vale                         |
 | 013 | [Importar extrato OFX](0013-importar-extrato.md)                                                                            | aceita | vale                         |
 | 014 | [Fatura do cartão em PDF e o serviço Python](0014-fatura-em-pdf.md)                                                         | aceita | vale                         |

@@ -383,6 +383,24 @@ export const HELP_ARTICLES = [
         ],
       },
       {
+        kind: "p",
+        text: "Cada cartão aparece com as **iniciais de quem usa**, se é físico ou virtual, se é adicional e se é de compras conjuntas. Quando as compras do banco não entram no ambiente da conta, a última linha diz onde entram.",
+      },
+      { kind: "h", text: "Editar um cartão" },
+      {
+        kind: "steps",
+        items: [
+          "No cartão, toque em **⋯** e depois em **Editar cartão**.",
+          "Mude o apelido, a bandeira, o tipo, **quem usa**, se é adicional ou de compras conjuntas.",
+          "Em **Compras do banco entram em**, escolha o ambiente (a Casa, por exemplo). Só aparecem os ambientes de que quem usa participa.",
+          "Toque em **Salvar**. Os recebidos ainda não confirmados desse cartão vão para o ambiente escolhido; o que já foi confirmado não muda.",
+        ],
+      },
+      {
+        kind: "p",
+        text: "O final não se edita: outro final é outro cartão. No mesmo **⋯** ficam **Marcar como compras conjuntas** e **Arquivar**.",
+      },
+      {
         kind: "faq",
         q: "Criei a mesma conta duas vezes. E agora?",
         a: "Arquive a repetida. Ela some das escolhas, e os lançamentos dela continuam onde estão.",
@@ -548,6 +566,10 @@ export const HELP_ARTICLES = [
     summary: "Ver onde a sua conta está aberta e fechar o que não reconhecer.",
     screen: "/ajustes/seguranca",
     body: [
+      {
+        kind: "p",
+        text: "Quem está na sessão aparece sempre: as **iniciais** no pé do menu lateral (no computador) ou no canto de cima (no celular). Toque nelas para ver o nome e o e-mail, ir para Senha, 2FA e sessões ou **Sair** deste aparelho.",
+      },
       {
         kind: "p",
         text: "Em Ajustes › Segurança, a lista de **sessões** mostra cada aparelho com a conta aberta. **Encerrar** fecha uma; **Encerrar todas as outras** fecha todas menos a deste aparelho. Não reconheceu uma? Encerre e troque a senha.",

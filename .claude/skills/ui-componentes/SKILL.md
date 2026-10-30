@@ -28,6 +28,8 @@ description: Como construir telas e componentes no FinTrack com shadcn/ui, Tailw
 | Quem pagou (DV, NV, CP)                | `<PayerTile payer />` (texto na tinta `--chart-N-ink`)             | `src/features/transactions/ui/payer-tile.tsx`                           |
 | Filtro "Pago por"                      | `<PayerChips payers current hrefFor />` no `extra` da ListToolbar  | `src/features/transactions/ui/payer-chips.tsx`                          |
 | Bloco de uma página com título         | `<Section id title description>`                                   | `src/components/visual/section.tsx`                                     |
+| Ações de uma linha atrás do "⋯"        | `<ActionsMenu label>` + itens com `MENU_ITEM` (M13.1)              | `src/components/visual/actions-menu.tsx`                                |
+| Quem é uma pessoa (iniciais na cor)    | `<PersonAvatar initials tone size>` (M13.1)                        | `src/components/visual/person-avatar.tsx`                               |
 | Formulário por cima da página          | `<RouteModal title description footer>` numa rota `@modal/(.)rota` | `src/components/ui/route-modal.tsx` (exemplo: novo lançamento)          |
 | Formulário de lançamento               | `EntryProvider` + `EntryForm` + `EntrySubmit`/`EntryModalActions`  | `src/features/transactions/ui/entry/`                                   |
 | Erro                                   | `<ErrorState onRetry />` ou `error.tsx` da rota                    | `src/components/feedback/error-state.tsx`                               |
@@ -135,6 +137,16 @@ Regras do padrão:
 - **Sair dos avisos pelo teclado**: o `ToastKeyboard` (`src/components/feedback/toast-keyboard.tsx`, montado no `providers.tsx`) devolve o foco com anel para onde estava, recolhe a pilha e impede o Tab de girar entre o aviso e a página. Não remova.
 - **Campos com partes internas** (`type="date"`, `type="time"`): use `focus-within:` no anel, porque o botão interno do navegador não ativa o `focus-visible` do campo.
 - **Formulários**: valide no envio e leve o foco ao primeiro campo com erro. O erro de um campo some assim que ele fica válido; um erro novo só aparece no próximo envio.
+
+## Menu "⋯" (M13.1, prancha L)
+
+- Ações de uma linha (Editar, Marcar, Arquivar) vão para o `ActionsMenu`, não soltas na linha.
+  Cada item é um `ActionButton` com Server Action, e o aviso do resultado nasce dentro do
+  formulário: a lista fica sempre montada (só `hidden`) e continua aberta depois do envio, com o
+  aviso à vista. Esconder a lista no envio esconderia o aviso (o E2E pegou isso no M13.1).
+- Sem `role="menu"`: é uma lista de botões e links comuns que o Tab percorre. Esc e clique fora
+  fecham. O botão tem nome acessível completo ("Opções do cartão Master da casa").
+- Ação que apaga ou arquiva leva `confirm` (a pergunta aparece no lugar do item).
 
 ## Avisos (toast)
 

@@ -89,6 +89,9 @@ um endereço escolhido pelo atacante (SSRF, que entrou neste item em 2021).
   `lib/telegram/protocol.ts`); a resposta é a mesma para tudo, e nada é gravado sem a conferência.
 
 **Provas.** `apps/web/e2e/permissoes.spec.ts` (IDOR com duas pessoas, 404 idêntico);
+`apps/web/e2e/editar-cartao.spec.ts` (M13.1: editar o cartão de outra pessoa dá o mesmo 404, sem
+nenhum dado) e `packages/db/src/integration/editar-cartao.integration.test.ts` (o cartão de outra
+carteira, arquivado ou inventado responde igual; o portador e o ambiente são conferidos no banco);
 `packages/db/src/permissoes-doc.test.ts` (o `docs/permissoes.md` bate com a matriz);
 `apps/web/e2e/cabecalhos.spec.ts`, bloco "pedido de outra origem é recusado" (**novo no M12.1**:
 o mesmo pedido de uma Server Action é recusado com outra origem e grava com a origem do app; a
