@@ -33,12 +33,10 @@ chmod 700 "$work"
 ZAP_SEGREDO="$(openssl rand -base64 32)"
 export ZAP_SEGREDO FINTRACK_VERSION="${FINTRACK_VERSION:-main}"
 copia() { docker compose -p fintrack-zap -f "$here/compose.copia.yml" "$@"; }
-# shellcheck disable=SC2329  # chamada pelo trap
-cleanup() {
-  copia --profile tarefas down -v --remove-orphans >/dev/null 2>&1 || true
-  rm -rf "$work"
-}
-trap cleanup EXIT
+# Apaga a cópia e a pasta de trabalho no fim, aconteça o que acontecer. O comando fica no próprio
+# trap (aspas simples: o $work é lido na saída): uma função chamada só pelo trap vira aviso do
+# ShellCheck com um código diferente em cada versão (SC2317 até a 0.10, SC2329 na 0.11)
+trap 'copia --profile tarefas down -v --remove-orphans >/dev/null 2>&1 || true; rm -rf "$work"' EXIT
 
 say() { printf '\ncopia-local: %s\n' "$*"; }
 
