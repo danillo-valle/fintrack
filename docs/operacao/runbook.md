@@ -554,6 +554,24 @@ O Healthchecks volta a "ok" sozinho no próximo ciclo sem eventos acima do limit
 caminho do e-mail: `sudo -u fintrack fintrack-alerta --teste` (e depois `fintrack-alerta`). Os
 acionamentos ficam em `/srv/fintrack/estado/alertas.log`.
 
+Quando o aviso não chega ao Healthchecks, o script diz o motivo pelo código da resposta (nunca
+mostra o endereço, que é segredo):
+
+| Mensagem                        | O que fazer                                                                  |
+| ------------------------------- | ---------------------------------------------------------------------------- |
+| `recusou o aviso (400)`         | O endereço gravado está fora do formato: grave de novo (abaixo)              |
+| `não achou o check (404)`       | O check foi apagado ou o endereço é de outro: confira no painel e grave      |
+| `sem resposta`                  | Internet do servidor ou o Healthchecks fora; o curl explica na linha de cima |
+| `não consegui ler o log do app` | O app ou o Docker parado: `fintrack-status`; o e-mail já leva esse motivo    |
+
+Para gravar o endereço de novo (o `fintrack-definir` recusa um endereço colado duas vezes ou com
+um pedaço a mais) e ver o formato do que está gravado sem mostrar o código:
+
+```bash
+sudo -u fintrack fintrack-definir operacao.env HC_SEGURANCA_URL
+sudo -u fintrack bash -c '. /srv/fintrack/operacao.env; printf "%s" "$HC_SEGURANCA_URL" | sed -E "s/[0-9a-f]{4,}/<hex>/g" | cat -A; echo'
+```
+
 ### Varredura ativa do ZAP (cópia local, M12.4)
 
 Antes de cada versão grande, no servidor (precisa do Docker e do Node, como o desenvolvimento):

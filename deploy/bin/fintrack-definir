@@ -77,6 +77,12 @@ main() {
   if [ "$name" = TUNNEL_TOKEN ] && [ "$value" != nenhum ] && ! [[ "$value" =~ ^eyJ[A-Za-z0-9+/=_-]{100,}$ ]]; then
     die "isso não parece o token do túnel (${#value} caracteres). Cole só o texto depois de --token, que começa com eyJ"
   fi
+  # O endereço de ping do Healthchecks (HC_BACKUP_URL, HC_DEPLOY_URL, HC_SEGURANCA_URL): o campo
+  # escondido não mostra o que foi colado, e um endereço colado duas vezes ou com um pedaço a mais
+  # faz o Healthchecks recusar todo aviso (400). O tamanho ajuda a ver o que houve sem mostrar o valor
+  if [[ "$name" =~ ^HC_[A-Z_]+_URL$ ]] && ! [[ "$value" =~ $HC_URL_RE ]]; then
+    die "isso não parece um endereço de ping do Healthchecks (${#value} caracteres; o normal é 56, https://hc-ping.com/ e o código). Copie de novo só a coluna Ping URL, com uuid marcado, e cole uma vez"
+  fi
   # A chave do M09.1 é "versão:base64" (uma ou mais, separadas por vírgula; a primeira cifra)
   if [ "$name" = CONNECTION_SECRET_KEYS ] && ! [[ "$value" =~ ^[0-9]{1,3}:[A-Za-z0-9+/=]{40,}(,[0-9]{1,3}:[A-Za-z0-9+/=]{40,})*$ ]]; then
     die "isso não parece uma chave versionada (use --gerar-chave 1, ou cole 1:<base64 de 32 bytes>)"

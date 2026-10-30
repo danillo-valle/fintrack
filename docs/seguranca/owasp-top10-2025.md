@@ -341,7 +341,11 @@ proveniência da imagem.
   trocáveis em `operacao.env`), avisa o Healthchecks.io com `/fail`, que manda o e-mail. O texto
   leva só o nome do evento, a quantidade e o limite: nunca IP, e-mail ou caminho. Abaixo do limite,
   avisa "ok", e o Healthchecks também denuncia o alerta parado. A lista dos eventos é uma só
-  (`SECURITY_EVENTS` em `deploy/bin/lib.sh`), usada pelo status e pelo alerta.
+  (`SECURITY_EVENTS` em `deploy/bin/lib.sh`), usada pelo status e pelo alerta. Sem conseguir ler
+  o log, o alerta avisa `/fail` com o motivo; o `--teste` só diz que enviou quando o Healthchecks
+  respondeu 2xx, e o `fintrack-definir` recusa endereço de ping fora do formato. Tudo isso está
+  provado em `deploy/testes/operacao.test.sh`, no CI (revisão 3 do M12.4a: com zero eventos na
+  janela, o alerta falhava em vez de avisar "ok").
 - **Disponibilidade**: UptimeRobot no `/api/health` e Healthchecks.io no backup, no deploy e no
   alerta.
 

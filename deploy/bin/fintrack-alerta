@@ -48,15 +48,21 @@ main() {
   }
 
   if [ "${1:-}" = "--teste" ]; then
-    hc_ping "$HC_SEGURANCA_URL" /fail "Teste do alerta do FinTrack (fintrack-alerta --teste): nenhum evento real."
+    hc_ping "$HC_SEGURANCA_URL" /fail "Teste do alerta do FinTrack (fintrack-alerta --teste): nenhum evento real." \
+      || die "o teste NÃO chegou ao Healthchecks (o motivo está acima); nenhum e-mail vai chegar"
     log "alerta de teste enviado: o e-mail do Healthchecks deve chegar em alguns minutos"
     log "depois, rode fintrack-alerta sem --teste para o Healthchecks voltar a ok"
     return 0
   fi
   [ -z "${1:-}" ] || die "uso: fintrack-alerta [--teste]"
 
+  # Sem o log, o alerta não sabe se está tudo bem: avisa a falha logo, com o motivo no e-mail, em
+  # vez de deixar o Healthchecks perceber só pelo silêncio (45 minutos depois)
   local counts over="" count event limit
-  counts=$(security_event_counts "$WINDOW") || die "não consegui ler o log do app"
+  if ! counts=$(security_event_counts "$WINDOW"); then
+    hc_ping "$HC_SEGURANCA_URL" /fail "FinTrack: o alerta não conseguiu ler o log do app (veja: sudo -u fintrack fintrack-status)." || true
+    die "não consegui ler o log do app (o app está no ar? sudo -u fintrack fintrack-status)"
+  fi
   while read -r count event; do
     [ -n "$event" ] || continue
     limit=$(limit_for "$event")
@@ -66,12 +72,14 @@ main() {
   done <<< "$counts"
 
   if [ -n "$over" ]; then
-    local body
+    local body summary
+    summary=$(printf '%s' "$over" | paste -sd ';' -)
+    # O histórico e o aviso vêm antes do ping: ficam registrados mesmo se o Healthchecks falhar
+    printf '%s %s\n' "$(date -Is)" "$summary" >> "$STATE_DIR/alertas.log"
+    warn "eventos acima do limite: $summary"
     body="FinTrack: eventos de segurança acima do limite"$'\n'"$over"
     body+="Veja: sudo -u fintrack fintrack-status (e o runbook, seção Eventos de segurança)."
     hc_ping "$HC_SEGURANCA_URL" /fail "$body"
-    printf '%s %s\n' "$(date -Is)" "$(printf '%s' "$over" | paste -sd ';' -)" >> "$STATE_DIR/alertas.log"
-    warn "eventos acima do limite: $(printf '%s' "$over" | paste -sd ';' -)"
   else
     hc_ping "$HC_SEGURANCA_URL"
   fi

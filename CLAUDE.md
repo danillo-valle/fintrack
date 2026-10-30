@@ -117,6 +117,8 @@ Regras específicas do Next.js 16: @apps/web/AGENTS.md
   site do GitHub Pages em `packages/flow-map/dist/site`, `site:serve` o serve e `test:site` o confere (Playwright + axe)
 - `pnpm format` formata tudo com Prettier
 - `docker build --target web .` constrói a imagem de produção; `bash deploy/bin/smoke-test <url>` confere uma instância
+- `bash deploy/testes/operacao.test.sh` testa os scripts de operação sem servidor (alerta, aviso ao Healthchecks,
+  `fintrack-definir`), como o CI
 - Produção (no servidor): `sudo -u fintrack fintrack-status` e o runbook (`docs/operacao/runbook.md`)
 
 Rode `pnpm check` antes de dizer que uma tarefa está pronta.

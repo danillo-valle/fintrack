@@ -592,7 +592,11 @@ jobs:
       - name: Confere os scripts de operação (shellcheck)
         run: |
           shellcheck -x deploy/bin/lib.sh deploy/bin/fintrack-* deploy/bin/smoke-test \
-            deploy/servidor/*.sh scripts/zap/varrer.sh
+            deploy/servidor/*.sh deploy/testes/*.sh scripts/zap/varrer.sh
+
+      # M12.4a, revisão 3: o alerta, o aviso ao Healthchecks e o fintrack-definir, sem servidor
+      - name: Testa os scripts de operação
+        run: bash deploy/testes/operacao.test.sh
 
       - name: Confere o compose de produção e o Caddyfile
         run: |
