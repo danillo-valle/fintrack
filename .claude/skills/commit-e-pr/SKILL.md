@@ -43,6 +43,10 @@ Um commit = uma mudança lógica. Se a descrição precisa de "e", provavelmente
 2. Preencha o template: o que muda, por quê, como testou, riscos.
 3. `Closes #N` para fechar a issue automaticamente no merge.
 4. Só faça merge com CI verde, usando squash.
+5. Depois do merge, espere o CI da `main` disparado pelo push, o mais novo
+   (`gh run list --workflow ci.yml --branch main --event push --limit 1`), e só então o deploy.
+   "cancelled" não é "failed": quase sempre é um job que passou do `timeout-minutes`; veja o passo
+   (runbook, "Um job do CI saiu cancelled") antes do `gh run rerun <id> --failed`.
 
 ## Nunca
 

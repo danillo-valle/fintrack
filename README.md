@@ -6,6 +6,9 @@ Controle financeiro pessoal e da casa: ambientes pessoais e compartilhados, cart
 adicionais, orçamento e importação de extratos e faturas. Construído em 12 módulos, cada um
 acompanhado por uma [milestone](https://github.com/danillo-valle/fintrack/milestones).
 
+**v1.0.0**: em uso de verdade num servidor de casa, com os dados da casa entrando pelo Meu Pluggy.
+Os 12 módulos estão nas [releases](https://github.com/danillo-valle/fintrack/releases).
+
 **[FinTrack por dentro](https://danillo-valle.github.io/fintrack/)**: a arquitetura em C4 e o mapa
 do fluxo de cada tela (o que roda no navegador, o que chama no servidor, o que toca no banco e o
 que sai para fora), gerados do código a cada versão. Também: as
@@ -76,6 +79,8 @@ packages/config/   configuração compartilhada de TypeScript
 packages/importers/  dados do banco: Meu Pluggy, OFX e o cliente do PDF
 packages/flow-map/ o mapa do fluxo tirado do código e o site do GitHub Pages
 services/ml/       o serviço Python: fatura em PDF, classificador e IA local
+deploy/            produção: compose, Caddy, scripts de operação (e os testes deles) e systemd
+scripts/           ZAP (passivo no CI e ativo numa cópia local) e utilitários
 docs/adr/          decisões de arquitetura
 docs/arquitetura/  o C4, o mapa do fluxo (fluxo.json) e o relatório com nota
 docs/operacao/     runbook de operação e de incidente
@@ -116,6 +121,14 @@ Categorização**.
   ações sensíveis ([ADR-003](docs/adr/0003-autenticacao.md)).
 - Dinheiro exato (`NUMERIC(14,2)` e centavos em `bigint`), importação idempotente e auditoria que
   só acrescenta, garantidos no próprio banco ([ADR-004](docs/adr/0004-modelo-de-dados.md)).
+
+## Skills para agentes de código
+
+O repositório tem as skills do FinTrack em `.claude/skills/` (as regras de cada parte, com os
+caminhos daqui). As que valem para qualquer projeto parecido foram reescritas, sem nada do
+FinTrack, no [fintrack-skills](https://github.com/danillo-valle/fintrack-skills): commits e PRs,
+migrações com o Prisma 7, E2E com Playwright, segurança contra o OWASP Top 10:2025, deploy num
+servidor próprio, autenticação com o Better Auth e interface com shadcn/ui.
 
 ## Licença
 

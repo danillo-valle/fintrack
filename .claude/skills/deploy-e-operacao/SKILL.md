@@ -65,7 +65,10 @@ Leia antes: `docs/adr/0005-hospedagem-e-deploy.md` (decisões) e `docs/operacao/
    ensaie. Comportamento novo que dá para provar sem servidor (docker e Healthchecks de mentira)
    ganha caso nesse teste, inclusive o caso "nada aconteceu". Duas pegadinhas já pegas: com o
    `pipefail`, um `grep` que não acha nada derruba o pipeline (use `{ grep ... || [ $? -eq 1 ]; }`);
-   e `curl --retry -o /dev/null` desiste calado (erro 23) quando precisa tentar de novo.
+   e `curl --retry -o /dev/null` desiste calado (erro 23) quando precisa tentar de novo. Espera
+   longa escreve o progresso (uma linha por minuto, como o `varrer.sh` do M12.4b), e o que roda em
+   segundo plano num script ignora o Ctrl+C: repasse o sinal no `trap`. Tudo que lê dentro de
+   `/srv/fintrack` (750) vai com `sudo -u fintrack`, também nos manuais e nos checks.
 9. **Nunca** sugira à pessoa: `fintrack-compose down -v`, apagar o volume `fintrack-prod_db-data`,
    editar arquivos em `/srv/fintrack/repo` (o deploy descarta), runner self-hosted do GitHub,
    ou rodar o seed na produção sem que ela peça (`SEED_TARGET_HOST=db`). O `fintrack-zerar` (sem
