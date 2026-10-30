@@ -44,6 +44,7 @@ export type AuditAction =
   | "card.created"
   | "card.archived"
   | "card.shared_purchases_changed"
+  | "card.updated"
   | "installment_purchase.created"
   | "category.created"
   | "category.archived"

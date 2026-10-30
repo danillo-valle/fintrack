@@ -19,6 +19,7 @@ import {
   type LinkCandidate,
   type LinkSuggestion,
 } from "@fintrack/core";
+import { householdWalletOptions } from "./accounts";
 import { DomainError, type ConnectionGrant } from "./access";
 import { writeAudit, type RequestContext } from "./audit";
 import { sealSecret, type SecretKeyring } from "./connection-secret";
@@ -514,18 +515,7 @@ export async function linkAccounts(
  * PORTADOR do cartão participa (senão ele não veria as próprias compras). Para a tela.
  */
 export async function importWalletOptions(db: PrismaClient, grant: ConnectionGrant) {
-  const wallets = await db.wallet.findMany({
-    where: { householdId: grant.householdId, archivedAt: null },
-    orderBy: [{ kind: "asc" }, { name: "asc" }],
-    select: { id: true, name: true, kind: true, members: { select: { userId: true, role: true } } },
-  });
-  return wallets.map((w) => ({
-    id: w.id,
-    name: w.name,
-    kind: w.kind,
-    memberIds: w.members.map((m) => m.userId),
-    ownerIds: w.members.filter((m) => m.role === "OWNER").map((m) => m.userId),
-  }));
+  return householdWalletOptions(db, grant.householdId);
 }
 
 /** Grava o ambiente das compras importadas de um cartão da conta (dentro da transação). */
