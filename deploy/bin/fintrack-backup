@@ -29,7 +29,7 @@ main() {
 
   local recipient_file="$FINTRACK_HOME/backup-recipient.txt"
   [ -s "$recipient_file" ] || die "falta a chave pública do age em $recipient_file (passo do manual)"
-  [ "$reason" = diario ] && hc_ping "${HC_BACKUP_URL:-}" /start
+  if [ "$reason" = diario ]; then hc_ping "${HC_BACKUP_URL:-}" /start || true; fi
 
   # umask 077: os arquivos nascem legíveis só pelo dono (fintrack)
   umask 077
@@ -95,7 +95,7 @@ main() {
   prune "pre-deploy" "${KEEP_PREDEPLOY:-5}"
   prune "manual" 10
 
-  [ "$reason" = diario ] && hc_ping "${HC_BACKUP_URL:-}"
+  if [ "$reason" = diario ]; then hc_ping "${HC_BACKUP_URL:-}" || true; fi
   return 0
 }
 
@@ -116,7 +116,7 @@ table_counts() {
 
 # Avisa o Healthchecks (no diário) e para
 backup_failed() {
-  [ "${BACKUP_REASON:-}" = diario ] && hc_ping "${HC_BACKUP_URL:-}" /fail
+  if [ "${BACKUP_REASON:-}" = diario ]; then hc_ping "${HC_BACKUP_URL:-}" /fail || true; fi
   die "$1"
 }
 

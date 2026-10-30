@@ -60,7 +60,12 @@ Leia antes: `docs/adr/0005-hospedagem-e-deploy.md` (decisões) e `docs/operacao/
    (`src/lib/navigation.ts`), não com `router.replace`: o cache de pré-carregamento do build de
    produção causava um laço no login.
 8. **Scripts de `deploy/bin`**: `set -Eeuo pipefail` (vem do `lib.sh`), corpo dentro de `main()`,
-   `shellcheck -x` limpo, sem `eval`. Mexeu? Rode o shellcheck e ensaie (o CI só confere sintaxe).
+   `shellcheck -x` limpo (também no ShellCheck 0.9, o do Ubuntu 24.04 do servidor), sem `eval`.
+   Mexeu? Rode o shellcheck e `bash deploy/testes/operacao.test.sh` (no CI, job `imagem`), e
+   ensaie. Comportamento novo que dá para provar sem servidor (docker e Healthchecks de mentira)
+   ganha caso nesse teste, inclusive o caso "nada aconteceu". Duas pegadinhas já pegas: com o
+   `pipefail`, um `grep` que não acha nada derruba o pipeline (use `{ grep ... || [ $? -eq 1 ]; }`);
+   e `curl --retry -o /dev/null` desiste calado (erro 23) quando precisa tentar de novo.
 9. **Nunca** sugira à pessoa: `fintrack-compose down -v`, apagar o volume `fintrack-prod_db-data`,
    editar arquivos em `/srv/fintrack/repo` (o deploy descarta), runner self-hosted do GitHub,
    ou rodar o seed na produção sem que ela peça (`SEED_TARGET_HOST=db`). O `fintrack-zerar` (sem

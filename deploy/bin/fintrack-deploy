@@ -113,7 +113,7 @@ main() {
   printf '%s %s ok deploy=%ss desde_o_merge=%ss\n' \
     "$(date -Is)" "$target" "$((now - started))" "$((now - commit_time))" >> "$STATE_DIR/deploys.log"
   log "deploy de ${target:0:7} concluído em $((now - started)) s ($((now - commit_time)) s desde o merge)"
-  hc_ping "${HC_DEPLOY_URL:-}"
+  hc_ping "${HC_DEPLOY_URL:-}" || true
   prune_images
 }
 
@@ -127,7 +127,7 @@ fail() {
   fi
   printf '%s\n' "$target" > "$STATE_DIR/falhou"
   printf '%s %s falhou motivo="%s"\n' "$(date -Is)" "$target" "$reason" >> "$STATE_DIR/deploys.log"
-  hc_ping "${HC_DEPLOY_URL:-}" /fail
+  hc_ping "${HC_DEPLOY_URL:-}" /fail || true
   die "deploy de ${target:0:7} cancelado: $reason. Continua no ar: ${previous:0:7}"
 }
 
@@ -139,7 +139,7 @@ rollback() {
     # Primeiro deploy: não há para onde voltar. Sem versao.env, o próximo deploy tenta do zero.
     rm -f "$STATE_DIR/versao.env"
     printf '%s %s falhou motivo="%s"\n' "$(date -Is)" "$target" "$reason" >> "$STATE_DIR/deploys.log"
-    hc_ping "${HC_DEPLOY_URL:-}" /fail
+    hc_ping "${HC_DEPLOY_URL:-}" /fail || true
     die "primeiro deploy falhou: $reason. Veja: fintrack-compose logs web"
   fi
   warn "$reason; voltando para ${previous:0:7}"
@@ -153,11 +153,11 @@ rollback() {
   compose restart caddy >/dev/null 2>&1 || true
   if wait_healthy "$previous" 120; then
     printf '%s %s voltou-para=%s motivo="%s"\n' "$(date -Is)" "$target" "$previous" "$reason" >> "$STATE_DIR/deploys.log"
-    hc_ping "${HC_DEPLOY_URL:-}" /fail
+    hc_ping "${HC_DEPLOY_URL:-}" /fail || true
     die "deploy de ${target:0:7} desfeito: $reason. No ar de novo: ${previous:0:7}"
   fi
   printf '%s %s falhou-e-nao-voltou motivo="%s"\n' "$(date -Is)" "$target" "$reason" >> "$STATE_DIR/deploys.log"
-  hc_ping "${HC_DEPLOY_URL:-}" /fail
+  hc_ping "${HC_DEPLOY_URL:-}" /fail || true
   die "a versão anterior também não respondeu. Siga o runbook: 'O app não sobe'"
 }
 

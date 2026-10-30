@@ -50,7 +50,11 @@ skills genéricas, reescritas (M12.4b).
    os mesmos eventos do `fintrack-status` na última janela e compara com limites (padrões no
    script, trocáveis em `operacao.env`); acima de algum, avisa o Healthchecks.io com `/fail` e um
    texto só com nome do evento, quantidade e limite (nunca IP, e-mail ou caminho). Abaixo, avisa
-   "ok": o Healthchecks também denuncia o alerta parado. `--teste` confere o e-mail.
+   "ok": o Healthchecks também denuncia o alerta parado. `--teste` confere o e-mail e falha se o
+   Healthchecks não respondeu 2xx. Sem conseguir ler o log, avisa `/fail` com o motivo. O aviso
+   (`hc_ping`) devolve a falha com o código HTTP, nunca o endereço; backup e deploy seguem mesmo
+   assim. Os scripts de operação ganham testes sem servidor (`deploy/testes/operacao.test.sh`, no
+   job `imagem` do CI; revisão 3).
 5. **ZAP ativo numa cópia local (`scripts/zap/copia-local.sh`)**: sobe uma cópia descartável
    (`scripts/zap/compose.copia.yml`: banco em memória, Mailpit, a imagem `:main`, só no
    127.0.0.1), cria a conta de teste e o seed, roda o `varrer.sh` com `ZAP_MODO=ativo` sem sessão e

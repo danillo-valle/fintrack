@@ -91,25 +91,51 @@ take_lock() {
 # ping URL [sufixo] [texto]   sufixo vazio = sucesso, "/fail" = falha, "/start" = começou. O texto
 # (opcional) vai no corpo do ping e aparece no e-mail do Healthchecks: só números e nomes de
 # eventos, nunca dado de pessoa.
+#
+# Devolve 0 só quando o Healthchecks respondeu 2xx; senão avisa com o código da resposta e devolve
+# 1. O endereço nunca aparece na mensagem (quem tem o endereço consegue disparar ou calar o alerta).
+# Backup e deploy chamam com "|| true": o aviso é acessório e nunca para a operação. O
+# fintrack-alerta, cujo trabalho é justamente avisar, deixa a falha aparecer.
 hc_ping() {
-  local url="${1:-}" suffix="${2:-}" body="${3:-}"
+  local url="${1:-}" suffix="${2:-}" body="${3:-}" code answer
   [ -n "$url" ] || return 0
-  if [ -n "$body" ]; then
-    curl -fsS -m 10 --retry 3 -o /dev/null --data-raw "$body" "${url}${suffix}" \
-      || warn "não consegui avisar o Healthchecks"
-  else
-    curl -fsS -m 10 --retry 3 -o /dev/null "${url}${suffix}" || warn "não consegui avisar o Healthchecks"
-  fi
+  # A resposta vai para um arquivo temporário, não para /dev/null: para tentar de novo (--retry,
+  # num 5xx ou 429), o curl apaga o que já gravou, e o /dev/null não deixa (o curl 8.5 do Ubuntu
+  # 24.04 desiste calado com o erro 23)
+  answer=$(mktemp)
+  local args=(-sS -m 10 --retry 3 -o "$answer" -w '%{http_code}')
+  [ -n "$body" ] && args+=(--data-raw "$body")
+  # Sem -f: o curl termina bem com qualquer resposta HTTP e o código vem pelo -w. Sem resposta
+  # nenhuma (rede, DNS, tempo esgotado), o código é 000 e o curl já explicou o motivo no stderr
+  code=$(curl "${args[@]}" "${url}${suffix}") || true
+  rm -f "$answer"
+  case "$code" in
+    2??) return 0 ;;
+    400) warn "o Healthchecks recusou o aviso (400): o endereço está fora do formato; grave de novo com fintrack-definir (runbook, O alerta automático)" ;;
+    404) warn "o Healthchecks não achou o check (404): o check foi apagado ou o endereço é de outro; grave de novo com fintrack-definir" ;;
+    000 | "") warn "não consegui avisar o Healthchecks (sem resposta)" ;;
+    *) warn "não consegui avisar o Healthchecks (resposta $code)" ;;
+  esac
+  return 1
 }
+
+# O formato de um endereço de ping do Healthchecks: https://<servidor>/<uuid> ou
+# https://<servidor>/<chave do projeto>/<slug>, com um prefixo opcional (instalação própria, como
+# /ping). O fintrack-definir recusa o resto: um endereço colado duas vezes ou com espaço no fim
+# viraria um alerta que nunca chega.
+HC_URL_RE='^https://[A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._-]+)*/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[A-Za-z0-9_-]{22}/[a-z0-9_-]+)$'
 
 # Os eventos de segurança que o app grava no log (M12.1, OWASP A09; o HIBP desde o M12.3a). O
 # fintrack-status conta as últimas 24 h; o fintrack-alerta, a última janela (M12.4).
 SECURITY_EVENTS='auth\.(failed|rate_limited|origin_rejected|password_check_unavailable)|access\.denied|webhook\.rejected'
 
-# Quantas vezes cada evento apareceu no log do app desde $1 (ex.: 24h, 15m): "N evento" por linha
+# Quantas vezes cada evento apareceu no log do app desde $1 (ex.: 24h, 15m): "N evento" por linha,
+# nada quando não houve evento. Devolve 1 só quando o log não pôde ser lido (o docker falhou). O
+# grep devolve 1 quando não acha nada, que aqui é o normal: sem o "|| [ $? -eq 1 ]", o pipefail
+# transformaria "nenhum evento" em erro (o defeito da revisão 3 do M12.4a)
 security_event_counts() {
   compose logs --no-color --since "$1" web 2>/dev/null \
-    | grep -oE "\"event\":\"($SECURITY_EVENTS)\"" \
+    | { grep -oE "\"event\":\"($SECURITY_EVENTS)\"" || [ $? -eq 1 ]; } \
     | sed -e 's/"event":"//' -e 's/"$//' | sort | uniq -c | sort -rn
 }
 
