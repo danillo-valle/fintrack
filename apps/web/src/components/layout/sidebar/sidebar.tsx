@@ -9,8 +9,9 @@ const ID = "menu-lateral";
 
 // O menu lateral do computador (M07.3): marinho de vidro nos dois temas, com o item ativo em
 // lima. Só navegação: "Novo lançamento" fica no cabeçalho de cada página, onde já é visível.
-// Recolhe até ficarem só os ícones pela alça na borda (SidebarHandle).
-export function Sidebar() {
+// Recolhe até ficarem só os ícones pela alça na borda (SidebarHandle). No pé, quem está na
+// sessão (M13.1), que a casca passa pronto.
+export function Sidebar({ user }: { user?: React.ReactNode }) {
   return (
     <aside
       id={ID}
@@ -43,6 +44,8 @@ export function Sidebar() {
           />
         </nav>
         <ThemeToggle placement="sidebar" />
+        {/* Quem está na sessão (M13.1, prancha L-Sessao): as iniciais, o nome e o Sair */}
+        {user}
       </div>
       <SidebarHandle controls={ID} />
     </aside>

@@ -1,7 +1,8 @@
 // Leituras da tela do lar (M06). Cada bloco só é lido se o papel permitir: o membro comum
 // não recebe a lista de convites nem a trilha de auditoria (nem escondida no HTML).
 import "server-only";
-import { canInHousehold } from "@fintrack/core";
+import { cache } from "react";
+import { canInHousehold, householdPeople, initialsOf } from "@fintrack/core";
 import {
   authorizeHousehold,
   findInviteByToken,
@@ -53,3 +54,28 @@ export async function hasHousehold(userId: string): Promise<boolean> {
   // Pela mesma porta de sempre: nenhuma tela consulta as tabelas do lar direto
   return (await authorizeHousehold(prisma, userId, "view")).ok;
 }
+
+/**
+ * Quem está na sessão (M13.1, prancha L-Sessao): o nome, o e-mail, as iniciais na cor da pessoa
+ * no "Pago por" e o nome do lar, para o menu do pé da barra lateral e o topo do celular. Uma vez
+ * por requisição (cache do React), mesmo que a casca e a página peçam.
+ */
+export const getSessionIdentity = cache(async (session: Session) => {
+  const { name, email } = session.user;
+  let household: string | null = null;
+  let tone: 1 | 2 | 3 | 4 = 1;
+  try {
+    const grant = await requireHouseholdAccess(session, "view");
+    household = grant.household.name;
+    const me = householdPeople(await listHouseholdMembers(prisma, grant)).find(
+      (p) => p.userId === session.user.id,
+    );
+    tone = me?.tone ?? 1;
+  } catch (error) {
+    // Ainda sem lar: o menu mostra só o nome e o e-mail
+    if (!(error instanceof AccessError)) throw error;
+  }
+  return { name, email, initials: initialsOf(name), tone, household };
+});
+
+export type SessionIdentity = Awaited<ReturnType<typeof getSessionIdentity>>;
