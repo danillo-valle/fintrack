@@ -89,6 +89,7 @@ Decisões de implementação que vieram da revisão:
 
 **Continua valendo.** O OWASP item por item, o ZAP e o OSV barrando o PR.
 
-- Desde o M12.2 há uma exceção do OSV (o `deepmerge` do CLI do shadcn, rever até 31/01/2027) e,
+- Desde o M12.2 há uma exceção do OSV (o `deepmerge` do CLI do shadcn, rever até 31/01/2027; desde
+  o M13.1, também as duas versões do `minimatch` das ferramentas de desenvolvimento, no mesmo prazo) e,
   desde o M12.3a, uma do CodeQL (o SHA-1 do HIBP), cada uma com o motivo e a prova no documento.
 - As 6 pendências do documento do OWASP continuam lá, com o risco e a sugestão.

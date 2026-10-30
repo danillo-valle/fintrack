@@ -204,4 +204,4 @@ ataque.
 | 13  | Tirar o `turbopackFileSystemCacheForDev: false` quando o Next corrigir     | ADR-021          | Baixa          |
 | 14  | E-mail de "novo acesso" em aparelho novo                                   | OWASP 4          | Baixa          |
 | 15  | Limite do código de vínculo por remetente                                  | OWASP 5          | Baixa          |
-| 16  | A exceção do OSV para o `deepmerge` (rever até 31/01/2027)                 | ADR-020          | Data           |
+| 16  | As exceções do OSV: `deepmerge` e `minimatch` (rever até 31/01/2027)       | ADR-020          | Data           |
