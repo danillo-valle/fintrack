@@ -40,12 +40,24 @@ describe("transactionSchema", () => {
     expect(transactionSchema.parse({ ...base, rememberRule: "on" }).rememberRule).toBe(true);
   });
 
+  it("limpa a descrição e a observação antes de conferir (M12.4a)", () => {
+    const parsed = transactionSchema.parse({
+      ...base,
+      description: "Mer\u0000ca\u200bdo",
+      notes: "pago\u0000 em\tdinheiro",
+    });
+    expect(parsed.description).toBe("Mercado");
+    expect(parsed.notes).toBe("pago em dinheiro");
+  });
+
   it.each([
     [{ amount: "0.00" }, "Informe um valor maior que zero."],
     [{ amount: "-10.00" }, "Informe um valor maior que zero."],
     [{ amount: "10,00" }, "Informe um valor maior que zero."],
     [{ amount: "12.345" }, "Informe um valor maior que zero."],
     [{ description: "   " }, "Descreva o lançamento, por exemplo: Mercado."],
+    // Só invisíveis e controles: limpos antes do min(1), não contam como descrição (M12.4a)
+    [{ description: "\u0000\u200b\t" }, "Descreva o lançamento, por exemplo: Mercado."],
     [{ occurredOn: "2026-02-30" }, "Use uma data válida."],
     [{ walletId: "nao-e-id" }, "Escolha a carteira."],
     [{ method: "BITCOIN" }, null],
@@ -153,6 +165,11 @@ describe("filtros na URL", () => {
       categorizedBy: null,
     });
     expect(parsed.walletId).toBe(ID);
+  });
+
+  it("a busca chega sem caractere nulo nem invisível; só eles, nem busca vira (M12.4a)", () => {
+    expect(parseFilters({ q: "mer\u0000ca\u200bdo" }, today).filters.text).toBe("mercado");
+    expect(parseFilters({ q: "\u0000\u200b " }, today).filters.text).toBeNull();
   });
 
   it("situacao=recebidos: a fila do banco, dos últimos 12 meses até hoje (M09.1)", () => {

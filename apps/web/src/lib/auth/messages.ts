@@ -27,6 +27,7 @@ const MESSAGES: Record<string, string> = {
   USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL:
     "Já existe uma conta com este e-mail. Tente entrar ou trocar a senha.",
   SIGNUP_NOT_ALLOWED: "Este e-mail não está autorizado a criar conta no FinTrack.",
+  NAME_REQUIRED: "Digite o seu nome.",
   INVALID_CODE: "Código incorreto ou expirado. Confira o app autenticador e tente de novo.",
   INVALID_BACKUP_CODE: "Código de backup incorreto ou já usado.",
   ACCOUNT_TEMPORARILY_LOCKED:

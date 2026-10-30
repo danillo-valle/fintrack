@@ -13,6 +13,7 @@
 //   - o pagamento da fatura aparece também dentro da conta do cartão: ele chega pela Bill.
 import {
   civilFromProviderTimestamp,
+  cleanText,
   lastFourOf,
   type Cents,
   type PaymentHint,
@@ -35,8 +36,11 @@ type Obj = { [key: string]: ExactJson };
 const isObj = (value: ExactJson | undefined): value is Obj =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-const str = (value: ExactJson | undefined): string | null =>
-  typeof value === "string" && value.trim() !== "" ? value.trim() : null;
+/** Todo texto da Pluggy passa por aqui: limpo (cleanText, M12.4a), aparado, ou nulo se vazio */
+const str = (value: ExactJson | undefined): string | null => {
+  const text = typeof value === "string" ? cleanText(value).trim() : "";
+  return text !== "" ? text : null;
+};
 
 function money(value: ExactJson | undefined): Cents | null {
   return typeof value === "string" ? moneyFromText(value) : null;

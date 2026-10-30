@@ -118,6 +118,27 @@ describe("PluggyProvider · lançamentos", () => {
     });
   });
 
+  it("o texto da Pluggy chega limpo: sem caractere nulo nem invisível (M12.4a)", async () => {
+    const bank = syntheticBank(TODAY);
+    const row = bank.transactions.find((t) => t.description === "BOLETO ENERGIA");
+    if (!row) throw new Error("o banco sintético mudou");
+    row.description = "BOLETO\u0000 ENER\u200bGIA\u202e";
+    row.category = "Ser\u0000viços";
+    const fake = createFakePluggy(bank);
+    const p = new PluggyProvider({
+      credentials: SYNTHETIC_CREDENTIALS,
+      baseUrl: "http://pluggy.test",
+      fetch: fake.fetch,
+    });
+    await p.listAccounts(SYNTHETIC_IDS.itemAurora);
+    const { transactions } = await p.listTransactions(SYNTHETIC_IDS.checking, {
+      from: "2026-10-01",
+      to: TODAY,
+    });
+    const boleto = transactions.find((t) => t.description === "BOLETO ENERGIA");
+    expect(boleto?.category).toBe("Serviços");
+  });
+
   it("compra em outra moeda sem o valor em reais não entra e é contada", async () => {
     const bank = syntheticBank(TODAY);
     const usd = bank.transactions.find((t) => t.description === "LOJA ONLINE AGIL");

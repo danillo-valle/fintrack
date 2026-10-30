@@ -216,6 +216,23 @@ describe("looksLikeCardNumber", () => {
     expect(looksLikeCardNumber("ligar 4199999")).toBe(false);
   });
 
+  it("um invisível, um espaço diferente ou um dígito largo não escondem o cartão (M12.4a)", () => {
+    const groups = ["4111", "2222", "3333", "4444"];
+    for (const sep of [
+      "\u200b",
+      "\u2060",
+      "\ufeff",
+      "\u00ad",
+      "\u0000",
+      "\u00a0",
+      "\u2007",
+      "\u2013",
+    ]) {
+      expect(looksLikeCardNumber(groups.join(sep))).toBe(true);
+    }
+    expect(looksLikeCardNumber("４１１１２２２２３３３３４４４４")).toBe(true);
+  });
+
   it("propriedade: qualquer sequência de 13 a 19 dígitos com espaços é recusada", () => {
     fc.assert(
       fc.property(
@@ -230,6 +247,19 @@ describe("looksLikeCardNumber", () => {
         },
       ),
     );
+  });
+});
+
+describe("a mensagem limpa antes de ser lida (M12.4a)", () => {
+  it("o caractere nulo e os invisíveis saem da descrição", () => {
+    const result = parseBotMessage("mer\u0000ca\u200bdo 42,90", ctx);
+    expect(result.ok && result.entry.description).toBe("Mercado");
+  });
+  it("um cartão escondido por invisíveis é recusado, como o visível", () => {
+    expect(parseBotMessage("compra 4111\u200b2222\u200b3333\u200b4444 10", ctx)).toEqual({
+      ok: false,
+      error: "CARD_NUMBER",
+    });
   });
 });
 

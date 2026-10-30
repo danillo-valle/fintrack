@@ -21,3 +21,4 @@ export * from "./reconcile";
 export * from "./file-import";
 export * from "./bot";
 export * from "./bot-parse";
+export * from "./text";

@@ -30,6 +30,9 @@ Decisões: `docs/adr/0011-coleta-bancaria.md`. Tabelas: `docs/modelo-de-dados.md
 
 - **Dinheiro nunca passa por `number`**, nem no JSON: `parseExactJson` + `moneyFromText`
   (centavos `bigint`). Teste novo de valor usa texto (`"2146.35"`), não número.
+- **Todo texto da fonte é limpo na leitura** (M12.4a): o `str` da Pluggy, o `text` do OFX e o do
+  PDF passam pelo `cleanText` (sem caractere nulo, que o banco recusa, nem invisível); a
+  descrição ainda passa pelo `importedDescription`. Leitor novo segue o mesmo caminho.
 - **Só os 4 últimos dígitos** (`lastFourOf`). Número completo, validade ou CVV que venham da
   fonte são descartados no adaptador, antes de qualquer gravação ou log.
 - **Segredo nunca em log, auditoria, erro ou resposta**: erro da fonte vira código

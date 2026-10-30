@@ -2,6 +2,7 @@
 // O servidor é quem decide: os formulários repetem os limites em atributos HTML só para ajudar
 // quem digita. Nada do formulário é confiável, nem o <select> de forma de pagamento.
 import {
+  cleanText,
   decimalToCents,
   addMonths,
   isCivilDate,
@@ -17,6 +18,7 @@ import {
   type PaymentMethod,
 } from "@fintrack/core";
 import { z } from "zod";
+import { textField } from "@/lib/text-field";
 
 // O z.enum quer uma lista com pelo menos um item no tipo; as constantes do core são listas comuns
 const methods = (list: readonly PaymentMethod[]) => list as [PaymentMethod, ...PaymentMethod[]];
@@ -41,8 +43,7 @@ const positiveCents = z
   .refine((c) => c > 0n, "Informe um valor maior que zero.")
   .refine((c) => c <= MAX_ABS_CENTS, "Valor grande demais.");
 
-const description = z
-  .string()
+const description = textField()
   .trim()
   .min(1, "Descreva o lançamento, por exemplo: Mercado.")
   .max(200, "Use no máximo 200 caracteres.");
@@ -67,8 +68,7 @@ export const transactionSchema = z.object({
     .default("")
     .transform((v) => v || null),
   cardId: optionalUuid,
-  notes: z
-    .string()
+  notes: textField()
     .trim()
     .max(500, "Use no máximo 500 caracteres.")
     .default("")
@@ -128,7 +128,7 @@ export const transactionIdSchema = z.object({ transactionId: z.uuid() });
 
 /** O que a tela pede enquanto a pessoa digita a descrição. */
 export const suggestSchema = z.object({
-  description: z.string().trim().min(1).max(200),
+  description: textField().trim().min(1).max(200),
   kind: z.enum(["expense", "income"]),
 });
 
@@ -138,8 +138,7 @@ export const transferSchema = z
     toAccountId: z.uuid("Escolha a conta para onde o dinheiro vai."),
     amount: positiveCents,
     occurredOn: civilDate(),
-    description: z
-      .string()
+    description: textField()
       .trim()
       .max(200, "Use no máximo 200 caracteres.")
       .default("")
@@ -256,7 +255,8 @@ const idOrNull = (value: string | null) => (value && UUID.test(value) ? value.to
  *                                     classificador ou voce
  *   /lancamentos?situacao=recebidos   os recebidos do banco que esperam revisão (M09.1); sem
  *                                     datas, os dos últimos 12 meses
- * Nada aqui é confiável: valor fora do formato é ignorado (cai no padrão), nunca vira erro.
+ * Nada aqui é confiável: valor fora do formato é ignorado (cai no padrão), nunca vira erro; o
+ * texto da busca chega sem caractere nulo nem invisível (cleanText, M12.4a).
  * O id de carteira passa depois pelo escopo do servidor: carteira alheia = lista vazia.
  */
 export function parseFilters(params: SearchParams, today: CivilDate): ParsedFilters {
@@ -269,7 +269,8 @@ export function parseFilters(params: SearchParams, today: CivilDate): ParsedFilt
   if (from > to) [from, to] = [to, from];
 
   const category = one(params.categoria);
-  const text = one(params.q);
+  // A busca é o único texto livre da URL: limpa antes de chegar ao banco (M12.4a)
+  const text = cleanText(one(params.q) ?? "").trim();
   return {
     filters: {
       from,

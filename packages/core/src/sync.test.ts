@@ -287,6 +287,12 @@ describe("importedDescription", () => {
     expect(importedDescription("   ")).toBe("Lançamento do banco");
     expect(importedDescription("x".repeat(250))).toHaveLength(200);
   });
+
+  it("sem caractere nulo nem invisível (M12.4a): o arquivo ou a API do banco não derrubam a gravação", () => {
+    expect(importedDescription("POSTO\u0000ESTRELA\u200b")).toBe("POSTOESTRELA");
+    expect(importedDescription("\u0000\u200b")).toBe("Lançamento do banco");
+    expect(importedDescription("PADARIA\tCENTRAL\r\n")).toBe("PADARIA CENTRAL");
+  });
 });
 
 describe("importWalletFor", () => {
