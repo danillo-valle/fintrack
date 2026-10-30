@@ -86,10 +86,8 @@ jobs:
     name: seguranca
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    # O gitleaks lista os commits do PR e comenta nele quando encontra um segredo
     permissions:
       contents: read
-      pull-requests: write
     steps:
       - name: Baixa o código com todo o histórico
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -99,10 +97,28 @@ jobs:
       - name: Nenhum dado financeiro no repositório
         run: git ls-files -z | xargs -0 scripts/check_no_financial_data.sh
 
+      # M12.4b: o gitleaks pela imagem oficial, presa pelo digest e com limite de tempo próprio. A
+      # gitleaks-action guardava o programa no cache do Actions; no dia em que o GitHub recusou o
+      # cache ("Egress is over the account limit"), o passo ficou 10 minutos parado e o job foi
+      # cancelado (a varredura em si leva menos de 1 s). A imagem vem do GHCR, como a do OSV, sem
+      # cache. Roda com o seu usuário (o dono do checkout): o git não acusa "dubious ownership" e o
+      # relatório pode ser gravado. O .gitleaks.toml da raiz vale como no hook local.
       - name: Nenhum segredo em todo o histórico
-        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        timeout-minutes: 3
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_IMAGE: ghcr.io/gitleaks/gitleaks:v8.30.0@sha256:691af3c7c5a48b16f187ce3446d5f194838f91238f27270ed36eef6359a574d9
+        run: |
+          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:/repo" -w /repo \
+            "$GITLEAKS_IMAGE" git /repo --redact --no-banner --verbose --exit-code 1 \
+            --report-format sarif --report-path /repo/gitleaks.sarif
+
+      - name: Guarda o relatório do gitleaks (só os achados, com o segredo tapado)
+        if: ${{ failure() && hashFiles('gitleaks.sarif') != '' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: gitleaks
+          path: gitleaks.sarif
+          retention-days: 14
 
       # M12.1 (OWASP A03, ADR-020): nenhuma dependência com vulnerabilidade conhecida na base
       # OSV (npm e PyPI), nos dois lockfiles. Exceção só no osv-scanner.toml, presa ao pacote e
@@ -592,7 +608,7 @@ jobs:
       - name: Confere os scripts de operação (shellcheck)
         run: |
           shellcheck -x deploy/bin/lib.sh deploy/bin/fintrack-* deploy/bin/smoke-test \
-            deploy/servidor/*.sh deploy/testes/*.sh scripts/zap/varrer.sh
+            deploy/servidor/*.sh deploy/testes/*.sh scripts/zap/varrer.sh scripts/zap/copia-local.sh
 
       # M12.4a, revisão 3: o alerta, o aviso ao Healthchecks e o fintrack-definir, sem servidor
       - name: Testa os scripts de operação
