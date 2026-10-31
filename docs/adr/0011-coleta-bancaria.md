@@ -169,3 +169,27 @@ cadastrar de novo, e a escolha "Compras do adicional entram em" só existia no "
 - Escolher o ambiente que a regra padrão já daria grava o padrão (nulo), e a tela não oferece esse
   ambiente duas vezes: o cartão continua seguindo a regra se o portador mudar depois.
 - Auditoria `card.updated` só com os NOMES dos campos que mudaram e a contagem dos movidos.
+
+## Adendo do M13.2 (31/10/2026): a fatura aberta, o nome da conta e o Editar conta
+
+No uso real, o Início mostrou a fatura aberta do Visa **negativa** e o vencimento "09/10" quando o
+banco dizia 09/11. Eram dois defeitos, e os dois aparecem também na página do cartão.
+
+- **As datas da fatura aberta são calculadas**, nunca copiadas do saldo do banco. A Pluggy manda no
+  saldo o fechamento e o vencimento da fatura que ela conhece; depois que essa fatura fecha, as
+  datas ficam no passado. `openStatementWindow` já decidia (as do banco quando o fechamento ainda
+  vem, senão o ciclo cadastrado); agora `openStatementTotals` devolve a janela junto com o total, e
+  a tela mostra o fechamento e o vencimento dela. Sem ciclo e sem datas futuras do banco, a tela
+  diz "cadastre o fechamento" em vez de inventar uma data.
+- **O pagamento da fatura nunca abate a fatura aberta.** O pagamento que a Pluggy marca já não era
+  gravado; o que ela não marca (o Itaú escreve de outro jeito) entrava como crédito. Agora ele
+  sai das somas quando vira "Pagamento de fatura" na revisão (ADR-012, adendo do M13.2). O
+  reconhecedor (`BILL_PAYMENT_RE`) só ganha um texto novo quando o texto exato do banco for
+  conhecido: palpite ali tiraria da fatura um crédito que é estorno.
+- **Conta nova pela ligação** recebe o tipo no nome: "Itaú · Conta corrente", "Itaú · Poupança"
+  (`defaultAccountName`, `@fintrack/core`). Antes vinha só "itau" nas duas.
+- **`CARD_CYCLE_MISSING` diz qual cartão**: o final vai no `details` do erro e na mensagem.
+- **Editar conta** (`updateAccount`, crachá `manage_accounts`): o apelido em qualquer conta; o tipo
+  só numa conta manual e só entre corrente, poupança e dinheiro (cartão e vale têm regras de forma
+  de pagamento no banco que mudar o tipo quebraria). A conta ligada ao banco mostra o nome que o
+  banco manda, que não muda. Auditoria `account.updated` só com os nomes dos campos.

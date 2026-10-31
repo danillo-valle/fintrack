@@ -90,6 +90,11 @@ Projeto de portfólio construído em módulos (M00 a M12); cada módulo é uma m
   iniciais, as ações no menu "⋯", `ActionsMenu`), Editar cartão (portador, conjunta e o ambiente das compras do
   banco em qualquer cartão; o final não muda) e quem está na sessão no pé do menu lateral e no topo do celular,
   com o Sair (`features/auth/ui/user-menu.tsx`)
+- v1.2.0 (M13.2, adendos dos ADRs 011 e 012, canvas linha M): o Início com "Na conta hoje" e "Seus cartões"
+  (`features/bank/ui/home-money.tsx`; a fatura aberta com o fechamento e o vencimento calculados), a transferência
+  entre contas e o pagamento da fatura ligados na revisão (`MatchKind` `TRANSFER`, `suggestTransfers`) e a
+  transferência de um lado só (`transferPeer`), o "O que foi" (`label`: o nome da pessoa, a descrição continua a do
+  banco; vale para as parcelas irmãs), Editar conta e Editar categoria pelo menu "⋯"
 
 Regras específicas do Next.js 16: @apps/web/AGENTS.md
 

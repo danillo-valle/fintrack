@@ -260,10 +260,21 @@ export const HELP_ARTICLES = [
       {
         kind: "list",
         items: [
-          "**Par sugerido**: o banco mandou algo que você já lançou (mesmo valor, até 5 dias). Confirmar o par junta os dois e fica a sua descrição.",
+          "**Par sugerido**: o banco mandou algo que você já lançou (mesmo valor, até 5 dias). Confirmar o par junta os dois: o texto do banco fica e a sua descrição vira o **O que foi**.",
+          "**Transferência entre suas contas**: a saída de uma conta e a entrada na outra, do mesmo valor. Confirmar liga os dois lados, que saem das somas de gasto e de receita. Quando a entrada cai num cartão, é o **pagamento da fatura**: não conta como gasto, porque as compras já contam pelo cartão.",
           "**Sem par**: escolha a categoria e confirme. Os que já têm categoria podem ir juntos em **Confirmar os N**.",
           "**Estorno**: ligue ao original para os dois se anularem.",
         ],
+      },
+      { kind: "h", text: "O que foi" },
+      {
+        kind: "p",
+        text: "Ao lado da categoria, **O que foi** guarda o nome que você dá à compra (“Sapato da Zara” para “MERCADOLIVRE*MERCA03/03”). Ele aparece em destaque, com o texto do banco embaixo, e a busca acha pelos dois. Numa parcela, vale para todas as parcelas da compra, e as próximas já chegam com ele.",
+      },
+      { kind: "h", text: "É transferência, mas o outro lado não aparece" },
+      {
+        kind: "p",
+        text: "Quando o dinheiro foi para a conta de alguém do lar (que você não vê) ou para uma conta sua fora do FinTrack, abra **Escolher categoria** e toque em **Para alguém do lar** ou **Para uma conta minha fora do FinTrack**. O recebido sai das somas quando você confirmar. Para voltar atrás, toque em **Desmarcar** ou escolha uma categoria.",
       },
       {
         kind: "faq",
@@ -310,6 +321,10 @@ export const HELP_ARTICLES = [
       {
         kind: "p",
         text: "**Todo número leva à lista** dos lançamentos que o formam, e a lista soma o mesmo valor.",
+      },
+      {
+        kind: "p",
+        text: "Com o banco ligado, **Na conta hoje** mostra quanto há em cada conta e o total, e **Seus cartões** mostra a fatura aberta de cada cartão, com o fechamento, o vencimento e o limite disponível. O pagamento da fatura anterior não abate a fatura aberta.",
       },
     ],
   },
@@ -402,6 +417,11 @@ export const HELP_ARTICLES = [
       },
       {
         kind: "faq",
+        q: "As duas contas do banco vieram com o mesmo nome.",
+        a: "Na conta, toque em **⋯** e em **Editar conta** para dar um apelido (“Itaú · Poupança”). O nome novo aparece em todo lugar. Contas ligadas daqui em diante já chegam com o tipo no nome.",
+      },
+      {
+        kind: "faq",
         q: "Criei a mesma conta duas vezes. E agora?",
         a: "Arquive a repetida. Ela some das escolhas, e os lançamentos dela continuam onde estão.",
       },
@@ -426,6 +446,15 @@ export const HELP_ARTICLES = [
       {
         kind: "p",
         text: "Uma **regra** diz: descrição que contém, começa com ou é igual a um texto vai para tal categoria. Regras vêm antes de tudo na sugestão. Ao corrigir uma categoria, **Sempre categorizar assim** cria a regra para você.",
+      },
+      {
+        kind: "p",
+        text: "No **⋯** de cada categoria, **Editar** muda o nome e o tipo. O tipo (despesa ou receita) só muda numa categoria sem subcategorias, sem orçado e sem conta fixa, e com todos os lançamentos do tipo novo.",
+      },
+      {
+        kind: "faq",
+        q: "Digitei uma categoria e ela não aparece, mas diz que já existe.",
+        a: "O nome não se repete no lar, nem entre despesa e receita. O seletor de um gasto só mostra despesas: se o nome existe como receita, ele avisa e leva até ela, para você editar.",
       },
     ],
   },

@@ -109,6 +109,7 @@
       "authCalls": [],
       "links": [
         "/ajuda/[…]",
+        "/ajustes/contas/[…]",
         "/carteiras",
         "/carteiras/conta/[…]",
         "/lancamentos",
@@ -334,7 +335,9 @@
       "area": "Ajustes",
       "help": "categorias-e-regras",
       "params": [],
-      "searchParams": [],
+      "searchParams": [
+        "editada"
+      ],
       "searchParamsTo": [],
       "session": "user",
       "loaders": [
@@ -350,6 +353,8 @@
         "apps/web/src/components/feedback/action-button.tsx",
         "apps/web/src/components/feedback/action-form.tsx",
         "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/components/visual/actions-menu.tsx",
+        "apps/web/src/components/visual/use-popover.ts",
         "apps/web/src/features/auth/ui/form-alert.tsx",
         "apps/web/src/features/categories/ui/category-forms.tsx",
         "apps/web/src/lib/use-field-errors.ts",
@@ -357,7 +362,74 @@
       ],
       "authCalls": [],
       "links": [
-        "/ajuda/[…]"
+        "/ajuda/[…]",
+        "/ajustes/categorias/[…]"
+      ]
+    },
+    {
+      "route": "/ajustes/categorias/[categoryId]",
+      "file": "apps/web/src/app/(app)/ajustes/categorias/[categoryId]/page.tsx",
+      "kind": "page",
+      "title": "Editar categoria",
+      "area": "Ajustes",
+      "help": "categorias-e-regras",
+      "params": [
+        "categoryId"
+      ],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/categories/server/queries.ts#getEditCategoryPage"
+      ],
+      "actions": [
+        "apps/web/src/features/categories/server/actions.ts#updateCategoryAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/feedback/step-footer.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/categories/ui/category-edit-form.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/ajustes/categorias"
+      ]
+    },
+    {
+      "route": "/ajustes/categorias/[categoryId]",
+      "file": "apps/web/src/app/(app)/@modal/(.)ajustes/categorias/[categoryId]/page.tsx",
+      "kind": "modal",
+      "title": "Editar categoria",
+      "area": "Ajustes",
+      "help": null,
+      "params": [
+        "categoryId"
+      ],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/categories/server/queries.ts#getEditCategoryPage"
+      ],
+      "actions": [
+        "apps/web/src/features/categories/server/actions.ts#updateCategoryAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/feedback/step-footer.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/categories/ui/category-edit-form.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajustes/categorias"
       ]
     },
     {
@@ -590,6 +662,7 @@
       "searchParams": [
         "cartao",
         "criada",
+        "editada",
         "editado",
         "movidos"
       ],
@@ -620,6 +693,7 @@
         "/ajustes/contas/[…]",
         "/ajustes/contas/[…]/cartao",
         "/ajustes/contas/[…]/cartao/[…]",
+        "/ajustes/contas/[…]/editar",
         "/ajustes/contas/nova"
       ]
     },
@@ -807,6 +881,72 @@
       ],
       "authCalls": [],
       "links": []
+    },
+    {
+      "route": "/ajustes/contas/[accountId]/editar",
+      "file": "apps/web/src/app/(app)/ajustes/contas/[accountId]/editar/page.tsx",
+      "kind": "page",
+      "title": "Editar conta",
+      "area": "Ajustes",
+      "help": "contas-e-cartoes",
+      "params": [
+        "accountId"
+      ],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/accounts/server/queries.ts#getEditAccountPage"
+      ],
+      "actions": [
+        "apps/web/src/features/accounts/server/actions.ts#updateAccountAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/feedback/step-footer.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/accounts/ui/account-edit-form.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/ajustes/contas"
+      ]
+    },
+    {
+      "route": "/ajustes/contas/[accountId]/editar",
+      "file": "apps/web/src/app/(app)/@modal/(.)ajustes/contas/[accountId]/editar/page.tsx",
+      "kind": "modal",
+      "title": "Editar conta",
+      "area": "Ajustes",
+      "help": null,
+      "params": [
+        "accountId"
+      ],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/accounts/server/queries.ts#getEditAccountPage"
+      ],
+      "actions": [
+        "apps/web/src/features/accounts/server/actions.ts#updateAccountAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/feedback/step-footer.tsx",
+        "apps/web/src/features/accounts/ui/account-edit-form.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajustes/contas"
+      ]
     },
     {
       "route": "/ajustes/contas/nova",
@@ -1064,14 +1204,17 @@
         "apps/web/src/features/bank/server/queries.ts#getCardPage"
       ],
       "actions": [
+        "apps/web/src/features/bank/server/actions.ts#markTransferAction",
         "apps/web/src/features/bank/server/actions.ts#requestSyncAction",
-        "apps/web/src/features/bank/server/actions.ts#setCategoryAction"
+        "apps/web/src/features/bank/server/actions.ts#setCategoryAction",
+        "apps/web/src/features/bank/server/actions.ts#setLabelAction"
       ],
       "clientComponents": [
         "apps/web/src/components/feedback/action-form.tsx",
         "apps/web/src/components/layout/content-ready.tsx",
         "apps/web/src/features/auth/ui/form-alert.tsx",
         "apps/web/src/features/bank/ui/category-picker.tsx",
+        "apps/web/src/features/bank/ui/label-editor.tsx",
         "apps/web/src/features/bank/ui/request-sync-button.tsx",
         "apps/web/src/lib/use-field-errors.ts",
         "apps/web/src/lib/use-renew-when-hidden.ts"
@@ -1079,6 +1222,7 @@
       "authCalls": [],
       "links": [
         "/ajuda/[…]",
+        "/ajustes/categorias/[…]",
         "/carteiras"
       ]
     },
@@ -1319,7 +1463,9 @@
         "apps/web/src/features/transactions/server/queries.ts#getTransactionsPage"
       ],
       "actions": [
+        "apps/web/src/features/bank/server/actions.ts#markTransferAction",
         "apps/web/src/features/bank/server/actions.ts#setCategoryAction",
+        "apps/web/src/features/bank/server/actions.ts#setLabelAction",
         "apps/web/src/features/transactions/server/actions.ts#deleteTransactionAction",
         "apps/web/src/features/transactions/server/actions.ts#restoreTransactionAction"
       ],
@@ -1329,6 +1475,7 @@
         "apps/web/src/components/visual/list-toolbar.tsx",
         "apps/web/src/features/auth/ui/form-alert.tsx",
         "apps/web/src/features/bank/ui/category-picker.tsx",
+        "apps/web/src/features/bank/ui/label-editor.tsx",
         "apps/web/src/features/transactions/ui/transaction-list.tsx",
         "apps/web/src/lib/use-field-errors.ts",
         "apps/web/src/lib/use-renew-when-hidden.ts"
@@ -1336,6 +1483,7 @@
       "authCalls": [],
       "links": [
         "/ajuda/[…]",
+        "/ajustes/categorias/[…]",
         "/lancamentos",
         "/lancamentos/[…]",
         "/lancamentos/exportar",
@@ -1585,17 +1733,21 @@
         "apps/web/src/features/bot/server/queries.ts#getOpenDrafts"
       ],
       "actions": [
+        "apps/web/src/features/bank/server/actions.ts#markTransferAction",
         "apps/web/src/features/bank/server/actions.ts#requestSyncAction",
         "apps/web/src/features/bank/server/actions.ts#setCategoryAction",
+        "apps/web/src/features/bank/server/actions.ts#setLabelAction",
         "apps/web/src/features/bank/server/review-actions.ts#reviewAction",
         "apps/web/src/features/bank/server/review-actions.ts#undoReviewAction",
         "apps/web/src/features/bot/server/actions.ts#botDraftAction"
       ],
       "clientComponents": [
+        "apps/web/src/components/feedback/action-button.tsx",
         "apps/web/src/components/feedback/action-form.tsx",
         "apps/web/src/components/layout/content-ready.tsx",
         "apps/web/src/features/auth/ui/form-alert.tsx",
         "apps/web/src/features/bank/ui/category-picker.tsx",
+        "apps/web/src/features/bank/ui/label-editor.tsx",
         "apps/web/src/features/bank/ui/request-sync-button.tsx",
         "apps/web/src/features/bank/ui/review/review-actions.tsx",
         "apps/web/src/features/bot/ui/drafts.tsx",
@@ -1606,6 +1758,7 @@
       "links": [
         "/ajuda/[…]",
         "/ajustes/bot",
+        "/ajustes/categorias/[…]",
         "/lancamentos",
         "/lancamentos/importar",
         "/lancamentos/recebidos/criar/[…]",
@@ -2202,6 +2355,32 @@
       "session": "none"
     },
     {
+      "id": "apps/web/src/features/accounts/server/queries.ts#getEditAccountPage",
+      "file": "apps/web/src/features/accounts/server/queries.ts",
+      "name": "getEditAccountPage",
+      "input": [],
+      "permissions": [
+        "view"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeWallet",
+        "packages/db/src/accounts.ts#listWalletAccounts",
+        "packages/db/src/households.ts#listHouseholdMembers",
+        "packages/db/src/wallets.ts#listMyWallets"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/access.ts#canInWallet",
+        "packages/core/src/payer.ts#householdPeople"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
       "id": "apps/web/src/features/accounts/server/queries.ts#getEditCardPage",
       "file": "apps/web/src/features/accounts/server/queries.ts",
       "name": "getEditCardPage",
@@ -2351,11 +2530,15 @@
       "file": "apps/web/src/features/bank/server/queries.ts",
       "name": "getBankHome",
       "input": [],
-      "permissions": [],
+      "permissions": [
+        "view"
+      ],
       "db": [
         "packages/db/src/access.ts#authorizeConnectionOwner",
+        "packages/db/src/access.ts#authorizeHousehold",
         "packages/db/src/access.ts#authorizeScope",
         "packages/db/src/connections.ts#bankLinkedAccounts",
+        "packages/db/src/households.ts#listHouseholdMembers",
         "packages/db/src/statements.ts#openStatementTotals",
         "packages/db/src/statements.ts#receivedSummary"
       ],
@@ -2367,7 +2550,8 @@
       "enqueues": [],
       "services": [],
       "rules": [
-        "packages/core/src/dates.ts#todayCivil"
+        "packages/core/src/dates.ts#todayCivil",
+        "packages/core/src/payer.ts#householdPeople"
       ],
       "redirects": [],
       "financeChanged": false,
@@ -2934,6 +3118,29 @@
       "session": "none"
     },
     {
+      "id": "apps/web/src/features/categories/server/queries.ts#getEditCategoryPage",
+      "file": "apps/web/src/features/categories/server/queries.ts",
+      "name": "getEditCategoryPage",
+      "input": [],
+      "permissions": [
+        "view"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/categories.ts#listCategories",
+        "packages/db/src/categories.ts#listRules"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/access.ts#canInHousehold"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
       "id": "apps/web/src/features/households/server/queries.ts#getHouseholdPage",
       "file": "apps/web/src/features/households/server/queries.ts",
       "name": "getHouseholdPage",
@@ -3347,6 +3554,35 @@
       "session": "user"
     },
     {
+      "id": "apps/web/src/features/accounts/server/actions.ts#updateAccountAction",
+      "file": "apps/web/src/features/accounts/server/actions.ts",
+      "name": "updateAccountAction",
+      "input": [
+        "accountId",
+        "kind",
+        "name",
+        "walletId"
+      ],
+      "permissions": [
+        "manage_accounts"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeWallet",
+        "packages/db/src/accounts.ts#updateAccount"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/text.ts#cleanText"
+      ],
+      "redirects": [
+        "/ajustes/contas"
+      ],
+      "financeChanged": false,
+      "session": "user"
+    },
+    {
       "id": "apps/web/src/features/accounts/server/actions.ts#updateCardAction",
       "file": "apps/web/src/features/accounts/server/actions.ts",
       "name": "updateCardAction",
@@ -3491,6 +3727,29 @@
       "session": "recent"
     },
     {
+      "id": "apps/web/src/features/bank/server/actions.ts#markTransferAction",
+      "file": "apps/web/src/features/bank/server/actions.ts",
+      "name": "markTransferAction",
+      "input": [
+        "intent",
+        "peer",
+        "transactionId"
+      ],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/review.ts#markTransfer",
+        "packages/db/src/review.ts#unmarkTransfer"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "user"
+    },
+    {
       "id": "apps/web/src/features/bank/server/actions.ts#requestSyncAction",
       "file": "apps/web/src/features/bank/server/actions.ts",
       "name": "requestSyncAction",
@@ -3574,6 +3833,29 @@
       ],
       "redirects": [],
       "financeChanged": true,
+      "session": "user"
+    },
+    {
+      "id": "apps/web/src/features/bank/server/actions.ts#setLabelAction",
+      "file": "apps/web/src/features/bank/server/actions.ts",
+      "name": "setLabelAction",
+      "input": [
+        "label",
+        "transactionId"
+      ],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeTransaction",
+        "packages/db/src/transactions.ts#setTransactionLabel"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/text.ts#cleanText"
+      ],
+      "redirects": [],
+      "financeChanged": false,
       "session": "user"
     },
     {
@@ -3772,7 +4054,9 @@
       "name": "reviewAction",
       "input": [
         "accountId",
+        "inId",
         "intent",
+        "outId",
         "ownId",
         "receivedId",
         "statementId",
@@ -3784,8 +4068,10 @@
         "packages/db/src/access.ts#authorizeScope",
         "packages/db/src/review.ts#confirmBulk",
         "packages/db/src/review.ts#confirmReceived",
+        "packages/db/src/review.ts#confirmTransfer",
         "packages/db/src/review.ts#linkRefund",
-        "packages/db/src/review.ts#rejectPair"
+        "packages/db/src/review.ts#rejectPair",
+        "packages/db/src/review.ts#rejectTransfer"
       ],
       "tables": [],
       "enqueues": [],
@@ -4166,6 +4452,35 @@
       "session": "user"
     },
     {
+      "id": "apps/web/src/features/categories/server/actions.ts#updateCategoryAction",
+      "file": "apps/web/src/features/categories/server/actions.ts",
+      "name": "updateCategoryAction",
+      "input": [
+        "categoryId",
+        "kind",
+        "name"
+      ],
+      "permissions": [
+        "manage_categories"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/categories.ts#updateCategory"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/text.ts#cleanText"
+      ],
+      "redirects": [
+        "/ajustes/categorias"
+      ],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
       "id": "apps/web/src/features/households/server/actions.ts#acceptInviteAction",
       "file": "apps/web/src/features/households/server/actions.ts",
       "name": "acceptInviteAction",
@@ -4377,6 +4692,7 @@
         "fixedKind",
         "installments",
         "kind",
+        "label",
         "method",
         "notes",
         "occurredOn",
@@ -4565,6 +4881,7 @@
         "categoryId",
         "description",
         "kind",
+        "label",
         "method",
         "notes",
         "occurredOn",
@@ -5194,6 +5511,16 @@
       "services": []
     },
     {
+      "id": "packages/db/src/accounts.ts#updateAccount",
+      "file": "packages/db/src/accounts.ts",
+      "name": "updateAccount",
+      "tables": [
+        "AuditLog",
+        "FinancialAccount"
+      ],
+      "services": []
+    },
+    {
       "id": "packages/db/src/accounts.ts#updateCard",
       "file": "packages/db/src/accounts.ts",
       "name": "updateCard",
@@ -5528,6 +5855,17 @@
         "Category",
         "CategoryRule",
         "ClassifierModel",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/categories.ts#updateCategory",
+      "file": "packages/db/src/categories.ts",
+      "name": "updateCategory",
+      "tables": [
+        "AuditLog",
+        "Category",
         "Transaction"
       ],
       "services": []
@@ -6056,6 +6394,17 @@
       "services": []
     },
     {
+      "id": "packages/db/src/review.ts#confirmTransfer",
+      "file": "packages/db/src/review.ts",
+      "name": "confirmTransfer",
+      "tables": [
+        "AuditLog",
+        "Transaction",
+        "TransactionMatch"
+      ],
+      "services": []
+    },
+    {
       "id": "packages/db/src/review.ts#linkRefund",
       "file": "packages/db/src/review.ts",
       "name": "linkRefund",
@@ -6063,6 +6412,16 @@
         "AuditLog",
         "Transaction",
         "TransactionMatch"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/review.ts#markTransfer",
+      "file": "packages/db/src/review.ts",
+      "name": "markTransfer",
+      "tables": [
+        "AuditLog",
+        "Transaction"
       ],
       "services": []
     },
@@ -6079,6 +6438,17 @@
       "id": "packages/db/src/review.ts#rejectPair",
       "file": "packages/db/src/review.ts",
       "name": "rejectPair",
+      "tables": [
+        "AuditLog",
+        "Transaction",
+        "TransactionMatch"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/review.ts#rejectTransfer",
+      "file": "packages/db/src/review.ts",
+      "name": "rejectTransfer",
       "tables": [
         "AuditLog",
         "Transaction",
@@ -6112,6 +6482,16 @@
       "id": "packages/db/src/review.ts#undoReview",
       "file": "packages/db/src/review.ts",
       "name": "undoReview",
+      "tables": [
+        "AuditLog",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/review.ts#unmarkTransfer",
+      "file": "packages/db/src/review.ts",
+      "name": "unmarkTransfer",
       "tables": [
         "AuditLog",
         "Transaction"
@@ -6298,6 +6678,16 @@
         "CategorizationExample",
         "Category",
         "CategoryRule",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/transactions.ts#setTransactionLabel",
+      "file": "packages/db/src/transactions.ts",
+      "name": "setTransactionLabel",
+      "tables": [
+        "AuditLog",
         "Transaction"
       ],
       "services": []

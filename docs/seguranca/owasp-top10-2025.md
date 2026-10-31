@@ -92,6 +92,10 @@ um endereço escolhido pelo atacante (SSRF, que entrou neste item em 2021).
 `apps/web/e2e/editar-cartao.spec.ts` (M13.1: editar o cartão de outra pessoa dá o mesmo 404, sem
 nenhum dado) e `packages/db/src/integration/editar-cartao.integration.test.ts` (o cartão de outra
 carteira, arquivado ou inventado responde igual; o portador e o ambiente são conferidos no banco);
+`packages/db/src/integration/transferencias-e-o-que-foi.integration.test.ts` (M13.2: ligar uma
+transferência com a conta de outra pessoa do lar, que quem liga não edita, ou de outro lar dá o
+mesmo NOT_FOUND; Editar conta e Editar categoria de fora respondem igual; o "O que foi" nunca vai
+para a auditoria, que guarda só a contagem);
 `packages/db/src/permissoes-doc.test.ts` (o `docs/permissoes.md` bate com a matriz);
 `apps/web/e2e/cabecalhos.spec.ts`, bloco "pedido de outra origem é recusado" (**novo no M12.1**:
 o mesmo pedido de uma Server Action é recusado com outra origem e grava com a origem do app; a
