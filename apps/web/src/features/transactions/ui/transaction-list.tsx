@@ -34,6 +34,8 @@ export type ListItem = {
   id: string;
   occurredOn: CivilDate;
   description: string;
+  /** "O que foi" (M13.2): o nome que a pessoa deu ao lançamento do banco; em destaque */
+  label: string | null;
   amount: bigint;
   status: "PENDING" | "SCHEDULED" | "CONFIRMED";
   transferId: string | null;
@@ -92,7 +94,7 @@ export function TransactionList({
         toast.error(result.error);
         return;
       }
-      undoToast(`“${item.description}” excluído`, {
+      undoToast(`“${item.label ?? item.description}” excluído`, {
         onUndo: () => {
           startTransition(async () => {
             const back = await restoreTransactionAction(INITIAL_ACTION_STATE, formData(item.id));
@@ -179,9 +181,16 @@ function TransactionRow({
         <span className="flex min-w-0 items-center gap-2">
           <Link
             href={`/lancamentos/${item.id}`}
-            className="focus-visible:ring-ring min-w-0 truncate rounded text-[0.9375rem] font-semibold outline-none hover:underline focus-visible:ring-3 lg:text-base"
+            className="focus-visible:ring-ring flex min-w-0 flex-col rounded outline-none hover:underline focus-visible:ring-3"
           >
-            {item.description}
+            <span className="truncate text-[0.9375rem] font-semibold lg:text-base">
+              {item.label ?? item.description}
+            </span>
+            {item.label ? (
+              <span className="text-muted-foreground tabular truncate font-mono text-xs">
+                {item.description}
+              </span>
+            ) : null}
           </Link>
           {item.installment ? <InstallmentBadge {...item.installment} /> : null}
           {item.status === "SCHEDULED" ? <Scheduled /> : null}
@@ -201,7 +210,7 @@ function TransactionRow({
           type="button"
           variant="ghost"
           size="icon-lg"
-          aria-label={`Excluir ${item.description}`}
+          aria-label={`Excluir ${item.label ?? item.description}`}
           onClick={() => onRemove(item)}
           className="text-muted-foreground hidden lg:inline-flex"
         >

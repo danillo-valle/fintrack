@@ -1,11 +1,14 @@
 // Os recebidos sem par de uma fatura (cartão) ou de uma conta (M09.2, pranchas E2-Revisao e
 // E2-CelRevisao), com "Confirmar os N com categoria" do grupo e o "Confirmar" de cada linha.
 //
-//   computador  data | descrição + cartão | categoria [?] | ambiente | valor | Confirmar
+//   computador  data | descrição + cartão | categoria · O que foi [?] | ambiente | valor | Confirmar
 //   celular     descrição ............................................ valor
 //               data · cartão
-//               [ categoria (quase toda a largura)        ] [?]
+//               [ categoria              ] [ O que foi        ] [?]
 //               [ ambiente               ] [ Confirmar ]
+//
+// M13.2 (prancha M-Revisao): o "O que foi" ao lado da categoria, o nome da pessoa em destaque com o
+// texto do banco embaixo, e a transferência marcada de um lado só (com "Desmarcar").
 //
 // [?] (M10.1, prancha F-Sugestoes): "Por que essa categoria?", a cascata camada por camada, num
 // modal por cima da revisão. A etiqueta da categoria diz quem sugeriu e com que confiança.
@@ -23,6 +26,8 @@ import { AmountText } from "@/components/money/amount-text";
 import { NativeSelect } from "@/components/ui/native-select";
 import { TEXT_LINK } from "@/lib/styles";
 import { CategoryPicker, type CategoryChoice } from "../category-picker";
+import { LabelEditor } from "../label-editor";
+import { TransferMark } from "../transfer-mark";
 import { CardChip, CategoryLabel, dayMonth, monthName, SMALL_BUTTON, SMALL_PRIMARY } from "./parts";
 import { ReviewForm, ReviewSubmit } from "./review-actions";
 
@@ -101,7 +106,7 @@ function ReceivedRow({
     : [item.wallet, ...wallets];
   return (
     <li
-      className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2.5 gap-y-2 py-3 md:grid-cols-[3rem_minmax(0,1fr)_15rem_6.5rem_6.5rem_6rem] md:items-center md:gap-x-3 md:py-2.5"
+      className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2.5 gap-y-2 py-3 md:grid-cols-[3rem_minmax(0,1fr)_minmax(0,24rem)_6.5rem_6.5rem_6rem] md:items-center md:gap-x-3 md:py-2.5"
       data-testid="recebido"
     >
       <span className="text-muted-foreground tabular hidden font-mono text-[0.8125rem] md:col-start-1 md:row-start-1 md:block">
@@ -109,7 +114,16 @@ function ReceivedRow({
       </span>
       <span className="col-start-1 row-start-1 flex min-w-0 flex-col gap-1 md:col-start-2">
         <span className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-[0.9375rem] font-semibold">{item.description}</span>
+          <span className="flex min-w-0 flex-col">
+            <span className="truncate text-[0.9375rem] font-semibold">
+              {item.label ?? item.description}
+            </span>
+            {item.label ? (
+              <span className="text-muted-foreground tabular truncate font-mono text-xs">
+                {item.description}
+              </span>
+            ) : null}
+          </span>
           {item.installment ? (
             <span className="bg-muted tabular shrink-0 rounded-full px-2 py-0.5 font-mono text-xs font-bold">
               <span className="sr-only">parcela </span>
@@ -130,14 +144,20 @@ function ReceivedRow({
         arrow={false}
         className="col-start-2 row-start-1 self-start justify-self-end text-[0.9375rem] font-bold md:col-start-5 md:self-center"
       />
-      <span className="col-span-2 flex min-w-0 items-center gap-1 md:col-span-1 md:col-start-3 md:row-start-1">
+      <span className="col-span-2 flex min-w-0 items-center gap-1.5 md:col-span-1 md:col-start-3 md:row-start-1">
         <span className="min-w-0 flex-1">
           {item.isTransfer ? (
-            <span className="text-muted-foreground text-sm">Transferência</span>
+            <TransferMark item={item} canEdit={item.canEdit} />
           ) : item.canEdit ? (
             <CategoryPicker
               item={item}
               choices={item.amount < 0n ? choices.expense : choices.income}
+              others={
+                item.amount < 0n
+                  ? { kind: "receita", choices: choices.income }
+                  : { kind: "despesa", choices: choices.expense }
+              }
+              offerTransfer
               full
             />
           ) : (
@@ -148,6 +168,11 @@ function ReceivedRow({
             />
           )}
         </span>
+        {item.canEdit ? (
+          <span className="min-w-0 flex-1">
+            <LabelEditor item={item} full />
+          </span>
+        ) : null}
         {item.isTransfer ? null : (
           <Link
             href={`/lancamentos/recebidos/por-que/${item.id}`}

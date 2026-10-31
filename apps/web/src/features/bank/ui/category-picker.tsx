@@ -11,18 +11,23 @@
 // painel que sobe da base. Tocar numa categoria já grava e fecha (sem "confirmar"). A busca filtra
 // as categorias do lar e oferece "Criar “texto”"; "Sempre categorizar assim" cria a regra junto.
 //
+// M13.2: o nome digitado que já existe no OUTRO tipo (uma receita, num gasto) vira um aviso com o
+// caminho para ela, em vez de um "Criar" que o banco recusaria; e, num recebido ainda na revisão,
+// "É transferência" (para alguém do lar ou para uma conta sua fora do FinTrack) no pé do painel.
+//
 // Feito com <details>/<summary> e um <form> com a Server Action direta: abre, escolhe e grava
 // mesmo antes do JavaScript carregar (regra do M08). O JavaScript só acrescenta a busca, o Esc,
 // o "um aberto por vez" e devolver o foco à linha depois de escolher.
 import { useEffect, useId, useRef, useState } from "react";
-import { ChevronRight, Plus, Search, X } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeftRight, ChevronRight, Plus, Search, TriangleAlert, X } from "lucide-react";
 import { ActionForm } from "@/components/feedback/action-form";
 import type { CategorizationSource } from "@fintrack/core";
 import { IconTile } from "@/components/visual/icon-tile";
 import { SourcePill } from "@/components/visual/source-pill";
 import { toneFor } from "@/components/visual/tone";
 import { cn } from "@/lib/utils";
-import { setCategoryAction, type CategoryState } from "../server/actions";
+import { markTransferAction, setCategoryAction, type CategoryState } from "../server/actions";
 
 export type CategoryChoice = { id: string; name: string; parent: string | null };
 
@@ -36,6 +41,8 @@ export function CategoryPicker({
   item,
   choices,
   full = false,
+  others,
+  offerTransfer = false,
 }: {
   item: {
     id: string;
@@ -48,6 +55,10 @@ export function CategoryPicker({
   choices: readonly CategoryChoice[];
   /** Ocupa a largura toda (a linha do celular) */
   full?: boolean;
+  /** As categorias do OUTRO tipo (M13.2): um nome que já existe lá vira aviso, não "Criar" */
+  others?: { kind: "despesa" | "receita"; choices: readonly CategoryChoice[] };
+  /** Oferece "É transferência" (M13.2): só num recebido ainda na revisão, que a pessoa edita */
+  offerTransfer?: boolean;
 }) {
   const ref = useRef<HTMLDetailsElement>(null);
   const summaryRef = useRef<HTMLElement>(null);
@@ -83,6 +94,7 @@ export function CategoryPicker({
         .slice(0, SEARCH_RESULTS)
     : choices.slice(0, MOST_USED);
   const exact = choices.some((c) => plain(c.name) === q);
+  const conflict = q && !exact ? (others?.choices.find((c) => plain(c.name) === q) ?? null) : null;
 
   return (
     <details
@@ -185,9 +197,26 @@ export function CategoryPicker({
               setQuery={setQuery}
               searchId={searchId}
               ruleId={ruleId}
+              conflict={conflict && others ? { ...conflict, kind: others.kind } : null}
             />
           )}
         </ActionForm>
+        {offerTransfer ? (
+          <ActionForm
+            action={markTransferAction}
+            aria-label={`É transferência: ${item.description}`}
+            className="border-t pt-2.5"
+          >
+            {({ pending, state }) => (
+              <TransferChoices
+                id={item.id}
+                pending={pending}
+                saved={Boolean(state.success)}
+                onSaved={close}
+              />
+            )}
+          </ActionForm>
+        ) : null}
       </div>
     </details>
   );
@@ -204,7 +233,9 @@ function PickerBody({
   setQuery,
   searchId,
   ruleId,
+  conflict,
 }: {
+  conflict: { id: string; name: string; kind: "despesa" | "receita" } | null;
   state: CategoryState;
   onSaved: () => void;
   pending: boolean;
@@ -291,7 +322,31 @@ function PickerBody({
             : "Nenhuma categoria ainda. Digite o nome para criar a primeira."}
         </p>
       )}
-      {typed && !exact ? (
+      {conflict ? (
+        <div
+          role="note"
+          className="flex items-start gap-2.5 rounded-xl bg-[color-mix(in_srgb,var(--chart-4)_14%,transparent)] px-3 py-2.5 text-sm"
+          data-testid="categoria-outro-tipo"
+        >
+          <TriangleAlert aria-hidden className="text-chart-4-ink mt-0.5 size-4 shrink-0" />
+          <span className="flex flex-col gap-1">
+            <strong>
+              “{conflict.name}” já existe como {conflict.kind}
+            </strong>
+            <span className="text-muted-foreground">
+              Aqui só aparecem as de {conflict.kind === "receita" ? "despesa" : "receita"}, e o nome
+              não se repete no lar.
+            </span>
+            <Link
+              href={`/ajustes/categorias/${conflict.id}`}
+              className="text-chart-1-ink font-bold underline underline-offset-4"
+            >
+              Abrir {conflict.name} em Categorias
+            </Link>
+          </span>
+        </div>
+      ) : null}
+      {typed && !exact && !conflict ? (
         <button
           type="submit"
           name="newCategory"
@@ -310,6 +365,42 @@ function PickerBody({
       <span className="text-muted-foreground text-xs">
         Tocar numa categoria já salva. A escolha vira exemplo para as próximas sugestões.
       </span>
+    </div>
+  );
+}
+
+/** "É transferência" no pé do painel (M13.2): marca só este lado; o outro a pessoa não vê. */
+function TransferChoices({
+  id,
+  pending,
+  saved,
+  onSaved,
+}: {
+  id: string;
+  pending: boolean;
+  saved: boolean;
+  onSaved: () => void;
+}) {
+  useEffect(() => {
+    if (saved) onSaved();
+  }, [saved, onSaved]);
+  const option =
+    "bg-card hover:bg-muted focus-visible:ring-ring flex min-h-11 w-full items-center gap-2 rounded-xl border px-3 text-left text-sm font-semibold outline-none focus-visible:ring-3 disabled:opacity-60";
+  return (
+    <div className="flex flex-col gap-1.5">
+      <input type="hidden" name="intent" value="mark" />
+      <input type="hidden" name="transactionId" value={id} />
+      <span className="text-muted-foreground text-xs font-bold">
+        Não é gasto nem receita? É transferência
+      </span>
+      <button type="submit" name="peer" value="HOUSEHOLD" disabled={pending} className={option}>
+        <ArrowLeftRight aria-hidden className="size-4 shrink-0" />
+        Para alguém do lar
+      </button>
+      <button type="submit" name="peer" value="EXTERNAL" disabled={pending} className={option}>
+        <ArrowLeftRight aria-hidden className="size-4 shrink-0" />
+        Para uma conta minha fora do FinTrack
+      </button>
     </div>
   );
 }

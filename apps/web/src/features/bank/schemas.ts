@@ -117,6 +117,22 @@ export const setCategorySchema = z
   })
   .refine((d) => d.categoryId || d.newCategory, { message: "Escolha uma categoria." });
 
+/** O "O que foi" de um lançamento do banco (M13.2). Vazio limpa. */
+export const setLabelSchema = z.object({
+  transactionId: z.uuid(),
+  label: textField().trim().max(200, "Use no máximo 200 caracteres.").default(""),
+});
+
+/** "É transferência" de um lado só (M13.2): para alguém do lar ou para conta sua fora do FinTrack. */
+export const markTransferSchema = z.discriminatedUnion("intent", [
+  z.object({
+    intent: z.literal("mark"),
+    transactionId: z.uuid(),
+    peer: z.enum(["HOUSEHOLD", "EXTERNAL"]),
+  }),
+  z.object({ intent: z.literal("unmark"), transactionId: z.uuid() }),
+]);
+
 // ── Revisão dos recebidos (M09.2) ───────────────────────────────────────────────
 
 /**
@@ -125,6 +141,7 @@ export const setCategorySchema = z
  *   bulk     "Confirmar os N que já têm categoria" (de uma fatura, de uma conta ou de tudo)
  *   reject   "Não é o mesmo" num par sugerido
  *   refund   "Ligar ao original" num estorno sugerido
+ *   transfer / transfer-reject   a transferência sugerida entre duas contas (M13.2)
  */
 export const reviewSchema = z.discriminatedUnion("intent", [
   z.object({
@@ -148,6 +165,9 @@ export const reviewSchema = z.discriminatedUnion("intent", [
   }),
   z.object({ intent: z.literal("reject"), receivedId: z.uuid(), ownId: z.uuid() }),
   z.object({ intent: z.literal("refund"), receivedId: z.uuid(), ownId: z.uuid() }),
+  // M13.2: a transferência sugerida (os dois lados) e o "Não é transferência"
+  z.object({ intent: z.literal("transfer"), outId: z.uuid(), inId: z.uuid() }),
+  z.object({ intent: z.literal("transfer-reject"), outId: z.uuid(), inId: z.uuid() }),
 ]);
 
 export type ReviewInput = z.infer<typeof reviewSchema>;

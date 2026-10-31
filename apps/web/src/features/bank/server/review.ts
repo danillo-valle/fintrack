@@ -69,6 +69,8 @@ export async function getReviewPage(session: Session, view: ReviewView) {
     queue,
     view,
     pairs: view === "sem-categoria" || view === "fila-ia" ? [] : queue.pairs,
+    /** M13.2: as transferências sugeridas aparecem com os pares */
+    transfers: view === "sem-categoria" || view === "fila-ia" ? [] : queue.transfers,
     groups,
     categories,
     wallets,
@@ -213,4 +215,11 @@ export async function getAccountCardsPage(session: Session, accountId: string) {
 }
 
 // Os tipos que as telas da revisão usam (o ui/ não importa o @fintrack/db, regra do ESLint)
-export type { PairPreview, PairView, ReceivedView, ReviewGroup } from "@fintrack/db";
+export type {
+  PairPreview,
+  PairView,
+  ReceivedView,
+  ReviewGroup,
+  TransferSideView,
+  TransferView,
+} from "@fintrack/db";

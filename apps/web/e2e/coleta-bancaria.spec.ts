@@ -155,14 +155,22 @@ test("conectar o Meu Pluggy, ligar as contas e ver saldo, fatura e recebidos", a
   );
   expect(Number(created[0]!.n)).toBeGreaterThan(40);
 
-  // ── 3. Início: contas e cartões, e o aviso dos recebidos ──
+  // ── 3. Início: na conta hoje, os cartões (M13.2) e o aviso dos recebidos ──
   await openPage(page, "/");
-  const contas = page.getByRole("region", { name: "Contas e cartões" });
-  await expect(contas.getByText("Mastercard final 0001", { exact: true })).toBeVisible();
+  const contas = page.getByRole("region", { name: "Na conta hoje" });
+  await expect(contas.getByTestId("na-conta-total")).toContainText(brl("R$ 4.218,36"));
   await expect(
-    contas.getByRole("link", { name: /ver a fatura de Mastercard final 0001/ }),
+    contas.getByRole("link", { name: /ver os lançamentos de / }).filter({ visible: true }),
+  ).toContainText(brl("R$ 4.218,36"));
+  const cartoes = page.getByRole("region", { name: "Seus cartões" });
+  await expect(
+    cartoes.getByRole("link", { name: /ver a fatura de .* final 0001/ }).filter({ visible: true }),
   ).toContainText(brl("R$ 1.284,90"));
-  await expect(contas.getByText(brl("R$ 4.218,36"))).toBeVisible();
+  await expect(
+    cartoes.getByRole("link", { name: /ver a fatura de .* final 0002/ }).filter({ visible: true }),
+  ).toContainText(brl("R$ 932,47"));
+  // O total soma as faturas abertas dos dois cartões (o Master e o Visa da Casa)
+  await expect(cartoes.getByTestId("cartoes-total")).toContainText(brl("R$ 2.217,37"));
   await expect(page.getByTestId("aviso-recebidos")).toContainText("lançamentos recebidos do banco");
   // Recebido fica FORA do painel: o gasto do mês continua zero
   await expect(page.getByTestId("inicio-gasto")).toContainText(brl("R$ 0,00"));

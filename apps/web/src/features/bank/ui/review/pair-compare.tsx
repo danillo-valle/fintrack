@@ -2,7 +2,8 @@
 // lançamento, confirmado: a descrição, a categoria e o ambiente são os seus; a data e o valor,
 // os do banco.
 //
-//   computador  tabela: campo | Seu lançamento | Do banco | Resultado ("fica a sua")
+//   computador  tabela: campo | Seu lançamento | Do banco | Resultado ("fica a sua"; na descrição,
+//               "ficam as duas" desde o M13.2: a sua vira o "O que foi" e a do banco continua)
 //   celular     lista:  campo, o valor que fica e a etiqueta
 import { Check, Info } from "lucide-react";
 import type { PairPreview } from "../../server/review";
@@ -38,12 +39,16 @@ export function pairLines(preview: PairPreview): Line[] {
       ? received.wallet.name
       : `${received.wallet.name} (padrão do cartão)`;
   return [
+    // M13.2: as duas ficam. A do banco continua a descrição; a sua vira o "O que foi"
     {
       label: "Descrição",
       mine: own.description,
       bank: received.description,
-      keeps: own.description === received.description ? null : "a sua",
-      result: own.description,
+      keeps: result.label === null ? null : "as duas",
+      result:
+        result.label === null
+          ? received.description
+          : `${result.label} (do banco: ${received.description})`,
     },
     {
       label: "Data",
@@ -90,7 +95,7 @@ function Keeps({ keeps }: { keeps: string | null }) {
   if (!keeps) return <span className="text-muted-foreground text-[0.8125rem]">igual</span>;
   return (
     <ToneChip tone={5} icon={Check}>
-      fica {keeps}
+      {keeps === "as duas" ? "ficam as duas" : `fica ${keeps}`}
     </ToneChip>
   );
 }

@@ -100,6 +100,14 @@ const DOMAIN_ERROR_MESSAGE: Record<DomainErrorCode, string> = {
   CONNECTION_NOT_READY: "Conecte o Meu Pluggy antes (Ajustes › Conexões bancárias).",
   REVIEW_STALE: "Esse recebido já foi conferido. Recarregue a página para ver como ficou.",
   PAIR_NOT_ALLOWED: "Esses dois lançamentos não formam um par (valor, conta ou datas diferentes).",
+  TRANSFER_NOT_ALLOWED:
+    "Esses dois lançamentos não formam uma transferência (valor, contas ou datas diferentes).",
+  LABEL_NOT_ALLOWED:
+    "O que foi é para o que veio do banco. Num lançamento seu, mude a descrição em Editar.",
+  ACCOUNT_KIND_LOCKED:
+    "O tipo desta conta não muda: ela é ligada ao banco, ou é cartão ou vale. O apelido, sim.",
+  CATEGORY_KIND_LOCKED:
+    "O tipo não muda enquanto a categoria tiver subcategorias ou lançamentos do outro tipo. Troque a categoria deles antes.",
   REFUND_NOT_ALLOWED:
     "Esse crédito não é estorno daquela compra (valor, loja ou prazo diferentes).",
   UNDO_EXPIRED: "Não dá mais para desfazer: o lançamento mudou depois.",
@@ -126,6 +134,10 @@ export function domainErrorMessage(code: string, details: Record<string, unknown
   if (code === "SOLE_WALLET_OWNER" && Array.isArray(details.wallets)) {
     return `Essa pessoa é a única dona de: ${details.wallets.join(", ")}. Passe a posse para outra pessoa antes.`;
   }
+  // M13.2: qual cartão veio do banco sem fechamento e vencimento (só o final, nunca o número)
+  if (code === "CARD_CYCLE_MISSING" && typeof details.lastFour === "string") {
+    return `O cartão final ${details.lastFour} veio do banco sem os dias de fechamento e vencimento. Crie a conta dele em Contas e cartões, com os dois dias, e escolha essa conta aqui.`;
+  }
   return DOMAIN_ERROR_MESSAGE[code as DomainErrorCode] ?? DOMAIN_ERROR_MESSAGE.NOT_FOUND;
 }
 
@@ -151,6 +163,7 @@ export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
   "recurrence.created": "criou uma recorrência",
   "recurrence.archived": "encerrou uma recorrência",
   "account.created": "criou uma conta",
+  "account.updated": "editou uma conta",
   "account.archived": "arquivou ou desarquivou uma conta",
   "card.created": "cadastrou um cartão",
   "card.archived": "arquivou ou desarquivou um cartão",
@@ -158,6 +171,7 @@ export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
   "card.updated": "editou um cartão",
   "installment_purchase.created": "lançou uma compra parcelada",
   "category.created": "criou uma categoria",
+  "category.updated": "editou uma categoria",
   "category.archived": "arquivou ou restaurou uma categoria",
   "category_rule.created": "criou uma regra de categoria",
   "category_rule.deleted": "apagou uma regra de categoria",
@@ -174,7 +188,12 @@ export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
   "transaction.paired": "juntou um recebido do banco a um lançamento",
   "transaction.pair_rejected": "recusou um par sugerido na revisão",
   "transaction.refund_linked": "ligou um estorno à compra",
-  "transaction.match_undone": "desfez um par ou um estorno",
+  "transaction.match_undone": "desfez um par, um estorno ou uma transferência",
+  "transaction.transfer_linked": "ligou os dois lados de uma transferência",
+  "transaction.transfer_rejected": "recusou uma transferência sugerida na revisão",
+  "transaction.transfer_marked": "marcou um recebido como transferência",
+  "transaction.transfer_unmarked": "desmarcou uma transferência",
+  "transaction.labeled": "deu um nome (O que foi) a um lançamento",
   "file.imported": "importou um extrato (OFX)",
   "classifier.trained": "treinou o classificador de categorias",
   "local_ai.enabled": "ligou a IA local",

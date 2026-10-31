@@ -27,6 +27,7 @@ import {
   type ReviewState,
   type ReviewUndo,
 } from "../../server/review-actions";
+import type { ReviewInput } from "../../schemas";
 
 const INITIAL: ReviewState = { ...INITIAL_ACTION_STATE, undo: null };
 
@@ -111,7 +112,7 @@ export function ReviewForm({
   className,
   label,
 }: {
-  intent: "confirm" | "bulk" | "reject" | "refund";
+  intent: ReviewInput["intent"];
   fields: Record<string, string>;
   children: ReactNode;
   className?: string;
