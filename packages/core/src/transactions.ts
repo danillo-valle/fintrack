@@ -35,6 +35,43 @@ export function kindAndAbs(amount: Cents): { kind: TransactionKind; cents: Cents
 // ── Forma de pagamento × tipo de conta ──────────────────────────────────────────
 
 export type AccountKind = "CHECKING" | "SAVINGS" | "CREDIT_CARD" | "MEAL_VOUCHER" | "CASH";
+
+/** O nome de cada tipo de conta (a tela e o nome da conta nova que vem do banco, M13.2). */
+export const ACCOUNT_KIND_LABEL: Record<AccountKind, string> = {
+  CHECKING: "Conta corrente",
+  SAVINGS: "Poupança",
+  CREDIT_CARD: "Cartão de crédito",
+  MEAL_VOUCHER: "Vale-refeição",
+  CASH: "Dinheiro",
+};
+
+/**
+ * Os tipos entre os quais uma conta MANUAL pode trocar no Editar conta (M13.2): os que não têm
+ * regra de forma de pagamento no banco. Cartão e vale têm (gatilho do M07), e mudar o tipo deixaria
+ * os lançamentos que já existem em desacordo com ela.
+ */
+export const SWITCHABLE_ACCOUNT_KINDS: readonly AccountKind[] = ["CHECKING", "SAVINGS", "CASH"];
+
+/** Pode trocar de `from` para `to`? Igual sempre pode; senão os dois entre os trocáveis. */
+export function canSwitchAccountKind(from: AccountKind, to: AccountKind): boolean {
+  return (
+    from === to ||
+    (SWITCHABLE_ACCOUNT_KINDS.includes(from) && SWITCHABLE_ACCOUNT_KINDS.includes(to))
+  );
+}
+
+/**
+ * O nome da conta nova que vem do banco: a instituição e o tipo ("Itaú · Conta corrente"). O nome
+ * que o banco dá à conta costuma ser só o do banco ("itau"), o mesmo na corrente e na poupança.
+ */
+export function defaultAccountName(input: {
+  institution: string | null;
+  bankName: string;
+  kind: AccountKind;
+}): string {
+  const base = (input.institution ?? input.bankName).trim() || input.bankName.trim();
+  return `${base} · ${ACCOUNT_KIND_LABEL[input.kind]}`.slice(0, 60);
+}
 export type PaymentMethod =
   | "CREDIT"
   | "DEBIT"

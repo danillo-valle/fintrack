@@ -206,6 +206,8 @@ erDiagram
         enum source "MANUAL | OFX | PDF | OPEN_FINANCE | BOT | RECURRENCE"
         string externalId "único por conta e origem"
         uuid transferId "dois lados"
+        enum transferPeer "HOUSEHOLD | EXTERNAL: um lado só (M13.2)"
+        string label "O que foi (M13.2)"
         enum categorizedBy "MANUAL | RULE | HISTORY (M07) | PROVIDER | CLASSIFIER (M10.1) | LLM (M10.2b)"
         smallint categorizationConfidence "0 a 100, da camada (M10.1)"
         timestamp deletedAt "exclusão lógica"
@@ -218,7 +220,7 @@ erDiagram
         uuid id PK
         uuid receivedId FK "o que veio do banco"
         uuid ownId FK "o seu lançamento"
-        enum kind "SAME | INSTALLMENT | REFUND"
+        enum kind "SAME | INSTALLMENT | REFUND | TRANSFER (M13.2)"
         enum status "CONFIRMED | REJECTED | UNDONE"
         json receivedBefore "para o Desfazer"
     }

@@ -6,6 +6,9 @@ import {
   descriptionSimilarity,
   pairCandidate,
   pairedFields,
+  suggestTransfers,
+  transferKey,
+  type TransferSide,
   pairKey,
   suggestPairs,
   suggestRefunds,
@@ -243,15 +246,31 @@ describe("pairedFields", () => {
     transferId: null,
   };
 
-  it("fica o seu: descrição, categoria, ambiente, observação e recorrência", () => {
+  const bankText = "SUPERMERCADO BOM PRECO";
+
+  it("fica o seu: categoria, ambiente, observação e recorrência; a sua descrição vira o O que foi", () => {
+    const { description, ...rest } = ownSide;
     expect(
-      pairedFields({ cardId: "c-0002", categoryId: "cat-x", categorizedBy: "RULE" }, ownSide),
-    ).toEqual({ ...ownSide, cardId: "c-0002", categorizationConfidence: null });
+      pairedFields(
+        { cardId: "c-0002", description: bankText, categoryId: "cat-x", categorizedBy: "RULE" },
+        ownSide,
+      ),
+    ).toEqual({ ...rest, label: description, cardId: "c-0002", categorizationConfidence: null });
+  });
+
+  it("a sua descrição igual à do banco (sem acento, caixa e pontuação) não vira O que foi", () => {
+    expect(
+      pairedFields(
+        { cardId: null, description: "MERCADO DA SEMANA.", categoryId: null, categorizedBy: null },
+        ownSide,
+      ),
+    ).toMatchObject({ label: null });
   });
 
   it("a confiança acompanha quem decidiu a categoria (M10.1)", () => {
     const bank = {
       cardId: null,
+      description: bankText,
       categoryId: "cat-x",
       categorizedBy: "CLASSIFIER",
       categorizationConfidence: 92,
@@ -268,7 +287,7 @@ describe("pairedFields", () => {
   it("sem a sua categoria, fica a sugestão do recebido; sem o final do banco, o seu cartão", () => {
     expect(
       pairedFields(
-        { cardId: null, categoryId: "cat-x", categorizedBy: "RULE" },
+        { cardId: null, description: bankText, categoryId: "cat-x", categorizedBy: "RULE" },
         { ...ownSide, categoryId: null, categorizedBy: null },
       ),
     ).toMatchObject({ cardId: "c-0001", categoryId: "cat-x", categorizedBy: "RULE" });
@@ -277,7 +296,7 @@ describe("pairedFields", () => {
   it("transferência nunca tem categoria", () => {
     expect(
       pairedFields(
-        { cardId: null, categoryId: "cat-x", categorizedBy: "RULE" },
+        { cardId: null, description: bankText, categoryId: "cat-x", categorizedBy: "RULE" },
         { ...ownSide, categoryId: null, categorizedBy: null, transferId: "t-1" },
       ),
     ).toMatchObject({ categoryId: null, categorizedBy: null, transferId: "t-1" });
@@ -339,5 +358,91 @@ describe("unregisteredFinals", () => {
       { lastFour: "0007", count: 2, total: -750n, lastSeen: "2026-10-05" },
       { lastFour: "0003", count: 1, total: -900n, lastSeen: "2026-10-03" },
     ]);
+  });
+});
+
+describe("suggestTransfers (M13.2)", () => {
+  const side = (patch: Partial<TransferSide> & { id: string }): TransferSide => ({
+    accountId: "corrente",
+    accountKind: "CHECKING",
+    amount: -50000n,
+    occurredOn: "2026-10-09",
+    pending: true,
+    ...patch,
+  });
+
+  it("saída e entrada do mesmo valor em contas diferentes viram uma transferência", () => {
+    expect(
+      suggestTransfers([
+        side({ id: "sai" }),
+        side({ id: "entra", accountId: "poupanca", accountKind: "SAVINGS", amount: 50000n }),
+      ]),
+    ).toEqual([{ outId: "sai", inId: "entra", daysApart: 0, billPayment: false }]);
+  });
+
+  it("a entrada num cartão é o pagamento da fatura", () => {
+    expect(
+      suggestTransfers([
+        side({ id: "debito" }),
+        side({
+          id: "credito",
+          accountId: "visa",
+          accountKind: "CREDIT_CARD",
+          amount: 50000n,
+          occurredOn: "2026-10-11",
+        }),
+      ]),
+    ).toEqual([{ outId: "debito", inId: "credito", daysApart: 2, billPayment: true }]);
+  });
+
+  it("nunca: mesma conta, valor diferente, mais de 5 dias, compra no cartão ou os dois já conferidos", () => {
+    const entra = side({
+      id: "entra",
+      accountId: "poupanca",
+      accountKind: "SAVINGS",
+      amount: 50000n,
+    });
+    expect(suggestTransfers([side({ id: "a" }), { ...entra, accountId: "corrente" }])).toEqual([]);
+    expect(suggestTransfers([side({ id: "a", amount: -49999n }), entra])).toEqual([]);
+    expect(suggestTransfers([side({ id: "a", occurredOn: "2026-10-03" }), entra])).toEqual([]);
+    expect(
+      suggestTransfers([side({ id: "a", accountId: "master", accountKind: "CREDIT_CARD" }), entra]),
+    ).toEqual([]);
+    expect(
+      suggestTransfers([side({ id: "a", pending: false }), { ...entra, pending: false }]),
+    ).toEqual([]);
+  });
+
+  it("um lado já conferido pode ser o par de um recebido", () => {
+    expect(
+      suggestTransfers([
+        side({ id: "sai", pending: false }),
+        side({ id: "entra", accountId: "poupanca", accountKind: "SAVINGS", amount: 50000n }),
+      ]),
+    ).toHaveLength(1);
+  });
+
+  it("cada lançamento entra numa transferência só, a de data mais próxima; a recusa não volta", () => {
+    const sides = [
+      side({ id: "sai" }),
+      side({
+        id: "longe",
+        accountId: "p1",
+        accountKind: "SAVINGS",
+        amount: 50000n,
+        occurredOn: "2026-10-12",
+      }),
+      side({
+        id: "perto",
+        accountId: "p2",
+        accountKind: "SAVINGS",
+        amount: 50000n,
+        occurredOn: "2026-10-10",
+      }),
+    ];
+    expect(suggestTransfers(sides).map((t) => t.inId)).toEqual(["perto"]);
+    expect(
+      suggestTransfers(sides, new Set([transferKey("perto", "sai")])).map((t) => t.inId),
+    ).toEqual(["longe"]);
   });
 });

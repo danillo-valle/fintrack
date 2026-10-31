@@ -5,6 +5,8 @@
 //
 //   suggestPairs        recebido × seu lançamento: SAME (o mesmo gasto) ou INSTALLMENT (a parcela)
 //   suggestRefunds      crédito do banco × compra anterior da mesma loja e do mesmo valor (estorno)
+//   suggestTransfers    saída de uma conta × entrada em outra, do mesmo valor (M13.2): transferência
+//                       entre contas ou o pagamento da fatura (a entrada cai num cartão)
 //   pairedFields        o lançamento que fica depois de juntar o par
 //   bulkConfirmable     quais recebidos entram no "Confirmar os N que já têm categoria"
 //   cardForLastFour     o cartão de um final que o banco mandou (titular ou adicional)
@@ -17,9 +19,12 @@
 //     (o banco põe a parcela no dia da fatura; o FinTrack, no dia da compra);
 //   - estorno = crédito do banco do mesmo valor e da mesma loja que uma compra de até 90 dias antes;
 //   - um lançamento entra em no máximo um par (escolha gulosa, do par mais provável ao menos);
-//   - fica o SEU lançamento (descrição, categoria, ambiente, observação) com o valor, a data e o
-//     id do banco: assim a próxima busca acha o lançamento e não duplica.
+//   - fica o lançamento do banco (o id dele: a próxima busca acha e não duplica) com o que a pessoa
+//     decidiu do SEU lado (categoria, ambiente, observação); a sua descrição vira o "O que foi"
+//     (label) e a do banco fica (M13.2);
+//   - transferência = os dois lados do banco ficam, com o mesmo transferId e sem categoria (M13.2).
 import { matchText, merchantKey } from "./categorization";
+import { sameText } from "./label";
 import { daysBetween, type CivilDate } from "./dates";
 import type { Cents } from "./money";
 
@@ -28,7 +33,7 @@ export const PAIR_WINDOW_DAYS = 5;
 /** Estorno de até 90 dias depois da compra (prazo comum de devolução e de contestação). */
 export const REFUND_WINDOW_DAYS = 90;
 
-export type MatchKind = "SAME" | "INSTALLMENT" | "REFUND";
+export type MatchKind = "SAME" | "INSTALLMENT" | "REFUND" | "TRANSFER";
 
 export type InstallmentInfo = { number: number; count: number };
 
@@ -236,6 +241,92 @@ export function suggestRefunds(
   return greedy(edges);
 }
 
+// ── Transferências (M13.2) ──────────────────────────────────────────────────────
+
+/** Até 5 dias entre a saída e a entrada (o débito automático e o crédito na fatura não batem dia). */
+export const TRANSFER_WINDOW_DAYS = 5;
+
+/**
+ * Um lado de transferência possível: um lançamento sem categoria de transferência ainda
+ * (transferId nulo), de uma conta que a pessoa edita. Quem chama já tirou os apagados e os
+ * estornos.
+ */
+export type TransferSide = {
+  id: string;
+  accountId: string;
+  accountKind: "CHECKING" | "SAVINGS" | "CREDIT_CARD" | "MEAL_VOUCHER" | "CASH";
+  amount: Cents;
+  occurredOn: CivilDate;
+  /** Ainda na revisão (PENDING): só um recebido abre uma sugestão */
+  pending: boolean;
+};
+
+export type TransferSuggestion = {
+  /** O lado que sai (valor negativo) */
+  outId: string;
+  /** O lado que entra (valor positivo) */
+  inId: string;
+  daysApart: number;
+  /** A entrada cai numa conta de cartão: é o pagamento da fatura */
+  billPayment: boolean;
+};
+
+/** A chave de um par de transferência recusado ("Não é transferência"), nos dois sentidos. */
+export const transferKey = (a: string, b: string) => (a < b ? `${a}:${b}` : `${b}:${a}`);
+
+/**
+ * A transferência possível entre dois lançamentos, ou null: valores opostos ao centavo, contas
+ * diferentes, até 5 dias, a saída fora de um cartão (compra no cartão não é transferência) e pelo
+ * menos um dos dois ainda na revisão.
+ */
+export function transferCandidate(a: TransferSide, b: TransferSide): TransferSuggestion | null {
+  if (a.amount === 0n || a.amount !== -b.amount || a.accountId === b.accountId) return null;
+  if (!a.pending && !b.pending) return null;
+  const [out, into] = a.amount < 0n ? [a, b] : [b, a];
+  if (out.accountKind === "CREDIT_CARD") return null;
+  const daysApart = Math.abs(daysBetween(out.occurredOn, into.occurredOn));
+  if (daysApart > TRANSFER_WINDOW_DAYS) return null;
+  return {
+    outId: out.id,
+    inId: into.id,
+    daysApart,
+    billPayment: into.accountKind === "CREDIT_CARD",
+  };
+}
+
+/**
+ * As transferências sugeridas: cada lançamento entra em no máximo uma, da data mais próxima para
+ * a mais distante (no empate, pelos ids, para a tela não trocar de sugestão a cada visita).
+ */
+export function suggestTransfers(
+  sides: readonly TransferSide[],
+  rejected: ReadonlySet<string> = new Set(),
+): TransferSuggestion[] {
+  const edges: TransferSuggestion[] = [];
+  for (let i = 0; i < sides.length; i += 1) {
+    for (let j = i + 1; j < sides.length; j += 1) {
+      const a = sides[i] as TransferSide;
+      const b = sides[j] as TransferSide;
+      if (rejected.has(transferKey(a.id, b.id))) continue;
+      const candidate = transferCandidate(a, b);
+      if (candidate) edges.push(candidate);
+    }
+  }
+  const used = new Set<string>();
+  const chosen: TransferSuggestion[] = [];
+  const sorted = edges.toSorted(
+    (x, y) =>
+      x.daysApart - y.daysApart || x.outId.localeCompare(y.outId) || x.inId.localeCompare(y.inId),
+  );
+  for (const edge of sorted) {
+    if (used.has(edge.outId) || used.has(edge.inId)) continue;
+    used.add(edge.outId);
+    used.add(edge.inId);
+    chosen.push(edge);
+  }
+  return chosen;
+}
+
 // ── Juntar o par ────────────────────────────────────────────────────────────────
 
 /** Os campos do lançamento que a pessoa decide (os do recebido vêm do banco). */
@@ -256,6 +347,8 @@ export type OwnSide = {
 
 export type BankSide = {
   cardId: string | null;
+  /** A descrição do banco (fica no lançamento; a sua vira o "O que foi") */
+  description: string;
   categoryId: string | null;
   categorizedBy: string | null;
   categorizationConfidence?: number | null;
@@ -265,7 +358,8 @@ export type BankSide = {
  * O lançamento que fica depois de juntar o par. Ele é o RECEBIDO (que tem o id do banco, para a
  * próxima busca achar e não duplicar), com tudo que a pessoa decidiu do SEU lado:
  *   do banco        valor, data, fatura, id no banco (não mudam: quem chama não os toca)
- *   seu             descrição, categoria, ambiente, observação, parcela, recorrência, transferência
+ *   seu             categoria, ambiente, observação, parcela, recorrência, transferência; a sua
+ *                   descrição vira o "O que foi" (label), e a do banco fica (M13.2)
  *   cartão          o do banco quando ele mandou o final; senão, o que você escolheu
  *   categoria       a sua; sem a sua, a sugestão que o recebido já tinha
  * Transferência (pagamento de fatura, PIX entre contas) nunca tem categoria (CHECK do M07).
@@ -282,7 +376,7 @@ export function pairedFields(bank: BankSide, own: OwnSide) {
   return {
     walletId: own.walletId,
     cardId: bank.cardId ?? own.cardId,
-    description: own.description,
+    label: sameText(own.description, bank.description) ? null : own.description,
     categoryId,
     categorizedBy,
     categorizationConfidence,

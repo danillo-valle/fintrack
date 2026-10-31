@@ -38,6 +38,7 @@ const RECEIVED_SELECT = {
   id: true,
   occurredOn: true,
   description: true,
+  label: true,
   amount: true,
   status: true,
   categorizedBy: true,
@@ -63,6 +64,8 @@ function toReceived(row: ReceivedRow, accountWalletId: string) {
     id: row.id,
     occurredOn: civilFromDbDate(row.occurredOn),
     description: row.description,
+    /** "O que foi" (M13.2) */
+    label: row.label,
     amount: fromDbDecimal(row.amount),
     status: row.status,
     categorizedBy: row.categorizedBy,
@@ -252,13 +255,18 @@ export async function receivedSummary(db: PrismaClient, walletIds: readonly stri
 
 /**
  * A fatura aberta de cada cartão (a soma das compras recebidas sem fatura fechada, no período da
- * fatura aberta), para os cartões do Início. Mesma regra da página do cartão.
+ * fatura aberta), para os cartões do Início, com o fechamento e o vencimento DELA (M13.2): os do
+ * banco enquanto o fechamento ainda vem, senão os do ciclo cadastrado. Nunca as datas cruas do
+ * saldo, que ficam na fatura passada depois que ela fecha. Mesma regra da página do cartão.
+ * Cartão sem ciclo e sem datas futuras do banco não entra no mapa.
  */
+export type OpenStatement = { total: bigint; closingDate: CivilDate; dueDate: CivilDate };
+
 export async function openStatementTotals(
   db: PrismaClient,
   accountIds: readonly string[],
   today: CivilDate,
-): Promise<Map<string, bigint>> {
+): Promise<Map<string, OpenStatement>> {
   const accounts = await db.financialAccount.findMany({
     where: { id: { in: [...accountIds] }, kind: "CREDIT_CARD" },
     select: {
@@ -268,7 +276,7 @@ export async function openStatementTotals(
       bankBalance: { select: { closeDate: true, dueDate: true } },
     },
   });
-  const totals = new Map<string, bigint>();
+  const totals = new Map<string, OpenStatement>();
   for (const account of accounts) {
     const window = openStatementWindow({
       today,
@@ -295,7 +303,11 @@ export async function openStatementTotals(
       },
       _sum: { amount: true },
     });
-    totals.set(account.id, sum._sum.amount ? -fromDbDecimal(sum._sum.amount) : 0n);
+    totals.set(account.id, {
+      total: sum._sum.amount ? -fromDbDecimal(sum._sum.amount) : 0n,
+      closingDate: window.closingDate,
+      dueDate: window.dueDate,
+    });
   }
   return totals;
 }

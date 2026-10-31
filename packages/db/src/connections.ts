@@ -12,6 +12,7 @@ import {
   civilFromDbDate,
   compareCivil,
   dbDateFromCivil,
+  defaultAccountName,
   lastFourOf,
   parseCivilDate,
   suggestAccountLink,
@@ -271,7 +272,6 @@ export async function linkableAccounts(db: PrismaClient, grant: ConnectionGrant)
         select: {
           id: true,
           lastFour: true,
-          sharedPurchases: true,
           holderId: true,
           importWalletId: true,
           holder: { select: { name: true } },
@@ -287,7 +287,6 @@ export async function linkableAccounts(db: PrismaClient, grant: ConnectionGrant)
     walletName: row.wallet.name,
     walletKind: row.wallet.kind,
     lastFours: row.cards.map((c) => c.lastFour),
-    sharedPurchases: row.cards.some((c) => c.sharedPurchases),
     holderId: row.holderId,
     walletId: row.walletId,
     /** Os cartões da conta: quem usa e onde entram as compras importadas (M09.1) */
@@ -425,14 +424,20 @@ export async function linkAccounts(
       const closingDay = isCard ? dayOf(bank.credit?.closeDate ?? null) : null;
       const dueDay = isCard ? dayOf(bank.credit?.dueDate ?? null) : null;
       if (isCard && (closingDay === null || dueDay === null || closingDay === dueDay)) {
-        throw new DomainError("CARD_CYCLE_MISSING");
+        // O final vai junto (M13.2): a mensagem diz qual cartão não veio com as datas
+        throw new DomainError("CARD_CYCLE_MISSING", { lastFour: lastFourOf(bank.number) });
       }
       const account = await tx.financialAccount.create({
         data: {
           householdId: grant.householdId,
           walletId: grant.personalWalletId,
           holderId: grant.userId,
-          name: bank.name.slice(0, 60),
+          // "Itaú · Conta corrente" (M13.2): o banco costuma dar o mesmo nome à corrente e à poupança
+          name: defaultAccountName({
+            institution: bank.institution,
+            bankName: bank.name,
+            kind: bank.kind,
+          }),
           kind: bank.kind,
           institution: bank.institution,
           closingDay,
@@ -584,9 +589,10 @@ export async function bankLinkedAccounts(db: PrismaClient, walletIds: readonly s
       closingDay: true,
       dueDay: true,
       wallet: { select: { id: true, name: true, kind: true } },
+      holderId: true,
       cards: {
         where: { archivedAt: null },
-        select: { lastFour: true, sharedPurchases: true },
+        select: { lastFour: true, holderId: true, isAdditional: true },
         orderBy: { createdAt: "asc" },
       },
       bankBalance: true,
@@ -603,7 +609,15 @@ export async function bankLinkedAccounts(db: PrismaClient, walletIds: readonly s
         : null,
     wallet: row.wallet,
     lastFour: row.cards[0]?.lastFour ?? null,
-    sharedPurchases: row.cards.some((c) => c.sharedPurchases),
+    /** Quem usa os cartões da conta (M13.2: as iniciais em "Seus cartões"), o titular primeiro */
+    holderIds: [
+      ...new Set(
+        [row.holderId, ...row.cards.map((c) => c.holderId)].filter(
+          (id): id is string => id !== null,
+        ),
+      ),
+    ],
+    additionalCount: row.cards.filter((c) => c.isAdditional).length,
     balance: row.bankBalance
       ? {
           balance: fromDbDecimalOrNull(row.bankBalance.balance),

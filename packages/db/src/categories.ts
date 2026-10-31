@@ -123,6 +123,76 @@ export async function createCategory(
 }
 
 /**
+ * Editar categoria (M13.2): o nome e o tipo. O nome continua único no lar (CATEGORY_EXISTS). O tipo
+ * só muda numa categoria sem pai, sem subcategorias, sem recorrência nem orçado, e com todos os
+ * lançamentos do sinal do tipo novo (saída = despesa, entrada = receita): a regra do M07 não deixa
+ * um lançamento usar categoria do outro tipo. Auditoria só com os nomes dos campos.
+ */
+export async function updateCategory(
+  db: PrismaClient,
+  grant: HouseholdGrant<"manage_categories">,
+  categoryId: string,
+  input: { name: string; kind: "EXPENSE" | "INCOME" },
+  ctx: RequestContext,
+) {
+  const householdId = grant.household.id;
+  await db.$transaction(async (tx) => {
+    const current = await tx.category.findFirst({
+      where: { id: categoryId, householdId },
+      select: {
+        name: true,
+        kind: true,
+        parentId: true,
+        _count: { select: { children: true, recurrences: true, budgets: true } },
+      },
+    });
+    if (!current) throw new DomainError("NOT_FOUND");
+    if (input.kind !== current.kind) {
+      const otherSign = await tx.transaction.count({
+        where: {
+          categoryId,
+          householdId,
+          deletedAt: null,
+          amount: input.kind === "EXPENSE" ? { gt: 0 } : { lt: 0 },
+        },
+      });
+      const { children, recurrences, budgets } = current._count;
+      if (current.parentId || children > 0 || recurrences > 0 || budgets > 0 || otherSign > 0) {
+        throw new DomainError("CATEGORY_KIND_LOCKED");
+      }
+    }
+    const changed = [
+      ...(input.name !== current.name ? ["name"] : []),
+      ...(input.kind !== current.kind ? ["kind"] : []),
+    ];
+    try {
+      await tx.category.update({
+        where: { id: categoryId },
+        data: { name: input.name, kind: input.kind },
+      });
+    } catch (error) {
+      // @@unique([householdId, name]): nome repetido no lar
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        throw new DomainError("CATEGORY_EXISTS");
+      }
+      throw error;
+    }
+    await writeAudit(
+      tx,
+      {
+        actorId: grant.userId,
+        householdId,
+        action: "category.updated",
+        entity: "category",
+        entityId: categoryId,
+        metadata: { changed },
+      },
+      ctx,
+    );
+  });
+}
+
+/**
  * Arquiva (ou restaura) uma categoria. Arquivada, ela some dos seletores e da sugestão; os
  * lançamentos antigos continuam com ela. Com subcategorias ativas, não arquiva.
  */
