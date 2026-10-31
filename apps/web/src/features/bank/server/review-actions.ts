@@ -11,10 +11,12 @@ import {
   confirmBulk,
   confirmPair,
   confirmReceived,
+  confirmTransfer,
   createCard,
   linkRefund,
   prisma,
   rejectPair,
+  rejectTransfer,
   undoMatch,
   undoReview,
 } from "@fintrack/db";
@@ -113,6 +115,23 @@ export async function reviewAction(_prev: ReviewState, formData: FormData): Prom
         undo = { kind: "match", matchId };
         changedSums = true;
         return "Estorno ligado à compra. Os dois já entram nas somas e se anulam.";
+      }
+      case "transfer": {
+        const { matchId, billPayment } = await confirmTransfer(
+          prisma,
+          scope,
+          { outId: input.outId, inId: input.inId },
+          ctx,
+        );
+        undo = { kind: "match", matchId };
+        changedSums = true;
+        return billPayment
+          ? "Pagamento da fatura ligado. Não conta como gasto: as compras já contam pelo cartão."
+          : "Transferência ligada. Os dois lados ficam fora das somas de gasto e de receita.";
+      }
+      case "transfer-reject": {
+        await rejectTransfer(prisma, scope, { outId: input.outId, inId: input.inId }, ctx);
+        return "Certo: essa transferência não volta a ser sugerida. Os dois continuam na lista.";
       }
     }
   });

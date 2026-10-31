@@ -10,6 +10,7 @@ import { FinalsNotice } from "@/features/bank/ui/review/finals-notice";
 import { PairCard } from "@/features/bank/ui/review/pair-card";
 import { MAIN_BUTTON, SMALL_BUTTON } from "@/features/bank/ui/review/parts";
 import { ReceivedGroup } from "@/features/bank/ui/review/received-group";
+import { TransferCard } from "@/features/bank/ui/review/transfer-card";
 import {
   ReviewActions,
   ReviewForm,
@@ -148,7 +149,7 @@ export default async function ReviewPage({ searchParams }: PageProps<"/lancament
                   href: hrefFor("pares"),
                   label: "Com par sugerido",
                   shortLabel: "Pares",
-                  count: queue.pairs.length,
+                  count: queue.pairs.length + queue.transfers.length,
                   active: view === "pares",
                 },
                 {
@@ -215,6 +216,22 @@ export default async function ReviewPage({ searchParams }: PageProps<"/lancament
             </section>
           ) : null}
 
+          {page.transfers.length > 0 ? (
+            <section aria-labelledby="transferencias" className="flex flex-col gap-3">
+              <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
+                <h2 id="transferencias" className="text-lg font-extrabold md:text-xl">
+                  Transferências entre suas contas
+                </h2>
+                <span className="text-muted-foreground hidden text-sm md:inline">
+                  os dois lados ficam ligados, sem categoria e fora das somas de gasto e de receita
+                </span>
+              </div>
+              {page.transfers.map((transfer) => (
+                <TransferCard key={`${transfer.out.id}-${transfer.in.id}`} transfer={transfer} />
+              ))}
+            </section>
+          ) : null}
+
           {page.groups.map((group) => (
             <ReceivedGroup
               key={group.key}
@@ -227,7 +244,10 @@ export default async function ReviewPage({ searchParams }: PageProps<"/lancament
             />
           ))}
 
-          {view !== "todos" && page.pairs.length === 0 && page.groups.length === 0 ? (
+          {view !== "todos" &&
+          page.pairs.length === 0 &&
+          page.transfers.length === 0 &&
+          page.groups.length === 0 ? (
             <p className="text-muted-foreground text-sm">
               {view === "pares"
                 ? "Nenhum par sugerido agora."
@@ -239,8 +259,11 @@ export default async function ReviewPage({ searchParams }: PageProps<"/lancament
           {queue.truncated ? (
             <p className="text-muted-foreground text-sm">
               Mostrando os{" "}
-              {queue.groups.reduce((n, g) => n + g.items.length, 0) + queue.pairs.length} mais
-              recentes. Confirme estes para ver os outros.
+              {queue.groups.reduce((n, g) => n + g.items.length, 0) +
+                queue.pairs.length +
+                queue.transfers.flatMap((t) => [t.out, t.in]).filter((side) => side.pending)
+                  .length}{" "}
+              mais recentes. Confirme estes para ver os outros.
             </p>
           ) : null}
         </div>

@@ -1,21 +1,26 @@
 // As compras recebidas do banco, com a categoria em um clique (M09.1; pranchas E-Cartao e
 // E-CelCartao). Usada na página do cartão e na lista de Lançamentos com ?situacao=recebidos.
 //
-//   computador  data | descrição [3/6] · Recebido · US$ 48,61 · IOF na fatura | categoria | valor
+//   computador  data | descrição [3/6] · Recebido · US$ 48,61 · IOF na fatura | categoria · O que foi | valor
 //   celular     descrição [3/6] ............................................. valor
 //               data · US$ 48,61 · IOF na fatura
-//               [ categoria (largura toda) ]
+//               [ categoria ] [ O que foi ]
+//
+// M13.2: o "O que foi" ao lado da categoria (o nome da pessoa em destaque, o texto do banco embaixo).
 import { CircleDashed, Globe } from "lucide-react";
 import type { CategorizationSource } from "@fintrack/core";
 import { AmountText } from "@/components/money/amount-text";
 import { ToneChip } from "@/components/visual/tone-chip";
 import { formatBRL } from "@/lib/money";
 import { CategoryPicker, type CategoryChoice } from "./category-picker";
+import { LabelEditor } from "./label-editor";
 
 export type ReceivedRowData = {
   id: string;
   occurredOn: string;
   description: string;
+  /** "O que foi" (M13.2): o nome que a pessoa deu a este lançamento do banco */
+  label: string | null;
   amount: bigint;
   status: "PENDING" | "SCHEDULED" | "CONFIRMED";
   category: { id: string; name: string; parent: string | null } | null;
@@ -52,14 +57,23 @@ export function ReceivedList({
       {items.map((item) => (
         <li
           key={item.id}
-          className="relative grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1.5 py-2.5 md:grid-cols-[3.25rem_minmax(0,1fr)_13rem_7rem] md:items-center md:gap-y-0"
+          className="relative grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1.5 py-2.5 md:grid-cols-[3.25rem_minmax(0,1fr)_minmax(0,22rem)_7rem] md:items-center md:gap-y-0"
         >
           <span className="text-muted-foreground tabular hidden font-mono text-[0.8125rem] md:block">
             {dayMonth(item.occurredOn)}
           </span>
           <span className="flex min-w-0 flex-col gap-1">
             <span className="flex min-w-0 items-center gap-2">
-              <span className="truncate text-[0.9375rem] font-semibold">{item.description}</span>
+              <span className="flex min-w-0 flex-col">
+                <span className="truncate text-[0.9375rem] font-semibold">
+                  {item.label ?? item.description}
+                </span>
+                {item.label ? (
+                  <span className="text-muted-foreground tabular truncate font-mono text-xs">
+                    {item.description}
+                  </span>
+                ) : null}
+              </span>
               {item.installment ? (
                 <span className="bg-muted tabular shrink-0 rounded-full px-2 py-0.5 font-mono text-xs font-bold">
                   <span className="sr-only">parcela </span>
@@ -89,13 +103,26 @@ export function ReceivedList({
             arrow={false}
             className="col-start-2 row-start-1 justify-self-end text-[0.9375rem] font-bold md:col-start-4"
           />
-          <span className="col-span-2 min-w-0 md:col-span-1 md:col-start-3 md:row-start-1">
+          <span className="col-span-2 flex min-w-0 gap-1.5 md:col-span-1 md:col-start-3 md:row-start-1">
             {item.canEdit ? (
-              <CategoryPicker
-                item={item}
-                choices={item.amount < 0n ? choices.expense : choices.income}
-                full
-              />
+              <>
+                <span className="min-w-0 flex-1">
+                  <CategoryPicker
+                    item={item}
+                    choices={item.amount < 0n ? choices.expense : choices.income}
+                    others={
+                      item.amount < 0n
+                        ? { kind: "receita", choices: choices.income }
+                        : { kind: "despesa", choices: choices.expense }
+                    }
+                    offerTransfer={item.status === "PENDING"}
+                    full
+                  />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <LabelEditor item={item} full />
+                </span>
+              </>
             ) : (
               <span className="text-muted-foreground text-sm">
                 {item.category?.name ?? "Sem categoria"}

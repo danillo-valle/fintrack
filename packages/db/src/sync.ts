@@ -24,6 +24,7 @@ import {
   importedMethod,
   importWalletFor,
   importWindow,
+  installmentSiblingKey,
   runCascade,
   statementForDueDate,
   todayCivil,
@@ -490,6 +491,55 @@ const EXISTING_SELECT = {
 
 type ExistingRow = Prisma.TransactionGetPayload<{ select: typeof EXISTING_SELECT }>;
 
+/**
+ * As parcelas anteriores das compras parceladas que estão chegando (M13.2): o "O que foi" e a
+ * categoria que a pessoa deu, pela chave da compra (`installmentSiblingKey`). Só o que já foi
+ * conferido conta para a categoria; o "O que foi" vale de qualquer parcela.
+ */
+async function installmentSiblings(
+  db: PrismaClient,
+  accountId: string,
+  transactions: readonly ProviderTransaction[],
+): Promise<Map<string, { label: string | null; categoryId: string | null }>> {
+  const counts = [
+    ...new Set(transactions.flatMap((t) => (t.installment ? [t.installment.count] : []))),
+  ];
+  const found = new Map<string, { label: string | null; categoryId: string | null }>();
+  if (counts.length === 0) return found;
+  const rows = await db.transaction.findMany({
+    where: {
+      accountId,
+      deletedAt: null,
+      providerInstallmentCount: { in: counts },
+      OR: [{ label: { not: null } }, { status: "CONFIRMED", categoryId: { not: null } }],
+    },
+    orderBy: [{ occurredOn: "desc" }, { id: "asc" }],
+    select: {
+      amount: true,
+      description: true,
+      label: true,
+      status: true,
+      categoryId: true,
+      providerInstallmentCount: true,
+    },
+  });
+  for (const row of rows) {
+    const key = installmentSiblingKey({
+      accountId,
+      amount: fromDbDecimal(row.amount),
+      description: row.description,
+      installmentCount: row.providerInstallmentCount,
+    });
+    if (!key) continue;
+    const current = found.get(key) ?? { label: null, categoryId: null };
+    found.set(key, {
+      label: current.label ?? row.label,
+      categoryId: current.categoryId ?? (row.status === "CONFIRMED" ? row.categoryId : null),
+    });
+  }
+  return found;
+}
+
 async function saveTransactions(
   db: PrismaClient,
   input: {
@@ -540,6 +590,8 @@ async function saveTransactions(
   const walletFor = (card: LinkedAccount["cards"][number] | null) =>
     importWalletFor({ account, card, personalWallets: input.personalWallets });
 
+  const siblings = await installmentSiblings(db, account.id, transactions);
+
   const creates: Prisma.TransactionCreateManyInput[] = [];
   const updates: { id: string; data: Prisma.TransactionUncheckedUpdateInput }[] = [];
   for (const t of transactions) {
@@ -557,11 +609,23 @@ async function saveTransactions(
       const kind = t.amount < 0n ? "expense" : "income";
       const destination = walletFor(card);
       const suggesters = await input.suggestersFor(destination.viewerId ?? input.ownerId);
-      const suggestion = await runCascade(suggesters, {
-        description: incoming.description,
-        kind,
-        providerCategory: t.category,
-      });
+      // A próxima parcela de uma compra que a pessoa já nomeou ou categorizou (M13.2) entra com o
+      // "O que foi" e a categoria da parcela anterior: é a mesma compra
+      const sibling = siblings.get(
+        installmentSiblingKey({
+          accountId: account.id,
+          amount: t.amount,
+          description: incoming.description,
+          installmentCount: t.installment?.count ?? null,
+        }) ?? "",
+      );
+      const suggestion = sibling?.categoryId
+        ? { categoryId: sibling.categoryId, source: "HISTORY" as const, confidence: 100 }
+        : await runCascade(suggesters, {
+            description: incoming.description,
+            kind,
+            providerCategory: t.category,
+          });
       creates.push({
         householdId: input.householdId,
         walletId: destination.walletId,
@@ -574,6 +638,7 @@ async function saveTransactions(
         amount: toDbDecimal(t.amount),
         occurredOn: dbDateFromCivil(t.occurredOn),
         description: incoming.description,
+        label: sibling?.label ?? null,
         status: "PENDING",
         source: "OPEN_FINANCE",
         externalId: t.externalId,

@@ -301,7 +301,7 @@ test.describe("exportar CSV", () => {
     await page.getByRole("button", { name: "Baixar CSV" }).click();
     const file = await (await download).path();
     const csv = await readFile(file, "utf8");
-    expect(csv.startsWith("﻿Data;Descrição;Valor;Tipo")).toBe(true);
+    expect(csv.startsWith("﻿Data;Descrição;O que foi;Valor;Tipo")).toBe(true);
     expect(csv).toContain(`"'=HYPERLINK(""http://x"")"`); // fórmula neutralizada
     expect(csv).toContain(";-10,50;Despesa;");
     await expect(page.getByText("Arquivo pronto: 1 lançamento.")).toBeVisible();

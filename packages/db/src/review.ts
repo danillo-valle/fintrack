@@ -9,7 +9,12 @@
 //   confirmPair       junta o recebido e o seu lançamento: fica UM, o recebido, com o seu lado
 //   rejectPair        "Não é o mesmo": a sugestão não volta
 //   linkRefund        "Ligar ao original": o crédito do banco vira estorno da compra
-//   undoMatch         desfaz um par ou um estorno, devolvendo os dois lados como estavam
+//   undoMatch         desfaz um par, um estorno ou uma transferência, devolvendo os dois lados
+//   confirmTransfer   liga a saída de uma conta à entrada em outra (M13.2): os dois ficam, com o
+//                     mesmo transferId e sem categoria; o pagamento da fatura é o que entra no cartão
+//   rejectTransfer    "Não é transferência": a sugestão não volta
+//   markTransfer      um lado só (o outro é de outra pessoa do lar ou fora do FinTrack)
+//   unmarkTransfer    desfaz a marca de um lado só
 //   rerouteReceived   depois de cadastrar (ou arquivar) um cartão, os recebidos do final vão para
 //                     o cartão e o ambiente certos
 //
@@ -32,6 +37,10 @@ import {
   REFUND_WINDOW_DAYS,
   suggestPairs,
   suggestRefunds,
+  suggestTransfers,
+  transferCandidate,
+  transferKey,
+  TRANSFER_WINDOW_DAYS,
   unregisteredFinals,
   type CivilDate,
   type MatchKind,
@@ -39,12 +48,15 @@ import {
   type OwnForMatch,
   type ReceivedForMatch,
   type RefundTarget,
+  type TransferSide,
+  type TransferSuggestion,
 } from "@fintrack/core";
+import { randomUUID } from "node:crypto";
 import { DomainError, type WalletScope } from "./access";
 import { writeAudit, type RequestContext } from "./audit";
 import type { Prisma, PrismaClient } from "./generated/prisma/client";
 import { localAiEnabled } from "./local-ai";
-import type { CategorizationSource } from "./generated/prisma/enums";
+import type { CategorizationSource, TransferPeer } from "./generated/prisma/enums";
 import { fromDbDecimal, toDbDecimal } from "./money";
 import { personalWalletsOf, rerouteWallet } from "./sync";
 
@@ -66,10 +78,12 @@ const RECEIVED_SELECT = {
   amount: true,
   occurredOn: true,
   description: true,
+  label: true,
   categoryId: true,
   categorizedBy: true,
   categorizationConfidence: true,
   transferId: true,
+  transferPeer: true,
   notes: true,
   status: true,
   deletedAt: true,
@@ -94,6 +108,8 @@ const RECEIVED_SELECT = {
   card: { select: { lastFour: true, isAdditional: true, holder: { select: { name: true } } } },
   account: { select: { name: true, kind: true } },
   statement: { select: { referenceMonth: true } },
+  reviewedAt: true,
+  reviewedById: true,
 } satisfies Prisma.TransactionSelect;
 
 type ReceivedRow = Prisma.TransactionGetPayload<{ select: typeof RECEIVED_SELECT }>;
@@ -183,12 +199,16 @@ function receivedView(row: ReceivedRow, editable: ReadonlySet<string>, aiOn = fa
     id: row.id,
     occurredOn: match.occurredOn,
     description: row.description,
+    /** "O que foi" (M13.2): o nome que a pessoa deu; a tela mostra em destaque */
+    label: row.label,
     amount: match.amount,
     installment: match.installment,
     category: categoryView(row.category),
     categorizedBy: row.categorizedBy,
     categorizationConfidence: row.categorizationConfidence,
     isTransfer: row.transferId !== null,
+    /** Transferência marcada de um lado só (M13.2): para alguém do lar ou para fora */
+    transferPeer: row.transferPeer,
     wallet: { id: row.walletId, name: row.wallet.name },
     account: { id: row.accountId, name: row.account.name, kind: row.account.kind },
     /** O cartão reconhecido; sem ele, o final que o banco mandou (não cadastrado) */
@@ -325,6 +345,122 @@ async function suggestionsFor(
   return { suggestions: [...pairs, ...refundSuggestions], rows };
 }
 
+// ── Transferências (M13.2) ──────────────────────────────────────────────────────
+
+/** Um lado de transferência: um recebido ou um lançamento já conferido de outra conta. */
+const SIDE_SELECT = {
+  id: true,
+  accountId: true,
+  walletId: true,
+  amount: true,
+  occurredOn: true,
+  description: true,
+  label: true,
+  status: true,
+  account: { select: { name: true, kind: true } },
+  wallet: { select: { name: true } },
+} satisfies Prisma.TransactionSelect;
+
+type SideRow = Prisma.TransactionGetPayload<{ select: typeof SIDE_SELECT }>;
+
+const transferSide = (row: SideRow): TransferSide => ({
+  id: row.id,
+  accountId: row.accountId,
+  accountKind: row.account.kind,
+  amount: fromDbDecimal(row.amount),
+  occurredOn: civilFromDbDate(row.occurredOn),
+  pending: row.status === "PENDING",
+});
+
+export type TransferSideView = ReturnType<typeof sideView>;
+
+function sideView(row: SideRow) {
+  return {
+    id: row.id,
+    occurredOn: civilFromDbDate(row.occurredOn),
+    description: row.description,
+    label: row.label,
+    amount: fromDbDecimal(row.amount),
+    pending: row.status === "PENDING",
+    account: { id: row.accountId, name: row.account.name, kind: row.account.kind },
+    wallet: { id: row.walletId, name: row.wallet.name },
+  };
+}
+
+export type TransferView = {
+  daysApart: number;
+  /** A entrada cai num cartão: é o pagamento da fatura */
+  billPayment: boolean;
+  out: TransferSideView;
+  in: TransferSideView;
+};
+
+/**
+ * Os lançamentos que podem ser o outro lado de uma transferência de algum recebido: nas carteiras
+ * que a pessoa EDITA, de valor oposto, na janela de 5 dias, ainda sem transferência, sem estorno e
+ * conferidos ou na revisão.
+ */
+async function transferCounterparts(
+  db: Db,
+  editWalletIds: readonly string[],
+  received: readonly SideRow[],
+): Promise<SideRow[]> {
+  if (received.length === 0 || editWalletIds.length === 0) return [];
+  const dates = received.map((r) => civilFromDbDate(r.occurredOn)).sort();
+  const amounts = [...new Set(received.map((r) => -fromDbDecimal(r.amount)))];
+  return db.transaction.findMany({
+    where: {
+      walletId: { in: [...editWalletIds] },
+      deletedAt: null,
+      transferId: null,
+      reversalOfId: null,
+      status: { in: ["PENDING", "CONFIRMED"] },
+      amount: { in: amounts.map(toDbDecimal) },
+      occurredOn: {
+        gte: dbDateFromCivil(addDays(dates[0] as CivilDate, -TRANSFER_WINDOW_DAYS)),
+        lte: dbDateFromCivil(addDays(dates.at(-1) as CivilDate, TRANSFER_WINDOW_DAYS)),
+      },
+      reversals: { none: { deletedAt: null } },
+    },
+    select: SIDE_SELECT,
+  });
+}
+
+/**
+ * As transferências sugeridas para os recebidos que a pessoa edita e que não têm outra sugestão
+ * (`taken`: os que já estão num par ou estorno sugerido ficam de fora, dos dois lados).
+ */
+async function transferSuggestionsFor(
+  db: Db,
+  editWalletIds: readonly string[],
+  received: readonly ReceivedRow[],
+  taken: ReadonlySet<string>,
+): Promise<{ suggestions: TransferSuggestion[]; rows: Map<string, SideRow> }> {
+  const open = received.filter(
+    (r) =>
+      editWalletIds.includes(r.walletId) &&
+      r.transferId === null &&
+      r.reversalOfId === null &&
+      !taken.has(r.id),
+  );
+  const others = (await transferCounterparts(db, editWalletIds, open)).filter(
+    (r) => !taken.has(r.id),
+  );
+  const rows = new Map<string, SideRow>([...others, ...open].map((r) => [r.id, r]));
+  if (rows.size < 2) return { suggestions: [], rows };
+  const ids = [...rows.keys()];
+  const rejectedRows = await db.transactionMatch.findMany({
+    where: {
+      kind: "TRANSFER",
+      status: "REJECTED",
+      OR: [{ receivedId: { in: ids } }, { ownId: { in: ids } }],
+    },
+    select: { receivedId: true, ownId: true },
+  });
+  const rejected = new Set(rejectedRows.map((m) => transferKey(m.receivedId, m.ownId)));
+  return { suggestions: suggestTransfers([...rows.values()].map(transferSide), rejected), rows };
+}
+
 export type PairView = {
   kind: MatchKind;
   daysApart: number;
@@ -389,7 +525,30 @@ export async function reviewQueue(
         ]
       : [];
   });
-  const withSuggestion = new Set(suggestions.map((s) => s.receivedId));
+  const { suggestions: transferSuggestions, rows: sideRows } = await transferSuggestionsFor(
+    db,
+    editScope.walletIds,
+    rows,
+    new Set(suggestions.flatMap((s) => [s.receivedId, s.ownId])),
+  );
+  const transfers: TransferView[] = transferSuggestions.flatMap((t) => {
+    const out = sideRows.get(t.outId);
+    const into = sideRows.get(t.inId);
+    return out && into
+      ? [
+          {
+            daysApart: t.daysApart,
+            billPayment: t.billPayment,
+            out: sideView(out),
+            in: sideView(into),
+          },
+        ]
+      : [];
+  });
+  const withSuggestion = new Set([
+    ...suggestions.map((s) => s.receivedId),
+    ...transferSuggestions.flatMap((t) => [t.outId, t.inId]),
+  ]);
 
   // Os recebidos sem par, agrupados pela fatura (cartão) ou pela conta (corrente)
   const groups = new Map<string, ReviewGroup>();
@@ -442,6 +601,7 @@ export async function reviewQueue(
     total,
     truncated: total > rows.length,
     pairs,
+    transfers,
     groups: [...groups.values()],
     confirmable,
     uncategorized: rows.filter((r) => r.categoryId === null && r.transferId === null).length,
@@ -497,6 +657,7 @@ export async function pairPreview(
     result: pairedFields(
       {
         cardId: received.cardId,
+        description: received.description,
         categoryId: received.categoryId,
         categorizedBy: received.categorizedBy,
         categorizationConfidence: received.categorizationConfidence,
@@ -599,9 +760,17 @@ export async function confirmBulk(
       select: RECEIVED_SELECT,
     });
     const { suggestions } = await suggestionsFor(tx, scope.walletIds, rows);
-    const ids = bulkConfirmable(rows, new Set(suggestions.map((s) => s.receivedId))).map(
-      (r) => r.id,
+    const { suggestions: transfers } = await transferSuggestionsFor(
+      tx,
+      scope.walletIds,
+      rows,
+      new Set(suggestions.flatMap((s) => [s.receivedId, s.ownId])),
     );
+    const withSuggestion = new Set([
+      ...suggestions.map((s) => s.receivedId),
+      ...transfers.flatMap((t) => [t.outId, t.inId]),
+    ]);
+    const ids = bulkConfirmable(rows, withSuggestion).map((r) => r.id);
     if (ids.length === 0) return { ids: [] as string[] };
     const { count } = await tx.transaction.updateMany({
       where: { id: { in: ids }, status: "PENDING", deletedAt: null },
@@ -672,6 +841,7 @@ type ReceivedBefore = {
   walletId: string;
   cardId: string | null;
   description: string;
+  label: string | null;
   categoryId: string | null;
   categorizedBy: CategorizationSource | null;
   categorizationConfidence: number | null;
@@ -680,7 +850,16 @@ type ReceivedBefore = {
   installmentNumber: number | null;
   recurrenceId: string | null;
   transferId: string | null;
+  transferPeer: TransferPeer | null;
   reversalOfId: string | null;
+};
+
+/** O outro lado de uma transferência antes de ligar (M13.2): ele pode já estar conferido. */
+type OtherSideBefore = {
+  snapshot: ReceivedBefore;
+  status: "PENDING" | "CONFIRMED";
+  reviewedAt: string | null;
+  reviewedById: string | null;
 };
 
 type OwnBefore = { installmentGroupId: string | null; installmentNumber: number | null };
@@ -689,6 +868,7 @@ const snapshotOf = (row: ReceivedRow): ReceivedBefore => ({
   walletId: row.walletId,
   cardId: row.cardId,
   description: row.description,
+  label: row.label,
   categoryId: row.categoryId,
   categorizedBy: row.categorizedBy,
   categorizationConfidence: row.categorizationConfidence,
@@ -697,6 +877,7 @@ const snapshotOf = (row: ReceivedRow): ReceivedBefore => ({
   installmentNumber: row.installmentNumber,
   recurrenceId: row.recurrenceId,
   transferId: row.transferId,
+  transferPeer: row.transferPeer,
   reversalOfId: row.reversalOfId,
 });
 
@@ -745,6 +926,7 @@ export async function confirmPair(
     const fields = pairedFields(
       {
         cardId: received.cardId,
+        description: received.description,
         categoryId: received.categoryId,
         categorizedBy: received.categorizedBy,
         categorizationConfidence: received.categorizationConfidence,
@@ -916,6 +1098,219 @@ export async function linkRefund(
   });
 }
 
+// ── Transferências (M13.2) ──────────────────────────────────────────────────────
+
+/** Os dois lados, nas carteiras que a pessoa edita, sem estar apagados nem já em transferência. */
+async function transferSides(
+  tx: Db,
+  scope: WalletScope<"edit">,
+  ids: { outId: string; inId: string },
+) {
+  const rows = await tx.transaction.findMany({
+    where: { id: { in: [ids.outId, ids.inId] }, walletId: { in: [...scope.walletIds] } },
+    select: { ...RECEIVED_SELECT, reversals: { where: { deletedAt: null }, select: { id: true } } },
+  });
+  const out = rows.find((r) => r.id === ids.outId);
+  const into = rows.find((r) => r.id === ids.inId);
+  if (!out || !into || ids.outId === ids.inId) throw new DomainError("NOT_FOUND");
+  for (const row of [out, into]) {
+    if (row.deletedAt || row.transferId !== null) throw new DomainError("REVIEW_STALE");
+    if (row.status === "SCHEDULED" || row.reversalOfId !== null || row.reversals.length > 0)
+      throw new DomainError("TRANSFER_NOT_ALLOWED");
+  }
+  const side = (row: typeof out): TransferSide => ({
+    id: row.id,
+    accountId: row.accountId,
+    accountKind: row.account.kind,
+    amount: fromDbDecimal(row.amount),
+    occurredOn: civilFromDbDate(row.occurredOn),
+    pending: row.status === "PENDING",
+  });
+  const candidate = transferCandidate(side(out), side(into));
+  if (!candidate || candidate.outId !== out.id) throw new DomainError("TRANSFER_NOT_ALLOWED");
+  return { out, into, candidate };
+}
+
+/**
+ * Liga os dois lados de uma transferência (ou do pagamento da fatura): o mesmo transferId, sem
+ * categoria, e os dois conferidos. Os dois lançamentos ficam: cada conta mantém o extrato dela.
+ * O "Desfazer" (undoMatch) devolve os dois como estavam.
+ */
+export async function confirmTransfer(
+  db: PrismaClient,
+  scope: WalletScope<"edit">,
+  input: { outId: string; inId: string },
+  ctx: RequestContext,
+  now: Date = new Date(),
+) {
+  const householdId = householdOf(scope);
+  return db.$transaction(async (tx) => {
+    const { out, into, candidate } = await transferSides(tx, scope, input);
+    // O recebido da revisão fica como "received" do match; o outro lado pode já estar conferido
+    const [received, other] = out.status === "PENDING" ? [out, into] : [into, out];
+    const transferId = randomUUID();
+    const link = {
+      transferId,
+      transferPeer: null,
+      categoryId: null,
+      categorizedBy: null,
+      categorizationConfidence: null,
+    };
+    for (const row of [received, other]) {
+      const pending = row.status === "PENDING";
+      const { count } = await tx.transaction.updateMany({
+        where: { id: row.id, status: row.status, transferId: null, deletedAt: null },
+        data: pending
+          ? { ...link, status: "CONFIRMED", reviewedAt: now, reviewedById: scope.userId }
+          : link,
+      });
+      if (count === 0) throw new DomainError("REVIEW_STALE");
+    }
+    const match = await tx.transactionMatch.create({
+      data: {
+        householdId,
+        receivedId: received.id,
+        ownId: other.id,
+        kind: "TRANSFER",
+        status: "CONFIRMED",
+        receivedBefore: snapshotOf(received),
+        ownBefore: {
+          snapshot: snapshotOf(other),
+          status: other.status === "PENDING" ? "PENDING" : "CONFIRMED",
+          reviewedAt: other.reviewedAt?.toISOString() ?? null,
+          reviewedById: other.reviewedById,
+        } satisfies OtherSideBefore,
+        decidedById: scope.userId,
+        decidedAt: now,
+      },
+      select: { id: true },
+    });
+    await writeAudit(
+      tx,
+      {
+        actorId: scope.userId,
+        householdId,
+        action: "transaction.transfer_linked",
+        entity: "transaction",
+        entityId: received.id,
+        metadata: { otherId: other.id, billPayment: candidate.billPayment, matchId: match.id },
+      },
+      ctx,
+    );
+    return { matchId: match.id, billPayment: candidate.billPayment };
+  });
+}
+
+/** "Não é transferência": grava a recusa; a sugestão não volta (nem para outra pessoa do lar). */
+export async function rejectTransfer(
+  db: PrismaClient,
+  scope: WalletScope<"edit">,
+  input: { outId: string; inId: string },
+  ctx: RequestContext,
+  now: Date = new Date(),
+) {
+  const householdId = householdOf(scope);
+  await db.$transaction(async (tx) => {
+    const { out, into } = await transferSides(tx, scope, input);
+    const [received, other] = out.status === "PENDING" ? [out, into] : [into, out];
+    await tx.transactionMatch.create({
+      data: {
+        householdId,
+        receivedId: received.id,
+        ownId: other.id,
+        kind: "TRANSFER",
+        status: "REJECTED",
+        decidedById: scope.userId,
+        decidedAt: now,
+      },
+    });
+    await writeAudit(
+      tx,
+      {
+        actorId: scope.userId,
+        householdId,
+        action: "transaction.transfer_rejected",
+        entity: "transaction",
+        entityId: received.id,
+        metadata: { otherId: other.id },
+      },
+      ctx,
+    );
+  });
+}
+
+/**
+ * Transferência de um lado só: o outro lado é de outra pessoa do lar (que quem marca não vê) ou
+ * de uma conta fora do FinTrack. O recebido continua na revisão, como quem escolheu a categoria,
+ * e sai das somas quando for confirmado. Escolher uma categoria (ou "Não é transferência") desfaz.
+ */
+export async function markTransfer(
+  db: PrismaClient,
+  scope: WalletScope<"edit">,
+  input: { transactionId: string; peer: TransferPeer },
+  ctx: RequestContext,
+) {
+  const householdId = householdOf(scope);
+  await db.$transaction(async (tx) => {
+    const row = await pendingReceived(tx, scope, input.transactionId);
+    if (row.transferId !== null && row.transferPeer === null) throw new DomainError("REVIEW_STALE");
+    if (row.reversalOfId !== null) throw new DomainError("TRANSFER_NOT_ALLOWED");
+    const { count } = await tx.transaction.updateMany({
+      where: { id: row.id, status: "PENDING", deletedAt: null },
+      data: {
+        transferId: row.transferId ?? randomUUID(),
+        transferPeer: input.peer,
+        categoryId: null,
+        categorizedBy: null,
+        categorizationConfidence: null,
+      },
+    });
+    if (count === 0) throw new DomainError("REVIEW_STALE");
+    await writeAudit(
+      tx,
+      {
+        actorId: scope.userId,
+        householdId,
+        action: "transaction.transfer_marked",
+        entity: "transaction",
+        entityId: row.id,
+        metadata: { peer: input.peer },
+      },
+      ctx,
+    );
+  });
+}
+
+/** Desfaz a marca de um lado só: o recebido volta a pedir categoria. */
+export async function unmarkTransfer(
+  db: PrismaClient,
+  scope: WalletScope<"edit">,
+  transactionId: string,
+  ctx: RequestContext,
+) {
+  const householdId = householdOf(scope);
+  await db.$transaction(async (tx) => {
+    const row = await pendingReceived(tx, scope, transactionId);
+    if (row.transferPeer === null) throw new DomainError("REVIEW_STALE");
+    await tx.transaction.update({
+      where: { id: row.id },
+      data: { transferId: null, transferPeer: null },
+    });
+    await writeAudit(
+      tx,
+      {
+        actorId: scope.userId,
+        householdId,
+        action: "transaction.transfer_unmarked",
+        entity: "transaction",
+        entityId: row.id,
+        metadata: {},
+      },
+      ctx,
+    );
+  });
+}
+
 function parseReceivedBefore(value: Prisma.JsonValue | null): ReceivedBefore {
   if (!value || typeof value !== "object" || Array.isArray(value))
     throw new DomainError("UNDO_EXPIRED");
@@ -933,12 +1328,29 @@ function parseReceivedBefore(value: Prisma.JsonValue | null): ReceivedBefore {
     // Desfazer de um par confirmado antes do M10.1 não tem a confiança: fica sem
     categorizationConfidence:
       typeof v.categorizationConfidence === "number" ? v.categorizationConfidence : null,
+    // Antes do M13.2 o par trocava a descrição e não havia "O que foi" nem transferência de um lado
+    label: str("label"),
     notes: str("notes"),
     installmentGroupId: str("installmentGroupId"),
     installmentNumber: typeof v.installmentNumber === "number" ? v.installmentNumber : null,
     recurrenceId: str("recurrenceId"),
     transferId: str("transferId"),
+    transferPeer: str("transferPeer") as TransferPeer | null,
     reversalOfId: str("reversalOfId"),
+  };
+}
+
+function parseOtherSideBefore(value: Prisma.JsonValue | null): OtherSideBefore {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new DomainError("UNDO_EXPIRED");
+  const v = value as Record<string, unknown>;
+  const status = v.status === "PENDING" || v.status === "CONFIRMED" ? v.status : null;
+  if (!status) throw new DomainError("UNDO_EXPIRED");
+  return {
+    snapshot: parseReceivedBefore((v.snapshot ?? null) as Prisma.JsonValue),
+    status,
+    reviewedAt: typeof v.reviewedAt === "string" ? v.reviewedAt : null,
+    reviewedById: typeof v.reviewedById === "string" ? v.reviewedById : null,
   };
 }
 
@@ -987,13 +1399,17 @@ export async function undoMatch(
     if (!match) throw new DomainError("NOT_FOUND");
     if (match.status !== "CONFIRMED") throw new DomainError("UNDO_EXPIRED");
     const before = parseReceivedBefore(match.receivedBefore);
-    // O recebido larga a parcela primeiro: ela volta para o seu lançamento
-    const received = await tx.transaction.updateMany({
-      where: { id: match.receivedId, status: "CONFIRMED", deletedAt: null },
-      data: { ...before, status: "PENDING", reviewedAt: null, reviewedById: null },
-    });
-    if (received.count === 0) throw new DomainError("UNDO_EXPIRED");
-    if (match.kind !== "REFUND") {
+    if (match.kind === "TRANSFER") {
+      await undoTransfer(tx, match, before);
+    } else {
+      // O recebido larga a parcela primeiro: ela volta para o seu lançamento
+      const received = await tx.transaction.updateMany({
+        where: { id: match.receivedId, status: "CONFIRMED", deletedAt: null },
+        data: { ...before, status: "PENDING", reviewedAt: null, reviewedById: null },
+      });
+      if (received.count === 0) throw new DomainError("UNDO_EXPIRED");
+    }
+    if (match.kind === "SAME" || match.kind === "INSTALLMENT") {
       const own = parseOwnBefore(match.ownBefore);
       const restored = await tx.transaction.updateMany({
         where: { id: match.ownId, mergedIntoId: match.receivedId },
@@ -1018,6 +1434,42 @@ export async function undoMatch(
       ctx,
     );
   });
+}
+
+/**
+ * Desfaz uma transferência ligada (M13.2): os dois lados voltam como estavam, enquanto os dois
+ * continuam ligados pelo mesmo transferId (ninguém mexeu neles depois).
+ */
+async function undoTransfer(
+  tx: Db,
+  match: { receivedId: string; ownId: string; ownBefore: Prisma.JsonValue | null },
+  before: ReceivedBefore,
+) {
+  const other = parseOtherSideBefore(match.ownBefore);
+  const linked = await tx.transaction.findUnique({
+    where: { id: match.receivedId },
+    select: { transferId: true },
+  });
+  if (!linked?.transferId) throw new DomainError("UNDO_EXPIRED");
+  const received = await tx.transaction.updateMany({
+    where: {
+      id: match.receivedId,
+      transferId: linked.transferId,
+      status: "CONFIRMED",
+      deletedAt: null,
+    },
+    data: { ...before, status: "PENDING", reviewedAt: null, reviewedById: null },
+  });
+  const restored = await tx.transaction.updateMany({
+    where: { id: match.ownId, transferId: linked.transferId, deletedAt: null },
+    data: {
+      ...other.snapshot,
+      status: other.status,
+      reviewedAt: other.reviewedAt ? new Date(other.reviewedAt) : null,
+      reviewedById: other.reviewedById,
+    },
+  });
+  if (received.count === 0 || restored.count === 0) throw new DomainError("UNDO_EXPIRED");
 }
 
 // ── Cartões adicionais ──────────────────────────────────────────────────────────

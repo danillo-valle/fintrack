@@ -206,11 +206,12 @@ test("revisar os recebidos: par, estorno, lote, linha e o final não cadastrado"
   await page.waitForURL(/\/lancamentos\/recebidos(\?|$)/);
   await expect(toast(page, /Par confirmado/)).toBeVisible();
   expect(await statusOf(mercado)).toBe("CONFIRMED");
-  const merged = await sql<{ description: string }>(
-    'SELECT description FROM "transaction" WHERE id = $1',
+  const merged = await sql<{ description: string; label: string | null }>(
+    'SELECT description, label FROM "transaction" WHERE id = $1',
     [mercado],
   );
-  expect(merged[0]!.description).toBe("Mercado da esquina"); // fica o seu lado
+  // M13.2: o texto do banco fica; o seu vira o "O que foi"
+  expect(merged[0]).toEqual({ description: "MERCADO BOM PRECO", label: "Mercado da esquina" });
   await toast(page, /Par confirmado/)
     .getByRole("button", { name: "Desfazer" })
     .click();

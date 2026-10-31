@@ -2,7 +2,6 @@
 // conta, quem categorizou, recorrências, cartões e encargos da fatura. Record<tipo, texto>: valor novo sem frase
 // aqui vira erro de compilação. Sem banco: serve à tela do servidor e à do navegador.
 import type {
-  AccountKind,
   CategorizationSource,
   PaymentMethod,
   StatementChargeKind,
@@ -21,13 +20,8 @@ export const METHOD_LABEL: Record<PaymentMethod, string> = {
   VOUCHER: "Vale",
 };
 
-export const ACCOUNT_KIND_LABEL: Record<AccountKind, string> = {
-  CHECKING: "Conta corrente",
-  SAVINGS: "Poupança",
-  CREDIT_CARD: "Cartão de crédito",
-  MEAL_VOUCHER: "Vale-refeição",
-  CASH: "Dinheiro",
-};
+// Os nomes dos tipos de conta moram no @fintrack/core (o nome da conta nova do banco usa os mesmos)
+export { ACCOUNT_KIND_LABEL } from "@fintrack/core";
 
 export const KIND_LABEL: Record<TransactionKind, string> = {
   expense: "Despesa",

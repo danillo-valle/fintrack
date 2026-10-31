@@ -12,12 +12,15 @@ import {
   createCategory,
   DomainError,
   linkAccounts,
+  markTransfer,
   openSecret,
   prisma,
   recordSyncRequest,
   saveCredentials,
   SecretKeyError,
   setTransactionCategory,
+  setTransactionLabel,
+  unmarkTransfer,
 } from "@fintrack/db";
 import { isProviderError, type PluggyProvider } from "@fintrack/importers";
 import { todayCivil } from "@fintrack/core";
@@ -27,6 +30,7 @@ import {
   AccessError,
   requestContext,
   requireHouseholdAccess,
+  requireScope,
   requireTransactionAccess,
   runAction,
   type ActionState,
@@ -35,7 +39,14 @@ import { requireRecentAuth, requireUser } from "@/lib/auth/session";
 import { financeChanged } from "@/lib/finance-cache";
 import { logger } from "@/lib/logger";
 import { providerErrorMessage } from "../messages";
-import { credentialsInput, credentialsSchema, parseLinkForm, setCategorySchema } from "../schemas";
+import {
+  credentialsInput,
+  credentialsSchema,
+  markTransferSchema,
+  parseLinkForm,
+  setCategorySchema,
+  setLabelSchema,
+} from "../schemas";
 import { enqueueSync } from "./jobs";
 import { connectionKeyring } from "./keyring";
 import { pluggyWith } from "./provider";
@@ -252,4 +263,67 @@ export async function setCategoryAction(
     revalidatePath("/carteiras/conta/[accountId]", "page");
   }
   return { ...result, categoryId: chosen };
+}
+
+/**
+ * O "O que foi" (M13.2) de um lançamento do banco, num clique: na revisão e na página do cartão.
+ * Numa parcela, vale para as outras parcelas da mesma compra. O texto nunca vai para log.
+ */
+export async function setLabelAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await requireUser();
+  const parsed = setLabelSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return invalid(parsed.error);
+  const result = await runAction(async () => {
+    const grant = await requireTransactionAccess(session, parsed.data.transactionId, "edit");
+    const count = await setTransactionLabel(
+      prisma,
+      grant,
+      parsed.data.label || null,
+      await requestContext(),
+    );
+    if (!parsed.data.label) return "O que foi apagado: fica o texto do banco.";
+    return count > 1 ? `Salvo nas ${count} parcelas desta compra.` : "Salvo.";
+  });
+  if (!result.error) {
+    revalidatePath("/lancamentos", "layout");
+    revalidatePath("/carteiras/conta/[accountId]", "page");
+  }
+  return result;
+}
+
+/**
+ * "É transferência" de um lado só (M13.2): o outro lado é de alguém do lar (que você não vê) ou de
+ * uma conta sua fora do FinTrack. O recebido continua na revisão, sem categoria, e sai das somas
+ * ao ser confirmado. "Desmarcar" volta a pedir a categoria.
+ */
+export async function markTransferAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await requireUser();
+  const parsed = markTransferSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return invalid(parsed.error);
+  const input = parsed.data;
+  const result = await runAction(async () => {
+    const scope = await requireScope(session, "edit");
+    const ctx = await requestContext();
+    if (input.intent === "unmark") {
+      await unmarkTransfer(prisma, scope, input.transactionId, ctx);
+      return "Desmarcado: escolha a categoria.";
+    }
+    await markTransfer(
+      prisma,
+      scope,
+      { transactionId: input.transactionId, peer: input.peer },
+      ctx,
+    );
+    return input.peer === "HOUSEHOLD"
+      ? "Marcado como transferência para alguém do lar. Confirme para tirar das somas."
+      : "Marcado como transferência para uma conta sua fora do FinTrack. Confirme para tirar das somas.";
+  });
+  if (!result.error) {
+    revalidatePath("/lancamentos", "layout");
+    revalidatePath("/carteiras/conta/[accountId]", "page");
+  }
+  return result;
 }

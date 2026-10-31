@@ -180,6 +180,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/lan
               id: item.id,
               occurredOn: item.occurredOn,
               description: item.description,
+              label: item.label,
               amount: item.amount,
               status: item.status,
               category: item.category,

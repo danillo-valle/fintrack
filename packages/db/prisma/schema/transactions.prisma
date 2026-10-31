@@ -127,8 +127,13 @@ model Transaction {
   amount                    Decimal               @db.Decimal(14, 2)
   /// Dia do lançamento (coluna DATE)
   occurredOn                DateTime              @db.Date
-  /// CHECK: de 1 a 200 caracteres
+  /// O texto da origem: o do banco, do OFX ou do PDF, ou o que a pessoa digitou (manual). É dele que a
+  /// categorização e a busca do banco leem. CHECK: de 1 a 200 caracteres
   description               String
+  /// "O que foi" (M13.2): o nome que a pessoa dá a um lançamento do banco ("Sapato da Zara"),
+  /// mostrado em destaque com a descrição do banco embaixo. Nunca treina a categorização nem vai
+  /// para log. CHECK: de 1 a 200 caracteres (como a descrição)
+  label                     String?
   notes                     String?
   status                    TransactionStatus     @default(CONFIRMED)
   source                    TransactionSource     @default(MANUAL)
@@ -143,6 +148,9 @@ model Transaction {
   /// Recorrência que gerou este lançamento (conta fixa, assinatura, salário)
   recurrenceId              String?               @db.Uuid
   transferId                String?               @db.Uuid
+  /// Transferência de um lado só (M13.2): o outro lado é de outra pessoa do lar ou de uma conta fora
+  /// do FinTrack. CHECK: só com transferId
+  transferPeer              TransferPeer?
   /// Estorno: aponta para a compra estornada
   reversalOfId              String?               @db.Uuid
   /// Compra em outra moeda (M09.1): o valor e a moeda originais; `amount` fica em reais.
@@ -222,6 +230,16 @@ model Transaction {
 }
 
 /// O tipo de um par da revisão (M09.2, ADR-012).
+/// O outro lado de uma transferência marcada só de um lado (M13.2).
+enum TransferPeer {
+  /// Uma conta de outra pessoa do lar (que quem marca não vê)
+  HOUSEHOLD
+  /// Uma conta da pessoa fora do FinTrack
+  EXTERNAL
+
+  @@map("transfer_peer")
+}
+
 enum MatchKind {
   /// O mesmo gasto: mesmo valor, datas a até 5 dias
   SAME
@@ -229,6 +247,9 @@ enum MatchKind {
   INSTALLMENT
   /// Um crédito do banco que estorna uma compra anterior (reversalOfId)
   REFUND
+  /// Os dois lados de uma transferência entre contas (M13.2): a saída de uma e a entrada na outra,
+  /// ligados pelo mesmo transferId. O pagamento da fatura é a transferência que entra no cartão
+  TRANSFER
 
   @@map("match_kind")
 }

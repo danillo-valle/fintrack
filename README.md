@@ -6,7 +6,7 @@ Controle financeiro pessoal e da casa: ambientes pessoais e compartilhados, cart
 adicionais, orçamento e importação de extratos e faturas. Construído em 12 módulos, cada um
 acompanhado por uma [milestone](https://github.com/danillo-valle/fintrack/milestones).
 
-**v1.1.0**: em uso de verdade num servidor de casa, com os dados da casa entrando pelo Meu Pluggy.
+**v1.2.0**: em uso de verdade num servidor de casa, com os dados da casa entrando pelo Meu Pluggy.
 Os 12 módulos estão nas [releases](https://github.com/danillo-valle/fintrack/releases).
 
 **[FinTrack por dentro](https://danillo-valle.github.io/fintrack/)**: a arquitetura em C4 e o mapa

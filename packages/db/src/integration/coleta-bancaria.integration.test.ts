@@ -379,6 +379,62 @@ describe("conexão, ligação e sincronização", () => {
     fake.setBank(bankFor(h));
   });
 
+  it("a parcela seguinte chega com o O que foi e a categoria da anterior (M13.2)", async () => {
+    // A parcela 3/6 da livraria, nomeada e conferida pela pessoa
+    const category = await prisma.category.findFirstOrThrow({
+      where: { householdId: h.householdId, kind: "EXPENSE", archivedAt: null },
+      orderBy: { name: "asc" },
+    });
+    const third = await prisma.transaction.findFirstOrThrow({
+      where: { householdId: h.householdId, description: "LIVRARIA NOBRE PARC 03/06" },
+    });
+    await prisma.transaction.update({
+      where: { id: third.id },
+      data: { label: "Coleção de contos", categoryId: category.id, status: "CONFIRMED" },
+    });
+    // O banco manda a 4/6 (mesma compra) e uma compra parecida de outro valor (outra compra)
+    const bank = bankFor(h);
+    const base = bank.transactions.find((t) => t.description === "LIVRARIA NOBRE PARC 03/06");
+    if (!base) throw new Error("a parcela sintética sumiu");
+    const meta = base.creditCardMetadata as Record<string, unknown>;
+    const next = {
+      ...base,
+      id: "7e570000-0000-4000-8000-000000009998",
+      description: "LIVRARIA NOBRE PARC 04/06",
+      creditCardMetadata: { ...meta, installmentNumber: 4 },
+    };
+    const other = {
+      ...base,
+      id: "7e570000-0000-4000-8000-000000009997",
+      description: "LIVRARIA NOBRE PARC 01/06",
+      amount: { $money: "99.90" },
+      creditCardMetadata: { ...meta, installmentNumber: 1 },
+    };
+    bank.transactions.push(next, other);
+    fake.setBank(bank);
+    await runSync(prisma, {
+      connectionId: grant.connectionId as string,
+      trigger: "MANUAL",
+      provider,
+      now: new Date(NOW.getTime() + 210_000),
+    });
+    const fourth = await prisma.transaction.findFirstOrThrow({
+      where: { householdId: h.householdId, description: "LIVRARIA NOBRE PARC 04/06" },
+    });
+    expect(fourth).toMatchObject({
+      label: "Coleção de contos",
+      categoryId: category.id,
+      categorizedBy: "HISTORY",
+      categorizationConfidence: 100,
+      status: "PENDING", // a pessoa ainda confere: herdar não é confirmar
+    });
+    const another = await prisma.transaction.findFirstOrThrow({
+      where: { householdId: h.householdId, description: "LIVRARIA NOBRE PARC 01/06" },
+    });
+    expect(another.label).toBeNull();
+    fake.setBank(bankFor(h));
+  });
+
   it("credenciais recusadas: a busca falha com o CÓDIGO, nada é gravado e a conexão fica em erro", async () => {
     const wrong = new PluggyProvider({
       credentials: { clientId: SYNTHETIC_CREDENTIALS.clientId, clientSecret: "outro-segredo" },

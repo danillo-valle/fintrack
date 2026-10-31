@@ -198,6 +198,11 @@ export type DomainErrorCode =
   | "PAIR_NOT_ALLOWED" // os dois lançamentos não obedecem à regra do par (valor, conta, datas)
   | "REFUND_NOT_ALLOWED" // o crédito não estorna aquela compra (valor, loja, prazo de 90 dias)
   | "UNDO_EXPIRED" // o "Desfazer" já não vale (outra pessoa decidiu, ou o lançamento mudou)
+  // ── Transferências, contas e categorias (M13.2) ──
+  | "TRANSFER_NOT_ALLOWED" // os dois lados não formam transferência (valor, contas, datas)
+  | "LABEL_NOT_ALLOWED" // o "O que foi" é só para o que veio do banco, do OFX ou do PDF
+  | "ACCOUNT_KIND_LOCKED" // o tipo desta conta não muda (ligada ao banco, ou cartão e vale)
+  | "CATEGORY_KIND_LOCKED" // o tipo da categoria não muda: ela tem subcategorias ou lançamentos do outro sinal
   // ── Importar extrato (M09.3) ──
   | "FILE_PREVIEW_EXPIRED" // a conferência venceu (1 hora), foi cancelada ou já foi importada
   | "FILE_ACCOUNT_KIND_MISMATCH" // extrato de conta só em corrente ou poupança; fatura, em cartão

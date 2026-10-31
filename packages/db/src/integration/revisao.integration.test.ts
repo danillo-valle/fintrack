@@ -239,7 +239,9 @@ describe("revisão: pares, estorno, lote e desfazer", () => {
     const after = await prisma.transaction.findUniqueOrThrow({ where: { id: bank.id } });
     expect(after).toMatchObject({
       status: "CONFIRMED",
-      description: "Mercado da esquina",
+      // M13.2: o texto do banco fica; a sua descrição vira o "O que foi"
+      description: "MERCADO BOM PRECO",
+      label: "Mercado da esquina",
       categoryId: cats.mercado.id,
       categorizedBy: "MANUAL",
       walletId: h.home.id,
@@ -263,6 +265,7 @@ describe("revisão: pares, estorno, lote e desfazer", () => {
     expect(back).toMatchObject({
       status: "PENDING",
       description: "MERCADO BOM PRECO",
+      label: null,
       categoryId: cats.padaria.id,
       categorizedBy: "RULE",
       walletId: h.holderWallet.id,

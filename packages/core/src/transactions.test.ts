@@ -4,6 +4,8 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { sumCents } from "./money";
 import {
+  canSwitchAccountKind,
+  defaultAccountName,
   ACCOUNT_KINDS,
   allowedMethods,
   compareListOrder,
@@ -179,5 +181,24 @@ describe("recorrências", () => {
       "2027-02",
     ]);
     expect(monthRange("2026-02-10")).toEqual({ from: "2026-02-01", to: "2026-02-28" });
+  });
+});
+
+describe("conta (M13.2)", () => {
+  it("o nome da conta nova do banco leva o tipo", () => {
+    expect(defaultAccountName({ institution: "Itaú", bankName: "itau", kind: "CHECKING" })).toBe(
+      "Itaú · Conta corrente",
+    );
+    expect(defaultAccountName({ institution: null, bankName: "itau", kind: "SAVINGS" })).toBe(
+      "itau · Poupança",
+    );
+  });
+
+  it("conta manual só troca de tipo entre corrente, poupança e dinheiro", () => {
+    expect(canSwitchAccountKind("CHECKING", "SAVINGS")).toBe(true);
+    expect(canSwitchAccountKind("CASH", "CHECKING")).toBe(true);
+    expect(canSwitchAccountKind("CHECKING", "CREDIT_CARD")).toBe(false);
+    expect(canSwitchAccountKind("MEAL_VOUCHER", "CHECKING")).toBe(false);
+    expect(canSwitchAccountKind("CREDIT_CARD", "CREDIT_CARD")).toBe(true);
   });
 });

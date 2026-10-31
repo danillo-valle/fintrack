@@ -85,6 +85,12 @@ export type ExistingTransaction = {
   method: string;
   cardId: string | null;
   notes: string | null;
+  /**
+   * M13.2: o texto da origem (banco, OFX ou PDF). Com ele, a descrição não se edita e o campo vira
+   * "O que foi" (label); nulo num lançamento manual, em que a descrição é da pessoa
+   */
+  originText: string | null;
+  label: string | null;
 };
 
 export type EntryErrors = {

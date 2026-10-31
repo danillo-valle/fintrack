@@ -14,7 +14,7 @@ import { BudgetAlerts, CashFlowMini, Panel } from "@/features/budget/ui/home-pan
 import { MonthSummary } from "@/features/budget/ui/month-summary";
 import { ViewToggle } from "@/features/budget/ui/view-toggle";
 import { getBankHome } from "@/features/bank/server/queries";
-import { BankAccountCards } from "@/features/bank/ui/bank-accounts";
+import { AccountsToday, CardsSummary } from "@/features/bank/ui/home-money";
 import { ReceivedBanner } from "@/features/bank/ui/received-banner";
 import { SyncLine } from "@/features/bank/ui/sync-line";
 import { NewTransactionButton } from "@/features/transactions/ui/new-transaction-button";
@@ -90,23 +90,32 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
         {/* M10.3: o resumo do mês, logo abaixo do ambiente (linha F.3 do canvas) */}
         <MonthSummary summary={home.summaryOfMonth} />
 
-        {bank && bank.accounts.length > 0 ? (
-          <section aria-labelledby="contas-e-cartoes" className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2
-                id="contas-e-cartoes"
-                className="text-[1.0625rem] font-extrabold tracking-[-0.01em] md:text-xl"
-              >
-                Contas e cartões
-              </h2>
-              <SyncLine
-                bankUpdatedAt={bank.bankUpdatedAt}
-                lastSyncedAt={bank.lastSyncedAt}
-                canSync={bank.canSync}
-              />
-            </div>
-            <BankAccountCards accounts={bank.accounts} />
-          </section>
+        {/* M13.2 (canvas M): quanto há nas contas hoje e como estão os cartões, separados */}
+        {bank ? (
+          <>
+            <AccountsToday
+              accounts={bank.accounts}
+              aside={
+                <SyncLine
+                  bankUpdatedAt={bank.bankUpdatedAt}
+                  lastSyncedAt={bank.lastSyncedAt}
+                  canSync={bank.canSync}
+                />
+              }
+            />
+            <CardsSummary
+              cards={bank.cards}
+              aside={
+                bank.accounts.length === 0 ? (
+                  <SyncLine
+                    bankUpdatedAt={bank.bankUpdatedAt}
+                    lastSyncedAt={bank.lastSyncedAt}
+                    canSync={bank.canSync}
+                  />
+                ) : undefined
+              }
+            />
+          </>
         ) : null}
         {bank ? (
           <ReceivedBanner count={bank.received.count} uncategorized={bank.received.uncategorized} />

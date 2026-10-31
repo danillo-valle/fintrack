@@ -6,9 +6,11 @@ import {
   addDays,
   addMonthsToKey,
   firstDayOf,
+  householdPeople,
   monthOf,
   todayCivil,
   type CivilDate,
+  type HouseholdPerson,
 } from "@fintrack/core";
 import {
   authorizeAccountView,
@@ -19,6 +21,7 @@ import {
   getConnection,
   importWalletOptions,
   linkableAccounts,
+  listHouseholdMembers,
   openStatementTotals,
   listCategories,
   prisma,
@@ -209,15 +212,18 @@ export async function getSyncHistory(session: Session) {
 // ── Início: contas e cartões ────────────────────────────────────────────────────
 
 /**
- * As contas ligadas ao banco no recorte do Início (as carteiras do escopo), o aviso de
- * recebidos e a linha "Banco atualizado às … · buscado às …".
+ * As contas ligadas ao banco no recorte do Início (as carteiras do escopo), separadas como no
+ * canvas M (M13.2): "Na conta hoje" (corrente e poupança, com o total) e "Seus cartões" (a fatura
+ * aberta com o fechamento e o vencimento DELA, o limite e quem usa). Mais o aviso de recebidos e
+ * a linha "Banco atualizado às … · buscado às …".
  */
 export async function getBankHome(session: Session, walletId: string | null) {
   const scope = await requireScope(session, "view", walletId);
-  const [accounts, received, grant] = await Promise.all([
+  const [accounts, received, grant, people] = await Promise.all([
     bankLinkedAccounts(prisma, scope.walletIds),
     receivedSummary(prisma, scope.walletIds),
     myConnectionGrant(session),
+    peopleOf(session),
   ]);
   if (accounts.length === 0 && received.count === 0) return null;
   const connectionIds = [
@@ -243,15 +249,42 @@ export async function getBankHome(session: Session, walletId: string | null) {
     }),
   ]);
   const today = todayCivil();
-  const openTotals = await openStatementTotals(
+  const open = await openStatementTotals(
     prisma,
     accounts.map((a) => a.id),
     today,
   );
   const latest = (dates: (Date | null)[]) =>
     dates.filter((d): d is Date => d !== null).sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
+  const byId = new Map(people.map((p) => [p.userId, p]));
+  const money = accounts
+    .filter((a) => a.kind !== "CREDIT_CARD")
+    .map((a) => ({
+      id: a.id,
+      name: a.name,
+      kind: a.kind,
+      wallet: a.wallet,
+      balance: a.balance?.balance ?? null,
+      asOf: a.balance?.asOf ?? null,
+    }));
+  const cards = accounts
+    .filter((a) => a.kind === "CREDIT_CARD")
+    .map((a) => ({
+      id: a.id,
+      name: a.name,
+      lastFour: a.lastFour,
+      additionalCount: a.additionalCount,
+      holders: a.holderIds.flatMap((id) => {
+        const person = byId.get(id);
+        return person ? [person] : [];
+      }),
+      open: open.get(a.id) ?? null,
+      creditLimit: a.balance?.creditLimit ?? null,
+      availableCredit: a.balance?.availableCredit ?? null,
+    }));
   return {
-    accounts: accounts.map((a) => ({ ...a, openTotal: openTotals.get(a.id) ?? null })),
+    accounts: money,
+    cards,
     received,
     bankUpdatedAt: latest(items.map((i) => i.bankUpdatedAt)),
     lastSyncedAt: latest(connections.map((c) => c.lastSyncedAt)),
@@ -259,6 +292,19 @@ export async function getBankHome(session: Session, walletId: string | null) {
     canSync: Boolean(grant?.connectionId),
     today,
   };
+}
+
+export type BankHome = NonNullable<Awaited<ReturnType<typeof getBankHome>>>;
+
+/** As pessoas do lar com as iniciais e a cor de sempre (as do "Pago por"). Sem lar, nenhuma. */
+async function peopleOf(session: Session): Promise<HouseholdPerson[]> {
+  try {
+    const grant = await requireHouseholdAccess(session, "view");
+    return householdPeople(await listHouseholdMembers(prisma, grant));
+  } catch (error) {
+    if (error instanceof AccessError) return [];
+    throw error;
+  }
 }
 
 // ── Página do cartão ────────────────────────────────────────────────────────────

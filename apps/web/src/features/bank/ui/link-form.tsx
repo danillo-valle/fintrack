@@ -32,7 +32,6 @@ export type LinkFormData = {
     kind: Kind;
     walletName: string;
     walletKind: "PERSONAL" | "SHARED";
-    sharedPurchases: boolean;
     linkedElsewhere: boolean;
     cards: {
       id: string;
@@ -160,11 +159,9 @@ export function LinkForm({
                     >
                       {options.map((a) => (
                         <option key={a.id} value={`existing:${a.id}`}>
-                          {a.name} (
-                          {a.sharedPurchases
-                            ? `compras da ${a.walletName}`
-                            : `ambiente ${a.walletName}`}
-                          )
+                          {/* M13.2: "compras da X" confundia (aparecia quando a conta tinha um
+                              cartão conjunto); o que decide aqui é o ambiente da conta */}
+                          {`${a.name} (ambiente ${a.walletName})`}
                         </option>
                       ))}
                       <option value="new">Criar uma conta nova</option>

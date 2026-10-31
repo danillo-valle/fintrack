@@ -73,3 +73,41 @@ Combinado com o Danillo antes do código (13/10/2026, canvas E.2 aprovado):
 ## Revisão do M12.3b (28/10/2026)
 
 **Continua valendo**, inteira. Nada da revisão e da reconciliação mudou depois do M09.2.
+
+## Adendo do M13.2 (31/10/2026): transferências, pagamento de fatura e o "O que foi"
+
+No primeiro mês de uso real, cada transferência entre as contas da pessoa entrou **duas vezes**
+(a saída numa conta e a entrada na outra), o débito automático da fatura contou como gasto além
+das compras do cartão, e a descrição do banco ("MERCADOLIVRE*MERCA03/03") não dizia o que foi
+comprado.
+
+1. **Par de transferência (`MatchKind` `TRANSFER`).** Dois lados do banco: uma saída e uma
+   entrada do mesmo valor, em contas diferentes, com até 5 dias entre as datas, os dois em
+   carteiras que a pessoa **edita**. `suggestTransfers` (`@fintrack/core`) sugere; o servidor
+   confere de novo. Confirmar grava o mesmo `transferId` nos dois lados, tira a categoria e
+   confirma; os dois ficam (cada conta mantém o próprio extrato) e saem das somas de gasto e de
+   receita, como a transferência feita à mão desde o M07. O antes dos dois lados vai para o
+   `transaction_match`, e o "Desfazer" devolve os dois. "Não é transferência" grava a recusa.
+2. **Pagamento de fatura** é o par de transferência em que a entrada cai numa conta de cartão.
+   Só o rótulo muda: não conta como gasto (as compras já contam pelo cartão) e não abate a fatura
+   aberta.
+3. **Um lado só.** Quando o outro lado não aparece para a pessoa (a conta de outra pessoa do lar,
+   que ela não vê, ou uma conta fora do FinTrack), "É transferência" marca só aquele lado:
+   `transferId` novo e `transferPeer` (`HOUSEHOLD` ou `EXTERNAL`, coluna nova, só com
+   `transferId`). O recebido continua na revisão como quem escolheu a categoria e entra no
+   "Confirmar os N"; escolher uma categoria desfaz a marca. Entre duas pessoas do lar, cada uma
+   marca o próprio lado: ninguém passa a ver a conta da outra.
+4. **"O que foi" (`label`, coluna nova).** A `description` continua o texto da origem (o banco,
+   o OFX, o PDF ou o que a pessoa digitou num lançamento manual), e é dela que a categorização, a
+   busca do banco e os exemplos de treino continuam lendo. O "O que foi" é o nome que a pessoa dá
+   ao lançamento do banco: aparece em destaque, com o texto do banco embaixo, e a busca acha pelos
+   dois. Nunca vai para log nem treina a categorização.
+5. **O par do M09.2 deixa de apagar o texto do banco**: a descrição do lançamento da pessoa vai
+   para o `label` do recebido, e a `description` do banco fica (antes, a dela substituía a do
+   banco).
+6. **Parcelas.** O "O que foi" e a categoria escritos numa parcela valem para as irmãs (mesma
+   conta, mesmo valor, mesmo total de parcelas e a mesma descrição sem o "NN/NN",
+   `installmentSiblingKey`), e a parcela que chegar depois na busca já entra com os dois.
+
+Consequência: o vínculo de transferência entre duas pessoas do lar não mostra no pessoal de quem
+enviou quanto foi para a outra pessoa; isso fica para o acerto do casal, quando vier.

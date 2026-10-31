@@ -628,10 +628,11 @@ describe("exportação CSV", () => {
       TEST_CTX,
     );
     expect(rows).toBe(2);
-    expect(csv.startsWith("﻿Data;Descrição;Valor;Tipo")).toBe(true);
+    // M13.2: a coluna "O que foi" logo depois da descrição
+    expect(csv.startsWith("﻿Data;Descrição;O que foi;Valor;Tipo")).toBe(true);
     // A descrição que viraria fórmula ganha o apóstrofo (e as aspas dobradas do CSV)
-    expect(csv).toContain(`;"'=HYPERLINK(""x"")";`);
-    expect(csv).toContain(";-12,34;Despesa;");
+    expect(csv).toContain(`;"'=HYPERLINK(""x"")";;`);
+    expect(csv).toContain(";;-12,34;Despesa;");
     const audit = await prisma.auditLog.findFirstOrThrow({
       where: { householdId: h.householdId, action: "transactions.exported" },
     });

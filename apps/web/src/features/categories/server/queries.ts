@@ -19,3 +19,11 @@ export async function getCategoriesPage(session: Session) {
     throw error;
   }
 }
+
+/** Editar categoria (M13.2): a categoria do lar, ou null (404 igual para id de fora ou inventado). */
+export async function getEditCategoryPage(session: Session, categoryId: string) {
+  const page = await getCategoriesPage(session);
+  if (!page?.canManage) return null;
+  const category = page.categories.find((c) => c.id === categoryId);
+  return category ? { category } : null;
+}

@@ -6,6 +6,7 @@ import {
   Banknote,
   CreditCard,
   Landmark,
+  PencilLine,
   PiggyBank,
   Plus,
   UtensilsCrossed,
@@ -174,6 +175,17 @@ function AccountBlock({
               </Button>
             ) : null}
             <ActionsMenu label={`Opções da conta ${a.name}`}>
+              {a.archivedAt ? null : (
+                <Link
+                  href={`/ajustes/contas/${a.id}/editar`}
+                  scroll={false}
+                  aria-label={`Editar a conta ${a.name}`}
+                  className={MENU_ITEM}
+                >
+                  <PencilLine aria-hidden />
+                  Editar conta
+                </Link>
+              )}
               <ActionButton
                 action={setAccountArchivedAction}
                 fields={{ walletId, accountId: a.id, archived: a.archivedAt ? "false" : "true" }}
@@ -218,7 +230,7 @@ function AccountBlock({
 
 /**
  * O aviso do topo, a partir de ?criada=<conta>, ?cartao=<cartão>&movidos=N ou (M13.1)
- * ?editado=<cartão>&movidos=N (as actions voltam com eles). Só vale para uma conta ou um cartão que a pessoa vê nesta tela: um id de fora não
+ * ?editado=<cartão>&movidos=N, e (M13.2) ?editada=<conta> (as actions voltam com eles). Só vale para uma conta ou um cartão que a pessoa vê nesta tela: um id de fora não
  * mostra nada (nem diz que existe).
  */
 function noticeFrom(
@@ -228,6 +240,7 @@ function noticeFrom(
   const created = typeof params.criada === "string" ? params.criada : null;
   const cardId = typeof params.cartao === "string" ? params.cartao : null;
   const editedId = typeof params.editado === "string" ? params.editado : null;
+  const editedAccount = typeof params.editada === "string" ? params.editada : null;
   const moved = Number.parseInt(String(params.movidos ?? "0"), 10);
   for (const s of sections) {
     for (const a of s.accounts) {
@@ -239,6 +252,9 @@ function noticeFrom(
           wallet: s.wallet.name,
           acceptsCards: s.canManage && !a.archivedAt && CARD_ACCOUNT_KINDS.has(a.kind),
         };
+      }
+      if (editedAccount && a.id === editedAccount) {
+        return { kind: "account-updated", accountId: a.id, name: a.name };
       }
       const edited = editedId ? a.cards.find((c) => c.id === editedId) : undefined;
       if (edited) {

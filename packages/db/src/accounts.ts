@@ -6,7 +6,7 @@
 // portador de um cartão dela (o adicional do cônjuge).
 //
 // Cartão: só os 4 últimos dígitos (CHECK no banco). Nunca o número inteiro, validade ou CVV.
-import { importWalletFor, type AccountKind } from "@fintrack/core";
+import { canSwitchAccountKind, importWalletFor, type AccountKind } from "@fintrack/core";
 import { DomainError, type WalletGrant } from "./access";
 import { writeAudit, type RequestContext } from "./audit";
 import type { PrismaClient } from "./generated/prisma/client";
@@ -82,6 +82,8 @@ export async function listWalletAccounts(db: PrismaClient, grant: WalletGrant<"v
       archivedAt: true,
       holderId: true,
       holder: { select: { name: true } },
+      // M13.2: ligada ao banco (o tipo vem dele e não muda no Editar conta)
+      connectionId: true,
       cards: {
         orderBy: [{ archivedAt: { sort: "asc", nulls: "first" } }, { nickname: "asc" }],
         select: {
@@ -177,6 +179,61 @@ export async function setAccountArchived(
         entity: "financial_account",
         entityId: accountId,
         metadata: { archived },
+      },
+      ctx,
+    );
+  });
+}
+
+export type AccountUpdateInput = {
+  /** O apelido que o FinTrack mostra */
+  name: string;
+  /** Só numa conta manual, entre corrente, poupança e dinheiro (canSwitchAccountKind) */
+  kind: AccountKind;
+};
+
+/**
+ * Editar conta (M13.2): o apelido em qualquer conta ativa da carteira; o tipo só numa conta que
+ * não é ligada ao banco e só entre os trocáveis. A conta do banco guarda o nome que ele manda
+ * (`externalId` e a instituição continuam). Auditoria só com os nomes dos campos que mudaram.
+ */
+export async function updateAccount(
+  db: PrismaClient,
+  grant: WalletGrant<"manage_accounts">,
+  accountId: string,
+  input: AccountUpdateInput,
+  ctx: RequestContext,
+) {
+  await db.$transaction(async (tx) => {
+    // walletId no filtro: o id veio do formulário e pode ser de outra carteira (IDOR)
+    const current = await tx.financialAccount.findFirst({
+      where: { id: accountId, walletId: grant.wallet.id, archivedAt: null },
+      select: { name: true, kind: true, connectionId: true },
+    });
+    if (!current) throw new DomainError("NOT_FOUND");
+    if (
+      input.kind !== current.kind &&
+      (current.connectionId !== null || !canSwitchAccountKind(current.kind, input.kind))
+    ) {
+      throw new DomainError("ACCOUNT_KIND_LOCKED");
+    }
+    const changed = [
+      ...(input.name !== current.name ? ["name"] : []),
+      ...(input.kind !== current.kind ? ["kind"] : []),
+    ];
+    await tx.financialAccount.update({
+      where: { id: accountId },
+      data: { name: input.name, kind: input.kind },
+    });
+    await writeAudit(
+      tx,
+      {
+        actorId: grant.userId,
+        householdId: grant.wallet.householdId,
+        action: "account.updated",
+        entity: "financial_account",
+        entityId: accountId,
+        metadata: { changed },
       },
       ctx,
     );

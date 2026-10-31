@@ -14,6 +14,16 @@ export const categorySchema = z.object({
     .transform((v) => v || null),
 });
 
+/** Editar categoria (M13.2): o nome e o tipo (o servidor confere se o tipo pode mudar). */
+export const editCategorySchema = z.object({
+  categoryId: z.uuid(),
+  name: textField()
+    .trim()
+    .min(1, "Dê um nome à categoria.")
+    .max(60, "Use no máximo 60 caracteres."),
+  kind: z.enum(["EXPENSE", "INCOME"], { error: "Escolha despesa ou receita." }),
+});
+
 export const archiveCategorySchema = z.object({
   categoryId: z.uuid(),
   archived: z.enum(["true", "false"]),

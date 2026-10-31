@@ -19,9 +19,12 @@ import {
   decodeCursor,
   defaultMethod,
   encodeCursor,
+  hasOriginText,
+  installmentSiblingKey,
   isCorrection,
   methodAllowsCard,
   resolvePayer,
+  sameText,
   signedAmount,
   subtreeOf,
   suggestRulePattern,
@@ -68,6 +71,11 @@ export type TransactionInput = {
   method?: PaymentMethod | null;
   cardId?: string | null;
   notes?: string | null;
+  /**
+   * "O que foi" (M13.2): só num lançamento que veio do banco, do OFX ou do PDF. Neles a descrição
+   * é a da origem e não muda; o nome que a pessoa dá vai aqui
+   */
+  label?: string | null;
   /** De onde veio (M11): o formulário (MANUAL, o padrão) ou o bot. Com origem, o id na origem
    * impede lançar duas vezes a mesma proposta (chave única conta + origem + id) */
   origin?: TransactionOrigin | null;
@@ -240,6 +248,7 @@ export async function getTransaction(db: PrismaClient, grant: TransactionGrant<"
       amount: true,
       occurredOn: true,
       description: true,
+      label: true,
       notes: true,
       status: true,
       source: true,
@@ -279,10 +288,19 @@ export async function updateTransaction(
   sameHousehold(target, account);
   const amount = signedAmount(input.kind, input.cents);
   const { method, cardId } = resolvePayment(account, input);
+  const origin = await db.transaction.findFirst({
+    where: { id: grant.transaction.id, deletedAt: null },
+    select: { source: true, description: true },
+  });
+  if (!origin) throw new DomainError("NOT_FOUND");
+  // Do banco, do OFX ou do PDF (M13.2): a descrição é a da origem e não muda (é dela que a
+  // categorização lê); o que a pessoa escreve é o "O que foi". No manual, a descrição é dela
+  const imported = hasOriginText(origin.source);
+  const description = imported ? origin.description : input.description;
   const suggestion = await suggestCategory(
     db,
     options.scope,
-    { description: input.description, kind: input.kind },
+    { description, kind: input.kind },
     options.services,
   );
 
@@ -313,7 +331,8 @@ export async function updateTransaction(
           : categorizationConfidence(categoryId, suggestion),
         amount: toDbDecimal(amount),
         occurredOn: dbDateFromCivil(input.occurredOn),
-        description: input.description,
+        description,
+        ...(imported ? { label: labelFor(input.label, description) } : {}),
         notes: input.notes ?? null,
       },
     });
@@ -322,7 +341,7 @@ export async function updateTransaction(
       {
         householdId: target.wallet.householdId,
         transactionId: grant.transaction.id,
-        description: input.description,
+        description,
         kind: input.kind,
         from: { categoryId: current.categoryId, source: current.categorizedBy },
         to: categoryId,
@@ -347,19 +366,35 @@ export async function setTransactionCategory(
   options: Pick<CategorizationOptions, "rememberRule">,
   ctx: RequestContext,
 ) {
-  if (grant.transaction.transferId) throw new DomainError("TRANSFER_READONLY");
   await db.$transaction(async (tx) => {
     const current = await tx.transaction.findFirst({
       where: { id: grant.transaction.id, deletedAt: null },
-      select: { categoryId: true, categorizedBy: true, amount: true, description: true },
+      select: {
+        categoryId: true,
+        categorizedBy: true,
+        amount: true,
+        description: true,
+        status: true,
+        transferId: true,
+        transferPeer: true,
+      },
     });
     if (!current) throw new DomainError("NOT_FOUND");
+    // Transferência não tem categoria. A exceção é a marcada de um lado só ainda na revisão
+    // (M13.2): escolher a categoria desfaz a marca, como o "Não é transferência"
+    const unmark = current.transferPeer !== null && current.status === "PENDING";
+    if (current.transferId && !unmark) throw new DomainError("TRANSFER_READONLY");
     const kind = fromDbDecimal(current.amount) < 0n ? "expense" : "income";
     const chosen = await assertUsableCategory(tx, grant.transaction.householdId, categoryId, kind);
     if (chosen === current.categoryId) return; // a mesma: nada muda (e não vira exemplo)
     await tx.transaction.update({
       where: { id: grant.transaction.id },
-      data: { categoryId: chosen, categorizedBy: "MANUAL", categorizationConfidence: null },
+      data: {
+        categoryId: chosen,
+        categorizedBy: "MANUAL",
+        categorizationConfidence: null,
+        ...(unmark ? { transferId: null, transferPeer: null } : {}),
+      },
     });
     await recordCorrection(
       tx,
@@ -389,6 +424,91 @@ export async function setTransactionCategory(
         );
       }
     }
+  });
+}
+
+/** O "O que foi" que se grava: vazio ou igual ao texto da origem vira nulo (não repete o banco). */
+function labelFor(label: string | null | undefined, description: string): string | null {
+  const text = label?.trim() ?? "";
+  return text && !sameText(text, description) ? text : null;
+}
+
+/**
+ * Só o "O que foi" (M13.2), num clique da revisão ou da página do cartão. Num lançamento que é
+ * parcela vinda do banco, vale também para as outras parcelas da mesma compra (mesma conta, valor,
+ * total e descrição sem o "NN/NN") que estão na mesma carteira. Devolve quantos mudaram.
+ * Auditoria só com a contagem: o texto nunca vai para log nem para a auditoria.
+ */
+export async function setTransactionLabel(
+  db: PrismaClient,
+  grant: TransactionGrant<"edit">,
+  label: string | null,
+  ctx: RequestContext,
+): Promise<number> {
+  return db.$transaction(async (tx) => {
+    const row = await tx.transaction.findFirst({
+      where: { id: grant.transaction.id, deletedAt: null },
+      select: {
+        id: true,
+        accountId: true,
+        walletId: true,
+        amount: true,
+        source: true,
+        description: true,
+        providerInstallmentCount: true,
+      },
+    });
+    if (!row) throw new DomainError("NOT_FOUND");
+    if (!hasOriginText(row.source)) throw new DomainError("LABEL_NOT_ALLOWED");
+    const value = labelFor(label, row.description);
+    const key = installmentSiblingKey({
+      accountId: row.accountId,
+      amount: fromDbDecimal(row.amount),
+      description: row.description,
+      installmentCount: row.providerInstallmentCount,
+    });
+    const siblings = key
+      ? (
+          await tx.transaction.findMany({
+            where: {
+              accountId: row.accountId,
+              walletId: row.walletId,
+              amount: row.amount,
+              providerInstallmentCount: row.providerInstallmentCount,
+              deletedAt: null,
+              id: { not: row.id },
+            },
+            select: { id: true, accountId: true, amount: true, description: true },
+          })
+        )
+          .filter(
+            (s) =>
+              installmentSiblingKey({
+                accountId: s.accountId,
+                amount: fromDbDecimal(s.amount),
+                description: s.description,
+                installmentCount: row.providerInstallmentCount,
+              }) === key,
+          )
+          .map((s) => s.id)
+      : [];
+    const { count } = await tx.transaction.updateMany({
+      where: { id: { in: [row.id, ...siblings] }, deletedAt: null },
+      data: { label: value },
+    });
+    await writeAudit(
+      tx,
+      {
+        actorId: grant.userId,
+        householdId: grant.transaction.householdId,
+        action: "transaction.labeled",
+        entity: "transaction",
+        entityId: row.id,
+        metadata: { cleared: value === null, count },
+      },
+      ctx,
+    );
+    return count;
   });
 }
 
@@ -603,6 +723,7 @@ function whereOf(
     and.push({
       OR: [
         { description: { contains: f.text, mode: "insensitive" } },
+        { label: { contains: f.text, mode: "insensitive" } },
         { notes: { contains: f.text, mode: "insensitive" } },
       ],
     });
@@ -638,11 +759,14 @@ const LIST_SELECT = {
   id: true,
   occurredOn: true,
   description: true,
+  /** "O que foi" (M13.2): em destaque na lista, com a descrição do banco embaixo */
+  label: true,
   amount: true,
   status: true,
   method: true,
   source: true,
   transferId: true,
+  transferPeer: true,
   recurrenceId: true,
   categorizedBy: true,
   categorizationConfidence: true,
@@ -821,6 +945,7 @@ export async function exportTransactions(
       [
         "Data",
         "Descrição",
+        "O que foi",
         "Valor",
         "Tipo",
         "Categoria",
@@ -837,6 +962,7 @@ export async function exportTransactions(
         return [
           { raw: civilFromDbDate(r.occurredOn) },
           { text: r.description },
+          { text: r.label },
           { raw: csvMoney(amount) },
           { raw: type },
           { text: r.category?.name ?? null },

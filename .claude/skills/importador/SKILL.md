@@ -46,6 +46,14 @@ Decisões: `docs/adr/0011-coleta-bancaria.md`. Tabelas: `docs/modelo-de-dados.md
   o adicional de outra pessoa vai para o ambiente dela (`importWalletFor`).
 - **Recebido fora das somas**: consulta nova de total ou painel filtra `status <> 'PENDING'`
   (há teste de integração para a lista, os totais e o painel).
+- **A descrição do banco nunca muda** (M13.2, adendo do ADR-012): é dela que a categorização, a
+  busca do banco e os exemplos leem. O nome que a pessoa dá vai no `label` ("O que foi"; tela:
+  `label ?? description`, `shownText`), e só em lançamento com texto de origem (`hasOriginText`:
+  banco, OFX, PDF). O par do M09.2 põe a descrição da pessoa no `label`. A parcela que chega herda
+  o `label` e a categoria da parcela irmã (`installmentSiblingKey`).
+- **Transferência e pagamento de fatura** (M13.2): a saída e a entrada viram `TRANSFER` na revisão
+  (`suggestTransfers`, `confirmTransfer`); a fatura aberta (`openStatementTotals`) já ignora quem
+  tem `transferId`, e as datas dela são as da janela calculada, nunca as do saldo cru.
 
 ## Extrato OFX (M09.3, ADR-013)
 
