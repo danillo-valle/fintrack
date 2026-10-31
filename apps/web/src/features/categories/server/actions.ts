@@ -10,9 +10,11 @@ import {
   setCategoryArchived,
   setLocalAi,
   trainNow,
+  updateCategory,
   type TrainOutcome,
 } from "@fintrack/db";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import {
   requestContext,
   requireHouseholdAccess,
@@ -26,6 +28,7 @@ import { classifierPort } from "@/lib/ml/classifier";
 import {
   archiveCategorySchema,
   categorySchema,
+  editCategorySchema,
   localAiSwitchSchema,
   ruleIdSchema,
   ruleSchema,
@@ -52,6 +55,29 @@ export async function createCategoryAction(
   if (!result.error) await financeChanged(session);
   revalidatePath(PAGE);
   return result;
+}
+
+/**
+ * Editar categoria (M13.2, prancha M-Categoria): o nome e o tipo. Volta para Categorias com o aviso.
+ * O tipo só muda sem subcategorias, recorrência, orçado e lançamento do outro sinal.
+ */
+export async function updateCategoryAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await requireUser();
+  const parsed = editCategorySchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return invalid(parsed.error);
+  const { categoryId, ...input } = parsed.data;
+  const result = await runAction(async () => {
+    const grant = await requireHouseholdAccess(session, "manage_categories");
+    await updateCategory(prisma, grant, categoryId, input, await requestContext());
+  });
+  if (result.error) return result;
+  await financeChanged(session);
+  revalidatePath(PAGE);
+  revalidatePath("/lancamentos", "layout");
+  redirect(`${PAGE}?editada=${categoryId}`);
 }
 
 export async function setCategoryArchivedAction(

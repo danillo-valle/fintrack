@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { hasOriginText } from "@fintrack/core";
 import { ActionButton } from "@/components/feedback/action-button";
 import { PageHeader } from "@/components/layout/page-header";
 import { AmountText } from "@/components/money/amount-text";
@@ -31,7 +32,7 @@ export default async function TransactionPage({
     <>
       <PageHeader
         help="lancamentos"
-        title={t.description}
+        title={t.label ?? t.description}
         description={`${formatDate(new Date(`${t.occurredOn}T12:00:00Z`))} · ${t.wallet.name}`}
       />
       <div className="flex max-w-md flex-col gap-6">
@@ -93,6 +94,8 @@ export default async function TransactionPage({
                 method: t.method,
                 cardId: t.cardId,
                 notes: t.notes,
+                originText: hasOriginText(t.source) ? t.description : null,
+                label: t.label,
               }}
             />
           </section>

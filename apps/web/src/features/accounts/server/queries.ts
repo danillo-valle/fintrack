@@ -89,3 +89,28 @@ export async function getEditCardPage(session: Session, accountId: string, cardI
   }
   return null;
 }
+
+/**
+ * Editar conta (M13.2): a conta ativa de uma carteira que a pessoa gere, ou null (404 igual para
+ * conta de outra pessoa, arquivada ou inventada).
+ */
+export async function getEditAccountPage(session: Session, accountId: string) {
+  const { sections } = await getAccountsPage(session);
+  for (const s of sections) {
+    if (!s.canManage) continue;
+    const account = s.accounts.find((a) => a.id === accountId && !a.archivedAt);
+    if (account) {
+      return {
+        wallet: s.wallet,
+        account: {
+          id: account.id,
+          name: account.name,
+          kind: account.kind,
+          institution: account.institution,
+          connected: account.connectionId !== null,
+        },
+      };
+    }
+  }
+  return null;
+}

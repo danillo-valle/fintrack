@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
-import { Tags } from "lucide-react";
+import Link from "next/link";
+import { Archive, ArchiveRestore, Check, PencilLine, Tags } from "lucide-react";
 import { ActionButton } from "@/components/feedback/action-button";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
+import { ActionsMenu, MENU_ITEM } from "@/components/visual/actions-menu";
 import { deleteRuleAction, setCategoryArchivedAction } from "@/features/categories/server/actions";
 import { getCategoriesPage } from "@/features/categories/server/queries";
 import { CategoryForm, RuleForm } from "@/features/categories/ui/category-forms";
 import { requireUser } from "@/lib/auth/session";
+import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Categorias e regras" };
 
@@ -15,10 +18,12 @@ const MATCH = { CONTAINS: "contém", STARTS_WITH: "começa com", EQUALS: "é igu
 
 // Categorias e regras do lar (M07). As regras são a primeira camada da cascata de sugestão:
 // "se a descrição contém X, a categoria é Y". Regras também nascem de uma correção no
-// lançamento ("sempre categorizar assim").
-export default async function CategoriesPage() {
+// lançamento ("sempre categorizar assim"). M13.2: cada categoria tem o menu "⋯" com Editar (nome e
+// tipo) e Arquivar; depois de editar, o aviso no topo.
+export default async function CategoriesPage({ searchParams }: PageProps<"/ajustes/categorias">) {
   const session = await requireUser();
   const page = await getCategoriesPage(session);
+  const editedId = (await searchParams).editada;
   if (!page) {
     return (
       <>
@@ -32,6 +37,8 @@ export default async function CategoriesPage() {
     );
   }
   const active = page.categories.filter((c) => !c.archived);
+  const edited =
+    typeof editedId === "string" ? (page.categories.find((c) => c.id === editedId) ?? null) : null;
 
   return (
     <>
@@ -41,6 +48,16 @@ export default async function CategoriesPage() {
         description="Do lar inteiro: as duas pessoas organizam"
       />
       <div className="flex max-w-2xl flex-col gap-6">
+        {edited ? (
+          <p
+            role="status"
+            data-testid="aviso-criado"
+            className="bg-income/12 flex items-center gap-3 rounded-2xl p-3.5 text-[0.9375rem]"
+          >
+            <Check aria-hidden className="text-income size-5 shrink-0" />
+            <strong className="break-words">Categoria “{edited.name}” atualizada.</strong>
+          </p>
+        ) : null}
         <section aria-labelledby="categorias" className={SECTION}>
           <h2 id="categorias" className="mb-3 font-semibold">
             Categorias
@@ -62,14 +79,30 @@ export default async function CategoriesPage() {
                     </span>
                   </span>
                   {page.canManage ? (
-                    <ActionButton
-                      action={setCategoryArchivedAction}
-                      fields={{ categoryId: c.id, archived: c.archived ? "false" : "true" }}
-                      label={`${c.archived ? "Restaurar" : "Arquivar"} ${c.name}`}
-                      variant="ghost"
-                    >
-                      {c.archived ? "Restaurar" : "Arquivar"}
-                    </ActionButton>
+                    <ActionsMenu label={`Opções da categoria ${c.name}`}>
+                      <Link
+                        href={`/ajustes/categorias/${c.id}`}
+                        scroll={false}
+                        aria-label={`Editar a categoria ${c.name}`}
+                        className={MENU_ITEM}
+                      >
+                        <PencilLine aria-hidden />
+                        Editar
+                      </Link>
+                      <ActionButton
+                        action={setCategoryArchivedAction}
+                        fields={{ categoryId: c.id, archived: c.archived ? "false" : "true" }}
+                        label={`${c.archived ? "Restaurar" : "Arquivar"} ${c.name}`}
+                        variant="ghost"
+                        className={cn(
+                          MENU_ITEM,
+                          !c.archived && "text-destructive hover:text-destructive",
+                        )}
+                      >
+                        {c.archived ? <ArchiveRestore aria-hidden /> : <Archive aria-hidden />}
+                        {c.archived ? "Restaurar" : "Arquivar"}
+                      </ActionButton>
+                    </ActionsMenu>
                   ) : null}
                 </li>
               ))}

@@ -73,6 +73,15 @@ export const transactionSchema = z.object({
     .max(500, "Use no máximo 500 caracteres.")
     .default("")
     .transform((v) => v || null),
+  /**
+   * "O que foi" (M13.2): só vale num lançamento do banco, do OFX ou do PDF (o servidor confere a
+   * origem). Neles a descrição é a da origem e não muda; o nome da pessoa vem aqui
+   */
+  label: textField()
+    .trim()
+    .max(200, "Use no máximo 200 caracteres.")
+    .default("")
+    .transform((v) => v || null),
   /** "Sempre categorizar assim" (só faz algo quando a categoria corrige a sugestão) */
   rememberRule: checkbox,
 });

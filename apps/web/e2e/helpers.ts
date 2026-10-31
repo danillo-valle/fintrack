@@ -212,6 +212,9 @@ export const PAGES = [
   `/ajustes/contas/${ANA_FINANCE.cardAccountId}/cartao`,
   // M13.1: Editar cartão na página inteira (o modal é testado em editar-cartao.spec.ts)
   `/ajustes/contas/${ANA_FINANCE.cardAccountId}/cartao/${ANA_FINANCE.cardId}`,
+  // M13.2: Editar conta e Editar categoria na página inteira (os modais: contas-e-categorias.spec.ts)
+  `/ajustes/contas/${ANA_FINANCE.checkingId}/editar`,
+  `/ajustes/categorias/${ANA_FINANCE.mercadoId}`,
   "/ajustes/categorias",
   // M10.1: o percentual sem IA e o classificador
   "/ajustes/categorizacao",

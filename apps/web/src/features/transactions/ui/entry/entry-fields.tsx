@@ -124,6 +124,31 @@ export function AmountAndDateFields() {
 export function DescriptionField() {
   const e = useEntry();
   const { descriptionRef } = useEntryRefs();
+  // M13.2: do banco, do OFX ou do PDF, a descrição é a da origem (não muda); a pessoa escreve o
+  // "O que foi", e o texto do banco aparece embaixo
+  const originText = e.existing?.originText ?? null;
+  if (originText !== null) {
+    return (
+      <Field>
+        <input type="hidden" name="description" value={originText} />
+        <FieldLabel htmlFor={e.fid("label")}>O que foi</FieldLabel>
+        <Input
+          id={e.fid("label")}
+          name="label"
+          defaultValue={e.existing?.label ?? ""}
+          maxLength={200}
+          autoComplete="off"
+          placeholder="Ex.: Sapato da Zara"
+          aria-describedby={e.fid("label-help")}
+          className={CONTROL}
+        />
+        <FieldDescription id={e.fid("label-help")}>
+          Do banco: <span className="tabular font-mono">{originText}</span>. Esse texto não muda: é
+          com ele que a categorização reconhece a próxima compra.
+        </FieldDescription>
+      </Field>
+    );
+  }
   return (
     <Field data-invalid={e.errors.description ? true : undefined}>
       <FieldLabel htmlFor={e.fid("description")}>Descrição</FieldLabel>

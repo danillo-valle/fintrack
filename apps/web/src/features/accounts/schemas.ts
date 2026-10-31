@@ -109,6 +109,16 @@ export const editCardSchema = z.object({
     .transform((v) => v === "on"),
 });
 
+/** Editar conta (M13.2): o apelido e, numa conta manual, o tipo (o servidor confere qual pode). */
+export const editAccountSchema = z.object({
+  walletId: z.uuid(),
+  accountId: z.uuid(),
+  name: displayName("à conta"),
+  kind: z.enum(["CHECKING", "SAVINGS", "CREDIT_CARD", "MEAL_VOUCHER", "CASH"], {
+    error: "Escolha o tipo de conta.",
+  }),
+});
+
 export const cardSharedSchema = z.object({
   walletId: z.uuid(),
   cardId: z.uuid(),

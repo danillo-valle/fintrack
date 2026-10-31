@@ -9,6 +9,7 @@ import {
   setAccountArchived,
   setCardArchived,
   setCardSharedPurchases,
+  updateAccount,
   updateCard,
 } from "@fintrack/db";
 import { revalidatePath } from "next/cache";
@@ -22,6 +23,7 @@ import {
   archiveCardSchema,
   cardSchema,
   cardSharedSchema,
+  editAccountSchema,
   editCardSchema,
 } from "../schemas";
 
@@ -196,4 +198,28 @@ export async function updateCardAction(
       ? `${PAGE}/${accountId}?editado=${cardId}&movidos=${moved}`
       : `${PAGE}?editado=${cardId}&movidos=${moved}`,
   );
+}
+
+/**
+ * Editar conta (M13.2, prancha M-EditarConta): o apelido e, numa conta manual, o tipo. Volta para
+ * Contas e cartões com o aviso no topo e a conta marcada.
+ */
+export async function updateAccountAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await requireUser();
+  const parsed = editAccountSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return invalid(parsed.error);
+  const { walletId, accountId, ...input } = parsed.data;
+  const result = await runAction(async () => {
+    const grant = await requireWalletAccess(session, walletId, "manage_accounts");
+    await updateAccount(prisma, grant, accountId, input, await requestContext());
+  });
+  if (result.error) return result;
+  revalidatePath(PAGE);
+  revalidatePath(`${PAGE}/[accountId]`, "page");
+  revalidatePath("/lancamentos");
+  revalidatePath("/");
+  redirect(`${PAGE}?editada=${accountId}`);
 }
