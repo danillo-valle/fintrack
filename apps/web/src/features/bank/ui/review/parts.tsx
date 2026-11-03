@@ -85,7 +85,7 @@ export function CardChip({
 }) {
   if (card) {
     return (
-      <ToneChip tone={card.additional ? 5 : 1} icon={CreditCard} className="tabular">
+      <ToneChip tone={card.additional ? 5 : 1} icon={CreditCard} className="tabular" shrink>
         final {card.lastFour}
         {card.holder ? ` · ${card.holder.split(" ")[0]}` : ""}
       </ToneChip>
@@ -93,7 +93,7 @@ export function CardChip({
   }
   if (unknownLastFour) {
     return (
-      <ToneChip tone={4} icon={CreditCard} className="tabular">
+      <ToneChip tone={4} icon={CreditCard} className="tabular" shrink>
         final {unknownLastFour} · não cadastrado
       </ToneChip>
     );

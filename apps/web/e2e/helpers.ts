@@ -571,6 +571,52 @@ export async function expectNoA11yViolations(page: Page) {
   ).toEqual([]);
 }
 
+/**
+ * Nada que a pessoa vê fica por cima de outra coisa dentro de `container` (M13.2): os textos e os
+ * controles (botões, links, campos) de cada parte, comparados dois a dois pela caixa na tela. O
+ * axe e a conferência de rolagem lateral não pegam um texto que passa da coluna dele e entra na
+ * vizinha. Devolve a lista dos pares que se cruzam, com o texto de cada um.
+ */
+export async function overlappingBoxes(container: Locator): Promise<string[]> {
+  return container.evaluate((root) => {
+    const CONTROLS = "a, button, select, input, textarea, [role='switch']";
+    // checkVisibility: o conteúdo de um <details> fechado continua com caixa, mas não aparece
+    const visible = (el: Element) => {
+      const box = el.getBoundingClientRect();
+      return (
+        el.checkVisibility({ opacityProperty: true, visibilityProperty: true }) &&
+        box.width > 1 &&
+        box.height > 1
+      );
+    };
+    const ownText = (el: Element) =>
+      [...el.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && n.textContent?.trim());
+    // Um controle conta como uma caixa só; dentro dele, nada mais é comparado
+    const boxes = [...root.querySelectorAll("*")].filter((el) => {
+      if (!visible(el)) return false;
+      if (el.matches(CONTROLS)) return true;
+      return ownText(el) && !el.closest(CONTROLS);
+    });
+    const label = (el: Element) =>
+      (el.getAttribute("aria-label") ?? el.textContent ?? "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 40);
+    const found: string[] = [];
+    for (let i = 0; i < boxes.length; i++) {
+      for (let j = i + 1; j < boxes.length; j++) {
+        const [a, b] = [boxes[i]!, boxes[j]!];
+        if (a.contains(b) || b.contains(a)) continue;
+        const [r, s] = [a.getBoundingClientRect(), b.getBoundingClientRect()];
+        const x = Math.min(r.right, s.right) - Math.max(r.left, s.left);
+        const y = Math.min(r.bottom, s.bottom) - Math.max(r.top, s.top);
+        if (x > 1 && y > 1) found.push(`“${label(a)}” × “${label(b)}”`);
+      }
+    }
+    return found;
+  });
+}
+
 // ── Lançamentos, contas e categorias (M07) ───────────────────────────────────
 
 /** Data de hoje em São Paulo (AAAA-MM-DD), como o app calcula. */
