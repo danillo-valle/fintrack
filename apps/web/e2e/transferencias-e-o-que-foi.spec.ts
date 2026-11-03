@@ -15,6 +15,7 @@ import {
   deleteHouseholds,
   expectNoA11yViolations,
   openPage,
+  overlappingBoxes,
   sql,
   test,
   testEmail,
@@ -28,6 +29,12 @@ function daysAgo(days: number) {
     .split("-")
     .map((n) => Number.parseInt(n, 10)) as [number, number, number];
   return new Date(Date.UTC(y, m - 1, d - days)).toISOString().slice(0, 10);
+}
+
+/** O dia do mês daqui a `days` dias, entre 1 e 28 (o fechamento e o vencimento aceitam até 28). */
+function dayOfMonthAhead(days: number) {
+  const today = Number.parseInt(todaySaoPaulo().slice(8), 10);
+  return ((today + days - 1) % 28) + 1;
 }
 
 const created: string[] = [];
@@ -45,11 +52,13 @@ async function received(input: {
   occurredOn: string;
   description: string;
   installment?: [number, number];
+  cardId?: string;
 }) {
   const [row] = await sql<{ id: string }>(
     `INSERT INTO "transaction" (id, "householdId", "walletId", "accountId", method, amount, "occurredOn",
-       description, status, source, "externalId", "providerInstallmentNumber", "providerInstallmentCount", "updatedAt")
-     VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, 'PENDING', 'OPEN_FINANCE', $8, $9, $10, now())
+       description, status, source, "externalId", "providerInstallmentNumber", "providerInstallmentCount",
+       "cardId", "updatedAt")
+     VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, 'PENDING', 'OPEN_FINANCE', $8, $9, $10, $11, now())
      RETURNING id`,
     [
       input.householdId,
@@ -62,6 +71,7 @@ async function received(input: {
       `e2e-${randomUUID()}`,
       input.installment?.[0] ?? null,
       input.installment?.[1] ?? null,
+      input.cardId ?? null,
     ],
   );
   return row!.id;
@@ -75,6 +85,26 @@ const rowOf = async (id: string) =>
     )
   )[0]!;
 
+/**
+ * Cada linha das listas cabe nas colunas dela, nada por cima de nada (o chip do cartão, a categoria,
+ * o O que foi), na largura do aparelho e nas do meio, entre o celular e o computador do projeto
+ * (o tablet, a janela menor do notebook, com o menu lateral aberto).
+ */
+async function expectRowsFit(page: Page, path: string) {
+  const size = page.viewportSize()!;
+  const widths = size.width < 768 ? [size.width] : [1440, 1280, 1180, 1024, 800];
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: size.height });
+    await openPage(page, path);
+    const rows = await page.locator("main li").filter({ visible: true }).all();
+    expect(rows.length, path).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(await overlappingBoxes(row), `${path} a ${width} px`).toEqual([]);
+    }
+  }
+  await page.setViewportSize(size);
+}
+
 const toast = (page: Page, text: RegExp) =>
   page.locator("[data-sonner-toast]").filter({ hasText: text });
 
@@ -86,7 +116,8 @@ test("transferência, O que foi, É transferência, Editar conta e Editar catego
   await createTestUser(page.request, {
     email,
     password: PASSWORD,
-    name: "Lia Transferência",
+    // Nome comprido de propósito: o chip do cartão mostra o primeiro nome ("final 0001 · Maximiliana")
+    name: "Maximiliana Transferência",
     twoFactor: true,
   });
   const { householdId, personal } = await createHouseholdDirect({
@@ -95,7 +126,7 @@ test("transferência, O que foi, É transferência, Editar conta e Editar catego
   });
   created.push(householdId);
   const walletId = personal[email]!;
-  const { accounts, categories } = await createFinanceDirect({
+  const { accounts, categories, cards } = await createFinanceDirect({
     householdId,
     accounts: [
       { walletId, name: "Conta", kind: "CHECKING", holderEmail: email },
@@ -105,9 +136,11 @@ test("transferência, O que foi, É transferência, Editar conta e Editar catego
         name: "Mastercard",
         kind: "CREDIT_CARD",
         holderEmail: email,
-        closingDay: 3,
-        dueDay: 9,
-        cards: [{ nickname: "Master Lia", lastFour: "0001", holderEmail: email }],
+        // A fatura aberta contém as compras dos últimos dias em qualquer dia do mês: o fechamento
+        // fica uma semana à frente de hoje (a página do cartão mostra a fatura aberta)
+        closingDay: dayOfMonthAhead(7),
+        dueDay: dayOfMonthAhead(14),
+        cards: [{ nickname: "Master Maximiliana", lastFour: "0001", holderEmail: email }],
       },
     ],
     categories: [
@@ -140,6 +173,7 @@ test("transferência, O que foi, É transferência, Editar conta e Editar catego
     occurredOn: daysAgo(3),
     description: "MERCADOLIVRE*MERCA03/03",
     installment: [3, 3],
+    cardId: cards["Master Maximiliana"],
   });
   const pix = await received({
     ...base,
@@ -177,6 +211,10 @@ test("transferência, O que foi, É transferência, Editar conta e Editar catego
 
   // ── 2. O que foi numa parcela (a página de novo: sem o aviso de antes por cima) ──
   await openPage(page, "/lancamentos/recebidos");
+  await expectRowsFit(page, "/lancamentos/recebidos");
+  await expect(page.getByTestId("recebido").filter({ hasText: "MERCADOLIVRE" })).toContainText(
+    "final 0001 · Maximiliana",
+  );
   const parcelRow = page.getByTestId("recebido").filter({ hasText: "MERCADOLIVRE*MERCA03/03" });
   await parcelRow.getByText("O que foi", { exact: true }).filter({ visible: true }).click();
   const labelDialog = page.getByRole("dialog", { name: /O que foi MERCADOLIVRE/ });
@@ -187,6 +225,10 @@ test("transferência, O que foi, É transferência, Editar conta e Editar catego
   await labelDialog.getByRole("button", { name: "Salvar" }).click();
   await expect(parcelRow.getByText("Sapato da Zara").first()).toBeVisible();
   expect((await rowOf(parcel)).label).toBe("Sapato da Zara");
+  // Com o O que foi (duas linhas de texto), nas outras listas que mostram o recebido
+  await expectRowsFit(page, `/carteiras/conta/${accounts.Mastercard!.id}`);
+  await expectRowsFit(page, "/lancamentos?situacao=recebidos");
+  await openPage(page, "/lancamentos/recebidos");
 
   // ── 3. O nome que já existe como receita, e "É transferência" ──
   const pixRow = page.getByTestId("recebido").filter({ hasText: "PIX ENVIADO PARCEIRA" });

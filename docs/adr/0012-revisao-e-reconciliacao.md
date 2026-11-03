@@ -111,3 +111,11 @@ comprado.
 
 Consequência: o vínculo de transferência entre duas pessoas do lar não mostra no pessoal de quem
 enviou quanto foi para a outra pessoa; isso fica para o acerto do casal, quando vier.
+
+Revisão 2 do M13.2 (31/10/2026): no uso real, o cartão ("final 7757 · Fulano") e a parcela ("3/3")
+entravam por baixo do "Escolher categoria". A linha de uma coluna só do computador (data, descrição,
+categoria e O que foi, ambiente, valor, Confirmar) precisava de ~62rem com o "O que foi", e a
+lista tem no máximo ~57rem (a página, 65rem com as margens). A linha passou a seguir a largura da LISTA (consulta de contêiner, não a da tela):
+lista larga, a descrição em cima e os controles numa linha embaixo; estreita, a do celular. O chip
+do cartão encolhe com reticências. O E2E confere que nada fica por cima de nada em cinco larguras
+(`overlappingBoxes`).

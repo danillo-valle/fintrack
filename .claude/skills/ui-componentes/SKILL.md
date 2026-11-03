@@ -86,6 +86,11 @@ Regras do padrão:
 - **Celular primeiro; desktop em colunas** com `display: contents` (veja `transaction-list.tsx`):
   o mesmo HTML vira colunas a partir de `lg`, sem repetir texto (repetir quebra leitor de tela e
   testes).
+- **Linha com colunas segue a largura da lista, não a da tela** (M13.2, revisão 2): a página tem no
+  máximo 65rem e o menu lateral aberto tira ~15rem, então `md:`/`lg:` não dizem se as colunas cabem.
+  Ponha `@container` na lista e use as variantes de contêiner (`@2xl:`, `@3xl:`) na linha; some as
+  colunas fixas antes de escolher o limite. Etiqueta que pode crescer (nome de pessoa, apelido) usa
+  `ToneChip shrink`. O E2E confere com `overlappingBoxes` em várias larguras.
 - Títulos de seção e de dia em frase normal ("Hoje, quinta-feira, 8 de outubro"), nunca em caixa alta.
 - Cantos: `rounded-3xl` no modal e nas telas de entrada, `rounded-[1.125rem]` no resumo e nas
   listas, `rounded-xl` em campos e botões, `rounded-full` em chips.

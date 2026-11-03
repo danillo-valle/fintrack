@@ -1,11 +1,17 @@
 // Os recebidos sem par de uma fatura (cartão) ou de uma conta (M09.2, pranchas E2-Revisao e
 // E2-CelRevisao), com "Confirmar os N com categoria" do grupo e o "Confirmar" de cada linha.
 //
-//   computador  data | descrição + cartão | categoria · O que foi [?] | ambiente | valor | Confirmar
-//   celular     descrição ............................................ valor
-//               data · cartão
-//               [ categoria              ] [ O que foi        ] [?]
-//               [ ambiente               ] [ Confirmar ]
+//   lista larga  descrição ............................................ valor
+//                data · cartão
+//                [ categoria ] [ O que foi ] [?]          [ ambiente ] [ Confirmar ]
+//   estreita     descrição ............................................ valor
+//                data · cartão
+//                [ categoria              ] [ O que foi        ] [?]
+//                [ ambiente               ] [ Confirmar ]
+//
+// Larga ou estreita é a largura da LISTA (contêiner, @2xl = 42rem), não da tela. Até a revisão 2 do
+// M13.2, o computador tinha uma linha só com seis colunas, que precisava de ~62rem com o "O que
+// foi"; a lista tem no máximo ~57rem, e a descrição e o cartão entravam na coluna da categoria.
 //
 // M13.2 (prancha M-Revisao): o "O que foi" ao lado da categoria, o nome da pessoa em destaque com o
 // texto do banco embaixo, e a transferência marcada de um lado só (com "Desmarcar").
@@ -49,7 +55,7 @@ function LocalAiLine({ item, canCreate }: { item: ReceivedView; canCreate: boole
   if (proposal) {
     return (
       <div
-        className="border-chart-1 col-span-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 rounded-xl border bg-[color-mix(in_srgb,var(--chart-1)_10%,transparent)] px-3 py-2 md:col-span-2 md:col-start-2 md:row-start-2"
+        className="border-chart-1 col-span-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 rounded-xl border bg-[color-mix(in_srgb,var(--chart-1)_10%,transparent)] px-3 py-2"
         data-testid="proposta-ia"
       >
         <span className="text-chart-1-ink inline-flex h-6 items-center gap-1.5 rounded-full border border-current px-2 text-xs font-semibold">
@@ -78,7 +84,7 @@ function LocalAiLine({ item, canCreate }: { item: ReceivedView; canCreate: boole
   if (!queued) return null;
   return (
     <p
-      className="text-muted-foreground col-span-2 flex flex-wrap items-center gap-2 text-[0.8125rem] md:col-span-2 md:col-start-2 md:row-start-2"
+      className="text-muted-foreground col-span-2 flex flex-wrap items-center gap-2 text-[0.8125rem]"
       data-testid="na-fila-ia"
     >
       <span className="border-chart-4-ink text-chart-4-ink inline-flex h-6 items-center gap-1.5 rounded-full border-[1.5px] border-dashed px-2 text-xs font-semibold">
@@ -106,13 +112,10 @@ function ReceivedRow({
     : [item.wallet, ...wallets];
   return (
     <li
-      className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2.5 gap-y-2 py-3 md:grid-cols-[3rem_minmax(0,1fr)_minmax(0,24rem)_6.5rem_6.5rem_6rem] md:items-center md:gap-x-3 md:py-2.5"
+      className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2.5 gap-y-2 py-3 @2xl:gap-x-4"
       data-testid="recebido"
     >
-      <span className="text-muted-foreground tabular hidden font-mono text-[0.8125rem] md:col-start-1 md:row-start-1 md:block">
-        {dayMonth(item.occurredOn)}
-      </span>
-      <span className="col-start-1 row-start-1 flex min-w-0 flex-col gap-1 md:col-start-2">
+      <span className="col-start-1 row-start-1 flex min-w-0 flex-col gap-1">
         <span className="flex min-w-0 items-center gap-2">
           <span className="flex min-w-0 flex-col">
             <span className="truncate text-[0.9375rem] font-semibold">
@@ -132,7 +135,7 @@ function ReceivedRow({
           ) : null}
         </span>
         <span className="flex flex-wrap items-center gap-1.5">
-          <span className="text-muted-foreground tabular font-mono text-xs md:hidden">
+          <span className="text-muted-foreground tabular font-mono text-xs">
             {dayMonth(item.occurredOn)}
           </span>
           <CardChip card={item.card} unknownLastFour={item.unknownLastFour} />
@@ -142,9 +145,9 @@ function ReceivedRow({
         cents={item.amount}
         tone="inherit"
         arrow={false}
-        className="col-start-2 row-start-1 self-start justify-self-end text-[0.9375rem] font-bold md:col-start-5 md:self-center"
+        className="col-start-2 row-start-1 self-start justify-self-end text-[0.9375rem] font-bold"
       />
-      <span className="col-span-2 flex min-w-0 items-center gap-1.5 md:col-span-1 md:col-start-3 md:row-start-1">
+      <span className="col-span-2 flex min-w-0 items-center gap-1.5 @2xl:col-span-1">
         <span className="min-w-0 flex-1">
           {item.isTransfer ? (
             <TransferMark item={item} canEdit={item.canEdit} />
@@ -179,7 +182,7 @@ function ReceivedRow({
             scroll={false}
             aria-label={`Por que essa categoria: ${item.description}`}
             title="Por que essa categoria?"
-            className="text-muted-foreground hover:bg-muted focus-visible:ring-ring grid size-11 shrink-0 place-items-center rounded-xl outline-none focus-visible:ring-3 md:size-9"
+            className="text-muted-foreground hover:bg-muted focus-visible:ring-ring grid size-11 shrink-0 place-items-center rounded-xl outline-none focus-visible:ring-3"
           >
             <CircleHelp aria-hidden className="size-[1.125rem]" />
           </Link>
@@ -190,13 +193,13 @@ function ReceivedRow({
           intent="confirm"
           fields={{ transactionId: item.id }}
           label={`Confirmar ${item.description}`}
-          className="col-span-2 grid grid-cols-[minmax(0,1fr)_auto] gap-2 md:contents"
+          className="col-span-2 grid grid-cols-[minmax(0,1fr)_auto] gap-2 @2xl:col-span-1 @2xl:grid-cols-[9rem_auto]"
         >
           <NativeSelect
             name="walletId"
             aria-label={`Ambiente de ${item.description}`}
             defaultValue={item.wallet.id}
-            className="h-11 rounded-[0.625rem] md:col-start-4 md:row-start-1 md:h-9"
+            className="h-11 rounded-[0.625rem]"
           >
             {walletOptions.map((w) => (
               <option key={w.id} value={w.id}>
@@ -204,15 +207,12 @@ function ReceivedRow({
               </option>
             ))}
           </NativeSelect>
-          <ReviewSubmit
-            className={`${SMALL_BUTTON} md:col-start-6 md:row-start-1 md:justify-self-end`}
-            label={`Confirmar ${item.description}`}
-          >
+          <ReviewSubmit className={SMALL_BUTTON} label={`Confirmar ${item.description}`}>
             Confirmar
           </ReviewSubmit>
         </ReviewForm>
       ) : (
-        <span className="text-muted-foreground col-span-2 text-sm md:col-span-1 md:col-start-4 md:row-start-1">
+        <span className="text-muted-foreground col-span-2 text-sm @2xl:col-span-1">
           {item.wallet.name}
         </span>
       )}
@@ -278,7 +278,10 @@ export function ReceivedGroup({
           </ReviewForm>
         ) : null}
       </div>
-      <ul aria-label={`Recebidos sem par: ${title}`} className="divide-y border-t md:border-t-0">
+      <ul
+        aria-label={`Recebidos sem par: ${title}`}
+        className="@container divide-y border-t md:border-t-0"
+      >
         {shown.map((item) => (
           <ReceivedRow
             key={item.id}

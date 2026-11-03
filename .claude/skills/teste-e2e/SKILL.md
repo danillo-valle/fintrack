@@ -33,6 +33,11 @@ Referência: `apps/web/e2e/permissoes.spec.ts` (M06) e `apps/web/e2e/helpers.ts`
   com `total-saidas`/`total-entradas` (`expectListMatches` em `painel.spec.ts`). Desempenho com
   24 meses: o seed com `SEED_VIEWER_EMAIL` põe uma conta de teste na casa do exemplo (só no
   desktop, porque o seed é um só).
+- **Nada por cima de nada (M13.2, revisão 2)**: o axe e a conferência de rolagem lateral não pegam
+  um texto que passa da coluna dele e entra na vizinha. Lista com linhas em colunas: confira cada
+  linha com `overlappingBoxes(linha)` (helpers) nas larguras entre o celular e o computador (1440,
+  1280, 1180, 1024 e 800, com o menu lateral aberto) e com dado comprido (nome de pessoa, cartão,
+  parcela): o dado curto do teste escondeu o defeito.
 - **Telas escondidas (Cache Components, M08)**: o Next guarda as 3 últimas telas no documento
   com `display: none`. `getByRole` já ignora o escondido; `getByLabel`, `getByText` e
   `locator(...)` não: use `.filter({ visible: true })` (o `formAlert` dos helpers já filtra).
