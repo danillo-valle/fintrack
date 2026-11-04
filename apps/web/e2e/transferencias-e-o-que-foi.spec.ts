@@ -226,7 +226,7 @@ test("transferência, O que foi, É transferência, Editar conta e Editar catego
   await expect(parcelRow.getByText("Sapato da Zara").first()).toBeVisible();
   expect((await rowOf(parcel)).label).toBe("Sapato da Zara");
   // Com o O que foi (duas linhas de texto), nas outras listas que mostram o recebido
-  await expectRowsFit(page, `/carteiras/conta/${accounts.Mastercard!.id}`);
+  await expectRowsFit(page, `/cartoes?conta=${accounts.Mastercard!.id}`);
   await expectRowsFit(page, "/lancamentos?situacao=recebidos");
   await openPage(page, "/lancamentos/recebidos");
 

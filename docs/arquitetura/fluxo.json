@@ -36,6 +36,8 @@
         "/ajustes",
         "/ajustes/seguranca",
         "/carteiras",
+        "/cartoes",
+        "/fixas",
         "/lancamentos",
         "/lancamentos/novo",
         "/orcamento"
@@ -109,9 +111,9 @@
       "authCalls": [],
       "links": [
         "/ajuda/[…]",
-        "/ajustes/contas/[…]",
         "/carteiras",
-        "/carteiras/conta/[…]",
+        "/cartoes",
+        "/fixas",
         "/lancamentos",
         "/lancamentos/novo",
         "/lancamentos/recebidos",
@@ -218,6 +220,7 @@
         "/ajustes/contas",
         "/ajustes/lar",
         "/ajustes/seguranca",
+        "/carteiras",
         "/lancamentos/novo"
       ]
     },
@@ -1191,9 +1194,9 @@
       "route": "/carteiras/conta/[accountId]",
       "file": "apps/web/src/app/(app)/carteiras/conta/[accountId]/page.tsx",
       "kind": "page",
-      "title": "Cartão",
+      "title": "/carteiras/conta/[accountId]",
       "area": "Carteiras",
-      "help": "meu-pluggy",
+      "help": null,
       "params": [
         "accountId"
       ],
@@ -1201,30 +1204,12 @@
       "searchParamsTo": [],
       "session": "user",
       "loaders": [
-        "apps/web/src/features/bank/server/queries.ts#getCardPage"
+        "apps/web/src/features/bank/server/queries.ts#accountPageTarget"
       ],
-      "actions": [
-        "apps/web/src/features/bank/server/actions.ts#markTransferAction",
-        "apps/web/src/features/bank/server/actions.ts#requestSyncAction",
-        "apps/web/src/features/bank/server/actions.ts#setCategoryAction",
-        "apps/web/src/features/bank/server/actions.ts#setLabelAction"
-      ],
-      "clientComponents": [
-        "apps/web/src/components/feedback/action-form.tsx",
-        "apps/web/src/components/layout/content-ready.tsx",
-        "apps/web/src/features/auth/ui/form-alert.tsx",
-        "apps/web/src/features/bank/ui/category-picker.tsx",
-        "apps/web/src/features/bank/ui/label-editor.tsx",
-        "apps/web/src/features/bank/ui/request-sync-button.tsx",
-        "apps/web/src/lib/use-field-errors.ts",
-        "apps/web/src/lib/use-renew-when-hidden.ts"
-      ],
+      "actions": [],
+      "clientComponents": [],
       "authCalls": [],
-      "links": [
-        "/ajuda/[…]",
-        "/ajustes/categorias/[…]",
-        "/carteiras"
-      ]
+      "links": []
     },
     {
       "route": "/carteiras/nova",
@@ -1255,6 +1240,49 @@
       "links": [
         "/ajuda/[…]",
         "/ajustes/lar"
+      ]
+    },
+    {
+      "route": "/cartoes",
+      "file": "apps/web/src/app/(app)/cartoes/page.tsx",
+      "kind": "page",
+      "title": "Cartões",
+      "area": "cartoes",
+      "help": "cartoes",
+      "params": [],
+      "searchParams": [
+        "tipo"
+      ],
+      "searchParamsTo": [
+        "apps/web/src/features/bank/server/queries.ts#getCardsPage"
+      ],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/bank/server/queries.ts#getCardsPage"
+      ],
+      "actions": [
+        "apps/web/src/features/bank/server/actions.ts#markTransferAction",
+        "apps/web/src/features/bank/server/actions.ts#requestSyncAction",
+        "apps/web/src/features/bank/server/actions.ts#setCategoryAction",
+        "apps/web/src/features/bank/server/actions.ts#setLabelAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/bank/ui/category-picker.tsx",
+        "apps/web/src/features/bank/ui/label-editor.tsx",
+        "apps/web/src/features/bank/ui/request-sync-button.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/ajustes/categorias/[…]",
+        "/ajustes/contas",
+        "/cartoes",
+        "/lancamentos/novo"
       ]
     },
     {
@@ -1446,6 +1474,37 @@
       ]
     },
     {
+      "route": "/fixas",
+      "file": "apps/web/src/app/(app)/fixas/page.tsx",
+      "kind": "page",
+      "title": "Fixas e parcelas",
+      "area": "fixas",
+      "help": "parcelada-e-fixa",
+      "params": [],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/transactions/server/queries.ts#getFixedPage"
+      ],
+      "actions": [
+        "apps/web/src/features/transactions/server/actions.ts#archiveRecurrenceAction",
+        "apps/web/src/features/transactions/server/actions.ts#generateRecurrencesAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-button.tsx",
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]"
+      ]
+    },
+    {
       "route": "/lancamentos",
       "file": "apps/web/src/app/(app)/lancamentos/page.tsx",
       "kind": "page",
@@ -1472,7 +1531,9 @@
       "clientComponents": [
         "apps/web/src/components/feedback/action-form.tsx",
         "apps/web/src/components/layout/content-ready.tsx",
-        "apps/web/src/components/visual/list-toolbar.tsx",
+        "apps/web/src/components/visual/check-combo.tsx",
+        "apps/web/src/components/visual/list-header.tsx",
+        "apps/web/src/components/visual/use-popover.ts",
         "apps/web/src/features/auth/ui/form-alert.tsx",
         "apps/web/src/features/bank/ui/category-picker.tsx",
         "apps/web/src/features/bank/ui/label-editor.tsx",
@@ -1484,14 +1545,12 @@
       "links": [
         "/ajuda/[…]",
         "/ajustes/categorias/[…]",
+        "/cartoes",
         "/lancamentos",
         "/lancamentos/[…]",
         "/lancamentos/exportar",
-        "/lancamentos/importar",
         "/lancamentos/novo",
-        "/lancamentos/recebidos",
-        "/lancamentos/recorrencias",
-        "/lancamentos/transferencia"
+        "/lancamentos/recebidos"
       ]
     },
     {
@@ -1536,8 +1595,7 @@
       "authCalls": [],
       "links": [
         "/ajuda/[…]",
-        "/lancamentos",
-        "/lancamentos/transferencia"
+        "/lancamentos"
       ]
     },
     {
@@ -1648,19 +1706,24 @@
       "area": "Lançamentos",
       "help": "lancar-um-gasto",
       "params": [],
-      "searchParams": [],
+      "searchParams": [
+        "aba"
+      ],
       "searchParamsTo": [],
       "session": "user",
       "loaders": [
         "apps/web/src/features/transactions/server/queries.ts#getQuickEntryPage"
       ],
       "actions": [
+        "apps/web/src/features/transactions/server/actions.ts#createRecurrenceAction",
         "apps/web/src/features/transactions/server/actions.ts#createTransactionAction",
+        "apps/web/src/features/transactions/server/actions.ts#createTransferAction",
         "apps/web/src/features/transactions/server/actions.ts#deleteTransactionAction",
         "apps/web/src/features/transactions/server/actions.ts#suggestCategoryAction",
         "apps/web/src/features/transactions/server/actions.ts#updateTransactionAction"
       ],
       "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
         "apps/web/src/components/layout/content-ready.tsx",
         "apps/web/src/components/money/money-input.tsx",
         "apps/web/src/features/auth/ui/form-alert.tsx",
@@ -1668,12 +1731,17 @@
         "apps/web/src/features/transactions/ui/entry/entry-fields.tsx",
         "apps/web/src/features/transactions/ui/entry/entry-form.tsx",
         "apps/web/src/features/transactions/ui/entry/entry-provider.tsx",
-        "apps/web/src/features/transactions/ui/transaction-form.tsx"
+        "apps/web/src/features/transactions/ui/recurrence-form.tsx",
+        "apps/web/src/features/transactions/ui/transaction-form.tsx",
+        "apps/web/src/features/transactions/ui/transfer-form.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
       ],
       "authCalls": [],
       "links": [
         "/ajuda/[…]",
-        "/lancamentos/transferencia"
+        "/ajustes/contas",
+        "/fixas"
       ]
     },
     {
@@ -1684,30 +1752,40 @@
       "area": "Lançamentos",
       "help": null,
       "params": [],
-      "searchParams": [],
+      "searchParams": [
+        "aba"
+      ],
       "searchParamsTo": [],
       "session": "user",
       "loaders": [
         "apps/web/src/features/transactions/server/queries.ts#getQuickEntryPage"
       ],
       "actions": [
+        "apps/web/src/features/transactions/server/actions.ts#createRecurrenceAction",
         "apps/web/src/features/transactions/server/actions.ts#createTransactionAction",
+        "apps/web/src/features/transactions/server/actions.ts#createTransferAction",
         "apps/web/src/features/transactions/server/actions.ts#deleteTransactionAction",
         "apps/web/src/features/transactions/server/actions.ts#suggestCategoryAction",
         "apps/web/src/features/transactions/server/actions.ts#updateTransactionAction"
       ],
       "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
         "apps/web/src/components/money/money-input.tsx",
         "apps/web/src/features/auth/ui/form-alert.tsx",
         "apps/web/src/features/transactions/ui/entry/entry-actions.tsx",
         "apps/web/src/features/transactions/ui/entry/entry-fields.tsx",
         "apps/web/src/features/transactions/ui/entry/entry-form.tsx",
-        "apps/web/src/features/transactions/ui/entry/entry-provider.tsx"
+        "apps/web/src/features/transactions/ui/entry/entry-provider.tsx",
+        "apps/web/src/features/transactions/ui/recurrence-form.tsx",
+        "apps/web/src/features/transactions/ui/transfer-form.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
       ],
       "authCalls": [],
       "links": [
-        "/lancamentos/novo",
-        "/lancamentos/transferencia"
+        "/ajustes/contas",
+        "/fixas",
+        "/lancamentos/novo"
       ]
     },
     {
@@ -1979,9 +2057,7 @@
       "searchParams": [],
       "searchParamsTo": [],
       "session": "user",
-      "loaders": [
-        "apps/web/src/features/transactions/server/queries.ts#getRecurrencesPage"
-      ],
+      "loaders": [],
       "actions": [
         "apps/web/src/features/transactions/server/actions.ts#archiveRecurrenceAction",
         "apps/web/src/features/transactions/server/actions.ts#createRecurrenceAction",
@@ -2181,8 +2257,8 @@
       "authCalls": [],
       "links": [
         "/ajuda/[…]",
+        "/fixas",
         "/lancamentos/novo",
-        "/lancamentos/recorrencias",
         "/orcamento",
         "/orcamento/evolucao",
         "/orcamento/fluxo"
@@ -2506,6 +2582,23 @@
       "session": "none"
     },
     {
+      "id": "apps/web/src/features/bank/server/queries.ts#accountPageTarget",
+      "file": "apps/web/src/features/bank/server/queries.ts",
+      "name": "accountPageTarget",
+      "input": [],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeAccountView"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
       "id": "apps/web/src/features/bank/server/queries.ts#categoryChoices",
       "file": "apps/web/src/features/bank/server/queries.ts",
       "name": "categoryChoices",
@@ -2537,9 +2630,10 @@
         "packages/db/src/access.ts#authorizeConnectionOwner",
         "packages/db/src/access.ts#authorizeHousehold",
         "packages/db/src/access.ts#authorizeScope",
-        "packages/db/src/connections.ts#bankLinkedAccounts",
+        "packages/db/src/balances.ts#accountBalances",
         "packages/db/src/households.ts#listHouseholdMembers",
-        "packages/db/src/statements.ts#openStatementTotals",
+        "packages/db/src/statements.ts#cardAccountsOf",
+        "packages/db/src/statements.ts#cardStatements",
         "packages/db/src/statements.ts#receivedSummary"
       ],
       "tables": [
@@ -2550,6 +2644,9 @@
       "enqueues": [],
       "services": [],
       "rules": [
+        "packages/core/src/card.ts#defaultStatement",
+        "packages/core/src/dates.ts#firstDayOf",
+        "packages/core/src/dates.ts#monthOf",
         "packages/core/src/dates.ts#todayCivil",
         "packages/core/src/payer.ts#householdPeople"
       ],
@@ -2558,9 +2655,9 @@
       "session": "none"
     },
     {
-      "id": "apps/web/src/features/bank/server/queries.ts#getCardPage",
+      "id": "apps/web/src/features/bank/server/queries.ts#getCardsPage",
       "file": "apps/web/src/features/bank/server/queries.ts",
-      "name": "getCardPage",
+      "name": "getCardsPage",
       "input": [],
       "permissions": [
         "view"
@@ -2569,17 +2666,23 @@
         "packages/db/src/access.ts#authorizeAccountView",
         "packages/db/src/access.ts#authorizeConnectionOwner",
         "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeScope",
         "packages/db/src/categories.ts#listCategories",
-        "packages/db/src/statements.ts#cardStatementView"
+        "packages/db/src/households.ts#listHouseholdMembers",
+        "packages/db/src/statements.ts#cardAccountsOf",
+        "packages/db/src/statements.ts#cardStatements",
+        "packages/db/src/statements.ts#statementPaymentLines",
+        "packages/db/src/statements.ts#statementPurchases"
       ],
       "tables": [
-        "PaymentCard",
         "ProviderConnection"
       ],
       "enqueues": [],
       "services": [],
       "rules": [
-        "packages/core/src/dates.ts#todayCivil"
+        "packages/core/src/card.ts#defaultStatement",
+        "packages/core/src/dates.ts#todayCivil",
+        "packages/core/src/payer.ts#householdPeople"
       ],
       "redirects": [],
       "financeChanged": false,
@@ -2898,6 +3001,7 @@
         "packages/db/src/categories.ts#listCategories",
         "packages/db/src/dashboard.ts#recurrencePlans",
         "packages/db/src/dashboard.ts#spendingRows",
+        "packages/db/src/dashboard.ts#statementWindows",
         "packages/db/src/households.ts#listHouseholdMembers",
         "packages/db/src/wallets.ts#listMyWallets"
       ],
@@ -2947,13 +3051,9 @@
       "services": [],
       "rules": [
         "packages/core/src/budget.ts#monthsStartingAt",
-        "packages/core/src/card.ts#statementOfMonth",
         "packages/core/src/cashflow.ts#cashBucketOf",
-        "packages/core/src/cashflow.ts#cashDateFor",
         "packages/core/src/cashflow.ts#cashFlow",
         "packages/core/src/cashflow.ts#pendingOccurrences",
-        "packages/core/src/dates.ts#addDays",
-        "packages/core/src/dates.ts#addMonthsToKey",
         "packages/core/src/dates.ts#dayOfMonth",
         "packages/core/src/dates.ts#firstDayOf",
         "packages/core/src/dates.ts#monthOf",
@@ -2983,6 +3083,7 @@
         "packages/db/src/categories.ts#listCategories",
         "packages/db/src/dashboard.ts#recurrencePlans",
         "packages/db/src/dashboard.ts#spendingRows",
+        "packages/db/src/dashboard.ts#statementWindows",
         "packages/db/src/households.ts#listHouseholdMembers",
         "packages/db/src/wallets.ts#listMyWallets"
       ],
@@ -3030,6 +3131,7 @@
         "packages/db/src/dashboard.ts#recurrencePlans",
         "packages/db/src/dashboard.ts#recurrencesStartedIn",
         "packages/db/src/dashboard.ts#spendingRows",
+        "packages/db/src/dashboard.ts#statementWindows",
         "packages/db/src/households.ts#listHouseholdMembers",
         "packages/db/src/wallets.ts#listMyWallets"
       ],
@@ -3043,12 +3145,12 @@
         "packages/core/src/budget.ts#projectMonth",
         "packages/core/src/budget.ts#subtreeOf",
         "packages/core/src/cashflow.ts#cashBucketOf",
-        "packages/core/src/cashflow.ts#cashDateFor",
         "packages/core/src/cashflow.ts#cashFlow",
         "packages/core/src/cashflow.ts#pendingOccurrences",
         "packages/core/src/dashboard.ts#budgetRows",
         "packages/core/src/dashboard.ts#figuresFor",
         "packages/core/src/dashboard.ts#incomeUpToToday",
+        "packages/core/src/dashboard.ts#monthResult",
         "packages/core/src/dashboard.ts#spendingByGroup",
         "packages/core/src/dates.ts#addMonthsToKey",
         "packages/core/src/dates.ts#dayOfMonth",
@@ -3218,6 +3320,28 @@
       "session": "none"
     },
     {
+      "id": "apps/web/src/features/transactions/server/queries.ts#getFixedPage",
+      "file": "apps/web/src/features/transactions/server/queries.ts",
+      "name": "getFixedPage",
+      "input": [],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/installments.ts#installmentPurchases",
+        "packages/db/src/recurrences.ts#listRecurrences",
+        "packages/db/src/wallets.ts#listMyWallets"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/dates.ts#todayCivil"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
       "id": "apps/web/src/features/transactions/server/queries.ts#getQuickEntryPage",
       "file": "apps/web/src/features/transactions/server/queries.ts",
       "name": "getQuickEntryPage",
@@ -3230,36 +3354,6 @@
         "packages/db/src/accounts.ts#listUsableAccounts",
         "packages/db/src/categories.ts#listCategories",
         "packages/db/src/households.ts#listHouseholdMembers",
-        "packages/db/src/transactions.ts#lastUsedChoice",
-        "packages/db/src/wallets.ts#listMyWallets"
-      ],
-      "tables": [],
-      "enqueues": [],
-      "services": [],
-      "rules": [
-        "packages/core/src/access.ts#canInHousehold",
-        "packages/core/src/dates.ts#todayCivil",
-        "packages/core/src/payer.ts#householdPeople"
-      ],
-      "redirects": [],
-      "financeChanged": false,
-      "session": "none"
-    },
-    {
-      "id": "apps/web/src/features/transactions/server/queries.ts#getRecurrencesPage",
-      "file": "apps/web/src/features/transactions/server/queries.ts",
-      "name": "getRecurrencesPage",
-      "input": [],
-      "permissions": [
-        "view"
-      ],
-      "db": [
-        "packages/db/src/access.ts#authorizeHousehold",
-        "packages/db/src/access.ts#authorizeScope",
-        "packages/db/src/accounts.ts#listUsableAccounts",
-        "packages/db/src/categories.ts#listCategories",
-        "packages/db/src/households.ts#listHouseholdMembers",
-        "packages/db/src/recurrences.ts#listRecurrences",
         "packages/db/src/transactions.ts#lastUsedChoice",
         "packages/db/src/wallets.ts#listMyWallets"
       ],
@@ -3316,7 +3410,7 @@
       "db": [
         "packages/db/src/access.ts#authorizeHousehold",
         "packages/db/src/access.ts#authorizeScope",
-        "packages/db/src/accounts.ts#listUsableAccounts",
+        "packages/db/src/balances.ts#accountBalances",
         "packages/db/src/categories.ts#listCategories",
         "packages/db/src/households.ts#listHouseholdMembers",
         "packages/db/src/statements.ts#receivedSummary",
@@ -3324,18 +3418,23 @@
         "packages/db/src/transactions.ts#sumTransactions",
         "packages/db/src/wallets.ts#listMyWallets"
       ],
-      "tables": [],
+      "tables": [
+        "FinancialAccount"
+      ],
       "enqueues": [],
       "services": [],
       "rules": [
         "packages/core/src/access.ts#canInHousehold",
         "packages/core/src/dates.ts#addMonths",
+        "packages/core/src/dates.ts#dayOfMonth",
+        "packages/core/src/dates.ts#firstDayOf",
         "packages/core/src/dates.ts#isCivilDate",
+        "packages/core/src/dates.ts#monthOf",
         "packages/core/src/dates.ts#todayCivil",
         "packages/core/src/payer.ts#householdPeople",
         "packages/core/src/payer.ts#parsePayerParam",
-        "packages/core/src/text.ts#cleanText",
-        "packages/core/src/transactions.ts#monthRange"
+        "packages/core/src/payer.ts#payerParam",
+        "packages/core/src/text.ts#cleanText"
       ],
       "redirects": [],
       "financeChanged": false,
@@ -5535,6 +5634,16 @@
       "services": []
     },
     {
+      "id": "packages/db/src/balances.ts#accountBalances",
+      "file": "packages/db/src/balances.ts",
+      "name": "accountBalances",
+      "tables": [
+        "FinancialAccount",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
       "id": "packages/db/src/bot.ts#botPhoneKey",
       "file": "packages/db/src/bot.ts",
       "name": "botPhoneKey",
@@ -5944,15 +6053,6 @@
       "services": []
     },
     {
-      "id": "packages/db/src/connections.ts#bankLinkedAccounts",
-      "file": "packages/db/src/connections.ts",
-      "name": "bankLinkedAccounts",
-      "tables": [
-        "FinancialAccount"
-      ],
-      "services": []
-    },
-    {
       "id": "packages/db/src/connections.ts#connectionItemIds",
       "file": "packages/db/src/connections.ts",
       "name": "connectionItemIds",
@@ -6064,9 +6164,19 @@
       "file": "packages/db/src/dashboard.ts",
       "name": "spendingRows",
       "tables": [
+        "CardStatement",
         "FinancialAccount",
         "PaymentCard",
         "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/dashboard.ts#statementWindows",
+      "file": "packages/db/src/dashboard.ts",
+      "name": "statementWindows",
+      "tables": [
+        "CardStatement"
       ],
       "services": []
     },
@@ -6250,6 +6360,15 @@
         "ClassifierModel",
         "FinancialAccount",
         "InstallmentGroup",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/installments.ts#installmentPurchases",
+      "file": "packages/db/src/installments.ts",
+      "name": "installmentPurchases",
+      "tables": [
         "Transaction"
       ],
       "services": []
@@ -6499,23 +6618,21 @@
       "services": []
     },
     {
-      "id": "packages/db/src/statements.ts#cardStatementView",
+      "id": "packages/db/src/statements.ts#cardAccountsOf",
       "file": "packages/db/src/statements.ts",
-      "name": "cardStatementView",
+      "name": "cardAccountsOf",
       "tables": [
-        "AccountBalance",
-        "CardStatement",
-        "ProviderConnection",
-        "Transaction"
+        "FinancialAccount"
       ],
       "services": []
     },
     {
-      "id": "packages/db/src/statements.ts#openStatementTotals",
+      "id": "packages/db/src/statements.ts#cardStatements",
       "file": "packages/db/src/statements.ts",
-      "name": "openStatementTotals",
+      "name": "cardStatements",
       "tables": [
-        "FinancialAccount",
+        "CardStatement",
+        "ProviderConnection",
         "Transaction"
       ],
       "services": []
@@ -6524,6 +6641,24 @@
       "id": "packages/db/src/statements.ts#receivedSummary",
       "file": "packages/db/src/statements.ts",
       "name": "receivedSummary",
+      "tables": [
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/statements.ts#statementPaymentLines",
+      "file": "packages/db/src/statements.ts",
+      "name": "statementPaymentLines",
+      "tables": [
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/statements.ts#statementPurchases",
+      "file": "packages/db/src/statements.ts",
+      "name": "statementPurchases",
       "tables": [
         "Transaction"
       ],

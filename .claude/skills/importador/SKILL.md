@@ -128,3 +128,17 @@ pnpm --filter @fintrack/ml test
 pnpm --filter @fintrack/db test:integration -- coleta-bancaria revisao importar-extrato fatura-pdf
 pnpm --filter @fintrack/web exec playwright test coleta-bancaria revisao importar-extrato fatura-pdf
 ```
+
+## Faturas (M13.3a, ADR-025)
+
+- Toda compra no cartão tem fatura: o gatilho `transaction_card_statement` preenche o
+  `statementId` vazio pela `fintrack_statement_for` (a fatura gravada cujo período contém o dia,
+  senão a do ciclo, criada aberta). Importador novo NÃO procura a fatura; só passa a do banco ou a
+  do PDF quando sabe qual é.
+- Mudou o dia de uma compra no cartão sem saber a fatura? Grave `statementId: null` junto: o
+  gatilho escolhe de novo.
+- As datas da fatura aberta que o banco informa entram por `alignOpenStatement` (a busca chama
+  antes de gravar as compras). A Bill fechada fecha no dia do banco (`bankBillStatement`), não no do
+  ciclo cadastrado.
+- A soma de uma fatura (`cardStatements`, `statementsDueIn`) conta TODAS as compras dela, até as
+  que esperam revisão; a conferência ao centavo, só as que vieram do banco ou de arquivo.

@@ -178,8 +178,6 @@ export const PAGES = [
   "/lancamentos",
   "/lancamentos/novo",
   `/lancamentos/${ANA_FINANCE.transactionId}`,
-  "/lancamentos/transferencia",
-  "/lancamentos/recorrencias",
   // M09.1: a fila dos recebidos do banco (vazia para a Ana) e a página do cartão (sem banco)
   "/lancamentos?situacao=recebidos",
   // M09.2: a revisão dos recebidos (vazia para a Ana) e a conta em Ajustes › Contas
@@ -196,7 +194,14 @@ export const PAGES = [
   "/carteiras/nova",
   `/carteiras/${ANA_HOUSEHOLD.sharedWalletId}`,
   `/carteiras/${ANA_HOUSEHOLD.personalWalletId}`,
-  `/carteiras/conta/${ANA_FINANCE.cardAccountId}`,
+  // M13.3a: Cartões (o cartão da Ana), Fixas e parcelas, as abas do Novo lançamento e o recorte de
+  // um número do painel (contas e cartões)
+  "/cartoes",
+  `/cartoes?conta=${ANA_FINANCE.cardAccountId}`,
+  "/fixas",
+  "/lancamentos/novo?aba=transferencia",
+  "/lancamentos/novo?aba=recorrencia",
+  "/lancamentos?tipo=despesa&volta=%2F",
   // Convite com segredo no formato certo, mas que não existe: a tela explica e não quebra
   `/convite/${"A".repeat(43)}`,
   "/ajustes",
@@ -622,6 +627,35 @@ export async function overlappingBoxes(container: Locator): Promise<string[]> {
 /** Data de hoje em São Paulo (AAAA-MM-DD), como o app calcula. */
 export function todaySaoPaulo(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+}
+
+/**
+ * Este mês e o próximo no Período (`mes=` repetido, M13.3a): a compra de hoje no cartão conta no
+ * mês do vencimento da fatura, que pode ser o próximo.
+ */
+export function thisAndNextMonthQuery(): string {
+  const today = todaySaoPaulo();
+  const [y, m] = today.split("-").map((n) => Number.parseInt(n, 10)) as [number, number];
+  const next = new Date(Date.UTC(y, m, 15)).toISOString().slice(0, 7);
+  return `mes=${today.slice(0, 7)}&mes=${next}`;
+}
+
+/** O recorte das despesas deste mês e do próximo, em duas partes (contas e cartões, M13.3a). */
+export function expensesSlicePath(extra = ""): string {
+  return `/lancamentos?tipo=despesa&${thisAndNextMonthQuery()}${extra}`;
+}
+
+/** Marca as pessoas no combo do Pago por e aplica (M13.3a). Sem nomes: Todos. */
+export async function choosePayers(page: Page, names: readonly string[]) {
+  await page.getByRole("button", { name: /^Pago por/ }).click();
+  const panel = page.getByRole("region", { name: "Pago por" });
+  if (names.length === 0) {
+    await panel.getByRole("link", { name: "Todos" }).click();
+    return;
+  }
+  for (const box of await panel.getByRole("checkbox").all()) await box.uncheck();
+  for (const name of names) await panel.getByRole("checkbox", { name }).check();
+  await panel.getByRole("button", { name: "Aplicar" }).click();
 }
 
 type AccountKind = "CHECKING" | "SAVINGS" | "CREDIT_CARD" | "MEAL_VOUCHER" | "CASH";

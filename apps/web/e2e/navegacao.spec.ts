@@ -1,20 +1,28 @@
 import { expect, test } from "@playwright/test";
 import { clickAndWait, openPage, pageData } from "./helpers";
 
+// O menu lateral tem todas; a barra do celular tem 5 lugares (M13.3a): Fixas e parcelas abre pelo
+// Início e Carteiras por Ajustes
 const SECTIONS = [
   { path: "/", label: "Início" },
   { path: "/lancamentos", label: "Lançamentos" },
+  { path: "/cartoes", label: "Cartões" },
+  { path: "/fixas", label: "Fixas e parcelas", desktopOnly: true },
   { path: "/orcamento", label: "Orçamento" },
-  { path: "/carteiras", label: "Carteiras" },
+  { path: "/carteiras", label: "Carteiras", desktopOnly: true },
   { path: "/ajustes", label: "Ajustes" },
 ];
 
-test("navega por todas as seções pelo menu principal", async ({ page }) => {
+test("navega por todas as seções pelo menu principal", async ({ page, isMobile }) => {
   await openPage(page, "/");
   // Só um dos dois menus está visível por vez; o Playwright ignora o que está escondido
   const nav = page.getByRole("navigation", { name: "Principal" });
 
-  for (const { path, label } of SECTIONS) {
+  for (const { path, label, desktopOnly } of SECTIONS) {
+    if (isMobile && desktopOnly) {
+      await expect(nav.getByRole("link", { name: label }).filter({ visible: true })).toHaveCount(0);
+      continue;
+    }
     await nav.getByRole("link", { name: label }).click();
     await expect(page).toHaveURL(path);
     await expect(page.getByRole("heading", { level: 1, name: label })).toBeVisible();

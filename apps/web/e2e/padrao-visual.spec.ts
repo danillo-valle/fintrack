@@ -5,40 +5,44 @@ import { NO_SESSION, openPage } from "./helpers";
 // M07.2: o padrão Elétrico em todas as telas (ADR-008, adendo).
 
 test("o Início mostra o mesmo gasto do mês que a lista de lançamentos", async ({ page }) => {
-  // M08: o Início virou o painel (canvas D). O "Gasto até hoje" leva à lista do mês até hoje,
+  // M13.3a: as "Saídas" do resultado do mês levam ao recorte em duas partes (contas e cartões),
   // que soma o mesmo valor (painel.spec.ts confere todos os números)
   await openPage(page, "/");
-  await expect(page.getByRole("region", { name: /^Números de / })).toBeVisible();
-  const link = page.getByTestId("inicio-gasto").getByRole("link");
+  await expect(page.getByRole("region", { name: /^Resultado de / })).toBeVisible();
+  const link = page.getByTestId("resultado-saidas").getByRole("link");
   const cents = BigInt((await link.getAttribute("data-cents")) ?? "x");
   await link.click();
   await expect(page).toHaveURL(/\/lancamentos\?/);
-  const text = (await page.getByTestId("total-saidas").innerText()).replace(/\s+/g, " ");
+  const text = (await page.getByTestId("recorte-total").innerText()).replace(/\s+/g, " ");
   const [, reais, centavos] = text.match(/R\$ ?([\d.]+),(\d{2})/) ?? [];
   expect(BigInt(`${reais?.replaceAll(".", "")}${centavos}`)).toBe(cents);
 });
 
-test("os chips de período trocam as datas na URL e marcam o escolhido", async ({ page }) => {
+test("o Período: os atalhos marcam os meses na URL e o combo mostra o escolhido", async ({
+  page,
+}) => {
   await openPage(page, "/lancamentos");
-  const periodo = page.getByRole("navigation", { name: "Período" });
-  await expect(periodo.getByRole("link", { name: "Este mês" })).toHaveAttribute(
+  const combo = page.getByRole("button", { name: /^Período/ });
+  await combo.click();
+  const panel = page.getByRole("region", { name: "Período" });
+  await expect(panel.getByRole("link", { name: "Este mês" })).toHaveAttribute(
     "aria-current",
     "true",
   );
-  await periodo.getByRole("link", { name: "Mês passado" }).click();
-  await expect(page).toHaveURL(/de=\d{4}-\d{2}-01&ate=\d{4}-\d{2}-(28|29|30|31)/);
-  await expect(periodo.getByRole("link", { name: "Mês passado" })).toHaveAttribute(
-    "aria-current",
-    "true",
-  );
-  await expect(periodo.getByRole("link", { name: "Este mês" })).not.toHaveAttribute("aria-current");
+  await panel.getByRole("link", { name: "Mês passado" }).click();
+  await expect(page).toHaveURL(/mes=\d{4}-\d{2}/);
+  await expect(page).not.toHaveURL(/de=/);
+  await page.getByRole("button", { name: /^Período/ }).click();
+  await expect(
+    page.getByRole("region", { name: "Período" }).getByRole("link", { name: "Mês passado" }),
+  ).toHaveAttribute("aria-current", "true");
 });
 
 test("a linha do lançamento não repete texto: no desktop os detalhes viram colunas", async ({
   page,
   isMobile,
 }) => {
-  await openPage(page, "/lancamentos");
+  await openPage(page, "/lancamentos?q=Padaria");
   const linha = page.getByRole("listitem").filter({ hasText: "Padaria do Bairro" }).first();
   await expect(linha).toBeVisible();
   // a categoria aparece uma vez só, visível, nos dois aparelhos

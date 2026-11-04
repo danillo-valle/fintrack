@@ -24,6 +24,7 @@ import {
   sql,
   test,
   testEmail,
+  thisAndNextMonthQuery,
   todaySaoPaulo,
   waitForReady,
 } from "./helpers";
@@ -111,8 +112,10 @@ test.describe("o uso diário", () => {
     );
     expect(row).toMatchObject({ categorizedBy: "RULE", amount: "-42.35" });
 
-    // 2. Achar na lista pelo texto (o filtro vai para a URL)
-    await openPage(page, "/lancamentos?q=bom+pre");
+    // 2. Achar na lista pelo texto (o filtro vai para a URL). A conta padrão do lançamento rápido
+    //    é o cartão: a compra conta no mês do vencimento da fatura, este ou o próximo (M13.3a)
+    const search = `/lancamentos?q=bom+pre&${thisAndNextMonthQuery()}`;
+    await openPage(page, search);
     await expect(page.getByRole("link", { name: "Supermercado Bom Preço" })).toBeVisible();
     await expectNoA11yViolations(page);
 
@@ -142,7 +145,7 @@ test.describe("o uso diário", () => {
 
     // 4. Excluir com desfazer: pela lista no computador; no celular (M07.3), a linha é curta
     //    demais para a lixeira e o excluir fica na página do lançamento
-    await openPage(page, "/lancamentos");
+    await openPage(page, search);
     if (testInfo.project.name === "celular") {
       await page.getByRole("link", { name: "Supermercado Bom Preço" }).click();
       await page.getByRole("button", { name: "Excluir lançamento" }).click();
@@ -154,7 +157,7 @@ test.describe("o uso diário", () => {
     await expect(page.getByRole("link", { name: "Supermercado Bom Preço" })).toHaveCount(0);
     await page.getByRole("button", { name: "Desfazer" }).click();
     await expect(page.getByText("Lançamento de volta")).toBeVisible();
-    await openPage(page, "/lancamentos");
+    await openPage(page, search);
     await expect(page.getByRole("link", { name: "Supermercado Bom Preço" })).toBeVisible();
     await p.close();
   });
@@ -177,7 +180,7 @@ test.describe("números que batem", () => {
     const page = p.page;
 
     // Transferência pela tela: guardar R$ 1.500,00 na poupança
-    await openPage(page, "/lancamentos/transferencia");
+    await openPage(page, "/lancamentos/novo?aba=transferencia");
     await page
       .getByLabel("De (sai daqui)")
       .selectOption({ label: "Conta corrente (Conta corrente)" });
@@ -195,17 +198,26 @@ test.describe("números que batem", () => {
       [p.householdId],
     );
     expect(db).toEqual({ entradas: "2500.00", saidas: "-1001234.86", linhas: "8" });
-    // O valor e o sinal que o leitor de tela anuncia ("Despesa de"), não só a cor
+    // A conta corrente (a primeira aba): o valor e o sinal que o leitor de tela anuncia ("Despesa
+    // de"), não só a cor. A transferência aparece na lista, mas fica fora das saídas; o saldo de
+    // hoje conta tudo o que se mexeu na conta (o saldo inicial é zero)
     await expect(page.getByTestId("total-entradas")).toContainText(brl("R$ 2.500,00"));
     await expect(page.getByTestId("total-saidas")).toContainText(brl("R$ 1.001.234,86"));
     await expect(page.getByTestId("total-saidas")).toContainText("Despesa de");
-    await expect(page.getByTestId("total-saldo")).toContainText(brl("R$ 998.734,86"));
-    await expect(page.getByTestId("total-saldo")).toContainText("Despesa de");
-    await expect(page.getByText("8 lançamentos no filtro.")).toBeVisible();
+    await expect(page.getByTestId("conta-saldo-hoje")).toContainText(brl("R$ 1.000.234,86"));
+    await expect(page.getByTestId("conta-saldo-hoje")).toContainText("Despesa de");
+    // As 6 da conta e a saída da transferência (a outra ponta está na poupança)
+    await expect(page.getByText("7 lançamentos · Conta corrente")).toBeVisible();
     // a etiqueta de categoria da linha (as ações também se chamam "Transferência")
     await expect(
       page.getByRole("listitem").getByText("Transferência", { exact: true }).first(),
     ).toBeVisible();
+    // A poupança, pela aba: o que entrou pela transferência
+    await page
+      .getByRole("navigation", { name: "Conta" })
+      .getByRole("link", { name: /Poupança/ })
+      .click();
+    await expect(page.getByTestId("conta-saldo-hoje")).toContainText(brl("R$ 1.500,00"));
     await p.close();
   });
 });
@@ -222,7 +234,7 @@ test.describe("IDOR: lançamento de outra pessoa", () => {
     expect(html).not.toContain("Conta da Casa");
     // Filtrar pela carteira da Ana na URL não abre a porta: a lista vem vazia
     await openPage(p.page, `/lancamentos?carteira=${ANA_HOUSEHOLD.sharedWalletId}`);
-    await expect(p.page.getByText("Nenhum lançamento neste filtro")).toBeVisible();
+    await expect(p.page.getByText("Nenhum lançamento neste período")).toBeVisible();
     expect(await p.page.content()).not.toContain("Padaria do Bairro");
     await p.close();
   });
@@ -239,14 +251,19 @@ test.describe("recorrências", () => {
   }, testInfo) => {
     const p = await personWithMoney(browser, testInfo, "recorrencia");
     const page = p.page;
-    await openPage(page, "/lancamentos/recorrencias");
+    await openPage(page, "/lancamentos/novo?aba=recorrencia");
     await page.getByLabel("Descrição").fill("Aluguel");
     await page.getByLabel("Valor previsto").pressSequentially("250000");
     await page.getByLabel("Dia do mês").fill("1");
     await page.getByLabel("Começa em").fill(`${todaySaoPaulo().slice(0, 7)}-01`);
+    // O aluguel sai da conta corrente (a primeira aba de Lançamentos)
+    await page.getByLabel("Conta", { exact: true }).selectOption({ label: "Conta corrente" });
     await page.getByRole("button", { name: "Criar recorrência" }).click();
     await expect(page.getByText(/Recorrência criada/)).toBeVisible();
 
+    // Lançar o mês fica em Fixas e parcelas
+    await openPage(page, "/fixas");
+    await expect(page.getByText("Aluguel")).toBeVisible();
     await page.getByRole("button", { name: "Lançar as deste mês" }).click();
     await expect(page.getByText("1 lançamento agendado criado.")).toBeVisible();
     await page.getByRole("button", { name: "Lançar as deste mês" }).click();

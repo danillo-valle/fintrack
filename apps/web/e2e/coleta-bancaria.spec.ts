@@ -155,25 +155,36 @@ test("conectar o Meu Pluggy, ligar as contas e ver saldo, fatura e recebidos", a
   );
   expect(Number(created[0]!.n)).toBeGreaterThan(40);
 
-  // ── 3. Início: na conta hoje, os cartões (M13.2) e o aviso dos recebidos ──
+  // ── 3. Início: na conta hoje, as faturas a pagar (M13.3a) e o aviso dos recebidos ──
   await openPage(page, "/");
   const contas = page.getByRole("region", { name: "Na conta hoje" });
   await expect(contas.getByTestId("na-conta-total")).toContainText(brl("R$ 4.218,36"));
   await expect(
     contas.getByRole("link", { name: /ver os lançamentos de / }).filter({ visible: true }),
   ).toContainText(brl("R$ 4.218,36"));
-  const cartoes = page.getByRole("region", { name: "Seus cartões" });
+  // A fatura de cada cartão que vence agora: a de setembro venceu há 5 dias (paga), então a
+  // aberta, que o banco fecha daqui a 17 dias (o Master) e a do Visa da Casa
+  const cartoes = page.getByRole("region", { name: "Faturas a pagar" });
   await expect(
     cartoes.getByRole("link", { name: /ver a fatura de .* final 0001/ }).filter({ visible: true }),
   ).toContainText(brl("R$ 1.284,90"));
   await expect(
     cartoes.getByRole("link", { name: /ver a fatura de .* final 0002/ }).filter({ visible: true }),
   ).toContainText(brl("R$ 932,47"));
-  // O total soma as faturas abertas dos dois cartões (o Master e o Visa da Casa)
-  await expect(cartoes.getByTestId("cartoes-total")).toContainText(brl("R$ 2.217,37"));
+  // O total soma as que vencem neste mês (no banco sintético, daqui a 26 e a 31 dias)
+  const thisMonth = todaySaoPaulo().slice(0, 7);
+  const dueThisMonth = (days: number) => daysAgo(-days).slice(0, 7) === thisMonth;
+  const master = dueThisMonth(26);
+  const visa = dueThisMonth(31);
+  const toPay =
+    master && visa ? "R$ 2.217,37" : master ? "R$ 1.284,90" : visa ? "R$ 932,47" : "R$ 0,00";
+  await expect(cartoes.getByTestId("cartoes-total")).toContainText(brl(toPay));
   await expect(page.getByTestId("aviso-recebidos")).toContainText("lançamentos recebidos do banco");
-  // Recebido fica FORA do painel: o gasto do mês continua zero
-  await expect(page.getByTestId("inicio-gasto")).toContainText(brl("R$ 0,00"));
+  // Recebido fica FORA do resultado do mês: as saídas continuam zero
+  await expect(page.getByTestId("resultado-saidas").getByRole("link")).toHaveAttribute(
+    "data-cents",
+    "0",
+  );
 
   // A lista padrão não mostra os recebidos; o link leva à revisão deles (M09.2)
   await openPage(page, "/lancamentos");
@@ -184,15 +195,17 @@ test("conectar o Meu Pluggy, ligar as contas e ver saldo, fatura e recebidos", a
   await expect(page.getByTestId("recebido").first()).toBeVisible();
   await expectNoA11yViolations(page);
 
-  // ── 4. Página do cartão ──
-  await contasCard(page, cardAccountId);
-  await expect(page.getByTestId("fatura-aberta")).toContainText(brl("R$ 1.284,90"));
+  // ── 4. Cartões: a fatura aberta e a de setembro, conferida ao centavo ──
+  await openCard(page, cardAccountId);
+  await expect(page.getByTestId("fatura-total")).toContainText(brl("R$ 1.284,90"));
+  await page.getByRole("link", { name: /^Fatura anterior/ }).click();
   await expect(page.getByTestId("fatura-total")).toContainText(brl("R$ 2.146,35"));
   await expect(page.getByTestId("fatura-confere")).toContainText("Confere ao centavo");
   await expectNoA11yViolations(page);
+  await openCard(page, cardAccountId);
   // Categoria em um clique: sem categoria no lar ainda, cria "Restaurantes" pela busca
   const row = page
-    .getByRole("list", { name: "Compras da fatura aberta" })
+    .getByRole("list", { name: "Compras desta fatura" })
     .getByRole("listitem")
     .filter({ hasText: "RESTAURANTE SABOR" });
   await row.getByText("Escolher categoria").click();
@@ -205,7 +218,7 @@ test("conectar o Meu Pluggy, ligar as contas e ver saldo, fatura e recebidos", a
   await expect(row.getByText("escolhida por você")).toBeVisible();
   // A escolha também vira o "Mais usadas" do próximo
   const mercado = page
-    .getByRole("list", { name: "Compras da fatura aberta" })
+    .getByRole("list", { name: "Compras desta fatura" })
     .getByRole("listitem")
     .filter({ hasText: "MERCADO BOM PRECO" });
   await mercado.getByText("Escolher categoria").click();
@@ -246,12 +259,20 @@ test("conectar o Meu Pluggy, ligar as contas e ver saldo, fatura e recebidos", a
   await openPage(anaPage, `/carteiras/conta/${cardAccountId}`);
   await expect(anaPage.getByRole("heading", { name: "Esta página não existe" })).toBeVisible();
   expect(await anaPage.content()).not.toContain("1.284,90");
+  // Cartões com o id do cartão dela na URL: mostra os cartões da Ana, nada deste (nem a fatura, nem
+  // o final do cartão; o id só aparece porque está no endereço que a Ana digitou)
+  await openPage(anaPage, `/cartoes?conta=${cardAccountId}`);
+  await expect(anaPage.getByRole("heading", { level: 1, name: "Cartões" })).toBeVisible();
+  const html = await anaPage.content();
+  for (const text of ["1.284,90", "2.146,35", "···· 0001", "MERCADO BOM PRECO"]) {
+    expect(html).not.toContain(text);
+  }
   await ana.close();
 });
 
-async function contasCard(page: Page, accountId: string) {
+/** Cartões, com a fatura que vence agora (o endereço antigo da página do cartão leva para lá). */
+async function openCard(page: Page, accountId: string) {
   await openPage(page, `/carteiras/conta/${accountId}`);
-  await expect(
-    page.getByRole("heading", { level: 1, name: "Mastercard final 0001" }),
-  ).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/cartoes\\?conta=${accountId}`));
+  await expect(page.getByRole("heading", { level: 2, name: /^Fatura que vence em/ })).toBeVisible();
 }

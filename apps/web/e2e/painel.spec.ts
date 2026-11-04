@@ -67,17 +67,16 @@ function centsOf(text: string): bigint {
   return BigInt(`${match[1]!.replaceAll(".", "")}${match[2]}`);
 }
 
-/** Abre o link de um número e confere que a lista soma o mesmo (saídas ou entradas). */
-async function expectListMatches(
-  page: Page,
-  link: ReturnType<Page["locator"]>,
-  kind: "saidas" | "entradas",
-) {
+/**
+ * Abre o link de um número e confere que a lista soma o mesmo. Desde o M13.3a o número do painel
+ * abre o recorte em duas partes (contas e cartões): o total é a soma das duas.
+ */
+async function expectListMatches(page: Page, link: ReturnType<Page["locator"]>) {
   const cents = BigInt((await link.getAttribute("data-cents")) ?? "x");
   const href = await link.getAttribute("href");
   expect(href).toMatch(/^\/lancamentos\?/);
   await openPage(page, href!);
-  const total = centsOf(await page.getByTestId(`total-${kind}`).innerText());
+  const total = centsOf(await page.getByTestId("recorte-total").innerText());
   expect(total, `lista de ${href}`).toBe(cents < 0n ? -cents : cents);
   return href!;
 }
@@ -254,13 +253,13 @@ test.describe("Início", () => {
     const p = await household(browser, testInfo, "inicio");
     const page = p.page;
     await openPage(page, "/");
-    await expect(page.getByRole("region", { name: /^Números de / })).toBeVisible();
+    await expect(page.getByRole("region", { name: /^Resultado de / })).toBeVisible();
     await expectNoA11yViolations(page);
 
-    // Gasto até hoje: 100 + 60 + 15,50
-    const spent = page.getByTestId("inicio-gasto").getByRole("link");
+    // As saídas do mês até hoje: 100 + 15,50 nas contas e 60 no cartão (a fatura vence no dia 10)
+    const spent = page.getByTestId("resultado-saidas").getByRole("link");
     await expect(spent).toHaveAttribute("data-cents", "17550");
-    await expectListMatches(page, spent, "saidas");
+    await expectListMatches(page, spent);
     // O caminho de volta e os filtros que formaram o número
     await expect(page.getByRole("link", { name: /Início/ }).first()).toHaveAttribute(
       "href",
@@ -272,11 +271,7 @@ test.describe("Início", () => {
 
     // Entradas: o reembolso
     await openPage(page, "/");
-    await expectListMatches(
-      page,
-      page.getByTestId("inicio-entradas").getByRole("link"),
-      "entradas",
-    );
+    await expectListMatches(page, page.getByTestId("resultado-entradas").getByRole("link"));
 
     // Cada categoria do gráfico (gasto até hoje)
     await openPage(page, "/");
@@ -287,7 +282,7 @@ test.describe("Início", () => {
     expect(hrefs.length).toBeGreaterThan(0);
     for (const [href, cents] of hrefs) {
       await openPage(page, href!);
-      expect(centsOf(await page.getByTestId("total-saidas").innerText())).toBe(BigInt(cents!));
+      expect(centsOf(await page.getByTestId("recorte-total").innerText())).toBe(BigInt(cents!));
     }
     // A categoria vem com as de baixo: Alimentação = Mercado + Padaria
     await expect(page.getByRole("group", { name: "Filtros ativos" })).toContainText("Alimentação");
@@ -388,14 +383,14 @@ test.describe("Orçamento", () => {
     await expect(market).toContainText("500,00");
 
     // O gasto da linha leva à lista com o mesmo total
-    await expectListMatches(page, market.getByTestId("linha-gasto"), "saidas");
+    await expectListMatches(page, market.getByTestId("linha-gasto"));
     await expect(page.getByRole("link", { name: /Orçamento · Mercado/ })).toBeVisible();
 
     // Pago por Compartilhado: o orçado da linha é a parte (R$ 300) e o gasto, o do cartão conjunto
     await openPage(page, `/orcamento?carteira=${p.casa}&pago=compartilhado`);
     await expect(market).toContainText("300,00");
     await expect(market.getByTestId("linha-gasto")).toHaveAttribute("data-cents", "6000");
-    await expectListMatches(page, market.getByTestId("linha-gasto"), "saidas");
+    await expectListMatches(page, market.getByTestId("linha-gasto"));
     await expectNoA11yViolations(page);
     await p.close();
   });
@@ -444,9 +439,14 @@ test.describe("Fluxo de caixa e Evolução", () => {
     expect(links.length).toBeGreaterThan(0);
     for (const [href, cents, isIncome] of links) {
       await openPage(page, href);
-      const total = centsOf(
-        await page.getByTestId(isIncome ? "total-entradas" : "total-saidas").innerText(),
-      );
+      // Uma conta abre a lista dela (o resumo da conta); um cartão, o recorte só com a fatura
+      const account = page.getByRole("region", { name: "Resumo da conta" });
+      const totalId = (await account.count())
+        ? isIncome
+          ? "total-entradas"
+          : "total-saidas"
+        : "recorte-total";
+      const total = centsOf(await page.getByTestId(totalId).innerText());
       expect(total, href).toBe(BigInt(cents));
     }
     await expect(page.getByRole("link", { name: /Fluxo de caixa/ }).first()).toBeVisible();
@@ -469,7 +469,7 @@ test.describe("Fluxo de caixa e Evolução", () => {
     const bar = page.locator(`[data-testid=evolucao-grafico] a[data-month="${last}"]`);
     await expect(bar).toHaveAttribute("data-cents", "30000");
     await expect(bar).toHaveAccessibleName(/R\$\s300,00, orçado R\$\s500,00\. Ver os lançamentos/);
-    await expectListMatches(page, bar, "saidas");
+    await expectListMatches(page, bar);
     await expect(page.getByRole("link", { name: /Evolução · Mercado/ })).toBeVisible();
 
     // A tabela (alternativa ao gráfico) com os mesmos números

@@ -115,7 +115,7 @@ async function expectListMatches(page: Page, link: ReturnType<Page["locator"]>) 
   const href = await link.getAttribute("href");
   expect(href).toMatch(/^\/lancamentos\?/);
   await openPage(page, href!);
-  expect(centsOf(await page.getByTestId("total-saidas").innerText()), href!).toBe(cents);
+  expect(centsOf(await page.getByTestId("recorte-total").innerText()), href!).toBe(cents);
 }
 
 test("o resumo do mês: as três observações, os números e as listas", async ({ page }, testInfo) => {
@@ -189,7 +189,7 @@ test("o resumo do mês: as três observações, os números e as listas", async 
   const monthlyHref = await monthly.getAttribute("href");
   await expectListMatches(page, above);
   await openPage(page, monthlyHref!);
-  expect(centsOf(await page.getByTestId("total-saidas").innerText())).toBe(3990n);
+  expect(centsOf(await page.getByTestId("recorte-total").innerText())).toBe(3990n);
 });
 
 test("só uma observação: o resumo diz o que não apareceu", async ({ page }, testInfo) => {

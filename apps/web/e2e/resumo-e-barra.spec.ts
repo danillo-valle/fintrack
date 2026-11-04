@@ -4,12 +4,14 @@ import { openPage } from "./helpers";
 // M07.3: o desenho C.2 do canvas (opção B). O resumo compacto, a barra de filtros e ações, o
 // menu lateral só de navegação e o modal do novo lançamento sem barra de rolagem.
 
-test("o resumo mostra saldo, entradas e saídas numa faixa", async ({ page }) => {
+test("o resumo da conta mostra os saldos, as entradas e as saídas numa faixa", async ({ page }) => {
   await openPage(page, "/lancamentos");
-  const resumo = page.getByRole("region", { name: "Totais do filtro" });
-  await expect(resumo.getByTestId("total-saldo")).toContainText("Saldo do período");
+  // M13.3a: uma conta por vez, com o saldo no começo do período e o de hoje
+  const resumo = page.getByRole("region", { name: "Resumo da conta" });
+  await expect(resumo.getByTestId("conta-saldo-inicio")).toContainText("Saldo em");
   await expect(resumo.getByTestId("total-entradas")).toContainText("Entradas");
   await expect(resumo.getByTestId("total-saidas")).toContainText("Saídas");
+  await expect(resumo.getByTestId("conta-saldo-hoje")).toContainText("Saldo hoje");
   // Uma faixa baixa: o resumo inteiro cabe em 240 px de altura nos dois aparelhos
   const altura = await resumo.evaluate((el) => el.getBoundingClientRect().height);
   expect(altura).toBeLessThan(240);
@@ -26,29 +28,17 @@ test("Novo lançamento fica no cabeçalho da página, não no menu lateral", asy
   await expect(page.getByRole("main").getByRole("link", { name: "Novo lançamento" })).toBeVisible();
 });
 
-test("o painel de filtros abre pelo botão e fecha com Esc, devolvendo o foco", async ({
-  page,
-  isMobile,
-}) => {
+test("o painel de filtros abre pelo botão e fecha com Esc, devolvendo o foco", async ({ page }) => {
   await openPage(page, "/lancamentos");
-  // No celular, o mesmo botão também guarda as ações (Transferência, Recorrências, CSV)
-  const botao = page.getByRole("button", {
-    name: isMobile ? "Filtros e mais ações" : "Filtros",
-    exact: true,
-  });
+  // M13.3a: o mesmo botão nos dois aparelhos, no topo da lista; a transferência e a recorrência
+  // são abas do Novo lançamento
+  const botao = page.getByRole("button", { name: "Filtros", exact: true });
   await expect(botao).toHaveAttribute("aria-expanded", "false");
   await botao.click();
   await expect(botao).toHaveAttribute("aria-expanded", "true");
   const painel = page.getByRole("region", { name: "Filtros" });
   await expect(painel.getByRole("search", { name: "Filtrar lançamentos" })).toBeVisible();
-  if (isMobile) {
-    await expect(painel.getByRole("link", { name: "Transferência" })).toBeVisible();
-  } else {
-    // No computador as ações ficam na barra, ao lado dos chips
-    const acoes = page.getByRole("navigation", { name: "Mais ações de lançamento" });
-    await expect(acoes.getByRole("link", { name: "Transferência" })).toBeVisible();
-  }
-  await painel.getByLabel("Ambiente").focus();
+  await painel.getByLabel("Categoria").focus();
   await page.keyboard.press("Escape");
   await expect(painel).toBeHidden();
   await expect(botao).toBeFocused();

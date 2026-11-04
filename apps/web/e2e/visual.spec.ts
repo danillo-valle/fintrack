@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { openPage, waitForContent } from "./helpers";
+import { ANA_FINANCE, openPage, waitForContent } from "./helpers";
 
 // M07.1 (Visual C, ADR-008): o modal do novo lançamento e a moldura de vidro.
 
@@ -53,7 +53,8 @@ test("os ids do modal não repetem os da página atrás (editar + novo)", async 
   // não tem; no celular, o + abre o modal por cima dela. (No computador, este teste clicava no link
   // da lista antes de a navegação terminar e nunca chegava à edição; o build de produção mostrou.)
   test.skip(testInfo.project.name !== "celular", "no computador a edição não abre o modal");
-  await openPage(page, "/lancamentos");
+  // A conta da Ana com a padaria (outros testes podem criar contas da Ana antes desta na lista)
+  await openPage(page, `/lancamentos?conta=${ANA_FINANCE.homeAccountId}`);
   // abre um lançamento existente (a página de edição tem o mesmo formulário) e, dali, o modal
   await page
     .getByRole("link", { name: /Padaria do Bairro/ })
@@ -97,6 +98,6 @@ test("a moldura do celular é de vidro (desfoque) e o conteúdo é sólido", asy
   const nav = page.locator('nav[aria-label="Principal"]:visible');
   const filter = await nav.evaluate((el) => getComputedStyle(el).backdropFilter);
   expect(filter).toContain("blur");
-  const saldo = page.getByTestId("total-saldo");
+  const saldo = page.getByTestId("conta-saldo-hoje");
   expect(await saldo.evaluate((el) => getComputedStyle(el).backdropFilter)).toBe("none");
 });

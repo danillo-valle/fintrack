@@ -193,3 +193,10 @@ banco dizia 09/11. Eram dois defeitos, e os dois aparecem também na página do 
   só numa conta manual e só entre corrente, poupança e dinheiro (cartão e vale têm regras de forma
   de pagamento no banco que mudar o tipo quebraria). A conta ligada ao banco mostra o nome que o
   banco manda, que não muda. Auditoria `account.updated` só com os nomes dos campos.
+
+## Adendo do M13.3a (03/11/2026): a fatura aberta é uma fatura como as outras
+
+Toda compra no cartão passa a ter fatura (ADR-025): a aberta deixou de ser calculada à parte (as
+compras do banco sem `statementId` num período de datas). A busca grava na fatura aberta as datas
+que o banco informa (`alignOpenStatement`), e as compras do período passam para ela. A página do
+cartão virou Cartões (`/cartoes`), uma fatura por vez; `/carteiras/conta/[id]` leva para lá.

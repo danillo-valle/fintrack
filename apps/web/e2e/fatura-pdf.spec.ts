@@ -137,13 +137,15 @@ test("fatura em PDF: senha, conferência ao centavo, importar e a que não fecha
   );
   await expect(shown(page.getByTestId("arquivos-importados"))).toContainText("vence 10/11");
   expect(await fromPdf()).toBe("9");
-  const statements = await sql<{ source: string; total: string; linked: string }>(
-    `SELECT s.source::text, s.total::text,
+  const statements = await sql<{ id: string; source: string; total: string; linked: string }>(
+    `SELECT s.id, s.source::text, s.total::text,
        (SELECT count(*)::text FROM "transaction" t WHERE t."statementId" = s.id) AS linked
      FROM card_statement s WHERE s."accountId" = $1`,
     [cardId],
   );
-  expect(statements).toEqual([{ source: "PDF", total: "2093.51", linked: "10" }]);
+  expect(statements).toEqual([
+    { id: expect.any(String), source: "PDF", total: "2093.51", linked: "10" },
+  ]);
   // Nada da senha guardado: nem no arquivo importado, nem na auditoria
   const leaks = await sql<{ n: string }>(
     `SELECT count(*)::text AS n FROM audit_log WHERE "householdId" = $1 AND metadata::text LIKE '%1234%'`,
@@ -151,9 +153,10 @@ test("fatura em PDF: senha, conferência ao centavo, importar e a que não fecha
   );
   expect(leaks[0]!.n).toBe("0");
 
-  await openPage(page, `/carteiras/conta/${cardId}`);
+  // Em Cartões, a fatura do PDF (M13.3a)
+  await openPage(page, `/cartoes?conta=${cardId}&fatura=${statements[0]!.id}`);
   await expect(shown(page.getByText("Da fatura em PDF", { exact: false }))).toBeVisible();
-  await expect(shown(page.getByTestId("fatura-total"))).toHaveText("R$ 2.093,51");
+  await expect(shown(page.getByTestId("fatura-total"))).toContainText("R$ 2.093,51");
   await expect(shown(page.getByTestId("fatura-confere"))).toContainText("dão o total da fatura");
 
   // ── 4. A fatura que não fecha ──
