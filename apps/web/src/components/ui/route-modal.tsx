@@ -13,6 +13,12 @@ type Props = {
   description?: React.ReactNode;
   /** Seletor do campo que recebe o foco ao abrir (por exemplo "#modal-amount"). */
   initialFocus?: string;
+  /**
+   * As abas do modal (M13.3a: Lançamento, Transferência, Recorrência). Ficam no cabeçalho, fora do
+   * meio que rola: embaixo do título e, em tela baixa no computador, na linha do título, para o
+   * formulário mais alto caber sem barra de rolagem.
+   */
+  tabs?: React.ReactNode;
   /** Rodapé fixo (os botões). Fica sempre à vista, mesmo quando o meio rola. */
   footer?: React.ReactNode;
   children: React.ReactNode;
@@ -41,7 +47,15 @@ export function useOptionalRouteModal() {
 // e só quando a tela é baixa demais (no celular, quase sempre; no computador, a partir de 900 px de
 // altura, nunca). No celular, um painel que sobe da base; a partir de 768 px, centralizado.
 // Fechar = voltar no histórico (a URL volta junto).
-export function RouteModal({ title, eyebrow, description, initialFocus, footer, children }: Props) {
+export function RouteModal({
+  title,
+  eyebrow,
+  description,
+  initialFocus,
+  tabs,
+  footer,
+  children,
+}: Props) {
   const router = useRouter();
   const ref = useRef<HTMLDialogElement>(null);
   // A rota paralela guarda o último conteúdo quando se navega para outro endereço SEM fechar
@@ -81,14 +95,14 @@ export function RouteModal({ title, eyebrow, description, initialFocus, footer, 
       >
         <div className="compact:pt-4 flex shrink-0 flex-col gap-2.5 px-4 pt-2.5 md:px-[1.625rem] md:pt-6">
           <span aria-hidden className="bg-border mx-auto h-1.5 w-10 rounded-full md:hidden" />
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex flex-col gap-0.5">
+          <div className="compact:grid-cols-[minmax(0,1fr)_auto_auto] compact:gap-x-3 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-3">
+            <div className="col-start-1 row-start-1 flex flex-col gap-0.5">
               {eyebrow ? (
                 <p className="text-chart-1-ink text-[0.8125rem] font-bold">{eyebrow}</p>
               ) : null}
               <h2
                 id="modal-titulo"
-                className="text-xl font-extrabold tracking-tight md:text-[1.375rem]"
+                className="compact:text-xl compact:whitespace-nowrap text-xl font-extrabold tracking-tight md:text-[1.375rem]"
               >
                 {title}
               </h2>
@@ -98,12 +112,17 @@ export function RouteModal({ title, eyebrow, description, initialFocus, footer, 
                 </p>
               ) : null}
             </div>
+            {tabs ? (
+              <div className="compact:col-span-1 compact:col-start-2 compact:row-start-1 compact:self-center col-span-2 row-start-2 min-w-0">
+                {tabs}
+              </div>
+            ) : null}
             <Button
               type="button"
               variant="outline"
               size="icon-lg"
               aria-label="Fechar"
-              className="size-11 shrink-0 rounded-xl md:size-10"
+              className="compact:col-start-3 col-start-2 row-start-1 size-11 shrink-0 rounded-xl md:size-10"
               onClick={close}
             >
               <X aria-hidden className="size-5" />

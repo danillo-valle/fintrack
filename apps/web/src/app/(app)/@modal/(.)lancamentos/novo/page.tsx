@@ -5,6 +5,8 @@ import {
 } from "@/features/transactions/ui/entry/entry-actions";
 import { EntryForm } from "@/features/transactions/ui/entry/entry-form";
 import { EntryProvider } from "@/features/transactions/ui/entry/entry-provider";
+import { EntryTabs, parseEntryTab } from "@/features/transactions/ui/entry/entry-tabs";
+import { OtherEntryForm } from "@/features/transactions/ui/entry/other-entry-form";
 import { RouteModal } from "@/components/ui/route-modal";
 import { requireUser } from "@/lib/auth/session";
 import { TEXT_LINK } from "@/lib/styles";
@@ -16,8 +18,11 @@ import { TEXT_LINK } from "@/lib/styles";
 //
 // O EntryProvider fica POR FORA do modal: o subtítulo ("No ambiente Casa") e o rodapé fixo
 // (Cancelar e Salvar) leem o mesmo estado do formulário.
-export default async function NewTransactionModal() {
+export default async function NewTransactionModal({
+  searchParams,
+}: PageProps<"/lancamentos/novo">) {
   const session = await requireUser(); // toda página do app começa conferindo a sessão
+  const tab = parseEntryTab((await searchParams).aba);
   const options = await getQuickEntryPage(session);
   const ready = options.wallets.length > 0 && options.accounts.length > 0;
 
@@ -38,12 +43,26 @@ export default async function NewTransactionModal() {
     );
   }
 
+  // M13.3a: Transferência e Recorrência são abas do mesmo modal, com os seus formulários
+  if (tab !== "lancamento") {
+    return (
+      <RouteModal
+        title="Novo lançamento"
+        initialFocus="[aria-current=true]"
+        tabs={<EntryTabs current={tab} />}
+      >
+        <OtherEntryForm tab={tab} options={options} />
+      </RouteModal>
+    );
+  }
+
   return (
     <EntryProvider options={options} idPrefix="modal-">
       <RouteModal
         title="Novo lançamento"
         description={<EntryWalletLabel />}
         initialFocus="#modal-amount"
+        tabs={<EntryTabs current="lancamento" />}
         footer={<EntryModalActions />}
       >
         <EntryForm />

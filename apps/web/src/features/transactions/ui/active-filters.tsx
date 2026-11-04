@@ -12,7 +12,7 @@ import { SOURCE_LABEL } from "@/lib/labels";
 import { NUMBER_LINK } from "@/lib/styles";
 import { cn } from "@/lib/utils";
 import type { PayerOption } from "../payers";
-import { filtersToQuery, type ParsedFilters } from "../schemas";
+import { filtersToQuery, type ParsedFilters, type QueryValue } from "../schemas";
 
 // O caminho de volta e os filtros ativos da lista (M08, canvas D "Drill-down"). Quem chega à
 // lista por um número do painel vê "Voltar para Orçamento · Mercado" e os filtros que formaram o
@@ -27,8 +27,8 @@ const monthYear = new Intl.DateTimeFormat("pt-BR", {
 });
 const TYPE_LABEL = { expense: "Só despesas", income: "Só receitas", transfer: "Só transferências" };
 
-/** "Outubro de 2026" quando o período é um mês inteiro; senão, "01/10 a 09/10/2026". */
-function periodLabel(from: CivilDate, to: CivilDate) {
+/** "Outubro de 2026" quando os dias são um mês inteiro; senão, "01/10 a 09/10/2026". */
+function rangeLabel(from: CivilDate, to: CivilDate) {
   const month = monthOf(from);
   if (from === firstDayOf(month) && to === dayOfMonth(month, 31)) {
     const text = monthYear.format(new Date(`${from}T12:00:00Z`));
@@ -84,11 +84,10 @@ export function ActiveFilters({
   className?: string;
 }) {
   const f = parsed.filters;
-  const href = (extra: Record<string, string | null>) =>
-    `/lancamentos?${filtersToQuery(parsed, { cursor: null, ...extra })}`;
+  const href = (extra: Record<string, QueryValue>) =>
+    `/lancamentos?${filtersToQuery(parsed, { cursor: null, cursorCartoes: null, ...extra })}`;
   const today = todayCivil();
   const month = monthOf(today);
-  const defaultPeriod = f.from === firstDayOf(month) && f.to === dayOfMonth(month, 31);
 
   const chips: { key: string; label: string; short: string; remove: string }[] = [];
   // M09.1: a fila dos recebidos do banco (tirar o filtro volta à lista conferida, do mês)
@@ -97,7 +96,7 @@ export function ActiveFilters({
       key: "situacao",
       label: "Recebidos do banco, esperando revisão",
       short: "Recebidos",
-      remove: href({ situacao: null, de: null, ate: null }),
+      remove: href({ situacao: null, de: null, ate: null, mes: null }),
     });
   }
   if (f.categoryId) {
@@ -112,15 +111,24 @@ export function ActiveFilters({
       remove: href({ categoria: null }),
     });
   }
-  // O período sempre tem valor; vira filtro "ativo" quando não é o mês de hoje ou quando se veio
-  // do painel (o número clicado é daquele período)
-  if ((!defaultPeriod || parsed.back) && !f.received) {
-    const label = periodLabel(f.from, f.to);
+  // Dias de/até (o que um número do painel abre) viram um filtro com ×; os meses têm o combo
+  if (f.period.kind === "range" && !f.received) {
+    const label = rangeLabel(f.period.from, f.period.to);
     chips.push({
       key: "periodo",
       label,
       short: label.split(" de ")[0] ?? label,
-      remove: href({ de: null, ate: null }),
+      remove: href({ de: null, ate: null, mes: [month] }),
+    });
+  }
+  // O "gasto até hoje" do painel: só o que já aconteceu até o dia
+  if (f.upTo) {
+    const label = `Até ${f.upTo.slice(8, 10)}/${f.upTo.slice(5, 7)}`;
+    chips.push({
+      key: "aconteceu",
+      label: `${label}: só o que já aconteceu`,
+      short: label,
+      remove: href({ aconteceu: null }),
     });
   }
   // M10.1: o número de uma camada em Ajustes › Categorização
@@ -134,14 +142,16 @@ export function ActiveFilters({
       remove: href({ quem: null }),
     });
   }
-  if (f.payer) {
-    const param = payerParam(f.payer);
+  for (const payer of f.payers) {
+    const param = payerParam(payer);
     const name = payers.find((p) => p.param === param)?.name ?? "Pessoa";
     chips.push({
-      key: "pago",
+      key: `pago-${param}`,
       label: `Pago por: ${name}`,
       short: name,
-      remove: href({ pago: null }),
+      remove: href({
+        pago: f.payers.map(payerParam).filter((p) => p !== param),
+      }),
     });
   }
   if (f.accountId) {
@@ -193,7 +203,7 @@ export function ActiveFilters({
         </span>
       ))}
       <Link
-        href={`/lancamentos?${filtersToQuery({ walletId: parsed.walletId, filters: { ...f, from: firstDayOf(month), to: dayOfMonth(month, 31), accountId: null, categoryId: null, text: null, type: null, payer: null, received: false } })}`}
+        href={`/lancamentos?${filtersToQuery({ walletId: parsed.walletId, filters: { ...f, period: { kind: "months", months: [month] }, accountId: null, upTo: null, categoryId: null, text: null, type: null, payers: [], received: false } })}`}
         className={cn(NUMBER_LINK, "ml-1 text-sm font-semibold")}
       >
         Limpar

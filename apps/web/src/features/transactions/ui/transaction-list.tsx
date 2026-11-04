@@ -79,7 +79,7 @@ export function TransactionList({
   /** Sem o botão de excluir (o resumo do Início) */
   readOnly?: boolean;
   /** Nível do título de cada dia: h3 quando a lista está dentro de uma seção com h2 */
-  dayHeading?: "h2" | "h3";
+  dayHeading?: "h2" | "h3" | "h4";
 }) {
   const [, startTransition] = useTransition();
   const [visible, hide] = useOptimistic(items, (current, id: string) =>
@@ -141,7 +141,7 @@ function DayGroup({
   onRemove,
 }: {
   title: string;
-  heading: "h2" | "h3";
+  heading: "h2" | "h3" | "h4";
   items: ListItem[];
   payers: readonly PayerOption[];
   onRemove: ((item: ListItem) => void) | null;

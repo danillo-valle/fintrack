@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { dayLabel, periodPresets } from "./presentation";
+import {
+  dayInWords,
+  dayLabel,
+  periodChoices,
+  periodPresets,
+  periodShort,
+  periodTitle,
+  sliceTitle,
+} from "./presentation";
 
 describe("dayLabel", () => {
   const today = "2026-10-08"; // uma quinta-feira
@@ -24,20 +32,46 @@ describe("dayLabel", () => {
   });
 });
 
-describe("periodPresets", () => {
-  it("este mês, mês passado e os últimos 3 meses, com o último dia certo", () => {
+describe("periodPresets e o título do período (M13.3a)", () => {
+  it("este mês, mês passado e os últimos 3 meses, em meses", () => {
     expect(periodPresets("2026-03-15")).toEqual([
-      { label: "Este mês", from: "2026-03-01", to: "2026-03-31" },
-      { label: "Mês passado", from: "2026-02-01", to: "2026-02-28" },
-      { label: "Últimos 3 meses", from: "2026-01-01", to: "2026-03-31" },
+      { label: "Este mês", months: ["2026-03"] },
+      { label: "Mês passado", months: ["2026-02"] },
+      { label: "Últimos 3 meses", months: ["2026-01", "2026-02", "2026-03"] },
     ]);
+    expect(periodPresets("2026-01-10")[1]).toEqual({ label: "Mês passado", months: ["2025-12"] });
   });
 
-  it("janeiro: o mês passado é dezembro do ano anterior", () => {
-    expect(periodPresets("2026-01-10")[1]).toEqual({
-      label: "Mês passado",
-      from: "2025-12-01",
-      to: "2025-12-31",
-    });
+  it("os 12 meses do combo, do mais recente para o mais antigo", () => {
+    const months = periodChoices("2026-11-03");
+    expect(months).toHaveLength(12);
+    expect([months[0], months.at(-1)]).toEqual(["2026-11", "2025-12"]);
+  });
+
+  it("um mês, meses seguidos, meses soltos e dias", () => {
+    const today = "2026-11-03";
+    const m = (...months: string[]) => ({ kind: "months" as const, months });
+    expect(periodTitle(m("2026-11"), today)).toBe("Novembro");
+    expect(periodTitle(m("2025-12"), today)).toBe("Dezembro de 2025");
+    expect(periodTitle(m("2026-09", "2026-10", "2026-11"), today)).toBe("Setembro a novembro");
+    expect(periodTitle(m("2026-08", "2026-10"), today)).toBe("Agosto e outubro");
+    expect(periodShort(m("2026-09", "2026-10", "2026-11"), today)).toBe("3 meses");
+    expect(periodTitle({ kind: "range", from: "2026-11-01", to: "2026-11-03" }, today)).toBe(
+      "01/11 a 03/11",
+    );
+    expect(periodTitle({ kind: "range", from: "2026-11-01", to: "2026-11-30" }, today)).toBe(
+      "Novembro",
+    );
+    expect(
+      sliceTitle({
+        category: null,
+        type: "expense",
+        period: { kind: "range", from: "2026-11-01", to: "2026-11-30" },
+        upTo: "2026-11-03",
+        today,
+      }),
+    ).toBe("Saídas · novembro até 03/11");
+    expect(dayInWords("2026-11-01")).toBe("1º de novembro");
+    expect(dayInWords("2026-09-15")).toBe("15 de setembro");
   });
 });

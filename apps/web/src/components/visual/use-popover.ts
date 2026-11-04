@@ -1,8 +1,9 @@
 "use client";
 
 // Um painel que abre por um botão e fecha sozinho (M13.1): o menu "⋯" das linhas e o menu de quem
-// está na sessão. Esc fecha e devolve o foco ao botão; clique fora fecha; `dismiss` fecha sem mexer
-// no foco (um link do painel que leva para outra tela). Quem usa liga `rootRef` no contêiner
+// está na sessão; os combos de marcar (M13.3a). Esc fecha e devolve o foco ao botão; clique fora
+// fecha; `dismiss` fecha sem mexer no foco (um link do painel que leva para outra tela); `close`
+// fecha e devolve o foco (um atalho que muda só o filtro da mesma tela). Quem usa liga `rootRef` no contêiner
 // (botão + painel), `triggerRef` no botão e `panelId` no aria-controls.
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 
@@ -39,6 +40,8 @@ export function usePopover() {
     toggle: () => setOpen((v) => !v),
     /** Fecha sem mexer no foco (um link dentro do painel leva para outra tela) */
     dismiss: () => setOpen(false),
+    /** Fecha e devolve o foco ao botão */
+    close,
     panelId,
     rootRef,
     triggerRef,

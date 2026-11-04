@@ -4,7 +4,10 @@ import { describe, expect, it } from "vitest";
 import {
   exportSchema,
   filtersToQuery,
+  listView,
   parseFilters,
+  periodBounds,
+  periodRanges,
   recurrenceSchema,
   newEntrySchema,
   transactionSchema,
@@ -123,18 +126,19 @@ describe("filtros na URL", () => {
   it("sem nada: o mês de hoje", () => {
     expect(parseFilters({}, today)).toEqual({
       filters: {
-        from: "2026-10-01",
-        to: "2026-10-31",
+        period: { kind: "months", months: ["2026-10"] },
+        upTo: null,
         accountId: null,
         categoryId: null,
         text: null,
         type: null,
-        payer: null,
+        payers: [],
         received: false,
         categorizedBy: null,
       },
       walletId: null,
       cursor: null,
+      cardCursor: null,
       back: null,
     });
   });
@@ -154,13 +158,13 @@ describe("filtros na URL", () => {
       today,
     );
     expect(parsed.filters).toEqual({
-      from: "2026-09-01",
-      to: "2026-09-30",
+      period: { kind: "range", from: "2026-09-01", to: "2026-09-30" },
+      upTo: null,
       accountId: ID2,
       categoryId: "none",
       text: "mercado",
       type: "expense",
-      payer: { kind: "shared" },
+      payers: [{ kind: "shared" }],
       received: false,
       categorizedBy: null,
     });
@@ -174,7 +178,10 @@ describe("filtros na URL", () => {
 
   it("situacao=recebidos: a fila do banco, dos últimos 12 meses até hoje (M09.1)", () => {
     const parsed = parseFilters({ situacao: "recebidos" }, today);
-    expect(parsed.filters).toMatchObject({ from: "2025-10-07", to: "2026-10-07", received: true });
+    expect(parsed.filters).toMatchObject({
+      period: { kind: "range", from: "2025-10-07", to: "2026-10-07" },
+      received: true,
+    });
     expect(filtersToQuery(parsed)).toContain("situacao=recebidos");
     expect(parseFilters({ situacao: "outra" }, today).filters.received).toBe(false);
   });
@@ -206,8 +213,7 @@ describe("filtros na URL", () => {
       { de: "ontem", ate: "2026-13-01", carteira: "1 OR 1=1", tipo: "tudo", q: "x".repeat(500) },
       today,
     );
-    expect(parsed.filters.from).toBe("2026-10-01");
-    expect(parsed.filters.to).toBe("2026-10-31");
+    expect(parsed.filters.period).toEqual({ kind: "months", months: ["2026-10"] });
     expect(parsed.walletId).toBeNull();
     expect(parsed.filters.type).toBeNull();
     expect(parsed.filters.text).toHaveLength(100);
@@ -215,7 +221,43 @@ describe("filtros na URL", () => {
 
   it("período invertido é desvirado", () => {
     const parsed = parseFilters({ de: "2026-10-31", ate: "2026-10-01" }, today);
-    expect([parsed.filters.from, parsed.filters.to]).toEqual(["2026-10-01", "2026-10-31"]);
+    expect(parsed.filters.period).toEqual({ kind: "range", from: "2026-10-01", to: "2026-10-31" });
+  });
+
+  it("meses marcados (M13.3a): um ou vários, em ordem, sem repetir; lixo fica de fora", () => {
+    const parsed = parseFilters({ mes: ["2026-10", "2026-08", "2026-10", "2026-13", "x"] }, today);
+    expect(parsed.filters.period).toEqual({ kind: "months", months: ["2026-08", "2026-10"] });
+    expect(periodRanges(parsed.filters.period)).toEqual([
+      { from: "2026-08-01", to: "2026-08-31" },
+      { from: "2026-10-01", to: "2026-10-31" },
+    ]);
+    expect(periodBounds(parsed.filters.period)).toEqual({ from: "2026-08-01", to: "2026-10-31" });
+    // Trocar os meses tira o de/até, e o contrário
+    const range = parseFilters({ de: "2026-10-01", ate: "2026-10-09" }, today);
+    expect(filtersToQuery(range, { mes: ["2026-09"] })).toBe("mes=2026-09");
+    expect(filtersToQuery(parsed, { de: "2026-10-01", ate: "2026-10-02" })).toBe(
+      "de=2026-10-01&ate=2026-10-02",
+    );
+  });
+
+  it("Pago por com várias pessoas (M13.3a), sem repetir", () => {
+    const parsed = parseFilters({ pago: ["compartilhado", "user_1", "compartilhado"] }, today);
+    expect(parsed.filters.payers).toEqual([
+      { kind: "shared" },
+      { kind: "person", userId: "user_1" },
+    ]);
+    expect(filtersToQuery(parsed)).toBe("mes=2026-10&pago=compartilhado&pago=user_1");
+  });
+
+  it("o que a lista mostra: a conta, o recorte do painel ou a fila do banco", () => {
+    expect(listView(parseFilters({}, today))).toBe("account");
+    expect(listView(parseFilters({ conta: ID, categoria: ID2 }, today))).toBe("account");
+    expect(listView(parseFilters({ categoria: ID2 }, today))).toBe("slice");
+    expect(listView(parseFilters({ volta: "/" }, today))).toBe("slice");
+    expect(listView(parseFilters({ pago: "compartilhado", mes: "2026-09" }, today))).toBe(
+      "account",
+    );
+    expect(listView(parseFilters({ situacao: "recebidos" }, today))).toBe("received");
   });
 
   it("ida e volta: filtersToQuery → parseFilters dá o mesmo", () => {
@@ -227,14 +269,15 @@ describe("filtros na URL", () => {
         categoria: ID2,
         q: "pão",
         tipo: "transferencia",
-        pago: "user_abc-1",
+        pago: ["user_abc-1", "compartilhado"],
       },
       today,
     );
-    const back = parseFilters(
-      Object.fromEntries(new URLSearchParams(filtersToQuery(parsed))),
-      today,
-    );
+    const params: Record<string, string[]> = {};
+    for (const [key, value] of new URLSearchParams(filtersToQuery(parsed))) {
+      params[key] = [...(params[key] ?? []), value];
+    }
+    const back = parseFilters(params, today);
     expect(back.filters).toEqual(parsed.filters);
     expect(back.walletId).toBe(parsed.walletId);
   });

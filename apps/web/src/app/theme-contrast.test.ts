@@ -40,6 +40,18 @@ function mix(fg: string, alpha: number, bg: string): string {
   );
 }
 
+// O vidro da moldura (--glass: rgb(r g b / alfa)), que não é hexadecimal
+function glassOf(selector: string): { color: string; alpha: number } {
+  const start = css.indexOf(`${selector} {`);
+  const body = css.slice(start, css.indexOf("\n}", start));
+  const match = body.match(/--glass:\s*rgb\((\d+) (\d+) (\d+) \/ ([\d.]+)\)/);
+  if (!match) throw new Error(`--glass não encontrado em ${selector}`);
+  const hex = [match[1], match[2], match[3]]
+    .map((v) => Number.parseInt(v!, 10).toString(16).padStart(2, "0"))
+    .join("");
+  return { color: `#${hex}`, alpha: Number.parseFloat(match[4]!) };
+}
+
 export function contrast(a: string, b: string): number {
   const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number];
   return (hi + 0.05) / (lo + 0.05);
@@ -188,6 +200,28 @@ describe("regras do Visual C", () => {
         const glass = mix(t.sidebar!, 0.8, backdrop);
         expect(contrast(t["sidebar-foreground"]!, glass)).toBeGreaterThanOrEqual(4.5);
         expect(contrast(t["sidebar-muted-foreground"]!, glass)).toBeGreaterThanOrEqual(4.5);
+      }
+    },
+  );
+
+  it.each([
+    ["claro", ":root"],
+    ["escuro", ".dark"],
+  ])(
+    "barra do celular de vidro (%s): o nome do item passa por cima de qualquer conteúdo (M13.3a)",
+    (_name, selector) => {
+      const t = { ...tokens(":root"), ...tokens(selector) };
+      const glass = glassOf(selector);
+      // O que passa por baixo da barra quando a página rola: o fundo, um cartão ou, no pior caso,
+      // um botão ou um destaque de cor cheia (o azul do botão, o azul do painel, a lima, o vermelho)
+      const behind = [t.background!, t.card!, t.primary!, t.hero!, t.highlight!, t.expense!];
+      for (const backdrop of behind) {
+        const bar = mix(glass.color, glass.alpha, backdrop);
+        // O nome do item (o escolhido e os outros) é texto: 4,5:1
+        expect(contrast(t.foreground!, bar), `${backdrop}`).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(t["muted-foreground"]!, bar), `${backdrop}`).toBeGreaterThanOrEqual(4.5);
+        // O ícone do escolhido, na cor primária, não é texto: 3:1
+        expect(contrast(t.primary!, bar), `${backdrop}`).toBeGreaterThanOrEqual(3);
       }
     },
   );

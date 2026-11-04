@@ -36,7 +36,7 @@ const KIND: Record<
 const goesFor = (href: string) =>
   href.startsWith("/orcamento")
     ? "Ver o orçamento"
-    : href.startsWith("/lancamentos/recorrencias")
+    : href.startsWith("/fixas")
       ? "Ver as contas fixas"
       : "Ver os lançamentos";
 
