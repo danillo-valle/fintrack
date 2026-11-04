@@ -9,21 +9,26 @@
 // escrita em SQL. O teste de integração confere, lançamento por lançamento, que as três
 // concordam.
 import {
+  ACCOUNTS_WINDOW,
   civilFromDbDate,
   dbDateFromCivil,
   firstDayOf,
   dayOfMonth,
   resolvePayer,
   SHARED_PAYER_PARAM,
+  statementWindow,
+  type AccountKind,
   type CashAccount,
   type CivilDate,
   type MonthKey,
   type NewRecurrence,
+  type PaceWindow,
   type ScheduledRecurrence,
   type SpendingNature,
   type SpendingRow,
 } from "@fintrack/core";
 import type { WalletScope } from "./access";
+import { CASH_JOINS_SQL, CASH_ON_SQL, EXPENSE_SQL, INCOME_SQL } from "./cash";
 import { Prisma, type PrismaClient } from "./generated/prisma/client";
 import { fromDbDecimal } from "./money";
 
@@ -40,15 +45,17 @@ const PAYER_SQL = Prisma.sql`CASE
     ELSE a."holderId"
   END`;
 
-/** A natureza do gasto (spendingNature), em SQL. */
-const NATURE_SQL = Prisma.sql`CASE
+/** A natureza do gasto (spendingNature), em SQL: a parcela do banco também é parcela. */
+export const NATURE_SQL = Prisma.sql`CASE
     WHEN t."recurrenceId" IS NOT NULL THEN 'fixed'
-    WHEN t."installmentGroupId" IS NOT NULL THEN 'installment'
+    WHEN t."installmentGroupId" IS NOT NULL OR t."providerInstallmentCount" IS NOT NULL
+      THEN 'installment'
     ELSE 'variable'
   END`;
 
 type RawSpending = {
   month: string;
+  window: string;
   walletId: string;
   categoryId: string | null;
   payer: string | null;
@@ -60,9 +67,12 @@ type RawSpending = {
 };
 
 /**
- * O gasto e as entradas de `from` a `to` (meses, inclusive), somados por mês, ambiente,
- * categoria, quem pagou, natureza e "até hoje ou depois". Uma consulta só, com o índice
- * (walletId, occurredOn) do M04: com 24 meses de seed, poucos milissegundos.
+ * O gasto e as entradas que contam de `from` a `to` (meses, inclusive), somados por mês, janela,
+ * ambiente, categoria, quem pagou, natureza e "aconteceu até hoje ou depois". O mês é o da data de
+ * caixa (ADR-025): no cartão, o do vencimento da fatura. A janela é a fatura (o ritmo de cada
+ * cartão) ou ACCOUNTS_WINDOW. Entrada e saída pela regra flowOf: no cartão, o estorno abate a
+ * saída. Uma consulta só: o período começa dois meses antes na data da compra (uma compra no
+ * cartão conta até dois meses depois) e a data de caixa filtra o resto.
  */
 export async function spendingRows(
   db: PrismaClient,
@@ -74,28 +84,31 @@ export async function spendingRows(
   const today = dbDateFromCivil(input.today);
   const rows = await db.$queryRaw<RawSpending[]>(Prisma.sql`
     SELECT
-      to_char(t."occurredOn", 'YYYY-MM') AS "month",
+      to_char(${CASH_ON_SQL}, 'YYYY-MM') AS "month",
+      COALESCE(t."statementId"::text, ${ACCOUNTS_WINDOW}) AS "window",
       t."walletId"::text AS "walletId",
       t."categoryId"::text AS "categoryId",
       ${PAYER_SQL} AS "payer",
       ${NATURE_SQL} AS "nature",
       (t."occurredOn" <= ${today}::date) AS "upToToday",
-      COALESCE(SUM(-t."amount") FILTER (WHERE t."amount" < 0), 0) AS "expense",
-      COALESCE(SUM(t."amount") FILTER (WHERE t."amount" > 0), 0) AS "income",
-      MIN(t."occurredOn") FILTER (WHERE t."amount" < 0 AND t."occurredOn" > ${today}::date)
+      COALESCE(SUM(${EXPENSE_SQL}), 0) AS "expense",
+      COALESCE(SUM(${INCOME_SQL}), 0) AS "income",
+      MIN(t."occurredOn") FILTER (WHERE ${EXPENSE_SQL} > 0 AND t."occurredOn" > ${today}::date)
         AS "firstAfterToday"
     FROM "transaction" t
-    JOIN "financial_account" a ON a."id" = t."accountId"
+    ${CASH_JOINS_SQL}
     LEFT JOIN "payment_card" c ON c."id" = t."cardId"
     WHERE t."walletId" = ANY(${walletIdsOf(scope)}::uuid[])
       AND t."deletedAt" IS NULL
       AND t."status" <> 'PENDING' -- recebido do banco: fora das somas até a revisão (ADR-011)
       AND t."transferId" IS NULL
-      AND t."occurredOn" BETWEEN ${from}::date AND ${to}::date
-    GROUP BY 1, 2, 3, 4, 5, 6
+      AND t."occurredOn" BETWEEN (${from}::date - interval '2 months')::date AND ${to}::date
+      AND ${CASH_ON_SQL} BETWEEN ${from}::date AND ${to}::date
+    GROUP BY 1, 2, 3, 4, 5, 6, 7
   `);
   return rows.map((r) => ({
     month: r.month,
+    window: r.window,
     walletId: r.walletId,
     categoryId: r.categoryId,
     payer: r.payer,
@@ -105,6 +118,38 @@ export async function spendingRows(
     income: fromDbDecimal(r.income),
     firstAfterToday: r.firstAfterToday ? civilFromDbDate(r.firstAfterToday) : null,
   }));
+}
+
+type RawWindow = { id: string; closingDate: Date; previousClosingDate: Date | null };
+
+/**
+ * O período de compras de cada fatura (statementWindow do core), para o ritmo do mês (ADR-025):
+ * do fechamento da fatura anterior gravada ao dia antes do fechamento dela.
+ */
+export async function statementWindows(
+  db: PrismaClient,
+  statementIds: readonly string[],
+): Promise<Map<string, PaceWindow>> {
+  if (statementIds.length === 0) return new Map();
+  const rows = await db.$queryRaw<RawWindow[]>(Prisma.sql`
+    SELECT
+      s."id"::text AS "id",
+      s."closingDate" AS "closingDate",
+      (SELECT max(p."closingDate") FROM "card_statement" p
+        WHERE p."accountId" = s."accountId" AND p."closingDate" < s."closingDate")
+        AS "previousClosingDate"
+    FROM "card_statement" s
+    WHERE s."id" = ANY(${[...statementIds]}::uuid[])
+  `);
+  return new Map(
+    rows.map((r) => [
+      r.id,
+      statementWindow({
+        closingDate: civilFromDbDate(r.closingDate),
+        previousClosingDate: r.previousClosingDate ? civilFromDbDate(r.previousClosingDate) : null,
+      }),
+    ]),
+  );
 }
 
 /** Uma recorrência do escopo, pronta para virar previsão (orçamento e fluxo de caixa). */
@@ -183,33 +228,30 @@ export async function recurrencePlans(
 }
 
 type RawCash = {
-  occurredOn: Date;
+  cashOn: Date;
   accountId: string;
   accountName: string;
-  kind: string;
-  closingDay: number | null;
-  dueDay: number | null;
-  statementDue: Date | null;
+  kind: AccountKind;
   fromRecurrence: boolean;
   amount: Prisma.Decimal;
 };
 
-/** Um grupo de lançamentos com o que o fluxo de caixa precisa (data, conta, fatura, sinal). */
+/** Um grupo de lançamentos com o que o fluxo de caixa precisa (data de caixa, conta, sinal). */
 export type CashRow = {
-  occurredOn: CivilDate;
+  /** A data de caixa (ADR-025): o dia, ou o vencimento da fatura no cartão */
+  cashOn: CivilDate;
   accountId: string;
   accountName: string;
-  account: CashAccount;
-  statementDue: CivilDate | null;
+  accountKind: AccountKind;
   fromRecurrence: boolean;
-  /** Soma com sinal (entradas e saídas separadas: uma linha para cada sinal) */
+  /** Soma com sinal (entradas e saídas separadas pela regra flowOf: uma linha para cada) */
   amount: bigint;
 };
 
 /**
- * Os lançamentos que podem cair no fluxo de caixa entre `from` e `to` (datas de caixa). Começa
- * dois meses antes: uma compra no cartão em agosto pode vencer em outubro. Somados por dia, conta,
- * fatura, origem e sinal (o fluxo não precisa de cada compra; a lista mostra cada uma).
+ * Os lançamentos cujo dinheiro se mexe entre `from` e `to` (datas de caixa). Somados por dia,
+ * conta, origem e entrada/saída (o fluxo não precisa de cada compra; a lista mostra cada uma). No
+ * cartão, tudo é saída: o estorno diminui a fatura.
  */
 export async function cashRows(
   db: PrismaClient,
@@ -219,38 +261,28 @@ export async function cashRows(
 ): Promise<CashRow[]> {
   const rows = await db.$queryRaw<RawCash[]>(Prisma.sql`
     SELECT
-      t."occurredOn" AS "occurredOn",
+      ${CASH_ON_SQL} AS "cashOn",
       t."accountId"::text AS "accountId",
       a."name" AS "accountName",
       a."kind"::text AS "kind",
-      a."closingDay" AS "closingDay",
-      a."dueDay" AS "dueDay",
-      s."dueDate" AS "statementDue",
       (t."recurrenceId" IS NOT NULL) AS "fromRecurrence",
       SUM(t."amount") AS "amount"
     FROM "transaction" t
-    JOIN "financial_account" a ON a."id" = t."accountId"
-    LEFT JOIN "card_statement" s ON s."id" = t."statementId"
+    ${CASH_JOINS_SQL}
     WHERE t."walletId" = ANY(${walletIdsOf(scope)}::uuid[])
       AND t."deletedAt" IS NULL
       AND t."status" <> 'PENDING' -- recebido do banco: fora das somas até a revisão (ADR-011)
       AND t."transferId" IS NULL
       AND t."occurredOn" BETWEEN (${dbDateFromCivil(from)}::date - interval '2 months')::date
                              AND ${dbDateFromCivil(to)}::date
-    GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, (t."amount" > 0)
+      AND ${CASH_ON_SQL} BETWEEN ${dbDateFromCivil(from)}::date AND ${dbDateFromCivil(to)}::date
+    GROUP BY 1, 2, 3, 4, 5, (${INCOME_SQL} > 0)
   `);
   return rows.map((r) => ({
-    occurredOn: civilFromDbDate(r.occurredOn),
+    cashOn: civilFromDbDate(r.cashOn),
     accountId: r.accountId,
     accountName: r.accountName,
-    account: {
-      kind: r.kind,
-      cycle:
-        r.closingDay !== null && r.dueDay !== null
-          ? { closingDay: r.closingDay, dueDay: r.dueDay }
-          : null,
-    },
-    statementDue: r.statementDue ? civilFromDbDate(r.statementDue) : null,
+    accountKind: r.kind,
     fromRecurrence: r.fromRecurrence,
     amount: fromDbDecimal(r.amount),
   }));

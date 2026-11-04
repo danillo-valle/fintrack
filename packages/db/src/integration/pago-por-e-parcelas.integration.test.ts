@@ -1,7 +1,7 @@
 // "Pago por", parcelas e despesas fixas contra o Postgres (M07.4, ADR-009).
 //
 // Rode com: pnpm test:integration
-import { resolvePayer } from "@fintrack/core";
+import { resolvePayer, type PayerFilter } from "@fintrack/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   authorizeAccountUse,
@@ -13,6 +13,7 @@ import {
 import { setCardSharedPurchases } from "../accounts";
 import { createInstallmentPurchase } from "../installments";
 import { createFixedExpense, generateRecurrences } from "../recurrences";
+import { monthAsRange } from "../cash";
 import { createTransaction, listTransactions, sumTransactions } from "../transactions";
 import {
   auditActions,
@@ -46,7 +47,9 @@ async function accountGrant(userId: string, accountId: string) {
   return access.grant;
 }
 const viewScope = (userId: string) => authorizeScope(prisma, userId, "view");
-const OCTOBER = { from: "2026-10-01", to: "2026-10-31" } as const;
+const OCTOBER = { periods: [monthAsRange("2026-10")] };
+/** Outubro e novembro: a compra de 07/10 no cartão (fecha 3, vence 9) conta em novembro */
+const OCTOBER_AND_NOVEMBER = { periods: [monthAsRange("2026-10"), monthAsRange("2026-11")] };
 
 describe("compra parcelada", () => {
   async function buy(count: number, cents = 4235n, purchasedOn = "2026-10-08") {
@@ -98,16 +101,17 @@ describe("compra parcelada", () => {
     expect(statements).toBe(2);
   });
 
-  it("a lista de cada mês mostra só a parcela daquele mês, com 'k de N'", async () => {
+  it("a lista de cada mês mostra a parcela que vence nele, com 'k de N' (ADR-025)", async () => {
+    // Compra em 08/10 num cartão que fecha dia 3 e vence dia 9: a 1ª parcela vence em 09/11
     await buy(3);
     const scope = await viewScope(h.holder.id);
     const october = await listTransactions(prisma, scope, OCTOBER);
-    expect(october.items.map((i) => i.installment)).toEqual([{ number: 1, count: 3 }]);
-    const november = await listTransactions(prisma, scope, {
-      from: "2026-11-01",
-      to: "2026-11-30",
-    });
-    expect(november.items.map((i) => i.installment)).toEqual([{ number: 2, count: 3 }]);
+    expect(october.items).toEqual([]);
+    const november = await listTransactions(prisma, scope, { periods: [monthAsRange("2026-11")] });
+    expect(november.items.map((i) => i.installment)).toEqual([{ number: 1, count: 3 }]);
+    const december = await listTransactions(prisma, scope, { periods: [monthAsRange("2026-12")] });
+    expect(december.items.map((i) => i.installment)).toEqual([{ number: 2, count: 3 }]);
+    expect(december.items[0]?.cashOn).toBe("2026-12-09");
   });
 
   it("só no cartão de crédito, e de 2 a 24 parcelas", async () => {
@@ -198,9 +202,9 @@ describe("pago por", () => {
     await spend(h.card.id, h.additionalCard.id, "Mercado do casal");
 
     const scope = await viewScope(h.holder.id);
-    const all = (await listTransactions(prisma, scope, OCTOBER)).items;
-    const byPayer = async (payer: Parameters<typeof listTransactions>[2]["payer"]) =>
-      (await listTransactions(prisma, scope, { ...OCTOBER, payer })).items
+    const all = (await listTransactions(prisma, scope, OCTOBER_AND_NOVEMBER)).items;
+    const byPayer = async (payer: PayerFilter) =>
+      (await listTransactions(prisma, scope, { ...OCTOBER_AND_NOVEMBER, payers: [payer] })).items
         .map((i) => i.description)
         .sort();
 
@@ -219,7 +223,10 @@ describe("pago por", () => {
       expect(item.payer).toEqual(resolvePayer({ card: item.card, account: item.account }));
     }
     // E os totais usam o mesmo WHERE
-    const shared = await sumTransactions(prisma, scope, { ...OCTOBER, payer: { kind: "shared" } });
+    const shared = await sumTransactions(prisma, scope, {
+      ...OCTOBER_AND_NOVEMBER,
+      payers: [{ kind: "shared" }],
+    });
     expect(shared.expense).toBe(-2000n);
     expect(await auditActions(h.householdId)).toContain("card.shared_purchases_changed");
   });

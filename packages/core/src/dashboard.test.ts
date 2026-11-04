@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { subtreeOf, type CategoryNode } from "./budget";
+import { ACCOUNTS_WINDOW, subtreeOf, type CategoryNode } from "./budget";
 import type { MonthKey } from "./dates";
 import {
   budgetRows,
@@ -7,6 +7,7 @@ import {
   figuresFor,
   incomeUpToToday,
   monthlySeries,
+  monthResult,
   spendingByGroup,
   spentIn,
   type BudgetRecord,
@@ -17,6 +18,7 @@ import { decimalToCents } from "./money";
 
 const brl = decimalToCents;
 const TODAY = "2026-10-09";
+const NO_WINDOWS = new Map();
 const CASA = "casa";
 const DAN = "danillo";
 
@@ -30,6 +32,7 @@ const nodes: CategoryNode[] = [
 ];
 
 const row = (r: Partial<SpendingRow> & Pick<SpendingRow, "month">): SpendingRow => ({
+  window: ACCOUNTS_WINDOW,
   walletId: CASA,
   categoryId: "mercado",
   payer: "dv",
@@ -91,8 +94,41 @@ describe("figuresFor e as somas de um recorte", () => {
     ).toEqual({
       spent: brl("482.35"),
       variableSpent: brl("482.35"),
+      variableByWindow: new Map([[ACCOUNTS_WINDOW, brl("482.35")]]),
       scheduled: 0n,
       pendingRecurrences: 0n,
+    });
+  });
+
+  it("o variável de cada fatura fica na janela dela (ADR-025)", () => {
+    const card = [
+      row({ month: "2026-11", window: "fatura-nov", expense: brl("120") }),
+      row({ month: "2026-11", window: "fatura-nov", expense: brl("30") }),
+      row({ month: "2026-11", expense: brl("50") }),
+    ];
+    const f = figuresFor(card, [], "2026-11", {});
+    expect(f.variableByWindow).toEqual(
+      new Map([
+        ["fatura-nov", brl("150")],
+        [ACCOUNTS_WINDOW, brl("50")],
+      ]),
+    );
+    expect(f.variableSpent).toBe(brl("200"));
+  });
+
+  it("o resultado do mês: entradas, o que saiu das contas e as faturas (M13.3a)", () => {
+    const mixed = [
+      row({ month: "2026-11", expense: brl("38.40") }),
+      row({ month: "2026-11", window: "fatura-nov", expense: brl("2318.40") }),
+      row({ month: "2026-11", categoryId: null, income: brl("9850") }),
+      row({ month: "2026-11", expense: brl("99"), upToToday: false }),
+      row({ month: "2026-12", window: "fatura-dez", expense: brl("10") }),
+    ];
+    expect(monthResult(mixed, "2026-11", {})).toEqual({
+      income: brl("9850"),
+      accounts: brl("38.40"),
+      cards: brl("2318.40"),
+      net: brl("7493.20"),
     });
   });
 
@@ -110,6 +146,7 @@ describe("figuresFor e as somas de um recorte", () => {
     expect(f).toEqual({
       spent: 0n,
       variableSpent: 0n,
+      variableByWindow: new Map(),
       scheduled: brl("2200"),
       pendingRecurrences: brl("100"),
     });
@@ -138,6 +175,7 @@ describe("spendingByGroup (Início)", () => {
       nodes,
       month: "2026-10",
       today: TODAY,
+      windows: NO_WINDOWS,
       slice: {},
     });
     expect(groups.map((g) => g.groupId)).toEqual(["moradia", "alimentacao", "lazer"]);
@@ -154,6 +192,7 @@ describe("spendingByGroup (Início)", () => {
       nodes,
       month: "2026-10",
       today: TODAY,
+      windows: NO_WINDOWS,
       slice: { walletId: DAN },
     });
     expect(groups.map((g) => g.groupId)).toEqual(["lazer"]);
@@ -185,6 +224,7 @@ describe("budgetRows (Orçamento, por ambiente e por pessoa)", () => {
       nodes,
       month: "2026-10",
       today: TODAY,
+      windows: NO_WINDOWS,
       payer: null,
     });
     expect(mercado?.projection.projected).toBe(brl("1661.43"));
@@ -204,6 +244,7 @@ describe("budgetRows (Orçamento, por ambiente e por pessoa)", () => {
       nodes,
       month: "2026-10",
       today: TODAY,
+      windows: NO_WINDOWS,
       payer: null,
     });
     const aluguel = rowsOut.find((r) => r.categoryId === "aluguel");
@@ -220,6 +261,7 @@ describe("budgetRows (Orçamento, por ambiente e por pessoa)", () => {
       nodes,
       month: "2026-10",
       today: TODAY,
+      windows: NO_WINDOWS,
       payer: "nv",
     });
     expect(rowsOut.find((r) => r.categoryId === "mercado")).toMatchObject({
@@ -250,6 +292,7 @@ describe("monthlySeries (Evolução)", () => {
       nodes,
       months: ["2026-08", "2026-09", "2026-10"],
       today: TODAY,
+      windows: NO_WINDOWS,
       slice: { categories: new Set(["alimentacao", "mercado", "feira"]) },
     });
     expect(series).toEqual([
@@ -275,6 +318,7 @@ describe("monthlySeries (Evolução)", () => {
       nodes,
       months: ["2026-10"],
       today: TODAY,
+      windows: NO_WINDOWS,
       slice: { categories: new Set(["mercado"]), payer: "nv" },
     });
     expect(series[0]).toMatchObject({ spent: brl("197.25"), budget: brl("500") });
@@ -286,7 +330,16 @@ describe("monthlySeries (Evolução)", () => {
     ];
     const months: MonthKey[] = ["2026-10"];
     // Tudo que vejo: o Lazer do ambiente pessoal não tem orçado
-    const all = monthlySeries({ rows, pending, budgets, nodes, months, today: TODAY, slice: {} });
+    const all = monthlySeries({
+      rows,
+      pending,
+      budgets,
+      nodes,
+      months,
+      today: TODAY,
+      slice: {},
+      windows: NO_WINDOWS,
+    });
     expect(all[0]?.budget).toBeNull();
     // Moradia: o aluguel não está orçado
     const housing = monthlySeries({
@@ -299,6 +352,7 @@ describe("monthlySeries (Evolução)", () => {
       nodes,
       months,
       today: TODAY,
+      windows: NO_WINDOWS,
       slice: { categories: subtreeOf("moradia", nodes) },
     });
     expect(housing[0]?.budget).toBeNull();
@@ -310,6 +364,7 @@ describe("monthlySeries (Evolução)", () => {
       nodes,
       months,
       today: TODAY,
+      windows: NO_WINDOWS,
       slice: { categories: subtreeOf("alimentacao", nodes) },
     });
     expect(food[0]?.budget).toBe(brl("1400"));
@@ -321,6 +376,7 @@ describe("monthlySeries (Evolução)", () => {
       nodes,
       months,
       today: TODAY,
+      windows: NO_WINDOWS,
       slice: { categories: new Set(["mercado"]), payer: "dv" },
     });
     expect(dv[0]?.budget).toBeNull();

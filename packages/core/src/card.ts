@@ -15,8 +15,11 @@
 // Confira no seu banco; no M09, a fatura oficial (Open Finance) confirma ou corrige.
 import { installmentAmounts, type Cents } from "./money";
 import {
+  addDays,
+  addMonths,
   addMonthsToKey,
   compareCivil,
+  daysBetween,
   dayOfMonth,
   monthOf,
   parseCivilDate,
@@ -143,4 +146,65 @@ export function installmentEntries(input: {
       status: compareCivil(occurredOn, input.today) <= 0 ? "CONFIRMED" : "SCHEDULED",
     };
   });
+}
+
+// ── O período de uma fatura gravada (M13.3a, ADR-025) ───────────────────────────
+
+/**
+ * Até quantos dias depois do fechamento anterior a fatura seguinte ainda começa nele. Um ciclo
+ * tem de 28 a 31 dias, e o banco às vezes muda o dia do fechamento (3 → 5); mais que isso é uma
+ * fatura que não foi gravada no meio (um mês sem compra), e o período volta a ser de um mês.
+ * O mesmo número está na função `fintrack_statement_for` do banco (migração do M13.3a).
+ */
+export const STATEMENT_GAP_DAYS = 45;
+
+/**
+ * O período das compras de uma fatura gravada: do fechamento anterior (inclusive) até o dia
+ * antes do fechamento dela. Sem fechamento anterior próximo, um mês antes do fechamento.
+ *
+ *   statementWindow({ closingDate: "2026-11-03", previousClosingDate: "2026-10-03" })
+ *   → { start: "2026-10-03", end: "2026-11-02" }
+ */
+export function statementWindow(input: {
+  closingDate: CivilDate;
+  previousClosingDate: CivilDate | null;
+}): { start: CivilDate; end: CivilDate } {
+  const { closingDate, previousClosingDate } = input;
+  const contiguous =
+    previousClosingDate !== null &&
+    compareCivil(previousClosingDate, closingDate) < 0 &&
+    daysBetween(previousClosingDate, closingDate) <= STATEMENT_GAP_DAYS;
+  const start = contiguous ? previousClosingDate : addMonths(closingDate, -1);
+  return { start, end: addDays(closingDate, -1) };
+}
+
+/**
+ * Em que pé está uma fatura hoje (a página de Cartões, M13.3a):
+ *   upcoming  ainda não abriu (só parcelas já marcadas para ela)
+ *   open      aberta: ainda entram compras
+ *   closed    fechada, esperando o pagamento
+ *   paid      paga
+ */
+export type StatementState = "upcoming" | "open" | "closed" | "paid";
+
+export function statementState(input: {
+  window: { start: CivilDate; end: CivilDate };
+  today: CivilDate;
+  paid: boolean;
+}): StatementState {
+  if (compareCivil(input.today, input.window.start) < 0) return "upcoming";
+  if (compareCivil(input.today, input.window.end) <= 0) return "open";
+  return input.paid ? "paid" : "closed";
+}
+
+/**
+ * A fatura que a página de Cartões abre primeiro (M13.3a): a primeira que ainda vai vencer (a
+ * aberta, ou a fechada esperando o pagamento); sem nenhuma, a última que venceu. `statements` em
+ * ordem de vencimento.
+ */
+export function defaultStatement<T extends { dueDate: CivilDate }>(
+  statements: readonly T[],
+  today: CivilDate,
+): T | null {
+  return statements.find((s) => compareCivil(s.dueDate, today) >= 0) ?? statements.at(-1) ?? null;
 }

@@ -56,7 +56,7 @@ afterEach(async () => {
   await Promise.all([deleteTestHousehold(h), deleteTestHousehold(other)]);
 });
 
-const OCTOBER: TransactionFilters = { from: "2026-10-01", to: "2026-10-31" };
+const OCTOBER: TransactionFilters = { periods: [{ from: "2026-10-01", to: "2026-10-31" }] };
 
 async function walletGrant<A extends "view" | "edit" | "export">(
   userId: string,

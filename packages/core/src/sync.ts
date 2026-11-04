@@ -145,6 +145,28 @@ export function statementForDueDate(
 }
 
 /**
+ * A fatura (competência) de uma Bill do banco num cartão ligado (ADR-025). O banco é a fonte mais
+ * confiável: ele informa o fechamento da fatura aberta (`bankCloseDate`), e o dia do mês desse
+ * fechamento vale também para as faturas que ele já fechou, mesmo que o ciclo cadastrado na conta
+ * diga outro dia. A Bill fecha nesse dia, no mês do vencimento ou no anterior (sempre antes dele).
+ * Sem a data do banco, a regra do ciclo (`statementForDueDate`).
+ */
+export function bankBillStatement(
+  dueDate: CivilDate,
+  bankCloseDate: CivilDate | null,
+  cycle: CardCycle | null,
+): Statement {
+  if (!bankCloseDate) return statementForDueDate(dueDate, cycle);
+  const day = parseCivilDate(bankCloseDate).day;
+  const dueMonth = monthOf(dueDate);
+  let closingDate = dayOfMonth(dueMonth, day);
+  if (compareCivil(closingDate, dueDate) >= 0) {
+    closingDate = dayOfMonth(addMonthsToKey(dueMonth, -1), day);
+  }
+  return { referenceMonth: monthOf(closingDate), closingDate, dueDate };
+}
+
+/**
  * A fatura aberta hoje e o período das compras que entram nela: do fechamento anterior
  * (inclusive) até o dia antes do próximo fechamento.
  *

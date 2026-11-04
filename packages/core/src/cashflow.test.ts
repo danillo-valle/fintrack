@@ -7,12 +7,13 @@ import {
   isAfter,
   pendingOccurrences,
   type CashMovement,
+  type CashAccount,
 } from "./cashflow";
 import { decimalToCents } from "./money";
 
 const brl = decimalToCents;
-const card = { kind: "CREDIT_CARD", cycle: { closingDay: 3, dueDay: 10 } };
-const checking = { kind: "CHECKING", cycle: null };
+const card: CashAccount = { kind: "CREDIT_CARD", cycle: { closingDay: 3, dueDay: 10 } };
+const checking: CashAccount = { kind: "CHECKING", cycle: null };
 
 describe("cashDateFor: quando o dinheiro sai", () => {
   it("compra no cartão sai no vencimento da fatura", () => {
@@ -32,9 +33,14 @@ describe("cashDateFor: quando o dinheiro sai", () => {
 
 describe("cashBucketOf", () => {
   it("entrada, fixa (recorrência) ou outra saída", () => {
-    expect(cashBucketOf(brl("8450"), true)).toBe("income");
-    expect(cashBucketOf(brl("-2200"), true)).toBe("fixed");
-    expect(cashBucketOf(brl("-42.35"), false)).toBe("other");
+    const conta = (amount: bigint) => ({ amount, accountKind: "CHECKING" as const });
+    expect(cashBucketOf(conta(brl("8450")), true)).toBe("income");
+    expect(cashBucketOf(conta(brl("-2200")), true)).toBe("fixed");
+    expect(cashBucketOf(conta(brl("-42.35")), false)).toBe("other");
+  });
+
+  it("no cartão, o estorno é saída (abate a fatura), nunca entrada (ADR-025)", () => {
+    expect(cashBucketOf({ amount: brl("50"), accountKind: "CREDIT_CARD" }, false)).toBe("other");
   });
 });
 
@@ -86,7 +92,7 @@ describe("cashFlow: o resultado do mês, acumulado a partir de zero", () => {
           const movements = items.map((i) => ({
             date: `${months[i.m]}-${String(i.day).padStart(2, "0")}`,
             amount: i.cents,
-            bucket: cashBucketOf(i.cents, i.m === 1),
+            bucket: cashBucketOf({ amount: i.cents, accountKind: "CHECKING" }, i.m === 1),
           }));
           const rows = cashFlow(movements, months);
           const total = movements.reduce((s, x) => s + x.amount, 0n);
@@ -105,21 +111,22 @@ describe("pendingOccurrences: recorrência que ainda não virou lançamento", ()
     endsOn: null,
     amount: brl("-2200"),
     materialized: new Set(["2026-10"]),
+    account: checking,
   };
 
   it("pula o mês já lançado e o mês fechado; entra o futuro", () => {
     expect(
       pendingOccurrences(aluguel, ["2026-09", "2026-10", "2026-11", "2026-12"], "2026-10-09"),
     ).toEqual([
-      { month: "2026-11", date: "2026-11-10" },
-      { month: "2026-12", date: "2026-12-10" },
+      { month: "2026-11", date: "2026-11-10", cashDate: "2026-11-10" },
+      { month: "2026-12", date: "2026-12-10", cashDate: "2026-12-10" },
     ]);
   });
 
   it("o mês de hoje ainda não lançado conta, mesmo com o dia já passado", () => {
     const luz = { ...aluguel, dayOfMonth: 5, materialized: new Set<string>() };
     expect(pendingOccurrences(luz, ["2026-10"], "2026-10-09")).toEqual([
-      { month: "2026-10", date: "2026-10-05" },
+      { month: "2026-10", date: "2026-10-05", cashDate: "2026-10-05" },
     ]);
   });
 
@@ -131,8 +138,32 @@ describe("pendingOccurrences: recorrência que ainda não virou lançamento", ()
       materialized: new Set<string>(),
     };
     expect(pendingOccurrences(curta, ["2026-10", "2026-11", "2026-12"], "2026-10-09")).toEqual([
-      { month: "2026-11", date: "2026-11-10" },
+      { month: "2026-11", date: "2026-11-10", cashDate: "2026-11-10" },
     ]);
+  });
+
+  it("no cartão, conta no mês do vencimento da fatura em que cai (ADR-025)", () => {
+    // Assinatura do dia 28 num cartão que fecha no dia 3 e vence no 9: a de 28/10 vai para a
+    // fatura que fecha em 03/11 e vence em 09/11; a de 28/11, para a que vence em 09/12
+    const spotify = {
+      ...aluguel,
+      dayOfMonth: 28,
+      amount: brl("-21.90"),
+      materialized: new Set<string>(),
+      account: { kind: "CREDIT_CARD" as const, cycle: { closingDay: 3, dueDay: 9 } },
+    };
+    expect(pendingOccurrences(spotify, ["2026-11", "2026-12"], "2026-10-09")).toEqual([
+      { month: "2026-11", date: "2026-10-28", cashDate: "2026-11-09" },
+      { month: "2026-12", date: "2026-11-28", cashDate: "2026-12-09" },
+    ]);
+    // Já lançada em outubro (o mês da ocorrência): novembro fica só com... nada
+    expect(
+      pendingOccurrences(
+        { ...spotify, materialized: new Set(["2026-10"]) },
+        ["2026-11"],
+        "2026-10-09",
+      ),
+    ).toEqual([]);
   });
 
   it("isAfter", () => {

@@ -5,6 +5,7 @@
 // de lançamentos entende (ambiente, categoria com as de baixo, Pago por, período). É isso que
 // garante que todo número leva aos lançamentos que o compõem e que o total bate com a lista.
 import {
+  ACCOUNTS_WINDOW,
   addFigures,
   averageCents,
   budgetStatus,
@@ -12,6 +13,7 @@ import {
   monthsBefore,
   NO_FIGURES,
   projectMonth,
+  type PaceWindow,
   subtreeOf,
   type BudgetShare,
   type BudgetStatus,
@@ -23,15 +25,21 @@ import {
 import { monthOf, type CivilDate, type MonthKey } from "./dates";
 import { sumCents, type Cents } from "./money";
 
-/** O gasto somado pelo banco para um recorte. `expense` e `income` são positivos. */
+/**
+ * O gasto somado pelo banco para um recorte. `expense` e `income` são positivos (no cartão, um
+ * estorno diminui o `expense`: flowOf, ADR-025). O mês é o da data de caixa: no cartão, o do
+ * vencimento da fatura.
+ */
 export type SpendingRow = {
   month: MonthKey;
+  /** A janela do ritmo: ACCOUNTS_WINDOW ou o id da fatura do cartão (ADR-025) */
+  window: string;
   walletId: string;
   categoryId: string | null;
   /** "Pago por": o id da pessoa, "compartilhado" ou null (sem titular nem portador) */
   payer: string | null;
   nature: SpendingNature;
-  /** true: do dia 1 até hoje; false: depois de hoje (agendado) */
+  /** true: aconteceu até hoje; false: depois de hoje (agendado) */
   upToToday: boolean;
   /** Saídas (soma dos valores negativos, sem transferências), em positivo */
   expense: Cents;
@@ -81,9 +89,11 @@ export function figuresFor(
   let f = NO_FIGURES;
   for (const r of rows) {
     if (r.month !== month || !matches(r, slice)) continue;
+    const variable = r.upToToday && r.nature === "variable" ? r.expense : 0n;
     f = addFigures(f, {
       spent: r.upToToday ? r.expense : 0n,
-      variableSpent: r.upToToday && r.nature === "variable" ? r.expense : 0n,
+      variableSpent: variable,
+      variableByWindow: new Map(variable === 0n ? [] : [[r.window, variable]]),
       scheduled: r.upToToday ? 0n : r.expense,
       pendingRecurrences: 0n,
     });
@@ -108,6 +118,30 @@ export function incomeUpToToday(
   return sumCents(
     rows.filter((r) => r.month === month && r.upToToday && matches(r, slice)).map((r) => r.income),
   );
+}
+
+/**
+ * O resultado do mês até hoje (M13.3a, o "Resultado" do Início): as entradas nas contas e as
+ * saídas, separadas entre o que saiu das contas (débito, Pix, boleto) e as faturas que vencem no
+ * mês. Cada compra conta uma vez, no mês da data de caixa (ADR-025).
+ */
+export type MonthResult = { income: Cents; accounts: Cents; cards: Cents; net: Cents };
+
+export function monthResult(
+  rows: readonly SpendingRow[],
+  month: MonthKey,
+  slice: Slice,
+): MonthResult {
+  let income = 0n;
+  let accounts = 0n;
+  let cards = 0n;
+  for (const r of rows) {
+    if (r.month !== month || !r.upToToday || !matches(r, slice)) continue;
+    income += r.income;
+    if (r.window === ACCOUNTS_WINDOW) accounts += r.expense;
+    else cards += r.expense;
+  }
+  return { income, accounts, cards, net: income - accounts - cards };
 }
 
 /** As comparações de um recorte: o mês passado e a média dos 6 meses fechados antes do mês. */
@@ -155,6 +189,8 @@ export function spendingByGroup(input: {
   month: MonthKey;
   today: CivilDate;
   slice: Slice;
+  /** As janelas das faturas do mês (o ritmo de cada cartão) */
+  windows: ReadonlyMap<string, PaceWindow>;
 }): GroupSpending[] {
   const parents = new Map(input.nodes.map((n) => [n.id, n.parentId] as const));
   const groups = new Set<string | null>();
@@ -172,6 +208,7 @@ export function spendingByGroup(input: {
       input.month,
       input.today,
       figuresFor(input.rows, input.pending, input.month, slice),
+      input.windows,
     );
     const comparison = comparisonFor(input.rows, input.month, slice);
     if (projection.projected === 0n && comparison.average6 === 0n && comparison.lastMonth === 0n)
@@ -236,6 +273,7 @@ export function budgetRows(input: {
   month: MonthKey;
   today: CivilDate;
   payer: string | null;
+  windows: ReadonlyMap<string, PaceWindow>;
 }): BudgetRow[] {
   return input.budgets
     .filter((b) => b.month === input.month)
@@ -244,7 +282,7 @@ export function budgetRows(input: {
       const base: Slice = { walletId: b.walletId, categories };
       const slice: Slice = { ...base, payer: input.payer };
       const figures = figuresFor(input.rows, input.pending, input.month, slice);
-      const projection = projectMonth(input.month, input.today, figures);
+      const projection = projectMonth(input.month, input.today, figures, input.windows);
       const share = input.payer ? b.shares.find((s) => s.payer === input.payer) : null;
       const budget = input.payer ? (share ? share.cents : null) : b.cents;
       const parts = input.payer
@@ -255,6 +293,7 @@ export function budgetRows(input: {
               input.month,
               input.today,
               figuresFor(input.rows, input.pending, input.month, partSlice),
+              input.windows,
             );
             return {
               payer: s.payer,
@@ -317,6 +356,7 @@ export function monthlySeries(input: {
   months: readonly MonthKey[];
   today: CivilDate;
   slice: Slice;
+  windows: ReadonlyMap<string, PaceWindow>;
 }): MonthPoint[] {
   const { slice } = input;
   const inSlice = input.budgets.filter(
@@ -328,7 +368,12 @@ export function monthlySeries(input: {
   );
   const reach = new Map(inSlice.map((b) => [b, subtreeOf(b.categoryId, input.nodes)] as const));
   return input.months.map((month) => {
-    const p = projectMonth(month, input.today, figuresFor(input.rows, input.pending, month, slice));
+    const p = projectMonth(
+      month,
+      input.today,
+      figuresFor(input.rows, input.pending, month, slice),
+      input.windows,
+    );
     const inMonth = inSlice.filter((b) => b.month === month);
     // Todo gasto do recorte no mês precisa estar debaixo de algum orçado do mesmo ambiente
     const covered = (r: { walletId: string; categoryId: string | null }) =>

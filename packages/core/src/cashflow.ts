@@ -13,8 +13,9 @@
 // Decisões do Danillo (M08): horizonte de 6 meses e ponto de partida zero (o "resultado do mês",
 // acumulado). O saldo real das contas chega com o Open Finance (M09) e passa a ser o começo.
 import { statementFor, type CardCycle } from "./card";
-import { compareCivil, monthOf, type CivilDate, type MonthKey } from "./dates";
-import { occurrenceIn, type RecurrenceLike } from "./transactions";
+import { addMonthsToKey, compareCivil, monthOf, type CivilDate, type MonthKey } from "./dates";
+import { flowOf } from "./flow";
+import { occurrenceIn, type AccountKind, type RecurrenceLike } from "./transactions";
 import type { Cents } from "./money";
 
 /** Os três grupos da tabela: entradas, despesas fixas e o resto (faturas e outras saídas). */
@@ -24,7 +25,7 @@ export type CashBucket = "income" | "fixed" | "other";
 export type CashMovement = { date: CivilDate; amount: Cents; bucket: CashBucket };
 
 /** A conta de um lançamento, o suficiente para achar a data de caixa. */
-export type CashAccount = { kind: string; cycle: CardCycle | null };
+export type CashAccount = { kind: AccountKind; cycle: CardCycle | null };
 
 /**
  * A data em que o dinheiro sai (ou entra). Fatura já gravada (statementId) manda; sem ela, o
@@ -42,9 +43,15 @@ export function cashDateFor(
   return occurredOn;
 }
 
-/** Entrada, despesa fixa (de uma recorrência) ou outra saída. */
-export function cashBucketOf(amount: Cents, fromRecurrence: boolean): CashBucket {
-  if (amount > 0n) return "income";
+/**
+ * Entrada, despesa fixa (de uma recorrência) ou outra saída, pela regra flowOf (ADR-025): no
+ * cartão, o estorno é uma saída negativa (abate a fatura), nunca uma entrada.
+ */
+export function cashBucketOf(
+  t: { amount: Cents; accountKind: AccountKind },
+  fromRecurrence: boolean,
+): CashBucket {
+  if (flowOf(t) === "income") return "income";
   return fromRecurrence ? "fixed" : "other";
 }
 
@@ -94,24 +101,41 @@ export type ScheduledRecurrence = RecurrenceLike & {
   amount: Cents;
   /** Os meses em que ela JÁ gerou lançamento (esses não contam de novo) */
   materialized: ReadonlySet<MonthKey>;
+  /** A conta: no cartão, a ocorrência conta no vencimento da fatura em que cai (ADR-025) */
+  account: CashAccount;
 };
 
+/** Uma ocorrência ainda não lançada: o mês em que conta, o dia dela e o dia em que o dinheiro sai. */
+export type PendingOccurrence = { month: MonthKey; date: CivilDate; cashDate: CivilDate };
+
 /**
- * As ocorrências de uma recorrência nos meses pedidos que ainda não viraram lançamento. Mês já
- * fechado não entra: se a conta não foi lançada, ela não aconteceu no FinTrack, e o orçamento de
- * um mês que passou mostra só o que aconteceu.
+ * As ocorrências de uma recorrência que ainda não viraram lançamento e contam nos meses pedidos.
+ * Conta no mês da data de caixa (ADR-025): a assinatura do dia 28 num cartão que fecha no dia 3
+ * conta no mês do vencimento daquela fatura, como uma compra. Ocorrência de mês já fechado não
+ * entra: se a conta não foi lançada, ela não aconteceu no FinTrack, e o orçamento de um mês que
+ * passou mostra só o que aconteceu. "Já lançada" é pelo mês da ocorrência (`materialized`).
  */
 export function pendingOccurrences(
   recurrence: ScheduledRecurrence,
   months: readonly MonthKey[],
   today: CivilDate,
-): { month: MonthKey; date: CivilDate }[] {
+): PendingOccurrence[] {
+  if (months.length === 0) return [];
+  const wanted = new Set(months);
   const current = monthOf(today);
-  const result: { month: MonthKey; date: CivilDate }[] = [];
-  for (const month of months) {
+  const sorted = [...months].sort();
+  // Uma ocorrência no cartão conta até dois meses depois (compra depois do fechamento, vencimento
+  // no mês seguinte ao do fechamento): começa a olhar dois meses antes do primeiro mês pedido
+  const first = addMonthsToKey(sorted[0] as MonthKey, -2);
+  const last = sorted.at(-1) as MonthKey;
+  const result: PendingOccurrence[] = [];
+  for (let month = first; month <= last; month = addMonthsToKey(month, 1)) {
     if (month < current || recurrence.materialized.has(month)) continue;
     const date = occurrenceIn(recurrence, month);
-    if (date) result.push({ month, date });
+    if (!date) continue;
+    const cashDate = cashDateFor(date, recurrence.account);
+    const counted = monthOf(cashDate);
+    if (wanted.has(counted)) result.push({ month: counted, date, cashDate });
   }
   return result;
 }

@@ -485,10 +485,10 @@ describe("a medida: o percentual sem IA e cada número leva à lista", () => {
     expect(stats).toMatchObject({ total: 9, automatic: 6, automaticTenths: 667 });
 
     for (const key of ["RULE", "HISTORY", "PROVIDER", "CLASSIFIER", "MANUAL"] as const) {
-      const list = await listTransactions(prisma, scope, { ...period, categorizedBy: key });
+      const list = await listTransactions(prisma, scope, { periods: [period], categorizedBy: key });
       expect(list.items.length, key).toBe(count[key]);
     }
-    const none = await listTransactions(prisma, scope, { ...period, categoryId: "none" });
+    const none = await listTransactions(prisma, scope, { periods: [period], categoryId: "none" });
     expect(none.items.length).toBe(1);
   });
 });

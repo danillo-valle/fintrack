@@ -3,6 +3,7 @@
 // fora das somas e as regras novas do banco. Tudo contra a Pluggy DE MENTIRA (banco sintético):
 // nenhum teste chama a Pluggy de verdade.
 import { randomBytes } from "node:crypto";
+import type { CivilDate } from "@fintrack/core";
 import { PluggyProvider } from "@fintrack/importers";
 import {
   createFakePluggy,
@@ -19,7 +20,9 @@ import {
   authorizeScope,
   authorizeTransaction,
   fromDbDecimal,
-  cardStatementView,
+  fromDbDecimalOrNull,
+  cardStatements,
+  statementPurchases,
   linkAccounts,
   listTransactions,
   openSecret,
@@ -52,8 +55,8 @@ const key = () => randomBytes(32).toString("base64");
 const KEYRING = parseKeyring(`1:${key()}`);
 
 /** O banco sintético com os finais dos cartões do lar de teste (1111 titular, 2222 adicional). */
-function bankFor(h: TestHousehold): SyntheticBank {
-  const bank = syntheticBank(TODAY);
+function bankFor(h: TestHousehold, today: CivilDate = TODAY): SyntheticBank {
+  const bank = syntheticBank(today);
   for (const t of bank.transactions) {
     const meta = t.creditCardMetadata as { cardNumber?: string } | null;
     if (meta && meta.cardNumber === "0001") meta.cardNumber = "1111";
@@ -121,6 +124,53 @@ describe("cifragem do Client Secret", () => {
   });
 });
 
+/**
+ * Um lar de teste com a conta e o cartão ligados ao banco sintético do dia `today`. O cartão tem
+ * o ciclo cadastrado fecha 27, vence 5 (o do banco no dia 2026-10-10).
+ */
+async function linkedHousehold(today: CivilDate, importFrom: CivilDate) {
+  const h = await createTestHousehold();
+  await prisma.financialAccount.update({
+    where: { id: h.card.id },
+    data: { closingDay: 27, dueDay: 5 },
+  });
+  const fake = createFakePluggy(bankFor(h, today), { pageSize: 7 });
+  let grant = await grantOf(h.holder.id);
+  const saved = await saveCredentials(
+    prisma,
+    grant,
+    {
+      clientId: SYNTHETIC_CREDENTIALS.clientId,
+      clientSecret: SYNTHETIC_CREDENTIALS.clientSecret,
+      itemIds: [SYNTHETIC_IDS.itemAurora],
+    },
+    KEYRING,
+    TEST_CTX,
+  );
+  grant = await grantOf(h.holder.id);
+  expect(grant.connectionId).toBe(saved.connectionId);
+  const provider = (await providerForConnection(prisma, saved.connectionId, KEYRING, {
+    baseUrl: "http://pluggy.test",
+    fetch: fake.fetch,
+  })) as PluggyProvider;
+  const bank = await bankAccountsFor(provider);
+  await linkAccounts(
+    prisma,
+    grant,
+    {
+      bank,
+      importFrom,
+      today,
+      choices: [
+        { externalId: SYNTHETIC_IDS.checking, target: "existing", accountId: h.checking.id },
+        { externalId: SYNTHETIC_IDS.mastercard, target: "existing", accountId: h.card.id },
+      ],
+    },
+    TEST_CTX,
+  );
+  return { h, fake, grant, provider };
+}
+
 describe("conexão, ligação e sincronização", () => {
   let h: TestHousehold;
   let fake: ReturnType<typeof createFakePluggy>;
@@ -128,46 +178,7 @@ describe("conexão, ligação e sincronização", () => {
   let provider: PluggyProvider;
 
   beforeAll(async () => {
-    h = await createTestHousehold();
-    // O cartão do lar de teste com o ciclo do banco sintético (fecha 27, vence 5)
-    await prisma.financialAccount.update({
-      where: { id: h.card.id },
-      data: { closingDay: 27, dueDay: 5 },
-    });
-    fake = createFakePluggy(bankFor(h), { pageSize: 7 });
-    grant = await grantOf(h.holder.id);
-    const saved = await saveCredentials(
-      prisma,
-      grant,
-      {
-        clientId: SYNTHETIC_CREDENTIALS.clientId,
-        clientSecret: SYNTHETIC_CREDENTIALS.clientSecret,
-        itemIds: [SYNTHETIC_IDS.itemAurora],
-      },
-      KEYRING,
-      TEST_CTX,
-    );
-    grant = await grantOf(h.holder.id);
-    expect(grant.connectionId).toBe(saved.connectionId);
-    provider = (await providerForConnection(prisma, saved.connectionId, KEYRING, {
-      baseUrl: "http://pluggy.test",
-      fetch: fake.fetch,
-    })) as PluggyProvider;
-    const bank = await bankAccountsFor(provider);
-    await linkAccounts(
-      prisma,
-      grant,
-      {
-        bank,
-        importFrom: IMPORT_FROM,
-        today: TODAY,
-        choices: [
-          { externalId: SYNTHETIC_IDS.checking, target: "existing", accountId: h.checking.id },
-          { externalId: SYNTHETIC_IDS.mastercard, target: "existing", accountId: h.card.id },
-        ],
-      },
-      TEST_CTX,
-    );
+    ({ h, fake, grant, provider } = await linkedHousehold(TODAY, IMPORT_FROM));
   });
 
   afterAll(async () => {
@@ -245,36 +256,45 @@ describe("conexão, ligação e sincronização", () => {
   it("a fatura de setembro confere ao centavo com a Bill (compras + IOF = total) e está paga", async () => {
     const access = await authorizeAccountView(prisma, h.holder.id, h.card.id);
     if (!access.ok) throw new Error("titular sem acesso ao cartão");
-    const view = await cardStatementView(prisma, access.grant, TODAY);
-    const september = view.statements[0];
+    const statements = await cardStatements(prisma, access.grant.account, TODAY);
+    const september = statements.find((s) => s.referenceMonth === "2026-09");
     expect(september).toMatchObject({
-      referenceMonth: "2026-09",
       closingDate: "2026-09-27",
       dueDate: "2026-10-05",
-      total: 214635n,
-      minimumPayment: 32195n,
       purchases: 214223n,
       purchaseCount: 31,
-      charges: [{ kind: "IOF", amount: 412n }],
-      check: { kind: "matches" },
-      status: "PAID",
+      state: "paid",
+      closed: {
+        source: "OPEN_FINANCE",
+        total: 214635n,
+        minimumPayment: 32195n,
+        charges: [{ kind: "IOF", amount: 412n }],
+        check: { kind: "matches" },
+      },
     });
-    // Fatura aberta: as 7 compras recebidas (inclusive as da parceira) somam R$ 1.284,90
-    expect(view.openTotal).toBe(128490n);
-    expect(view.open).toHaveLength(7);
-    expect(view.open.find((t) => t.description === "RESTAURANTE SABOR")?.otherWallet).toBe(
+    // Fatura aberta (M13.3a: uma fatura como as outras): as 7 compras recebidas (inclusive as da
+    // parceira) somam R$ 1.284,90
+    const open = statements.find((s) => s.state === "open");
+    expect(open).toMatchObject({ purchases: 128490n, purchaseCount: 7, pendingCount: 7 });
+    const purchases = await statementPurchases(prisma, access.grant, open?.id as string);
+    expect(purchases).toHaveLength(7);
+    expect(purchases.find((t) => t.description === "RESTAURANTE SABOR")?.otherWallet).toBe(
       "Parceira",
     );
-    expect(view.open.find((t) => t.description === "LOJA ONLINE AGIL")?.original).toEqual({
+    expect(purchases.find((t) => t.description === "LOJA ONLINE AGIL")?.original).toEqual({
       amount: 4861n,
       currency: "USD",
     });
-    expect(view.balance).toMatchObject({ creditLimit: 800000n, availableCredit: 611510n });
+    const balance = await prisma.accountBalance.findUniqueOrThrow({
+      where: { accountId: h.card.id },
+    });
+    expect(fromDbDecimalOrNull(balance.creditLimit)).toBe(800000n);
+    expect(fromDbDecimalOrNull(balance.availableCredit)).toBe(611510n);
   });
 
   it("recebidos ficam fora da lista padrão, dos totais e do painel; aparecem em situacao=recebidos", async () => {
     const scope = await authorizeScope(prisma, h.holder.id, "view");
-    const base = { from: "2026-08-01", to: TODAY };
+    const base = { periods: [{ from: "2026-08-01", to: TODAY }] };
     expect((await listTransactions(prisma, scope, base)).items).toHaveLength(0);
     expect((await sumTransactions(prisma, scope, base)).count).toBe(0);
     const received = await listTransactions(prisma, scope, { ...base, received: true }, null, 100);
@@ -547,6 +567,48 @@ describe("conexão, ligação e sincronização", () => {
         TEST_CTX,
       ),
     ).rejects.toMatchObject({ code: "IMPORT_FROM_INVALID" });
+  });
+});
+
+describe("num dia em que o ciclo cadastrado não bate com o banco (ADR-025)", () => {
+  // Em 04/11 o banco fecha a fatura aberta em 21/11 e vence em 30/11; o cartão continua cadastrado
+  // como fecha 27, vence 5. A fatura de 30/10 fechou no dia do banco (21/10), não no 27: a compra
+  // de 26/10, que o banco ainda não pôs numa fatura, fica na aberta, e a fechada confere.
+  const OTHER_DAY = "2026-11-04";
+  let h: TestHousehold;
+
+  beforeAll(async () => {
+    let grant: ConnectionGrant;
+    let provider: PluggyProvider;
+    ({ h, grant, provider } = await linkedHousehold(OTHER_DAY, "2026-09-05"));
+    const outcome = await runSync(prisma, {
+      connectionId: grant.connectionId as string,
+      trigger: "MANUAL",
+      provider,
+      requestedById: h.holder.id,
+      now: new Date("2026-11-04T15:00:00.000Z"),
+    });
+    expect(outcome.status).toBe("SUCCEEDED");
+  });
+
+  afterAll(async () => {
+    await deleteTestHousehold(h);
+  });
+
+  it("a fechada confere ao centavo e a aberta tem as 7 compras que o banco diz", async () => {
+    const access = await authorizeAccountView(prisma, h.holder.id, h.card.id);
+    if (!access.ok) throw new Error("titular sem acesso ao cartão");
+    const statements = await cardStatements(prisma, access.grant.account, OTHER_DAY);
+    expect(statements.map((s) => [s.closingDate, s.dueDate, s.state])).toEqual([
+      ["2026-10-21", "2026-10-30", "paid"],
+      ["2026-11-21", "2026-11-30", "open"],
+    ]);
+    expect(statements[0]).toMatchObject({
+      purchases: 214223n,
+      purchaseCount: 31,
+      closed: { total: 214635n, check: { kind: "matches" } },
+    });
+    expect(statements[1]).toMatchObject({ purchases: 128490n, purchaseCount: 7 });
   });
 });
 
