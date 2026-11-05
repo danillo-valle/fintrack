@@ -2047,67 +2047,6 @@
       ]
     },
     {
-      "route": "/lancamentos/recorrencias",
-      "file": "apps/web/src/app/(app)/lancamentos/recorrencias/page.tsx",
-      "kind": "page",
-      "title": "Recorrências",
-      "area": "Lançamentos",
-      "help": "parcelada-e-fixa",
-      "params": [],
-      "searchParams": [],
-      "searchParamsTo": [],
-      "session": "user",
-      "loaders": [],
-      "actions": [
-        "apps/web/src/features/transactions/server/actions.ts#archiveRecurrenceAction",
-        "apps/web/src/features/transactions/server/actions.ts#createRecurrenceAction",
-        "apps/web/src/features/transactions/server/actions.ts#generateRecurrencesAction"
-      ],
-      "clientComponents": [
-        "apps/web/src/components/feedback/action-button.tsx",
-        "apps/web/src/components/feedback/action-form.tsx",
-        "apps/web/src/components/layout/content-ready.tsx",
-        "apps/web/src/components/money/money-input.tsx",
-        "apps/web/src/features/auth/ui/form-alert.tsx",
-        "apps/web/src/features/transactions/ui/recurrence-form.tsx",
-        "apps/web/src/lib/use-field-errors.ts",
-        "apps/web/src/lib/use-renew-when-hidden.ts"
-      ],
-      "authCalls": [],
-      "links": [
-        "/ajuda/[…]"
-      ]
-    },
-    {
-      "route": "/lancamentos/transferencia",
-      "file": "apps/web/src/app/(app)/lancamentos/transferencia/page.tsx",
-      "kind": "page",
-      "title": "Transferência",
-      "area": "Lançamentos",
-      "help": "transferencia",
-      "params": [],
-      "searchParams": [],
-      "searchParamsTo": [],
-      "session": "user",
-      "loaders": [
-        "apps/web/src/features/transactions/server/queries.ts#getQuickEntryPage"
-      ],
-      "actions": [
-        "apps/web/src/features/transactions/server/actions.ts#createTransferAction"
-      ],
-      "clientComponents": [
-        "apps/web/src/components/layout/content-ready.tsx",
-        "apps/web/src/components/money/money-input.tsx",
-        "apps/web/src/features/auth/ui/form-alert.tsx",
-        "apps/web/src/features/transactions/ui/transfer-form.tsx"
-      ],
-      "authCalls": [],
-      "links": [
-        "/ajuda/[…]",
-        "/ajustes/contas"
-      ]
-    },
-    {
       "route": "/orcamento",
       "file": "apps/web/src/app/(app)/orcamento/page.tsx",
       "kind": "page",
