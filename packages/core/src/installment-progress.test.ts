@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { installmentsInProgress } from "./installment-progress";
+import { installmentsInProgress, statedInstallmentValid } from "./installment-progress";
 
 describe("installmentsInProgress (M13.3a)", () => {
   it("do banco: a 2/5 chegou na fatura de novembro; faltam 3, termina em fevereiro", () => {
@@ -45,5 +45,17 @@ describe("installmentsInProgress (M13.3a)", () => {
         "2026-11-03",
       ),
     ).toEqual([]);
+  });
+});
+
+describe("statedInstallmentValid", () => {
+  it("de 2 a 99 parcelas, o número de 1 até o total", () => {
+    expect(statedInstallmentValid({ number: 2, count: 5 })).toBe(true);
+    expect(statedInstallmentValid({ number: 99, count: 99 })).toBe(true);
+    expect(statedInstallmentValid({ number: 1, count: 1 })).toBe(false);
+    expect(statedInstallmentValid({ number: 0, count: 5 })).toBe(false);
+    expect(statedInstallmentValid({ number: 6, count: 5 })).toBe(false);
+    expect(statedInstallmentValid({ number: 1, count: 100 })).toBe(false);
+    expect(statedInstallmentValid({ number: 1.5, count: 5 })).toBe(false);
   });
 });

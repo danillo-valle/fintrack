@@ -9,7 +9,8 @@ import { getHomeDashboard } from "@/features/budget/server/queries";
 import { EnvironmentRow } from "@/features/budget/ui/environment-row";
 import { ForecastBlock } from "@/features/budget/ui/forecast-block";
 import { GroupSpendingChart, GroupSpendingTable } from "@/features/budget/ui/group-spending";
-import { BudgetAlerts, CashFlowMini, Panel } from "@/features/budget/ui/home-panels";
+import { BudgetAlerts, Panel } from "@/features/budget/ui/home-panels";
+import { UpcomingMonths } from "@/features/budget/ui/upcoming-months";
 import { MonthResult } from "@/features/budget/ui/month-result";
 import { MonthSummary } from "@/features/budget/ui/month-summary";
 import { ViewToggle } from "@/features/budget/ui/view-toggle";
@@ -136,6 +137,15 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
           }}
         />
 
+        {/* M13.3c (ADR-027, prancha O-ProximosMeses): o que se repete nos próximos 4 meses */}
+        <Panel
+          id="proximos"
+          title="Próximos meses"
+          aside={<span className="text-muted-foreground text-[0.8125rem]">só o que se repete</span>}
+        >
+          <UpcomingMonths months={home.upcoming} />
+        </Panel>
+
         {home.alerts.length > 0 ? (
           <section aria-labelledby="atencao" className="flex flex-col gap-2 md:hidden">
             <h2 id="atencao" className="text-muted-foreground mx-1 text-[0.8125rem] font-bold">
@@ -205,28 +215,6 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
                   budgetHref={summary.budget.href}
                 />
               )}
-            </Panel>
-            <Panel
-              id="fluxo"
-              title="Fluxo de caixa"
-              aside={
-                <Link
-                  href={`/orcamento/fluxo${budgetQuery({ walletId: home.walletId })}`}
-                  className={sideLink}
-                >
-                  6 meses
-                </Link>
-              }
-            >
-              <p className="text-muted-foreground -mt-1 hidden text-[0.8125rem] md:block">
-                Resultado de cada mês, só com o que já está previsto
-              </p>
-              <div className="hidden md:block">
-                <CashFlowMini months={home.cashflow} />
-              </div>
-              <div className="md:hidden">
-                <CashFlowMini months={home.cashflow} limit={3} />
-              </div>
             </Panel>
           </div>
         </div>

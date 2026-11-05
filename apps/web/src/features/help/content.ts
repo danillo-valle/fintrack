@@ -168,6 +168,15 @@ export const HELP_ARTICLES = [
         kind: "p",
         text: "Cada saída tem a etiqueta do tipo: **Fixa**, **Variável** ou **Parcela**. Toque nela para trocar entre Fixa e Variável (veja **Fixa ou variável**).",
       },
+      { kind: "h", text: "Os meses que vêm" },
+      {
+        kind: "p",
+        text: "Com um período de hoje em diante (este mês ou um mês que ainda vai chegar), a conta mostra o **previsto**: as **entradas previstas** (o salário que se repete), as **saídas previstas** (as fixas da conta) e as **faturas a pagar** pelos cartões que ela paga (o que já chegou na fatura e o que está previsto nela). Nada disso é lançamento: quando a cobrança chega do banco, ela toma o lugar da prevista.",
+      },
+      {
+        kind: "p",
+        text: 'No mês de hoje, **O previsto e o que chegou** mostra o que chegou diferente do previsto: "Previsto R$ 9.940,00 · chegou R$ 90,00 a menos".',
+      },
       {
         kind: "p",
         text: "Quando você chega aqui por um número do Início ou do Orçamento (Mercado em novembro, por exemplo), a lista mostra o número em **duas partes**: **Nas contas** e **Nos cartões**, por fatura, cada uma com o seu total. A soma das duas é o número que você tocou.",
@@ -209,6 +218,11 @@ export const HELP_ARTICLES = [
         kind: "p",
         text: "Quando o banco ou o PDF fecha a fatura, aparecem o total, os encargos (IOF, juros) e a **conferência ao centavo**. A fatura paga diz quando e de qual conta saiu o pagamento.",
       },
+      { kind: "h", text: "A próxima fatura, antes de abrir" },
+      {
+        kind: "p",
+        text: "Passe pela seta para as faturas que ainda não abriram: aparece **o que já se sabe** delas, as **Parcelas previstas** (as que faltam de cada compra parcelada) e as **Fixas previstas** (as assinaturas que se repetem). **Previsto até agora** soma as duas. Na fatura aberta, as previstas que ainda não chegaram aparecem em **Previstas nesta fatura**; a que passou do dia sem chegar diz **Não chegou**.",
+      },
     ],
   },
   {
@@ -221,17 +235,35 @@ export const HELP_ARTICLES = [
     body: [
       {
         kind: "p",
-        text: "**Fixas e parcelas**, no menu, junta o que se repete e o que ainda vai ser cobrado: as **entradas fixas** (o salário), as **saídas fixas** (aluguel, escola, assinaturas) e as **parceladas em andamento**, com quantas parcelas faltam, quanto ainda falta pagar e quando termina.",
+        text: "**Fixas e parcelas**, no menu, junta o que se repete e o que ainda vai ser cobrado: as **entradas fixas** (o salário), as **saídas fixas** (aluguel, escola, assinaturas) e as **parceladas em andamento**, com quantas parcelas faltam, quanto ainda falta pagar e quando termina. As abas **Entradas**, **Saídas fixas** e **Parceladas** mostram uma parte só.",
       },
-      { kind: "h", text: "Uma fixa nova" },
+      { kind: "h", text: "A fixa que chega do banco" },
       {
         kind: "p",
-        text: "No **Novo lançamento**, a aba **Recorrência**: conta fixa, assinatura ou entrada, o valor por mês, o dia e até quando. **Lançar as deste mês** cria, agendado, o lançamento de cada uma (sem repetir o que já existe). **Parar de repetir** não apaga nada que já aconteceu.",
+        text: "Toda saída **Fixa** que chega do banco e você confirma passa a ser prevista nos meses seguintes, sozinha: o valor é o último que chegou, por volta do mesmo dia, sem data para acabar. Quando a do mês seguinte chega, ela toma o lugar da prevista. Marcar a compra como **Variável** tira ela da previsão.",
+      },
+      {
+        kind: "p",
+        text: "O salário entra quando você diz: abra o lançamento e, em **Tipo da receita**, escolha **Fixa**. Em **Repete todo mês** você escolhe o valor previsto (**O último**, **Média de 3 meses** ou **Um valor fixo**), **Quando cai** (por volta de um dia ou no 5º dia útil, por exemplo) e **Até quando**.",
+      },
+      { kind: "h", text: "Mudar o valor e parar" },
+      {
+        kind: "p",
+        text: "No **⋯** de cada fixa: **Mudar o valor** troca a regra do valor, o dia e o fim, e mostra os últimos que chegaram; **Parar de repetir** tira dos próximos meses e não apaga nada que já aconteceu.",
+      },
+      { kind: "h", text: "Uma fixa sem banco" },
+      {
+        kind: "p",
+        text: "No **Novo lançamento**, a aba **Recorrência**: conta fixa, assinatura ou entrada, o valor por mês, o dia e até quando. **Lançar as deste mês** cria, agendado, o lançamento de cada uma (sem repetir o que já existe).",
       },
       { kind: "h", text: "Compra parcelada" },
       {
         kind: "p",
         text: 'No Novo lançamento com cartão de crédito, escolha **Parcelada** e o número de vezes (de 2 a 24): uma parcela em cada fatura, e os centavos que sobram vão na primeira. A parcela que o banco informa ("02/05") também aparece aqui. A parcela de agora é a da próxima fatura; a compra some da lista quando a última chega.',
+      },
+      {
+        kind: "p",
+        text: "Quando o banco não informa a parcela, abra a compra e, em **Tipo da despesa**, escolha **Parcelada**: diga a **Parcela** e o total (**de**). As que faltam ficam previstas nas próximas faturas, e a cobrança do mês seguinte, da mesma loja e valor, vira a parcela seguinte sozinha.",
       },
     ],
   },
@@ -252,18 +284,18 @@ export const HELP_ARTICLES = [
         kind: "list",
         items: [
           "Da **categoria**: em Ajustes › Categorias, no **⋯** › **Editar**, escolha se as despesas dela são **Fixas** ou **Variáveis** por padrão.",
-          "Da **compra**: toque na etiqueta **Fixa** ou **Variável** da linha (em Lançamentos), no botão da categoria (em Cartões e em Recebidos) ou em **Tipo da despesa**, ao editar o lançamento.",
+          "Da **compra**: toque na etiqueta **Fixa** ou **Variável** da linha (em Lançamentos), no botão da categoria (em Cartões e em Recebidos) ou em **Tipo da despesa**, na página do lançamento.",
           "As que vêm de uma **recorrência** do app são fixas.",
         ],
       },
       {
         kind: "p",
-        text: "Trocar o padrão da categoria muda as compras dela que você não marcou à mão; as que você marcou ficam como estão. Marcar uma compra como fixa **não cria recorrência**: a próxima cobrança continua vindo do banco.",
+        text: "Trocar o padrão da categoria muda as compras dela que você não marcou à mão; as que você marcou ficam como estão. A fixa que chega do banco fica **prevista** nos meses seguintes (veja **Fixas e compras parceladas**); a próxima cobrança continua vindo do banco e toma o lugar da prevista.",
       },
       { kind: "h", text: "As próximas desta loja também" },
       {
         kind: "p",
-        text: "Ao trocar a categoria ou o tipo, marque **As próximas de NETFLIX.COM também** (com o texto do banco da compra). O que chegar do banco com o mesmo texto já vem com a categoria e o tipo. Isso é uma regra: aparece em Ajustes › Categorias, em **Regras**, e pode ser apagada lá.",
+        text: "Ao trocar a categoria ou o tipo, marque **As próximas de NETFLIX.COM também** (com o texto do banco da compra). O que chegar do banco com o mesmo texto já vem com a categoria e o tipo. Na seção **Tipo** da página da compra, a mesma regra se chama **Este tipo também nas próximas de NETFLIX.COM**. Isso é uma regra: aparece em Ajustes › Categorias, em **Regras**, e pode ser apagada lá.",
       },
     ],
   },
@@ -412,6 +444,10 @@ export const HELP_ARTICLES = [
         kind: "p",
         text: "**Na conta hoje** mostra só a conta corrente: o que dá para gastar agora, e quanto sobra **depois das faturas** que ainda vencem no mês. A poupança fica em **Guardado**, com o que mudou no mês. **Faturas a pagar** mostra a fatura de cada cartão que vence agora; o pagamento da fatura anterior não abate a fatura aberta.",
       },
+      {
+        kind: "p",
+        text: "**Próximos meses** mostra os quatro meses que vêm, só com o que se repete: o que **Entra**, as **Fixas da conta**, a **Fatura do cartão** (as fixas e as parcelas previstas e o que já chegou nela) e a **Sobra antes das variáveis**. O nome do mês leva aos lançamentos dele, com as previstas. O Fluxo de caixa de 6 meses continua em Orçamento.",
+      },
     ],
   },
   {
@@ -431,7 +467,7 @@ export const HELP_ARTICLES = [
       },
       {
         kind: "p",
-        text: "O **previsto** soma o que já foi gasto, o que está agendado, as fixas que ainda vão chegar (uma vez cada) e o ritmo do mês, só nas variáveis. Use o orçamento da categoria de cima ou das de baixo, não os dois.",
+        text: "O **previsto** soma o que já foi gasto, o que está agendado, as fixas e as parcelas que ainda vão chegar (uma vez cada) e o ritmo do mês, só nas variáveis. Use o orçamento da categoria de cima ou das de baixo, não os dois.",
       },
     ],
   },
@@ -444,7 +480,7 @@ export const HELP_ARTICLES = [
     body: [
       {
         kind: "p",
-        text: "O **Fluxo de caixa** mostra o resultado de cada mês: o cartão conta no mês em que a fatura vence, e as recorrências que ainda não vieram aparecem previstas.",
+        text: "O **Fluxo de caixa** mostra o resultado de cada mês: o cartão conta no mês em que a fatura vence, e as fixas e as parcelas que ainda não vieram aparecem previstas (**Fixas e parcelas por vir**).",
       },
       {
         kind: "p",

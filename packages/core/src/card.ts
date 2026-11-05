@@ -86,6 +86,33 @@ export function statementFor(purchasedOn: CivilDate, cycle: CardCycle): Statemen
     : statementOfMonth(addMonthsToKey(month, 1), cycle);
 }
 
+/**
+ * A fatura que vence no mês `dueMonth` (M13.3c, a próxima fatura antes de abrir): a do mês de
+ * referência igual (vence depois do fechamento, no mesmo mês) ou a do mês anterior (vence no mês
+ * seguinte ao do fechamento).
+ */
+export function statementDueIn(dueMonth: MonthKey, cycle: CardCycle): Statement {
+  const same = statementOfMonth(dueMonth, cycle);
+  if (monthOf(same.dueDate) === dueMonth) return same;
+  return statementOfMonth(addMonthsToKey(dueMonth, -1), cycle);
+}
+
+/**
+ * As faturas que ainda não existem e já têm alguma prevista (ADR-027): uma por mês de vencimento
+ * das previstas que não cai em nenhuma fatura gravada, pelo ciclo do cartão, em ordem.
+ */
+export function futureStatements(
+  known: readonly { dueDate: CivilDate }[],
+  forecastDueDates: readonly CivilDate[],
+  cycle: CardCycle,
+): Statement[] {
+  const knownMonths = new Set(known.map((s) => monthOf(s.dueDate)));
+  const months = [...new Set(forecastDueDates.map(monthOf))]
+    .filter((m) => !knownMonths.has(m))
+    .toSorted();
+  return months.map((m) => statementDueIn(m, cycle));
+}
+
 /** Uma parcela de compra parcelada, já com a fatura em que ela cai. */
 export type Installment = { number: number; amount: Cents } & Statement;
 

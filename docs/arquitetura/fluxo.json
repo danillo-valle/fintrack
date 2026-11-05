@@ -116,8 +116,7 @@
         "/fixas",
         "/lancamentos",
         "/lancamentos/novo",
-        "/lancamentos/recebidos",
-        "/orcamento/fluxo"
+        "/lancamentos/recebidos"
       ]
     },
     {
@@ -1488,7 +1487,9 @@
       "help": "parcelada-e-fixa",
       "params": [],
       "searchParams": [],
-      "searchParamsTo": [],
+      "searchParamsTo": [
+        "apps/web/src/features/transactions/server/queries.ts#getFixedPage"
+      ],
       "session": "user",
       "loaders": [
         "apps/web/src/features/transactions/server/queries.ts#getFixedPage"
@@ -1501,13 +1502,87 @@
         "apps/web/src/components/feedback/action-button.tsx",
         "apps/web/src/components/feedback/action-form.tsx",
         "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/components/visual/actions-menu.tsx",
+        "apps/web/src/components/visual/use-popover.ts",
         "apps/web/src/features/auth/ui/form-alert.tsx",
         "apps/web/src/lib/use-field-errors.ts",
         "apps/web/src/lib/use-renew-when-hidden.ts"
       ],
       "authCalls": [],
       "links": [
-        "/ajuda/[…]"
+        "/ajuda/[…]",
+        "/cartoes",
+        "/fixas/[…]"
+      ]
+    },
+    {
+      "route": "/fixas/[recurrenceId]",
+      "file": "apps/web/src/app/(app)/fixas/[recurrenceId]/page.tsx",
+      "kind": "page",
+      "title": "Mudar o valor",
+      "area": "fixas",
+      "help": "parcelada-e-fixa",
+      "params": [
+        "recurrenceId"
+      ],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/transactions/server/queries.ts#getRecurrenceEditPage"
+      ],
+      "actions": [
+        "apps/web/src/features/transactions/server/actions.ts#updateRecurrenceAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/feedback/step-footer.tsx",
+        "apps/web/src/components/layout/content-ready.tsx",
+        "apps/web/src/components/money/money-input.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/transactions/ui/repeat/recurrence-edit-form.tsx",
+        "apps/web/src/features/transactions/ui/repeat/repeat-settings-fields.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/ajuda/[…]",
+        "/fixas"
+      ]
+    },
+    {
+      "route": "/fixas/[recurrenceId]",
+      "file": "apps/web/src/app/(app)/@modal/(.)fixas/[recurrenceId]/page.tsx",
+      "kind": "modal",
+      "title": "Mudar o valor",
+      "area": "fixas",
+      "help": null,
+      "params": [
+        "recurrenceId"
+      ],
+      "searchParams": [],
+      "searchParamsTo": [],
+      "session": "user",
+      "loaders": [
+        "apps/web/src/features/transactions/server/queries.ts#getRecurrenceEditPage"
+      ],
+      "actions": [
+        "apps/web/src/features/transactions/server/actions.ts#updateRecurrenceAction"
+      ],
+      "clientComponents": [
+        "apps/web/src/components/feedback/action-form.tsx",
+        "apps/web/src/components/feedback/step-footer.tsx",
+        "apps/web/src/components/money/money-input.tsx",
+        "apps/web/src/features/auth/ui/form-alert.tsx",
+        "apps/web/src/features/transactions/ui/repeat/recurrence-edit-form.tsx",
+        "apps/web/src/features/transactions/ui/repeat/repeat-settings-fields.tsx",
+        "apps/web/src/lib/use-field-errors.ts",
+        "apps/web/src/lib/use-renew-when-hidden.ts"
+      ],
+      "authCalls": [],
+      "links": [
+        "/fixas"
       ]
     },
     {
@@ -1582,6 +1657,7 @@
         "apps/web/src/features/transactions/server/actions.ts#createTransactionAction",
         "apps/web/src/features/transactions/server/actions.ts#deleteTransactionAction",
         "apps/web/src/features/transactions/server/actions.ts#restoreTransactionAction",
+        "apps/web/src/features/transactions/server/actions.ts#setEntryTypeAction",
         "apps/web/src/features/transactions/server/actions.ts#suggestCategoryAction",
         "apps/web/src/features/transactions/server/actions.ts#updateTransactionAction"
       ],
@@ -1596,6 +1672,8 @@
         "apps/web/src/features/transactions/ui/entry/entry-fields.tsx",
         "apps/web/src/features/transactions/ui/entry/entry-form.tsx",
         "apps/web/src/features/transactions/ui/entry/entry-provider.tsx",
+        "apps/web/src/features/transactions/ui/repeat/entry-type-form.tsx",
+        "apps/web/src/features/transactions/ui/repeat/repeat-settings-fields.tsx",
         "apps/web/src/features/transactions/ui/transaction-form.tsx",
         "apps/web/src/lib/use-field-errors.ts",
         "apps/web/src/lib/use-renew-when-hidden.ts"
@@ -2615,6 +2693,7 @@
         "packages/db/src/access.ts#authorizeHousehold",
         "packages/db/src/access.ts#authorizeScope",
         "packages/db/src/categories.ts#listCategories",
+        "packages/db/src/forecast.ts#cardForecast",
         "packages/db/src/households.ts#listHouseholdMembers",
         "packages/db/src/statements.ts#cardAccountsOf",
         "packages/db/src/statements.ts#cardStatements",
@@ -2628,6 +2707,12 @@
       "services": [],
       "rules": [
         "packages/core/src/card.ts#defaultStatement",
+        "packages/core/src/card.ts#futureStatements",
+        "packages/core/src/card.ts#statementOfMonth",
+        "packages/core/src/card.ts#statementState",
+        "packages/core/src/card.ts#statementWindow",
+        "packages/core/src/dates.ts#addMonthsToKey",
+        "packages/core/src/dates.ts#monthOf",
         "packages/core/src/dates.ts#todayCivil",
         "packages/core/src/payer.ts#householdPeople"
       ],
@@ -2952,6 +3037,7 @@
         "packages/db/src/dashboard.ts#spendingRows",
         "packages/db/src/dashboard.ts#statementWindows",
         "packages/db/src/households.ts#listHouseholdMembers",
+        "packages/db/src/installments.ts#installmentPlans",
         "packages/db/src/wallets.ts#listMyWallets"
       ],
       "tables": [],
@@ -2961,7 +3047,6 @@
         "packages/core/src/budget.ts#monthPhase",
         "packages/core/src/budget.ts#monthsBefore",
         "packages/core/src/budget.ts#projectMonth",
-        "packages/core/src/cashflow.ts#pendingOccurrences",
         "packages/core/src/dashboard.ts#budgetRows",
         "packages/core/src/dates.ts#addMonthsToKey",
         "packages/core/src/dates.ts#dayOfMonth",
@@ -2972,7 +3057,8 @@
         "packages/core/src/money.ts#sumCents",
         "packages/core/src/payer.ts#householdPeople",
         "packages/core/src/payer.ts#parsePayerParam",
-        "packages/core/src/payer.ts#payerParam"
+        "packages/core/src/payer.ts#payerParam",
+        "packages/core/src/recurring.ts#forecastLines"
       ],
       "redirects": [],
       "financeChanged": false,
@@ -2994,6 +3080,7 @@
         "packages/db/src/dashboard.ts#cashRows",
         "packages/db/src/dashboard.ts#recurrencePlans",
         "packages/db/src/households.ts#listHouseholdMembers",
+        "packages/db/src/installments.ts#installmentPlans",
         "packages/db/src/wallets.ts#listMyWallets"
       ],
       "tables": [],
@@ -3003,7 +3090,6 @@
         "packages/core/src/budget.ts#monthsStartingAt",
         "packages/core/src/cashflow.ts#cashBucketOf",
         "packages/core/src/cashflow.ts#cashFlow",
-        "packages/core/src/cashflow.ts#pendingOccurrences",
         "packages/core/src/dates.ts#dayOfMonth",
         "packages/core/src/dates.ts#firstDayOf",
         "packages/core/src/dates.ts#monthOf",
@@ -3011,7 +3097,8 @@
         "packages/core/src/money.ts#sumCents",
         "packages/core/src/payer.ts#householdPeople",
         "packages/core/src/payer.ts#parsePayerParam",
-        "packages/core/src/payer.ts#payerParam"
+        "packages/core/src/payer.ts#payerParam",
+        "packages/core/src/recurring.ts#forecastLines"
       ],
       "redirects": [],
       "financeChanged": false,
@@ -3037,6 +3124,7 @@
         "packages/db/src/dashboard.ts#spendingRows",
         "packages/db/src/dashboard.ts#statementWindows",
         "packages/db/src/households.ts#listHouseholdMembers",
+        "packages/db/src/installments.ts#installmentPlans",
         "packages/db/src/wallets.ts#listMyWallets"
       ],
       "tables": [],
@@ -3049,7 +3137,6 @@
         "packages/core/src/budget.ts#monthsEndingAt",
         "packages/core/src/budget.ts#percentVersus",
         "packages/core/src/budget.ts#subtreeOf",
-        "packages/core/src/cashflow.ts#pendingOccurrences",
         "packages/core/src/dashboard.ts#comparisonFor",
         "packages/core/src/dashboard.ts#monthlySeries",
         "packages/core/src/dates.ts#dayOfMonth",
@@ -3060,7 +3147,8 @@
         "packages/core/src/money.ts#sumCents",
         "packages/core/src/payer.ts#householdPeople",
         "packages/core/src/payer.ts#parsePayerParam",
-        "packages/core/src/payer.ts#payerParam"
+        "packages/core/src/payer.ts#payerParam",
+        "packages/core/src/recurring.ts#forecastLines"
       ],
       "redirects": [],
       "financeChanged": false,
@@ -3080,14 +3168,15 @@
         "packages/db/src/budgets.ts#listBudgets",
         "packages/db/src/categories.ts#categoryNodes",
         "packages/db/src/categories.ts#listCategories",
-        "packages/db/src/dashboard.ts#cashRows",
         "packages/db/src/dashboard.ts#fixedCharges",
         "packages/db/src/dashboard.ts#recurrenceNames",
         "packages/db/src/dashboard.ts#recurrencePlans",
         "packages/db/src/dashboard.ts#recurrencesStartedIn",
         "packages/db/src/dashboard.ts#spendingRows",
         "packages/db/src/dashboard.ts#statementWindows",
+        "packages/db/src/forecast.ts#upcoming",
         "packages/db/src/households.ts#listHouseholdMembers",
+        "packages/db/src/installments.ts#installmentPlans",
         "packages/db/src/wallets.ts#listMyWallets"
       ],
       "tables": [],
@@ -3096,16 +3185,13 @@
       "rules": [
         "packages/core/src/budget.ts#budgetStatus",
         "packages/core/src/budget.ts#monthsBefore",
-        "packages/core/src/budget.ts#monthsStartingAt",
         "packages/core/src/budget.ts#projectMonth",
         "packages/core/src/budget.ts#subtreeOf",
-        "packages/core/src/cashflow.ts#cashBucketOf",
-        "packages/core/src/cashflow.ts#cashFlow",
-        "packages/core/src/cashflow.ts#pendingOccurrences",
         "packages/core/src/dashboard.ts#budgetRows",
         "packages/core/src/dashboard.ts#figuresFor",
         "packages/core/src/dashboard.ts#incomeUpToToday",
         "packages/core/src/dashboard.ts#monthResult",
+        "packages/core/src/dashboard.ts#pendingNature",
         "packages/core/src/dashboard.ts#spendingByGroup",
         "packages/core/src/dates.ts#addMonthsToKey",
         "packages/core/src/dates.ts#dayOfMonth",
@@ -3119,7 +3205,8 @@
         "packages/core/src/month-summary.ts#summaryPeriod",
         "packages/core/src/payer.ts#householdPeople",
         "packages/core/src/payer.ts#parsePayerParam",
-        "packages/core/src/payer.ts#payerParam"
+        "packages/core/src/payer.ts#payerParam",
+        "packages/core/src/recurring.ts#forecastLines"
       ],
       "redirects": [],
       "financeChanged": false,
@@ -3351,6 +3438,28 @@
       "session": "none"
     },
     {
+      "id": "apps/web/src/features/transactions/server/queries.ts#getRecurrenceEditPage",
+      "file": "apps/web/src/features/transactions/server/queries.ts",
+      "name": "getRecurrenceEditPage",
+      "input": [],
+      "permissions": [],
+      "db": [
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/installments.ts#installmentPurchases",
+        "packages/db/src/recurrences.ts#listRecurrences",
+        "packages/db/src/wallets.ts#listMyWallets"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/dates.ts#todayCivil"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
       "id": "apps/web/src/features/transactions/server/queries.ts#getTransactionPage",
       "file": "apps/web/src/features/transactions/server/queries.ts",
       "name": "getTransactionPage",
@@ -3363,6 +3472,7 @@
         "packages/db/src/access.ts#authorizeTransaction",
         "packages/db/src/accounts.ts#listUsableAccounts",
         "packages/db/src/categories.ts#listCategories",
+        "packages/db/src/entry-type.ts#entryTypeView",
         "packages/db/src/households.ts#listHouseholdMembers",
         "packages/db/src/transactions.ts#getTransaction",
         "packages/db/src/transactions.ts#lastUsedChoice",
@@ -3393,6 +3503,8 @@
         "packages/db/src/access.ts#authorizeScope",
         "packages/db/src/balances.ts#accountBalances",
         "packages/db/src/categories.ts#listCategories",
+        "packages/db/src/forecast.ts#accountForecast",
+        "packages/db/src/forecast.ts#arrivalsVsExpected",
         "packages/db/src/households.ts#listHouseholdMembers",
         "packages/db/src/statements.ts#receivedSummary",
         "packages/db/src/transactions.ts#listTransactions",
@@ -3407,6 +3519,7 @@
       "rules": [
         "packages/core/src/access.ts#canInHousehold",
         "packages/core/src/dates.ts#addMonths",
+        "packages/core/src/dates.ts#addMonthsToKey",
         "packages/core/src/dates.ts#dayOfMonth",
         "packages/core/src/dates.ts#firstDayOf",
         "packages/core/src/dates.ts#isCivilDate",
@@ -4981,6 +5094,31 @@
       "session": "user"
     },
     {
+      "id": "apps/web/src/features/transactions/server/actions.ts#setEntryTypeAction",
+      "file": "apps/web/src/features/transactions/server/actions.ts",
+      "name": "setEntryTypeAction",
+      "input": [],
+      "permissions": [
+        "manage_categories"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/access.ts#authorizeTransaction",
+        "packages/db/src/entry-type.ts#setEntryType"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/dates.ts#dayOfMonth",
+        "packages/core/src/money.ts#decimalToCents"
+      ],
+      "redirects": [],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
       "id": "apps/web/src/features/transactions/server/actions.ts#setNatureAction",
       "file": "apps/web/src/features/transactions/server/actions.ts",
       "name": "setNatureAction",
@@ -5031,6 +5169,35 @@
       "session": "user"
     },
     {
+      "id": "apps/web/src/features/transactions/server/actions.ts#updateRecurrenceAction",
+      "file": "apps/web/src/features/transactions/server/actions.ts",
+      "name": "updateRecurrenceAction",
+      "input": [
+        "recurrenceId",
+        "walletId"
+      ],
+      "permissions": [
+        "edit"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/access.ts#authorizeWallet",
+        "packages/db/src/recurrences.ts#updateRecurrence"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/dates.ts#dayOfMonth",
+        "packages/core/src/money.ts#decimalToCents"
+      ],
+      "redirects": [
+        "/fixas"
+      ],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
       "id": "apps/web/src/features/transactions/server/actions.ts#updateTransactionAction",
       "file": "apps/web/src/features/transactions/server/actions.ts",
       "name": "updateTransactionAction",
@@ -5043,8 +5210,6 @@
         "kind",
         "label",
         "method",
-        "nature",
-        "natureBefore",
         "notes",
         "occurredOn",
         "rememberRule",
@@ -5756,6 +5921,7 @@
         "ClassifierModel",
         "FinancialAccount",
         "InstallmentGroup",
+        "Recurrence",
         "Transaction",
         "WalletMember"
       ],
@@ -5815,6 +5981,7 @@
         "FinancialAccount",
         "Household",
         "InstallmentGroup",
+        "Recurrence",
         "Transaction",
         "User",
         "Wallet",
@@ -6051,6 +6218,7 @@
         "AuditLog",
         "Category",
         "CategoryCleanup",
+        "Recurrence",
         "Transaction"
       ],
       "services": []
@@ -6311,6 +6479,29 @@
       "services": []
     },
     {
+      "id": "packages/db/src/entry-type.ts#entryTypeView",
+      "file": "packages/db/src/entry-type.ts",
+      "name": "entryTypeView",
+      "tables": [
+        "Recurrence",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/entry-type.ts#setEntryType",
+      "file": "packages/db/src/entry-type.ts",
+      "name": "setEntryType",
+      "tables": [
+        "AuditLog",
+        "Category",
+        "CategoryRule",
+        "Recurrence",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
       "id": "packages/db/src/file-imports.ts#cancelFilePreview",
       "file": "packages/db/src/file-imports.ts",
       "name": "cancelFilePreview",
@@ -6369,6 +6560,7 @@
         "ClassifierModel",
         "FileImport",
         "FinancialAccount",
+        "Recurrence",
         "StatementCharge",
         "Transaction",
         "WalletMember"
@@ -6381,6 +6573,53 @@
       "name": "listFileImports",
       "tables": [
         "FileImport"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/forecast.ts#accountForecast",
+      "file": "packages/db/src/forecast.ts",
+      "name": "accountForecast",
+      "tables": [
+        "CardStatement",
+        "Category",
+        "FinancialAccount",
+        "Recurrence",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/forecast.ts#arrivalsVsExpected",
+      "file": "packages/db/src/forecast.ts",
+      "name": "arrivalsVsExpected",
+      "tables": [
+        "Recurrence"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/forecast.ts#cardForecast",
+      "file": "packages/db/src/forecast.ts",
+      "name": "cardForecast",
+      "tables": [
+        "Category",
+        "FinancialAccount",
+        "Recurrence",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/forecast.ts#upcoming",
+      "file": "packages/db/src/forecast.ts",
+      "name": "upcoming",
+      "tables": [
+        "CardStatement",
+        "Category",
+        "FinancialAccount",
+        "Recurrence",
+        "Transaction"
       ],
       "services": []
     },
@@ -6490,6 +6729,15 @@
         "ClassifierModel",
         "FinancialAccount",
         "InstallmentGroup",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/installments.ts#installmentPlans",
+      "file": "packages/db/src/installments.ts",
+      "name": "installmentPlans",
+      "tables": [
         "Transaction"
       ],
       "services": []
@@ -6611,11 +6859,22 @@
       "services": []
     },
     {
+      "id": "packages/db/src/recurrences.ts#updateRecurrence",
+      "file": "packages/db/src/recurrences.ts",
+      "name": "updateRecurrence",
+      "tables": [
+        "AuditLog",
+        "Recurrence"
+      ],
+      "services": []
+    },
+    {
       "id": "packages/db/src/review.ts#confirmBulk",
       "file": "packages/db/src/review.ts",
       "name": "confirmBulk",
       "tables": [
         "AuditLog",
+        "Recurrence",
         "Transaction",
         "TransactionMatch"
       ],
@@ -6627,6 +6886,7 @@
       "name": "confirmPair",
       "tables": [
         "AuditLog",
+        "Recurrence",
         "Transaction",
         "TransactionMatch"
       ],
@@ -6638,6 +6898,7 @@
       "name": "confirmReceived",
       "tables": [
         "AuditLog",
+        "Recurrence",
         "Transaction"
       ],
       "services": []
@@ -6648,6 +6909,7 @@
       "name": "confirmTransfer",
       "tables": [
         "AuditLog",
+        "Recurrence",
         "Transaction",
         "TransactionMatch"
       ],
@@ -6670,6 +6932,7 @@
       "name": "markTransfer",
       "tables": [
         "AuditLog",
+        "Recurrence",
         "Transaction"
       ],
       "services": []
@@ -6827,12 +7090,14 @@
       "name": "runSync",
       "tables": [
         "AccountBalance",
+        "AuditLog",
         "CardStatement",
         "Category",
         "CategoryRule",
         "ClassifierModel",
         "ProviderConnection",
         "ProviderItem",
+        "Recurrence",
         "StatementCharge",
         "StatementPayment",
         "SyncRun",
@@ -6860,6 +7125,7 @@
         "Category",
         "CategoryRule",
         "ClassifierModel",
+        "Recurrence",
         "Transaction"
       ],
       "services": []
@@ -6943,6 +7209,7 @@
         "CategorizationExample",
         "Category",
         "CategoryRule",
+        "Recurrence",
         "Transaction"
       ],
       "services": []
@@ -6965,6 +7232,7 @@
         "AuditLog",
         "Category",
         "CategoryRule",
+        "Recurrence",
         "Transaction"
       ],
       "services": []
@@ -6989,6 +7257,7 @@
         "Category",
         "CategoryRule",
         "ClassifierModel",
+        "Recurrence",
         "Transaction"
       ],
       "services": []

@@ -62,6 +62,7 @@ import {
 import { Prisma, type PrismaClient } from "./generated/prisma/client";
 import { fromDbDecimal, toDbDecimal } from "./money";
 import { NATURE_SELECT, natureViewOf } from "./nature";
+import { linkRecurring } from "./recurring";
 
 // ── Entrada ─────────────────────────────────────────────────────────────────────
 
@@ -267,6 +268,8 @@ export async function createTransaction(
       { description: input.description, categoryId, nature: input.nature },
       ctx,
     );
+    // A fixa toma o lugar da prevista, ou vira previsão; a Variável sai dela (ADR-027)
+    await linkRecurring(tx, [created.id], wallet.userId, ctx);
     return { id: created.id, suggestion };
   });
 }
@@ -412,6 +415,8 @@ export async function updateTransaction(
       { description, categoryId, nature: installment ? undefined : nature },
       ctx,
     );
+    // A fixa toma o lugar da prevista, ou vira previsão; a Variável sai dela (ADR-027)
+    await linkRecurring(tx, [grant.transaction.id], grant.userId, ctx);
   });
 }
 
@@ -516,6 +521,8 @@ export async function setTransactionCategory(
       },
       ctx,
     );
+    // A fixa toma o lugar da prevista, ou vira previsão; a Variável sai dela (ADR-027)
+    await linkRecurring(tx, [grant.transaction.id], grant.userId, ctx);
   });
 }
 
@@ -575,6 +582,8 @@ export async function setTransactionNature(
       { description: current.description, categoryId: current.categoryId, nature },
       ctx,
     );
+    // A fixa toma o lugar da prevista, ou vira previsão; a Variável sai dela (ADR-027)
+    await linkRecurring(tx, [grant.transaction.id], grant.userId, ctx);
   });
 }
 

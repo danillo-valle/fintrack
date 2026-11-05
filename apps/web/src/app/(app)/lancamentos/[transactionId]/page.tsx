@@ -7,6 +7,7 @@ import { AmountText } from "@/components/money/amount-text";
 import { confirmTransactionAction } from "@/features/transactions/server/actions";
 import { getTransactionPage } from "@/features/transactions/server/queries";
 import { DeleteTransaction } from "@/features/transactions/ui/delete-transaction";
+import { EntryTypeForm } from "@/features/transactions/ui/repeat/entry-type-form";
 import { TransactionForm } from "@/features/transactions/ui/transaction-form";
 import { requireUser } from "@/lib/auth/session";
 import { formatDate, formatDateTime } from "@/lib/dates";
@@ -25,7 +26,7 @@ export default async function TransactionPage({
 }: PageProps<"/lancamentos/[transactionId]">) {
   const session = await requireUser();
   const { transactionId } = await params;
-  const { transaction: t, form } = await getTransactionPage(session, transactionId);
+  const { transaction: t, form, entryType } = await getTransactionPage(session, transactionId);
   const kind = t.amount < 0n ? "expense" : "income";
 
   return (
@@ -35,7 +36,7 @@ export default async function TransactionPage({
         title={t.label ?? t.description}
         description={`${formatDate(new Date(`${t.occurredOn}T12:00:00Z`))} · ${t.wallet.name}`}
       />
-      <div className="flex max-w-md flex-col gap-6">
+      <div className="flex max-w-xl flex-col gap-6">
         <section aria-labelledby="resumo" className={SECTION}>
           <h2 id="resumo" className="sr-only">
             Resumo
@@ -74,6 +75,20 @@ export default async function TransactionPage({
             </div>
           ) : null}
         </section>
+
+        {entryType && form ? (
+          // O tipo (M13.3c, ADR-027): fixa que repete todo mês, variável ou parcelada
+          <section aria-labelledby="tipo" className={SECTION}>
+            <h2 id="tipo" className="mb-4 font-semibold">
+              Tipo
+            </h2>
+            <EntryTypeForm
+              transactionId={t.id}
+              view={entryType}
+              canRemember={form.canManageCategories && t.categoryId !== null}
+            />
+          </section>
+        ) : null}
 
         {form ? (
           <section aria-labelledby="editar" className={SECTION}>

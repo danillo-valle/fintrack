@@ -154,6 +154,9 @@ model Transaction {
   /// Transferência de um lado só (M13.2): o outro lado é de outra pessoa do lar ou de uma conta fora
   /// do FinTrack. CHECK: só com transferId
   transferPeer              TransferPeer?
+  /// A parcela foi dita pela pessoa, não pelo banco (M13.3c, ADR-027): a busca não sobrescreve.
+  /// CHECK: só com a parcela informada
+  installmentByPerson       Boolean               @default(false)
   /// Fixa ou variável marcada na compra (M13.3b, ADR-026). Nula = segue a recorrência ou o padrão
   /// da categoria. CHECK: nunca numa parcela (a do FinTrack ou a que o banco informa)
   nature                    ExpenseNature?
@@ -422,26 +425,37 @@ model InstallmentGroup {
 /// Recorrência: um lançamento que se repete todo mês no mesmo dia (conta fixa, assinatura,
 /// salário). No M07, ela gera os lançamentos do mês como SCHEDULED, que viram CONFIRMED.
 model Recurrence {
-  id          String         @id @default(uuid(7)) @db.Uuid
-  householdId String         @db.Uuid
-  walletId    String         @db.Uuid
-  accountId   String         @db.Uuid
-  cardId      String?        @db.Uuid
-  categoryId  String?        @db.Uuid
+  id          String               @id @default(uuid(7)) @db.Uuid
+  householdId String               @db.Uuid
+  walletId    String               @db.Uuid
+  accountId   String               @db.Uuid
+  cardId      String?              @db.Uuid
+  categoryId  String?              @db.Uuid
   kind        RecurrenceKind
   method      PaymentMethod
   description String
   /// Valor previsto, com sinal (contas variáveis, como a de luz, usam a média). CHECK: ≠ zero
-  amount      Decimal        @db.Decimal(14, 2)
-  /// Dia do mês (1 a 31; num mês mais curto, cai no último dia). CHECK: de 1 a 31
-  dayOfMonth  Int            @db.SmallInt
-  startsOn    DateTime       @db.Date
+  amount      Decimal              @db.Decimal(14, 2)
+  /// Dia do mês (1 a 31; num mês mais curto, cai no último dia) ou, com dayRule BUSINESS_DAY, o
+  /// N-ésimo dia útil. CHECK: de 1 a 31 (dia útil: de 1 a 23)
+  dayOfMonth  Int                  @db.SmallInt
+  startsOn    DateTime             @db.Date
   /// Nulo = sem prazo. CHECK: depois do início
-  endsOn      DateTime?      @db.Date
+  endsOn      DateTime?            @db.Date
+  /// Quem traz o lançamento (M13.3c, ADR-027): o FinTrack gera (APP) ou o banco traz e a recorrência
+  /// só prevê (BANK)
+  origin      RecurrenceOrigin     @default(APP)
+  /// O valor previsto: o gravado (FIXED), o último que chegou ou a média de 3 meses. CHECK: APP só FIXED
+  amountRule  RecurrenceAmountRule @default(FIXED)
+  /// O dia: o dia do mês (DAY) ou o N-ésimo dia útil (BUSINESS_DAY)
+  dayRule     RecurrenceDayRule    @default(DAY)
+  /// A chave do comerciante (merchantKey do texto do banco) que liga a cobrança que chega. CHECK: só
+  /// e sempre na BANK, de 1 a 100 caracteres
+  matchKey    String?
   createdById String?
   archivedAt  DateTime?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
 
   household    Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
   wallet       Wallet           @relation(fields: [walletId, householdId], references: [id, householdId], onDelete: Cascade)
@@ -453,7 +467,40 @@ model Recurrence {
 
   @@index([householdId])
   @@index([walletId])
+  @@index([accountId, matchKey])
   @@map("recurrence")
+}
+
+/// Quem traz o lançamento de uma recorrência (M13.3c, ADR-027)
+enum RecurrenceOrigin {
+  /// O FinTrack gera o agendado do mês ("Lançar as deste mês")
+  APP
+  /// O banco traz a cobrança; a recorrência só prevê
+  BANK
+
+  @@map("recurrence_origin")
+}
+
+/// O valor previsto de uma recorrência (M13.3c, ADR-027)
+enum RecurrenceAmountRule {
+  /// O valor gravado
+  FIXED
+  /// O último que chegou
+  LAST
+  /// A média dos últimos três meses que chegaram
+  AVERAGE_3
+
+  @@map("recurrence_amount_rule")
+}
+
+/// Quando a recorrência cai (M13.3c, ADR-027)
+enum RecurrenceDayRule {
+  /// O dia do mês (num mês mais curto, o último)
+  DAY
+  /// O N-ésimo dia útil (sem sábado, domingo e os feriados nacionais dos bancos)
+  BUSINESS_DAY
+
+  @@map("recurrence_day_rule")
 }
 
 /// O modelo do classificador de uma carteira (M10.1, ADR-015). O modelo em si fica no volume do
@@ -531,6 +578,7 @@ model CategoryCleanup {
   /// A categoria foi arquivada junto
   archived         Boolean
   /// [{ id, categoryId, categorizedBy, categorizationConfidence, nature, transferId, transferPeer,
+  ///    recurrenceId (M13.3c),
   ///    cleanedTransferId }]: como cada um estava e o transferId que a limpeza deu
   before           Json
   createdById      String?

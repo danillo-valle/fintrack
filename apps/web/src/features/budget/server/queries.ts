@@ -28,8 +28,9 @@ import {
   monthsEndingAt,
   monthsStartingAt,
   payerParam,
+  pendingNature,
   missingFixedCharges,
-  pendingOccurrences,
+  forecastLines,
   percentVersus,
   projectMonth,
   SHARED_PAYER_PARAM,
@@ -57,7 +58,6 @@ import {
   listMyWallets,
   prisma,
   recurrenceNames,
-  type RecurrencePlan,
   type WalletScope,
 } from "@fintrack/db";
 import { AccessError, requireHouseholdAccess, requireScope } from "@/lib/access";
@@ -72,8 +72,10 @@ import {
   cachedCash,
   cachedCategoryTree,
   cachedNewRecurrences,
-  cachedRecurrences,
+  cachedForecastPlans,
   cachedSpending,
+  cachedUpcoming,
+  type ForecastPlans,
 } from "./data";
 import { civilDayMonth } from "@/lib/dates";
 
@@ -188,30 +190,33 @@ async function forecastInputs(scope: WalletScope<"view">, month: MonthKey, today
 type ForecastInputs = Awaited<ReturnType<typeof forecastInputs>>;
 
 /**
- * O que ainda vai sair no mês, no formato das linhas de gasto: as recorrências que não viraram
- * lançamento e as fixas do mês passado que ainda não chegaram (cada fixa uma vez, ADR-026).
+ * O que ainda vai sair no mês, no formato das linhas de gasto: as previstas do mês (forecastLines:
+ * as recorrências que não chegaram e as parcelas que faltam, ADR-027) e as fixas do mês passado
+ * que ainda não chegaram e não têm recorrência (cada fixa uma vez, ADR-026).
  */
 function pendingRows(
-  plans: readonly RecurrencePlan[],
+  plans: ForecastPlans,
   inputs: ForecastInputs,
   month: MonthKey,
   today: CivilDate,
 ): PendingRow[] {
+  const titles = new Map(plans.installments.map((i) => [i.key, i.title]));
   const rows: PendingRow[] = [];
-  for (const plan of plans) {
-    if (plan.amount >= 0n) continue; // receita não é gasto
-    for (const o of pendingOccurrences(plan, [month], today)) {
-      rows.push({
-        month: o.month,
-        date: o.date,
-        walletId: plan.walletId,
-        categoryId: plan.categoryId,
-        payer: plan.payer,
-        expense: -plan.amount,
-        source: "recurrence",
-        name: inputs.names.get(plan.id) ?? "uma recorrência",
-      });
-    }
+  for (const line of forecastLines(plans.recurrences, plans.installments, [month], today)) {
+    if (line.amount >= 0n) continue; // receita não é gasto
+    rows.push({
+      month: line.month,
+      date: line.date,
+      walletId: line.walletId,
+      categoryId: line.categoryId,
+      payer: line.payer,
+      expense: -line.amount,
+      source: line.source,
+      name:
+        (line.source === "recurrence"
+          ? inputs.names.get(line.sourceId)
+          : titles.get(line.sourceId)) ?? "uma prevista",
+    });
   }
   return [...rows, ...missingFixedCharges(inputs.charges, month)];
 }
@@ -286,12 +291,12 @@ export async function getHomeDashboard(session: Session, params: SearchParams) {
   // M10.3: o resumo pode ser do mês anterior (até o dia 5), com os 6 meses antes dele
   const period = summaryPeriod(today);
   const first = monthsBefore(period.month, 6)[0] as MonthKey;
-  const [spending, plans, budgets, cash, summaryBudgets, newRecurrences, forecast] =
+  const [spending, plans, budgets, next, summaryBudgets, newRecurrences, forecast] =
     await Promise.all([
       cachedSpending(scope, first, addMonthsToKey(month, 5), today),
-      cachedRecurrences(scope, monthsStartingAt(month, 6)),
+      cachedForecastPlans(scope, [month], today),
       cachedBudgets(scope, month, month),
-      cachedCash(scope, monthSpan(month).from, monthSpan(addMonthsToKey(month, 5)).to),
+      cachedUpcoming(scope, today),
       period.month === month
         ? Promise.resolve(null)
         : cachedBudgets(scope, period.month, period.month),
@@ -435,7 +440,7 @@ export async function getHomeDashboard(session: Session, params: SearchParams) {
     groups,
     alerts,
     withinCount: rowsOfBudget.length - alerts.length,
-    cashflow: cashFlowMonths(ctx, cash, plans, monthsStartingAt(month, 6)),
+    upcoming: upcomingView(ctx, next),
     summaryOfMonth: summaryView(
       ctx,
       listHref,
@@ -454,6 +459,42 @@ export async function getHomeDashboard(session: Session, params: SearchParams) {
   };
 }
 
+// ── Início: Próximos meses (M13.3c, ADR-027, prancha O-ProximosMeses) ─────────
+
+export type UpcomingView = ReturnType<typeof upcomingView>[number];
+
+/**
+ * Próximos meses: por mês, o que entra, as fixas das contas, o que já se sabe das faturas e a
+ * sobra antes das variáveis. O mês leva aos lançamentos dele (as previstas); a nota diz o que
+ * termina nele (a última da escola, a última parcela).
+ */
+function upcomingView(ctx: Context, next: Awaited<ReturnType<typeof cachedUpcoming>>) {
+  return next.months.map((m) => {
+    const ending = next.items.filter(
+      (i) =>
+        i.month === m.month &&
+        (i.installment
+          ? i.installment.number === i.installment.count
+          : i.rule?.endsOn !== null && i.rule?.endsOn?.slice(0, 7) === i.date.slice(0, 7)),
+    );
+    const notes = ending.map((i) =>
+      i.installment
+        ? `a última parcela de ${i.title} (${i.installment.count}/${i.installment.count})`
+        : `a última de ${i.title}`,
+    );
+    return {
+      ...m,
+      title: monthTitle(m.month),
+      note: notes.length > 0 ? list.format(notes.slice(0, 2)) : null,
+      href: transactionsHref({
+        walletId: ctx.parsed.walletId,
+        ...monthSpan(m.month),
+        back: `/${budgetQuery({ walletId: ctx.parsed.walletId, view: ctx.parsed.view })}`,
+      }),
+    };
+  });
+}
+
 // ── Início: o previsto do mês (M13.3b, ADR-026, prancha N-Inicio) ─────────────
 
 export type ForecastView = ReturnType<typeof forecastView>;
@@ -465,7 +506,9 @@ function forecastView(input: {
   pending: readonly PendingRow[];
   arrived: number;
 }) {
-  const { projection, figures, pending, arrived } = input;
+  const { projection, figures, arrived } = input;
+  // Só as fixas que faltam (a parcela prevista é da parte das parcelas, ADR-027)
+  const pending = input.pending.filter((p) => pendingNature(p) === "fixed");
   // Uma fixa que falta aparece uma vez no nome, mesmo se cair duas vezes (a recorrência e o banco)
   const missing = [...new Set(pending.map((p) => p.name))];
   return {
@@ -632,7 +675,7 @@ function summaryView(
 function cashFlowMonths(
   ctx: Context,
   cash: Awaited<ReturnType<typeof cachedCash>>,
-  plans: readonly RecurrencePlan[],
+  plans: ForecastPlans,
   months: readonly MonthKey[],
 ): CashMonthView[] {
   const movements = cashMovements(cash, plans, months, ctx.today);
@@ -647,7 +690,7 @@ function cashFlowMonths(
 
 function cashMovements(
   cash: Awaited<ReturnType<typeof cachedCash>>,
-  plans: readonly RecurrencePlan[],
+  plans: ForecastPlans,
   months: readonly MonthKey[],
   today: CivilDate,
 ): (CashMovement & { accountId: string | null })[] {
@@ -657,15 +700,17 @@ function cashMovements(
     bucket: cashBucketOf({ amount: r.amount, accountKind: r.accountKind }, r.fromRecurrence),
     accountId: r.accountId,
   }));
-  for (const plan of plans) {
-    for (const o of pendingOccurrences(plan, months, today)) {
-      movements.push({
-        date: o.cashDate,
-        amount: plan.amount,
-        bucket: cashBucketOf({ amount: plan.amount, accountKind: plan.account.kind }, true),
-        accountId: null, // ainda não é lançamento: aparece como "Recorrências a lançar"
-      });
-    }
+  // As previstas (ADR-027): ainda não são lançamento, aparecem como "Fixas e parcelas por vir"
+  for (const line of forecastLines(plans.recurrences, plans.installments, months, today)) {
+    movements.push({
+      date: line.cashDate,
+      amount: line.amount,
+      bucket: cashBucketOf(
+        { amount: line.amount, accountKind: line.accountKind },
+        line.source === "recurrence",
+      ),
+      accountId: null,
+    });
   }
   return movements;
 }
@@ -690,7 +735,7 @@ export async function getCashFlowPage(session: Session, params: SearchParams) {
   const last = months.at(-1) as MonthKey;
   const [cash, plans] = await Promise.all([
     cachedCash(scope, monthSpan(month).from, monthSpan(last).to),
-    cachedRecurrences(scope, months),
+    cachedForecastPlans(scope, months, today),
   ]);
   const flow = cashFlowMonths(ctx, cash, plans, months);
   const detailMonth = parsed.detail && months.includes(parsed.detail) ? parsed.detail : month;
@@ -714,7 +759,7 @@ export async function getCashFlowPage(session: Session, params: SearchParams) {
         const href = "/fixas";
         return {
           key: "recorrencias",
-          name: "Fixas ainda não lançadas",
+          name: "Fixas e parcelas por vir",
           note: "Pelo valor previsto de cada uma",
           income: sums.income > 0n ? { cents: sums.income, href } : null,
           expense: sums.expense > 0n ? { cents: sums.expense, href } : null,
@@ -803,7 +848,7 @@ export async function getBudgetPage(session: Session, params: SearchParams) {
   const months6 = monthsBefore(month, 6);
   const [spending, plans, budgets, forecast] = await Promise.all([
     cachedSpending(scope, months6[0] as MonthKey, month, today),
-    cachedRecurrences(scope, [month]),
+    cachedForecastPlans(scope, [month], today),
     cachedBudgets(scope, month, month),
     forecastInputs(scope, month, today),
   ]);
@@ -967,7 +1012,7 @@ export async function getEvolutionPage(session: Session, params: SearchParams) {
   const first = monthsBefore(months[0] as MonthKey, 6)[0] as MonthKey;
   const [spending, plans, budgets, forecast] = await Promise.all([
     cachedSpending(scope, first, month, today),
-    cachedRecurrences(scope, [month]),
+    cachedForecastPlans(scope, [month], today),
     cachedBudgets(scope, months[0] as MonthKey, month),
     forecastInputs(scope, month, today),
   ]);

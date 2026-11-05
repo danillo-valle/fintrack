@@ -21,6 +21,7 @@ import { ReceivedList } from "@/features/bank/ui/received-list";
 import { ChargeRow, StatementCheck } from "@/features/bank/ui/statement-check";
 import { SyncLine } from "@/features/bank/ui/sync-line";
 import { payerOptionFor } from "@/features/transactions/payers";
+import { ForecastList } from "@/features/transactions/ui/repeat/forecast-list";
 import { NewTransactionButton } from "@/features/transactions/ui/new-transaction-button";
 import { requireUser } from "@/lib/auth/session";
 import { CHARGE_LABEL } from "@/lib/labels";
@@ -29,6 +30,9 @@ import { cn } from "@/lib/utils";
 import { civilDayMonth } from "@/lib/dates";
 
 export const metadata: Metadata = { title: "Cartões" };
+
+/** "1 compra" ou "2 compras" (o número escrito ao lado do nome). */
+const countText = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 const monthName = new Intl.DateTimeFormat("pt-BR", { month: "long", timeZone: "UTC" });
 const monthOfDue = (date: string) => monthName.format(new Date(`${date}T12:00:00Z`));
@@ -104,6 +108,11 @@ export default async function CardsPage({ searchParams }: PageProps<"/cartoes">)
     canEdit: page.canEdit,
   }));
 
+  const parcels = statement?.forecast.filter((f) => f.source === "installment") ?? [];
+  const fixedRows = statement?.forecast.filter((f) => f.source === "recurrence") ?? [];
+  const fixedCount = new Set(fixedRows.map((f) => f.sourceId)).size;
+  const installmentCount = new Set(parcels.map((f) => f.sourceId)).size;
+
   return (
     <>
       {header}
@@ -169,8 +178,9 @@ export default async function CardsPage({ searchParams }: PageProps<"/cartoes">)
                   {statement.state === "upcoming"
                     ? ` (abre em ${civilDayMonth(statement.window.start)})`
                     : ""}{" "}
-                  · fecha em {civilDayMonth(statement.closingDate)} · compras de{" "}
-                  {civilDayMonth(statement.window.start)} a {civilDayMonth(statement.window.end)}
+                  {statement.virtual
+                    ? "· o que já se sabe"
+                    : `· fecha em ${civilDayMonth(statement.closingDate)} · compras de ${civilDayMonth(statement.window.start)} a ${civilDayMonth(statement.window.end)}`}
                 </p>
               </div>
               {next ? (
@@ -185,31 +195,79 @@ export default async function CardsPage({ searchParams }: PageProps<"/cartoes">)
                 <span aria-hidden className="size-11 shrink-0" />
               )}
             </div>
-            <SummaryGrid
-              label="Resumo da fatura"
-              className="border-t pt-4 md:grid-cols-[minmax(0,1.3fr)_repeat(3,minmax(0,1fr))]"
-            >
-              <StatCard
-                label={statement.closed ? "Total da fatura" : "Fatura até agora"}
-                data-testid="fatura-total"
-                note={`conta em ${monthOfDue(statement.dueDate)}, o mês do vencimento`}
+            {statement.virtual ? (
+              <SummaryGrid
+                label="Resumo da fatura"
+                className="border-t pt-4 md:grid-cols-[minmax(0,1.3fr)_repeat(2,minmax(0,1fr))]"
               >
-                <span className="tabular font-mono">
-                  {formatBRL(statement.closed?.total ?? statement.purchases)}
-                </span>
-              </StatCard>
-              <StatCard label="Fixas" note="contas e assinaturas que se repetem">
-                <span className="tabular font-mono">{formatBRL(statement.byNature.fixed)}</span>
-              </StatCard>
-              <StatCard label="Parcelas" note="compras parceladas">
-                <span className="tabular font-mono">
-                  {formatBRL(statement.byNature.installment)}
-                </span>
-              </StatCard>
-              <StatCard label="Variáveis" note="o resto">
-                <span className="tabular font-mono">{formatBRL(statement.byNature.variable)}</span>
-              </StatCard>
-            </SummaryGrid>
+                <StatCard
+                  label="Previsto até agora"
+                  data-testid="fatura-total"
+                  note="fixas e parcelas já certas"
+                >
+                  <span className="tabular font-mono">{formatBRL(statement.forecastTotal)}</span>
+                </StatCard>
+                <StatCard label="Fixas" note={countText(fixedCount, "que repete", "que repetem")}>
+                  <span className="tabular font-mono">
+                    {formatBRL(statement.forecastByNature.fixed)}
+                  </span>
+                </StatCard>
+                <StatCard
+                  label="Parcelas"
+                  note={countText(installmentCount, "compra parcelada", "compras parceladas")}
+                >
+                  <span className="tabular font-mono">
+                    {formatBRL(statement.forecastByNature.installment)}
+                  </span>
+                </StatCard>
+              </SummaryGrid>
+            ) : (
+              <SummaryGrid
+                label="Resumo da fatura"
+                className="border-t pt-4 md:grid-cols-[minmax(0,1.3fr)_repeat(3,minmax(0,1fr))]"
+              >
+                <StatCard
+                  label={statement.closed ? "Total da fatura" : "Fatura até agora"}
+                  data-testid="fatura-total"
+                  note={
+                    statement.forecastTotal > 0n
+                      ? `e mais ${formatBRL(statement.forecastTotal)} previstos`
+                      : `conta em ${monthOfDue(statement.dueDate)}, o mês do vencimento`
+                  }
+                >
+                  <span className="tabular font-mono">
+                    {formatBRL(statement.closed?.total ?? statement.purchases)}
+                  </span>
+                </StatCard>
+                <StatCard
+                  label="Fixas"
+                  note={
+                    statement.forecastByNature.fixed > 0n
+                      ? `e mais ${formatBRL(statement.forecastByNature.fixed)} previstas`
+                      : "contas e assinaturas que se repetem"
+                  }
+                >
+                  <span className="tabular font-mono">{formatBRL(statement.byNature.fixed)}</span>
+                </StatCard>
+                <StatCard
+                  label="Parcelas"
+                  note={
+                    statement.forecastByNature.installment > 0n
+                      ? `e mais ${formatBRL(statement.forecastByNature.installment)} previstas`
+                      : "compras parceladas"
+                  }
+                >
+                  <span className="tabular font-mono">
+                    {formatBRL(statement.byNature.installment)}
+                  </span>
+                </StatCard>
+                <StatCard label="Variáveis" note="o resto">
+                  <span className="tabular font-mono">
+                    {formatBRL(statement.byNature.variable)}
+                  </span>
+                </StatCard>
+              </SummaryGrid>
+            )}
             {limit !== null && available !== null && used !== null ? (
               <div className="flex flex-col gap-1.5">
                 <div className="flex flex-wrap justify-between gap-2 text-sm">
@@ -238,7 +296,47 @@ export default async function CardsPage({ searchParams }: PageProps<"/cartoes">)
           </section>
         ) : null}
 
-        {statement ? (
+        {statement && statement.forecast.length > 0 ? (
+          // As previstas desta fatura (M13.3c, ADR-027; prancha O-FaturaFutura)
+          <section
+            aria-labelledby="previstas-titulo"
+            className="bg-card flex flex-col gap-3 rounded-[1.25rem] border p-4 md:p-5"
+          >
+            <h2 id="previstas-titulo" className="text-[1.0625rem] font-extrabold md:text-xl">
+              Previstas nesta fatura
+            </h2>
+            {parcels.length > 0 ? (
+              <>
+                <h3 className="flex flex-wrap justify-between gap-2 font-bold">
+                  Parcelas previstas
+                  <span className="text-muted-foreground text-sm font-normal">
+                    {countText(installmentCount, "compra", "compras")} ·{" "}
+                    {formatBRL(statement.forecastByNature.installment)}
+                  </span>
+                </h3>
+                <ForecastList rows={parcels} label="Parcelas previstas" />
+              </>
+            ) : null}
+            {fixedRows.length > 0 ? (
+              <>
+                <h3 className="flex flex-wrap justify-between gap-2 font-bold">
+                  Fixas previstas
+                  <span className="text-muted-foreground text-sm font-normal">
+                    {fixedRows.length} · {formatBRL(statement.forecastByNature.fixed)}
+                  </span>
+                </h3>
+                <ForecastList rows={fixedRows} label="Fixas previstas" />
+              </>
+            ) : null}
+            <p className="text-muted-foreground text-[0.8125rem]">
+              As variáveis só aparecem quando chegam do banco. Quando a cobrança chega, ela toma o
+              lugar da prevista; a soma desta fatura cresce até ela fechar, em{" "}
+              {civilDayMonth(statement.closingDate)}.
+            </p>
+          </section>
+        ) : null}
+
+        {statement?.virtual ? null : statement ? (
           <section
             aria-labelledby="compras-titulo"
             className="bg-card flex flex-col gap-3 rounded-[1.25rem] border p-4 md:p-5"

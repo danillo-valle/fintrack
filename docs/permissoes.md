@@ -97,7 +97,10 @@ pode, mas não numa carteira pessoal.
 `category_rule.deleted`. Desde o M13.3b: `category_rule.updated` (a regra da loja que passou a
 dar outra categoria ou tipo), `transaction.nature_set` (só o id e a marca fixa/variável),
 `category.cleanup` e `category.cleanup_undone` (a limpeza de uma categoria que era transferência:
-só ids e contagens). Lançar e editar não vão para a auditoria (seriam milhares de linhas;
+só ids e contagens). Desde o M13.3c: `recurrence.created` também quando uma fixa que chegou do
+banco vira previsão (sem autor na busca diária), `recurrence.updated` (a regra do valor ou do dia,
+sem o valor) e `transaction.installment_set` (a parcela dita pela pessoa: o id e os números da
+parcela). Lançar e editar não vão para a auditoria (seriam milhares de linhas;
 o lançamento guarda quem criou e quando mudou). Nunca vão para a auditoria: segredo do
 convite, senha, token, número de cartão (nem os 4 finais), descrição ou valor de lançamento;
 e-mail aparece mascarado (`***@exemplo.com`).

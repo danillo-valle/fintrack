@@ -331,6 +331,40 @@ describe("conexão, ligação e sincronização", () => {
     fake.setBank(bankFor(h));
   });
 
+  it("a parcela que a pessoa disse num recebido sobrevive à busca que corrige o valor (ADR-027)", async () => {
+    const mercado = await prisma.transaction.findFirstOrThrow({
+      where: { householdId: h.householdId, description: "MERCADO BOM PRECO", status: "PENDING" },
+    });
+    await prisma.transaction.update({
+      where: { id: mercado.id },
+      data: {
+        providerInstallmentNumber: 1,
+        providerInstallmentCount: 3,
+        installmentByPerson: true,
+      },
+    });
+    const bank = bankFor(h);
+    for (const t of bank.transactions) {
+      if (t.description === "MERCADO BOM PRECO") t.amount = { $money: "333.33" };
+    }
+    fake.setBank(bank);
+    const outcome = await runSync(prisma, {
+      connectionId: grant.connectionId as string,
+      trigger: "SCHEDULED",
+      provider,
+      now: new Date(NOW.getTime() + 180_000),
+    });
+    expect(outcome).toMatchObject({ status: "SUCCEEDED", updated: 1 });
+    const after = await prisma.transaction.findUniqueOrThrow({ where: { id: mercado.id } });
+    expect(fromDbDecimal(after.amount)).toBe(-33333n);
+    expect([
+      after.providerInstallmentNumber,
+      after.providerInstallmentCount,
+      after.installmentByPerson,
+    ]).toEqual([1, 3, true]);
+    fake.setBank(bankFor(h));
+  });
+
   it("categoria em um clique: grava MANUAL, vira exemplo ao corrigir e cria a regra se pedido", async () => {
     const cats = await createTestCategories(h.householdId);
     const target = await prisma.transaction.findFirstOrThrow({

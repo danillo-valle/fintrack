@@ -165,7 +165,7 @@ describe("projectMonth (decisão do M08: previsto + ritmo do variável)", () => 
       ...none,
       spent: n(brl("129.90")), // internet já paga (fixa)
       scheduled: n(brl("2200"), brl("150")), // aluguel e a parcela agendados
-      pending: brl("310"), // luz e água ainda não lançadas
+      pending: n(brl("310")), // luz e água ainda não lançadas
     });
     expect(p.projected).toBe(brl("2789.90"));
     expect(p.parts).toEqual(n(brl("2639.90"), brl("150"), 0n));
@@ -189,7 +189,7 @@ describe("projectMonth (decisão do M08: previsto + ritmo do variável)", () => 
       spent: n(0n, 0n, brl("1298.40")),
       variableByWindow: inAccounts(brl("1298.40")),
       scheduled: n(brl("99")),
-      pending: brl("99"),
+      pending: n(brl("99")),
     });
     expect(p).toMatchObject({ phase: "closed", spent: brl("1298.40"), projected: brl("1298.40") });
     expect(p.parts).toEqual(n(0n, 0n, brl("1298.40")));
@@ -199,7 +199,7 @@ describe("projectMonth (decisão do M08: previsto + ritmo do variável)", () => 
     const p = projectMonth("2026-11", "2026-10-09", {
       ...none,
       scheduled: n(0n, brl("1284.30")),
-      pending: brl("2869.60"),
+      pending: n(brl("2869.60")),
     });
     expect(p).toMatchObject({ phase: "future", spent: 0n, projected: brl("4153.90") });
   });
@@ -227,7 +227,7 @@ describe("projectMonth (decisão do M08: previsto + ritmo do variável)", () => 
             spent: n(fixedPart, 0n, variable),
             variableByWindow: inAccounts(variable),
             scheduled: n(0n, scheduled),
-            pending,
+            pending: n(pending, pending),
           });
           return (
             p.projected >= p.spent &&

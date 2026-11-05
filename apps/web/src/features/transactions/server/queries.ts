@@ -2,22 +2,28 @@
 // lista, crachá do lançamento para o detalhe. Nenhuma consulta recebe um id solto da URL.
 import "server-only";
 import {
+  addMonthsToKey,
   canInHousehold,
   householdPeople,
+  monthOf,
   SHARED_INITIALS,
   SHARED_PAYER_PARAM,
   SHARED_TONE,
   todayCivil,
   type CivilDate,
+  type MonthKey,
 } from "@fintrack/core";
 import {
   accountBalances,
+  accountForecast,
+  arrivalsVsExpected,
   getTransaction,
   installmentPurchases,
   lastUsedChoice,
   listCategories,
   listHouseholdMembers,
   listMyWallets,
+  entryTypeView,
   listRecurrences,
   listTransactions,
   listUsableAccounts,
@@ -148,6 +154,47 @@ async function listPart(
 
 export type ListPart = Awaited<ReturnType<typeof listPart>>;
 
+/** Quantos meses à frente a lista de uma conta mostra as previstas (o período pode ser longo). */
+const FORECAST_LIST_MONTHS = 12;
+
+/** Os meses do período que vão de hoje em diante (o mês de hoje entra: o que ainda falta nele). */
+function forecastMonths(bounds: { from: CivilDate; to: CivilDate }, today: CivilDate): MonthKey[] {
+  const current = monthOf(today);
+  const first = monthOf(bounds.from) > current ? monthOf(bounds.from) : current;
+  const months: MonthKey[] = [];
+  for (let m = first; m <= monthOf(bounds.to) && months.length < FORECAST_LIST_MONTHS;) {
+    months.push(m);
+    m = addMonthsToKey(m, 1);
+  }
+  return months;
+}
+
+/**
+ * As previstas de uma conta nos meses pedidos (O-ContaPrevista) e, no mês de hoje, o que chegou
+ * das recorrências do banco e quanto veio diferente do previsto (O-CelReceita).
+ */
+async function accountForecastOf(
+  scope: WalletScope<"view">,
+  accountId: string,
+  months: MonthKey[],
+  today: CivilDate,
+) {
+  if (months.length === 0) return null;
+  const current = monthOf(today);
+  const [list, arrivals] = await Promise.all([
+    accountForecast(prisma, scope, accountId, months, today),
+    months.includes(current)
+      ? arrivalsVsExpected(prisma, scope, accountId, current)
+      : Promise.resolve([]),
+  ]);
+  return {
+    months: list.map((m) => ({ ...m, current: m.month === current })),
+    arrivals: arrivals.filter((a) => a.amount !== a.expected),
+  };
+}
+
+export type AccountForecastView = NonNullable<Awaited<ReturnType<typeof accountForecastOf>>>;
+
 /**
  * Lançamentos (M07; separados no M13.3a, ADR-025). Três jeitos, pelo `listView`:
  *   account   uma conta que não é cartão, com o saldo; sem conta na URL, a primeira (a corrente)
@@ -185,6 +232,7 @@ export async function getTransactionsPage(
   let cardRedirect: string | null = null;
   let main: ListPart | null = null;
   let cards: ListPart | null = null;
+  let forecast: AccountForecastView | null = null;
   if (view === "account") {
     const requested = parsed.filters.accountId;
     account = requested
@@ -201,12 +249,16 @@ export async function getTransactionsPage(
       else if (card) cardRedirect = `/cartoes?conta=${card.id}`;
     }
     if (view === "account" && account) {
-      main = await listPart(
-        scope,
-        { ...base, accountId: account.id, side: "accounts" },
-        parsed.cursor,
-        canEdit,
-      );
+      const months = forecastMonths(bounds, today);
+      [main, forecast] = await Promise.all([
+        listPart(
+          scope,
+          { ...base, accountId: account.id, side: "accounts" },
+          parsed.cursor,
+          canEdit,
+        ),
+        accountForecastOf(scope, account.id, months, today),
+      ]);
     }
   }
   if (view === "slice") {
@@ -229,6 +281,8 @@ export async function getTransactionsPage(
     main,
     /** A parte dos cartões no recorte do painel */
     cards,
+    /** Os meses do período de hoje em diante, com as previstas da conta (M13.3c) */
+    forecast,
     options: {
       wallets: wallets.map((w) => ({ id: w.id, name: w.name })),
       accounts: accounts.map((a) => ({ id: a.id, name: a.name })),
@@ -259,17 +313,35 @@ export async function getTransactionPage(session: Session, transactionId: string
   );
   const transaction = await getTransaction(prisma, grant);
   if (!transaction.canEdit || transaction.transferId) {
-    return { transaction, form: null };
+    return { transaction, form: null, entryType: null };
   }
-  const entry = await getQuickEntryPage(session);
-  return { transaction, form: entry };
+  const [entry, entryType] = await Promise.all([
+    getQuickEntryPage(session),
+    entryTypeView(prisma, grant),
+  ]);
+  return { transaction, form: entry, entryType: entryType.choosable ? entryType : null };
 }
 
+/** O tipo de um lançamento que já existe, como a tela recebe (M13.3c). */
+export type { EntryTypeView } from "@fintrack/db";
+
+/** O que Fixas e parcelas mostra: tudo, ou só uma parte (`?mostrar=`, canvas O-Fixas). */
+export const FIXED_TABS = ["entradas", "saidas", "parceladas"] as const;
+export type FixedTab = (typeof FIXED_TABS)[number];
+
 /**
- * Fixas e parcelas (M13.3a, item do menu): as recorrências das carteiras que a pessoa vê (entradas
- * e saídas fixas) e as compras parceladas em andamento, com o que ainda falta pagar.
+ * Fixas e parcelas (M13.3a; M13.3c, canvas O-Fixas): as recorrências das carteiras que a pessoa vê
+ * (entradas e saídas fixas, com o valor previsto pela regra de cada uma e as últimas que chegaram)
+ * e as compras parceladas em andamento, com o que ainda falta pagar. `?mudada=` marca a recorrência
+ * que acabou de mudar (o aviso no topo).
  */
-export async function getFixedPage(session: Session, today: CivilDate = todayCivil()) {
+export async function getFixedPage(
+  session: Session,
+  params: Record<string, string | string[] | undefined> = {},
+  today: CivilDate = todayCivil(),
+) {
+  const one = (value: string | string[] | undefined) =>
+    (Array.isArray(value) ? value[0] : value)?.trim() || null;
   const scope = await requireScope(session, "view");
   const [recurrences, installments, wallets] = await Promise.all([
     listRecurrences(prisma, scope),
@@ -280,13 +352,31 @@ export async function getFixedPage(session: Session, today: CivilDate = todayCiv
     wallets.filter((w) => w.role !== "VIEWER" && !w.archived).map((w) => w.id),
   );
   const rows = recurrences.map((r) => ({ ...r, canEdit: editable.has(r.walletId) }));
+  const tab = FIXED_TABS.find((t) => t === one(params.mostrar)) ?? null;
+  const changed = rows.find((r) => r.id === one(params.mudada)) ?? null;
   return {
     today,
+    tab,
+    changed: changed ? { id: changed.id, name: changed.description } : null,
     income: rows.filter((r) => r.kind === "INCOME"),
     expense: rows.filter((r) => r.kind !== "INCOME"),
     installments,
     canCreate: editable.size > 0,
   };
+}
+
+export type FixedRecurrence = Awaited<ReturnType<typeof getFixedPage>>["expense"][number];
+
+/**
+ * Mudar o valor (Fixas e parcelas, ⋯): uma recorrência ativa de uma carteira em que a pessoa pode
+ * lançar. Outra pessoa, encerrada ou inventada: null (a página responde 404).
+ */
+export async function getRecurrenceEditPage(session: Session, recurrenceId: string) {
+  const page = await getFixedPage(session);
+  const recurrence = [...page.income, ...page.expense].find(
+    (r) => r.id === recurrenceId && r.canEdit && !r.archivedAt,
+  );
+  return recurrence ?? null;
 }
 
 /** A tela de exportação: só as carteiras em que a pessoa é dona (export). */

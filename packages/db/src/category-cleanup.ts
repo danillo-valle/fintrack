@@ -18,6 +18,7 @@ import {
 } from "@fintrack/core";
 import { DomainError, type HouseholdGrant, type WalletScope } from "./access";
 import { writeAudit, type RequestContext } from "./audit";
+import { linkRecurring } from "./recurring";
 import { Prisma, type PrismaClient } from "./generated/prisma/client";
 import { CategorizationSource, ExpenseNature, TransferPeer } from "./generated/prisma/enums";
 import { fromDbDecimal } from "./money";
@@ -160,6 +161,8 @@ type CleanupBefore = {
   nature: ExpenseNature | null;
   transferId: string | null;
   transferPeer: TransferPeer | null;
+  /** A recorrência do banco que ele realizava (ADR-027): a transferência sai dela */
+  recurrenceId: string | null;
   /** O transferId que a limpeza deu: o Desfazer só mexe se ele ainda estiver lá */
   cleanedTransferId: string;
 };
@@ -219,6 +222,7 @@ export async function applyCleanup(
         nature: true,
         transferId: true,
         transferPeer: true,
+        recurrenceId: true,
       },
     });
     const before: CleanupBefore[] = current.map((t) => ({
@@ -239,6 +243,8 @@ export async function applyCleanup(
       });
       if (count === 0) throw new DomainError("REVIEW_STALE");
     }
+    // Transferência não se repete: sai da recorrência do banco (ADR-027)
+    await linkRecurring(tx, [...transfers.keys()], grant.userId, ctx);
     const archived = input.archive && category.archivedAt === null;
     if (archived) {
       await tx.category.update({ where: { id: category.id }, data: { archivedAt: new Date() } });
@@ -300,6 +306,7 @@ function parseBefore(value: Prisma.JsonValue): CleanupBefore[] {
       nature: oneOf(ExpenseNature, str("nature")),
       transferId: str("transferId"),
       transferPeer: oneOf(TransferPeer, str("transferPeer")),
+      recurrenceId: str("recurrenceId"),
       cleanedTransferId,
     };
   });
@@ -346,6 +353,7 @@ export async function undoCleanup(
         data: {
           transferId: before.transferId,
           transferPeer: before.transferPeer,
+          recurrenceId: before.recurrenceId,
           categoryId: before.categoryId,
           categorizedBy: before.categorizedBy,
           categorizationConfidence: before.categorizationConfidence,

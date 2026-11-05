@@ -1,5 +1,6 @@
 // Lançamentos (M07): as regras puras do lançamento rápido, da transferência, da lista e das
 // recorrências. Sem banco: o @fintrack/db grava, o app mostra, e as regras moram aqui.
+import { nthBusinessDay } from "./business-days";
 import { absCents, MAX_ABS_CENTS, type Cents } from "./money";
 import {
   addMonthsToKey,
@@ -226,20 +227,29 @@ export function compareListOrder(a: ListCursor, b: ListCursor): number {
 
 // ── Recorrências ────────────────────────────────────────────────────────────────
 
+/** Quando a recorrência cai (M13.3c, ADR-027): o dia do mês ou o N-ésimo dia útil. */
+export type RecurrenceDayRule = "DAY" | "BUSINESS_DAY";
+
 export type RecurrenceLike = {
   id: string;
   dayOfMonth: number;
+  /** Sem a regra: o dia do mês (como desde o M07) */
+  dayRule?: RecurrenceDayRule;
   startsOn: CivilDate;
   endsOn: CivilDate | null;
 };
 
 /**
  * O dia em que a recorrência cai no mês, ou null se o mês está fora do período dela.
- * Dia 31 em fevereiro cai no último dia (28 ou 29), como o boleto de verdade.
+ * Dia 31 em fevereiro cai no último dia (28 ou 29), como o boleto de verdade. No dia útil
+ * (ADR-027), o N-ésimo dia em que os bancos abrem.
  */
 export function occurrenceIn(recurrence: RecurrenceLike, month: MonthKey): CivilDate | null {
   parseMonthKey(month);
-  const date = dayOfMonth(month, recurrence.dayOfMonth);
+  const date =
+    recurrence.dayRule === "BUSINESS_DAY"
+      ? nthBusinessDay(month, recurrence.dayOfMonth)
+      : dayOfMonth(month, recurrence.dayOfMonth);
   if (compareCivil(date, recurrence.startsOn) < 0) return null;
   if (recurrence.endsOn && compareCivil(date, recurrence.endsOn) > 0) return null;
   return date;

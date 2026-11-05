@@ -206,6 +206,10 @@ export type DomainErrorCode =
   // ── Fixa ou variável e a limpeza de categorias (M13.3b) ──
   | "NATURE_NOT_ALLOWED" // fixa ou variável só numa despesa avulsa (parcela e transferência têm o tipo delas)
   | "CLEANUP_NOT_NEEDED" // a categoria não tem mais lançamentos que sejam transferência
+  // ── O que se repete (M13.3c) ──
+  | "RECURRENCE_RULE_INVALID" // a regra do valor ou do dia não vale para esta recorrência
+  | "RECURRENCE_NOT_ALLOWED" // repete todo mês só a cobrança avulsa (no cartão, só a saída)
+  | "INSTALLMENT_NOT_ALLOWED" // a parcela só se diz numa compra avulsa em que o banco não disse
   // ── Importar extrato (M09.3) ──
   | "FILE_PREVIEW_EXPIRED" // a conferência venceu (1 hora), foi cancelada ou já foi importada
   | "FILE_ACCOUNT_KIND_MISMATCH" // extrato de conta só em corrente ou poupança; fatura, em cartão

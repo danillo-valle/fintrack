@@ -217,18 +217,18 @@ export type MonthFigures = {
   /** O variável que já aconteceu, por janela (ACCOUNTS_WINDOW ou o id da fatura): o ritmo */
   variableByWindow: ReadonlyMap<string, Cents>;
   /**
-   * As fixas que ainda não chegaram no mês (ADR-026): as recorrências do app ainda não lançadas,
-   * pelo valor previsto, e as fixas do banco do mês passado que ainda não vieram neste. Sempre
-   * fixas; entram uma vez, sem ritmo
+   * O que ainda vai chegar no mês, por tipo, uma vez e sem ritmo: as fixas (as recorrências que
+   * ainda não chegaram, pelo valor previsto, e a fixa do mês passado ainda sem recorrência,
+   * ADR-026) e as parcelas previstas do banco (ADR-027). Nunca variável
    */
-  pending: Cents;
+  pending: NatureCents;
 };
 
 export const NO_FIGURES: MonthFigures = {
   spent: NO_NATURE_CENTS,
   scheduled: NO_NATURE_CENTS,
   variableByWindow: new Map(),
-  pending: 0n,
+  pending: NO_NATURE_CENTS,
 };
 
 export function addFigures(a: MonthFigures, b: MonthFigures): MonthFigures {
@@ -240,7 +240,7 @@ export function addFigures(a: MonthFigures, b: MonthFigures): MonthFigures {
     spent: addNatureCents(a.spent, b.spent),
     scheduled: addNatureCents(a.scheduled, b.scheduled),
     variableByWindow: byWindow,
-    pending: a.pending + b.pending,
+    pending: addNatureCents(a.pending, b.pending),
   };
 }
 
@@ -303,8 +303,8 @@ export function projectMonth(
   // A fixa e a parcela entram uma vez: o que já saiu, o agendado e (a fixa) o que ainda falta
   // chegar. Só o variável segue o ritmo (ADR-026)
   const parts: NatureCents = {
-    fixed: f.spent.fixed + f.scheduled.fixed + f.pending,
-    installment: f.spent.installment + f.scheduled.installment,
+    fixed: f.spent.fixed + f.scheduled.fixed + f.pending.fixed,
+    installment: f.spent.installment + f.scheduled.installment + f.pending.installment,
     variable: f.spent.variable + f.scheduled.variable + pace,
   };
   return {

@@ -44,6 +44,7 @@ import {
   type PaymentHint,
   type StatementChargeKind,
   type StatementKind,
+  todayCivil,
 } from "@fintrack/core";
 import type { FileInvoice, StatementFile } from "@fintrack/importers";
 import { authorizeScope, DomainError, isUuid, type AccountGrant, type WalletScope } from "./access";
@@ -51,6 +52,7 @@ import { listUsableAccounts } from "./accounts";
 import { writeAudit, type RequestContext } from "./audit";
 import { defaultSuggesters, type CascadeServices } from "./categories";
 import { Prisma, type PrismaClient } from "./generated/prisma/client";
+import { keepRecentLinked } from "./recurring";
 import { fromDbDecimal, toDbDecimal } from "./money";
 import { personalWalletsOf } from "./sync";
 
@@ -554,7 +556,7 @@ export async function importFilePreview(
     suggestions.set(t, await runCascade(suggesters, { description: t.description, kind }));
   }
 
-  return db.$transaction(async (tx) => {
+  const result = await db.$transaction(async (tx) => {
     const claimed = await tx.fileImport.updateMany({
       where: { id: row.id, status: "PREVIEW", expiresAt: { gt: now } },
       data: { status: "IMPORTED", importedAt: now, accountId: account.id, preview: Prisma.DbNull },
@@ -651,6 +653,9 @@ export async function importFilePreview(
     );
     return { id: row.id, ...counts, statementId };
   });
+  // O que chegou toma o lugar da prevista (ADR-027): os recebidos ligam-se às recorrências do banco
+  await keepRecentLinked(db, grant.account.householdId, todayCivil(now));
+  return result;
 }
 
 /**

@@ -17,6 +17,8 @@ export * from "./dashboard";
 export * from "./month-summary";
 export * from "./cashflow";
 export * from "./fixed-charges";
+export * from "./business-days";
+export * from "./recurring";
 export * from "./category-cleanup";
 export * from "./flow";
 export * from "./balance";

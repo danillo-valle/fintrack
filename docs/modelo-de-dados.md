@@ -204,7 +204,11 @@ erDiagram
         enum kind "FIXED_BILL | SUBSCRIPTION | INCOME"
         enum method
         decimal amount "14,2 com sinal"
-        smallint dayOfMonth
+        smallint dayOfMonth "dia do mês ou N-ésimo dia útil"
+        enum origin "APP gera | BANK só prevê (M13.3c)"
+        enum amountRule "FIXED | LAST | AVERAGE_3 (M13.3c)"
+        enum dayRule "DAY | BUSINESS_DAY (M13.3c)"
+        string matchKey "loja da cobrança que chega (BANK, M13.3c)"
     }
     Transaction {
         uuid id PK
@@ -226,6 +230,7 @@ erDiagram
         smallint categorizationConfidence "0 a 100, da camada (M10.1)"
         timestamp deletedAt "exclusão lógica"
         char providerCardLastFour "final que o banco mandou (M09.2)"
+        boolean installmentByPerson "a parcela que a pessoa disse (M13.3c)"
         timestamp reviewedAt "conferido (M09.2)"
         uuid mergedIntoId "juntado ao recebido (M09.2)"
         uuid fileImportId FK "arquivo de origem: OFX (M09.3) ou PDF (M09.4)"
@@ -388,40 +393,42 @@ registro sobreviver mesmo que a pessoa ou o grupo sejam apagados.
 
 ## As travas que moram no banco
 
-| Regra                                                                              | Onde                                                                  |
-| ---------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| O mesmo lançamento importado entra uma vez só                                      | único `(accountId, source, externalId)`                               |
-| Conta, ambiente, categoria e parcela de um lançamento são do mesmo grupo           | chaves compostas com `householdId`                                    |
-| O cartão é da conta do lançamento; a fatura também                                 | chaves compostas `(cardId, accountId)`, `(statementId, accountId)`    |
-| Só quem é do grupo entra num ambiente do grupo                                     | chave `(householdId, userId)` → `household_member`                    |
-| Cartão guarda só os 4 últimos dígitos                                              | CHECK `payment_card_last_four_check`                                  |
-| Crédito só em cartão; vale só em vale-refeição; fatura só em cartão                | gatilho `transaction_method_matches_account`                          |
-| Valor nunca é zero; importado sempre tem `externalId`                              | CHECKs de `transaction`                                               |
-| Cartão tem fechamento e vencimento; as outras contas, não                          | CHECK `financial_account_card_days_check`                             |
-| Mês de orçamento e de fatura guardado como dia 1                                   | CHECKs de `budget` e `card_statement`                                 |
-| Parte do orçado nunca negativa; um Compartilhado só por orçado (M08)               | CHECK `budget_share_amount_check` e índice `budget_share_shared_once` |
-| Parte só para quem é do lar; quem sai perde a parte (M08)                          | chave `(householdId, userId)` → `household_member`, em cascata        |
-| A auditoria só acrescenta                                                          | gatilho `audit_log_append_only`                                       |
-| Convite guarda só o hash do segredo; e-mail em minúsculas (M06)                    | CHECKs `household_invite_token_hash_check` e `_email_check`           |
-| Convite não é aceito e cancelado ao mesmo tempo; prazo depois da criação           | CHECKs `household_invite_state_check` e `_expiry_check`               |
-| Nome de lar e de carteira com 1 a 60 caracteres (M06)                              | CHECKs `household_name_length_check` e `wallet_name_length_check`     |
-| "Quem categorizou" só existe com categoria (M07)                                   | CHECK `transaction_categorized_by_check`                              |
-| Transferência não tem categoria (M07)                                              | CHECK `transaction_transfer_category_check`                           |
-| Exemplo de treino é uma correção de verdade (M07)                                  | CHECKs `categorization_example_change_check` e `_source_check`        |
-| Extrato importado guarda só SHA-256, o final e as contagens (M09.3)                | CHECKs de `file_import` (`_sha256_check`, `_last_four_check`...)      |
-| Só linha de origem OFX aponta para o arquivo (M09.3)                               | CHECK `transaction_file_import_check`                                 |
-| Confiança de 0 a 100 e só de camada automática (M10.1)                             | CHECK `transaction_categorization_confidence_check`                   |
-| Modelo com 20+ exemplos e 2+ categorias; SHA-256 em hex (M10.1)                    | CHECKs `classifier_model_counts_check` e `_training_hash_check`       |
-| Proposta de categoria nova só num NEW_CATEGORY, com o nome no padrão (M10.2b)      | CHECKs `local_ai_attempt_proposal_check` e `_proposed_name_check`     |
-| Bot: o número só como HMAC e 4 dígitos; código só como SHA-256 (M11)               | CHECKs `bot_link_phone_check` e `bot_link_code_check`                 |
-| Bot: mensagem lida não guarda texto; na fila, sem resultado (M11)                  | CHECK `bot_message_check`                                             |
-| Bot: proposta só de despesa, crédito/débito/pix, parcelas só no crédito (M11)      | CHECKs `bot_draft_values_check` e `bot_draft_status_check`            |
-| Bot: a conta do mês de 0 a 1000, mês AAAA-MM (M11)                                 | CHECK `bot_reply_count_check`                                         |
-| Bot: a conta do Telegram só como HMAC (M12.0b)                                     | CHECK `bot_telegram_link_chat_check`                                  |
-| Bot: o canal do código só depois do uso; o id do Telegram com "tg:" (M12.0b)       | CHECKs `bot_link_code_channel_check` e `bot_message_channel_check`    |
-| Bot: a recusa da Meta com código e hora juntos (M12.0b)                            | CHECK `bot_reply_count_failure_check`                                 |
-| Fixa ou variável só em despesa avulsa: nunca em parcela nem transferência (M13.3b) | CHECK `transaction_nature_check`                                      |
-| Limpeza com pelo menos um lançamento; o Desfazer depois dela (M13.3b)              | CHECKs `category_cleanup_count_check` e `_undone_check`               |
+| Regra                                                                                 | Onde                                                                  |
+| ------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| O mesmo lançamento importado entra uma vez só                                         | único `(accountId, source, externalId)`                               |
+| Conta, ambiente, categoria e parcela de um lançamento são do mesmo grupo              | chaves compostas com `householdId`                                    |
+| O cartão é da conta do lançamento; a fatura também                                    | chaves compostas `(cardId, accountId)`, `(statementId, accountId)`    |
+| Só quem é do grupo entra num ambiente do grupo                                        | chave `(householdId, userId)` → `household_member`                    |
+| Cartão guarda só os 4 últimos dígitos                                                 | CHECK `payment_card_last_four_check`                                  |
+| Crédito só em cartão; vale só em vale-refeição; fatura só em cartão                   | gatilho `transaction_method_matches_account`                          |
+| Valor nunca é zero; importado sempre tem `externalId`                                 | CHECKs de `transaction`                                               |
+| Cartão tem fechamento e vencimento; as outras contas, não                             | CHECK `financial_account_card_days_check`                             |
+| Mês de orçamento e de fatura guardado como dia 1                                      | CHECKs de `budget` e `card_statement`                                 |
+| Parte do orçado nunca negativa; um Compartilhado só por orçado (M08)                  | CHECK `budget_share_amount_check` e índice `budget_share_shared_once` |
+| Parte só para quem é do lar; quem sai perde a parte (M08)                             | chave `(householdId, userId)` → `household_member`, em cascata        |
+| A auditoria só acrescenta                                                             | gatilho `audit_log_append_only`                                       |
+| Convite guarda só o hash do segredo; e-mail em minúsculas (M06)                       | CHECKs `household_invite_token_hash_check` e `_email_check`           |
+| Convite não é aceito e cancelado ao mesmo tempo; prazo depois da criação              | CHECKs `household_invite_state_check` e `_expiry_check`               |
+| Nome de lar e de carteira com 1 a 60 caracteres (M06)                                 | CHECKs `household_name_length_check` e `wallet_name_length_check`     |
+| "Quem categorizou" só existe com categoria (M07)                                      | CHECK `transaction_categorized_by_check`                              |
+| Transferência não tem categoria (M07)                                                 | CHECK `transaction_transfer_category_check`                           |
+| Exemplo de treino é uma correção de verdade (M07)                                     | CHECKs `categorization_example_change_check` e `_source_check`        |
+| Extrato importado guarda só SHA-256, o final e as contagens (M09.3)                   | CHECKs de `file_import` (`_sha256_check`, `_last_four_check`...)      |
+| Só linha de origem OFX aponta para o arquivo (M09.3)                                  | CHECK `transaction_file_import_check`                                 |
+| Confiança de 0 a 100 e só de camada automática (M10.1)                                | CHECK `transaction_categorization_confidence_check`                   |
+| Modelo com 20+ exemplos e 2+ categorias; SHA-256 em hex (M10.1)                       | CHECKs `classifier_model_counts_check` e `_training_hash_check`       |
+| Proposta de categoria nova só num NEW_CATEGORY, com o nome no padrão (M10.2b)         | CHECKs `local_ai_attempt_proposal_check` e `_proposed_name_check`     |
+| Bot: o número só como HMAC e 4 dígitos; código só como SHA-256 (M11)                  | CHECKs `bot_link_phone_check` e `bot_link_code_check`                 |
+| Bot: mensagem lida não guarda texto; na fila, sem resultado (M11)                     | CHECK `bot_message_check`                                             |
+| Bot: proposta só de despesa, crédito/débito/pix, parcelas só no crédito (M11)         | CHECKs `bot_draft_values_check` e `bot_draft_status_check`            |
+| Bot: a conta do mês de 0 a 1000, mês AAAA-MM (M11)                                    | CHECK `bot_reply_count_check`                                         |
+| Bot: a conta do Telegram só como HMAC (M12.0b)                                        | CHECK `bot_telegram_link_chat_check`                                  |
+| Bot: o canal do código só depois do uso; o id do Telegram com "tg:" (M12.0b)          | CHECKs `bot_link_code_channel_check` e `bot_message_channel_check`    |
+| Bot: a recusa da Meta com código e hora juntos (M12.0b)                               | CHECK `bot_reply_count_failure_check`                                 |
+| Fixa ou variável só em despesa avulsa: nunca em parcela nem transferência (M13.3b)    | CHECK `transaction_nature_check`                                      |
+| Limpeza com pelo menos um lançamento; o Desfazer depois dela (M13.3b)                 | CHECKs `category_cleanup_count_check` e `_undone_check`               |
+| Recorrência do banco com a loja; a do app só com valor fixo; dia útil até 23 (M13.3c) | CHECK `recurrence_origin_check`                                       |
+| Parcela dita pela pessoa só com a parcela e o total (M13.3c)                          | CHECK `transaction_installment_by_person_check`                       |
 
 Cada regra tem um teste em `packages/db/src/integration/`, que tenta quebrá-la contra o
 PostgreSQL de verdade (`pnpm test:integration`).
@@ -571,6 +578,22 @@ OPEN_FINANCE` e o id do banco em `externalId`. A chave única (conta, origem, id
   de transferência vira transferências numa transação só; `before` guarda cada lançamento como
   estava e o transferId que ganhou, para o Desfazer de 30 minutos.
 - As decisões e o porquê estão no [ADR-026](adr/0026-fixa-ou-variavel.md).
+
+## O que se repete nos próximos meses (M13.3c)
+
+- **A recorrência do banco** (`recurrence.origin = BANK`) só prevê: a cobrança que chega é o
+  lançamento, ligada pelo `recurrenceId` quando tem a mesma conta, sentido e loja (`matchKey`,
+  `seriesKey` do core). Toda saída fixa conferida sem recorrência cria a dela (o valor o último,
+  sem fim, por volta do dia dela); a marca Variável à mão a desliga. O mês dela só se realiza com
+  uma cobrança ligada CONFIRMADA e não excluída; a do app (`APP`) continua gerando o lançamento.
+- **O valor e o dia**: `amountRule` (o gravado, o último que chegou ou a média de 3 meses,
+  `expectedAmount`) e `dayRule` (o dia do mês ou o N-ésimo dia útil, `nthBusinessDay`, com os
+  feriados nacionais dos bancos).
+- **A parcela que a pessoa disse** vai para os campos da parcela do banco com
+  `installmentByPerson`: a busca não a apaga, e a cobrança do mês seguinte da mesma loja, conta e
+  valor vira a parcela seguinte. As parcelas que faltam ficam previstas, uma por fatura
+  (`projectedInstallments`, `installmentPlans`).
+- As decisões e o porquê estão no [ADR-027](adr/0027-o-que-se-repete.md).
 
 ## Importar extrato (M09.3)
 

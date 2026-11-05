@@ -2,6 +2,7 @@
 // O servidor é quem decide: os formulários repetem os limites em atributos HTML só para ajudar
 // quem digita. Nada do formulário é confiável, nem o <select> de forma de pagamento.
 import {
+  BUSINESS_DAY_MAX,
   cleanText,
   dayOfMonth,
   decimalToCents,
@@ -14,6 +15,8 @@ import {
   parsePayerParam,
   payerParam,
   PAYMENT_METHODS,
+  RECURRENCE_AMOUNT_RULES,
+  STATED_INSTALLMENTS_MAX,
   TRANSFER_METHODS,
   type CategorizationSource,
   type CivilDate,
@@ -22,6 +25,8 @@ import {
   type MonthKey,
   type PayerFilter,
   type PaymentMethod,
+  type RecurrenceAmountRule,
+  type RecurrenceSettings,
 } from "@fintrack/core";
 import { z } from "zod";
 import { textField } from "@/lib/text-field";
@@ -212,6 +217,127 @@ export const recurrenceSchema = z
   });
 
 export const recurrenceIdSchema = z.object({ walletId: z.uuid(), recurrenceId: z.uuid() });
+
+// ── O que se repete (M13.3c, ADR-027) ───────────────────────────────────────────
+
+/** "2026-12" (o campo de mês) vira o último dia do mês; vazio é sem data para acabar. */
+const monthEnd = z
+  .union([z.literal(""), z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Use um mês válido.")])
+  .default("")
+  .transform((v) => (v ? dayOfMonth(v as MonthKey, 31) : null));
+
+/**
+ * O valor e o dia de uma recorrência (Repete todo mês e Mudar o valor). O valor fixo só vale (e só
+ * é exigido) com "Um valor fixo"; o dia útil vai até o 23º. O resto da regra é do core
+ * (recurrenceSettingsValid), conferida de novo no servidor.
+ */
+export const recurrenceSettingsSchema = z
+  .object({
+    amountRule: z.enum(
+      RECURRENCE_AMOUNT_RULES as [RecurrenceAmountRule, ...RecurrenceAmountRule[]],
+      {
+        error: "Escolha como prever o valor.",
+      },
+    ),
+    // O valor do MoneyInput ("1234.56"); vazio fora de "Um valor fixo"
+    fixed: z
+      .string()
+      .trim()
+      .regex(/^(\d{1,12}(\.\d{1,2})?)?$/, "Informe um valor maior que zero.")
+      .default(""),
+    dayRule: z.enum(["DAY", "BUSINESS_DAY"], { error: "Escolha quando cai." }),
+    day: z.coerce
+      .number({ error: "Dia de 1 a 31." })
+      .int("Dia de 1 a 31.")
+      .min(1, "Dia de 1 a 31.")
+      .max(31, "Dia de 1 a 31."),
+    endsOn: monthEnd,
+  })
+  .refine((s) => s.dayRule !== "BUSINESS_DAY" || s.day <= BUSINESS_DAY_MAX, {
+    message: `O dia útil vai do 1º ao ${BUSINESS_DAY_MAX}º.`,
+    path: ["day"],
+  })
+  .transform((s, ctx): RecurrenceSettings => {
+    let fixed: bigint | null = null;
+    if (s.amountRule === "FIXED") {
+      const parsed = positiveCents.safeParse(s.fixed);
+      if (!parsed.success) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Informe um valor maior que zero.",
+          path: ["fixed"],
+        });
+        return z.NEVER;
+      }
+      fixed = parsed.data;
+    }
+    return { amountRule: s.amountRule, fixed, dayRule: s.dayRule, day: s.day, endsOn: s.endsOn };
+  });
+
+/** Mudar o valor (Fixas e parcelas): a carteira e a recorrência, com o valor e o dia. */
+export const updateRecurrenceSchema = recurrenceIdSchema.and(recurrenceSettingsSchema);
+
+const statedInstallmentSchema = z
+  .object({
+    installmentNumber: z.coerce
+      .number({ error: "Informe a parcela." })
+      .int("Informe a parcela.")
+      .min(1, "A parcela começa em 1."),
+    installmentCount: z.coerce
+      .number({ error: `De 2 a ${STATED_INSTALLMENTS_MAX} parcelas.` })
+      .int(`De 2 a ${STATED_INSTALLMENTS_MAX} parcelas.`)
+      .min(2, `De 2 a ${STATED_INSTALLMENTS_MAX} parcelas.`)
+      .max(STATED_INSTALLMENTS_MAX, `De 2 a ${STATED_INSTALLMENTS_MAX} parcelas.`),
+  })
+  .refine((i) => i.installmentNumber <= i.installmentCount, {
+    message: "A parcela não passa do total.",
+    path: ["installmentNumber"],
+  });
+
+/**
+ * O tipo de um lançamento que já existe (O-Parcelada, O-ReceitaFixa): Fixa com o valor e o dia,
+ * Variável, ou Parcelada com a parcela e o total. Os campos de um tipo são ignorados nos outros.
+ */
+export function parseEntryType(formData: FormData) {
+  const entries = Object.fromEntries(formData);
+  const base = z
+    .object({
+      transactionId: z.uuid(),
+      type: z.enum(["FIXED", "VARIABLE", "INSTALLMENT"], { error: "Escolha o tipo." }),
+      rememberRule: checkbox,
+    })
+    .safeParse(entries);
+  if (!base.success) return base;
+  const { transactionId, type, rememberRule } = base.data;
+  if (type === "FIXED") {
+    const settings = recurrenceSettingsSchema.safeParse(entries);
+    if (!settings.success) return settings;
+    return {
+      success: true as const,
+      data: { transactionId, rememberRule, choice: { type, settings: settings.data } as const },
+    };
+  }
+  if (type === "INSTALLMENT") {
+    const parcel = statedInstallmentSchema.safeParse(entries);
+    if (!parcel.success) return parcel;
+    return {
+      success: true as const,
+      data: {
+        transactionId,
+        rememberRule,
+        choice: {
+          type,
+          number: parcel.data.installmentNumber,
+          count: parcel.data.installmentCount,
+        } as const,
+      },
+    };
+  }
+  return {
+    success: true as const,
+    data: { transactionId, rememberRule, choice: { type } as const },
+  };
+}
 
 export const generateSchema = z.object({
   month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Mês inválido."),

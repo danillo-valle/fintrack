@@ -76,13 +76,16 @@ export * from "./local-ai";
 export * from "./recurrences";
 export * from "./transactions";
 export * from "./category-cleanup";
+export * from "./recurring";
 export * from "./installments";
+export * from "./entry-type";
 
 // Orçamento, painel e fluxo de caixa (M08): o banco soma, o @fintrack/core interpreta.
 export * from "./budgets";
 export * from "./balances";
 export * from "./cash";
 export * from "./dashboard";
+export * from "./forecast";
 export * from "./nature";
 
 // Coleta bancária (M09.1): a conexão de cada pessoa (credenciais cifradas), a ligação das
