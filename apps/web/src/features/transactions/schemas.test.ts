@@ -10,6 +10,8 @@ import {
   periodRanges,
   recurrenceSchema,
   newEntrySchema,
+  parseEntryType,
+  recurrenceSettingsSchema,
   transactionSchema,
   transferSchema,
 } from "./schemas";
@@ -373,5 +375,84 @@ describe("newEntrySchema (M07.4: tipo da despesa)", () => {
         installments: "3",
       }).success,
     ).toBe(false);
+  });
+});
+
+describe("o que se repete (M13.3c)", () => {
+  const form = (entries: Record<string, string>) => {
+    const data = new FormData();
+    for (const [k, v] of Object.entries(entries)) data.set(k, v);
+    return data;
+  };
+  it("o valor fixo só com 'Um valor fixo'; o mês vira o último dia", () => {
+    expect(
+      recurrenceSettingsSchema.parse({
+        amountRule: "FIXED",
+        fixed: "212.48",
+        dayRule: "DAY",
+        day: "2",
+        endsOn: "2026-12",
+      }),
+    ).toEqual({ amountRule: "FIXED", fixed: 21248n, dayRule: "DAY", day: 2, endsOn: "2026-12-31" });
+    expect(
+      recurrenceSettingsSchema.parse({
+        amountRule: "AVERAGE_3",
+        fixed: "99.00",
+        dayRule: "BUSINESS_DAY",
+        day: "5",
+      }),
+    ).toEqual({
+      amountRule: "AVERAGE_3",
+      fixed: null,
+      dayRule: "BUSINESS_DAY",
+      day: 5,
+      endsOn: null,
+    });
+    expect(
+      recurrenceSettingsSchema.safeParse({
+        amountRule: "FIXED",
+        fixed: "",
+        dayRule: "DAY",
+        day: "2",
+      }).success,
+    ).toBe(false);
+    expect(
+      recurrenceSettingsSchema.safeParse({ amountRule: "LAST", dayRule: "BUSINESS_DAY", day: "24" })
+        .success,
+    ).toBe(false);
+  });
+  it("o tipo: Fixa com o valor e o dia, Parcelada com a parcela, Variável sozinha", () => {
+    const fixed = parseEntryType(
+      form({ transactionId: ID, type: "FIXED", amountRule: "LAST", dayRule: "DAY", day: "10" }),
+    );
+    expect(fixed.success && fixed.data.choice).toEqual({
+      type: "FIXED",
+      settings: { amountRule: "LAST", fixed: null, dayRule: "DAY", day: 10, endsOn: null },
+    });
+    const parcel = parseEntryType(
+      form({
+        transactionId: ID,
+        type: "INSTALLMENT",
+        installmentNumber: "2",
+        installmentCount: "5",
+      }),
+    );
+    expect(parcel.success && parcel.data.choice).toEqual({
+      type: "INSTALLMENT",
+      number: 2,
+      count: 5,
+    });
+    expect(
+      parseEntryType(
+        form({
+          transactionId: ID,
+          type: "INSTALLMENT",
+          installmentNumber: "6",
+          installmentCount: "5",
+        }),
+      ).success,
+    ).toBe(false);
+    const variable = parseEntryType(form({ transactionId: ID, type: "VARIABLE", day: "x" }));
+    expect(variable.success && variable.data.choice).toEqual({ type: "VARIABLE" });
   });
 });

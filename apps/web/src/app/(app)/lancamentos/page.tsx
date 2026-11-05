@@ -15,6 +15,7 @@ import { dayInWords, periodTitle, sliceTitle } from "@/features/transactions/pre
 import { filtersToQuery, periodBounds } from "@/features/transactions/schemas";
 import { getTransactionsPage } from "@/features/transactions/server/queries";
 import { AccountSummary } from "@/features/transactions/ui/account-summary";
+import { AccountForecast } from "@/features/transactions/ui/repeat/account-forecast";
 import { ActiveFilters, BackLink } from "@/features/transactions/ui/active-filters";
 import { EnvironmentSwitcher } from "@/features/transactions/ui/environment-switcher";
 import { activeFilterCount, TransactionFiltersForm } from "@/features/transactions/ui/filters";
@@ -233,6 +234,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/lan
               {environmentsSentence(page.environments, parsed.walletId, page.otherMembers)}
             </p>
             {pending}
+            {page.forecast ? <AccountForecast forecast={page.forecast} /> : null}
             <section aria-labelledby="lista-titulo" className="flex flex-col gap-3">
               <ListHeader
                 id="lista-titulo"

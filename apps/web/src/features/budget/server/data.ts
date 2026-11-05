@@ -20,12 +20,16 @@ import {
 import {
   cashRows,
   categoryNodes,
+  installmentPlans,
   listBudgets,
   prisma,
   recurrencePlans,
   recurrencesStartedIn,
   spendingRows,
   statementWindows,
+  upcoming,
+  type InstallmentPlan,
+  type RecurrencePlan,
   type WalletScope,
 } from "@fintrack/db";
 import { cacheLife, cacheTag } from "next/cache";
@@ -55,11 +59,32 @@ export async function cachedSpending(
   return { rows, windows: [...windows.entries()] };
 }
 
-/** As recorrências ativas e os meses em que já viraram lançamento. */
-export async function cachedRecurrences(scope: WalletScope<"view">, months: MonthKey[]) {
+/**
+ * O que ainda vai acontecer (ADR-027): as recorrências ativas, com os meses em que já viraram
+ * lançamento, e as parcelas que faltam das compras parceladas. A regra que junta os dois é a
+ * forecastLines do core.
+ */
+export async function cachedForecastPlans(
+  scope: WalletScope<"view">,
+  months: MonthKey[],
+  today: CivilDate,
+): Promise<ForecastPlans> {
   "use cache";
   tagged(scope);
-  return recurrencePlans(prisma, scope, months);
+  const [recurrences, installments] = await Promise.all([
+    recurrencePlans(prisma, scope, months),
+    installmentPlans(prisma, scope, today),
+  ]);
+  return { recurrences, installments };
+}
+
+export type ForecastPlans = { recurrences: RecurrencePlan[]; installments: InstallmentPlan[] };
+
+/** Próximos meses do Início (O-ProximosMeses): o que entra, as fixas, as faturas e a sobra. */
+export async function cachedUpcoming(scope: WalletScope<"view">, today: CivilDate) {
+  "use cache";
+  tagged(scope);
+  return upcoming(prisma, scope, today);
 }
 
 /** As contas fixas e assinaturas que começaram no mês (o resumo do mês, M10.3). */

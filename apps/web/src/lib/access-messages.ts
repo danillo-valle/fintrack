@@ -111,6 +111,12 @@ const DOMAIN_ERROR_MESSAGE: Record<DomainErrorCode, string> = {
   NATURE_NOT_ALLOWED:
     "Fixa ou variável é só para despesa avulsa. Parcela e transferência já têm o tipo delas.",
   CLEANUP_NOT_NEEDED: "Essa categoria não tem mais lançamentos que sejam transferência.",
+  RECURRENCE_RULE_INVALID:
+    "Confira o valor e o dia: o valor fixo precisa ser maior que zero, e o dia útil vai até o 23º.",
+  RECURRENCE_NOT_ALLOWED:
+    "Só uma cobrança avulsa se repete todo mês: transferência, estorno e parcela têm o tipo delas.",
+  INSTALLMENT_NOT_ALLOWED:
+    "A parcela só se diz numa compra avulsa em que o banco não disse qual é (parcela 1 a 99, até o total).",
   REFUND_NOT_ALLOWED:
     "Esse crédito não é estorno daquela compra (valor, loja ou prazo diferentes).",
   UNDO_EXPIRED: "Não dá mais para desfazer: o lançamento mudou depois.",
@@ -165,6 +171,8 @@ export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
   "recurrences.generated": "lançou as recorrências do mês",
   "recurrence.created": "criou uma recorrência",
   "recurrence.archived": "encerrou uma recorrência",
+  "recurrence.updated": "mudou o valor ou o dia de uma recorrência",
+  "transaction.installment_set": "disse a parcela de uma compra",
   "account.created": "criou uma conta",
   "account.updated": "editou uma conta",
   "account.archived": "arquivou ou desarquivou uma conta",

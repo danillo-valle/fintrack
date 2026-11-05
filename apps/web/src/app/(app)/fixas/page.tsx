@@ -1,74 +1,50 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Plus, Repeat } from "lucide-react";
+import { Check, Layers, Plus, Repeat, TrendingUp, X } from "lucide-react";
 import { ActionButton } from "@/components/feedback/action-button";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
-import { AmountText } from "@/components/money/amount-text";
 import { Button } from "@/components/ui/button";
+import { SegmentedNav } from "@/components/visual/segmented-nav";
+import { generateRecurrencesAction } from "@/features/transactions/server/actions";
 import {
-  archiveRecurrenceAction,
-  generateRecurrencesAction,
-} from "@/features/transactions/server/actions";
-import { getFixedPage } from "@/features/transactions/server/queries";
+  getFixedPage,
+  type FixedRecurrence,
+  type FixedTab,
+} from "@/features/transactions/server/queries";
 import { monthName } from "@/features/transactions/presentation";
 import { entryTabHref } from "@/features/transactions/ui/entry/entry-tabs";
+import { InstallmentRow, RecurrenceRow } from "@/features/transactions/ui/repeat/fixed-rows";
 import { requireUser } from "@/lib/auth/session";
-import { RECURRENCE_KIND_LABEL } from "@/lib/labels";
 import { formatBRL } from "@/lib/money";
 
 export const metadata: Metadata = { title: "Fixas e parcelas" };
 
-const SECTION = "bg-card flex flex-col gap-3 rounded-[1.25rem] border p-4 md:p-5";
+const SECTION = "bg-card flex flex-col gap-3 rounded-[1.25rem] border p-4 md:p-5 @container";
 const H2 = "text-[1.0625rem] font-extrabold tracking-[-0.01em] md:text-xl";
-const shortMonth = (month: string) =>
-  `${monthName(month).slice(0, 3).toLowerCase()}/${month.slice(0, 4)}`;
 
-type Recurrence = Awaited<ReturnType<typeof getFixedPage>>["expense"][number];
+const TABS: { tab: FixedTab | null; label: string; icon?: typeof Repeat }[] = [
+  { tab: null, label: "Tudo" },
+  { tab: "entradas", label: "Entradas", icon: TrendingUp },
+  { tab: "saidas", label: "Saídas fixas", icon: Repeat },
+  { tab: "parceladas", label: "Parceladas", icon: Layers },
+];
 
-function RecurrenceRow({ r }: { r: Recurrence }) {
-  return (
-    <li className="flex flex-wrap items-center justify-between gap-3 py-3">
-      <div className="min-w-0">
-        <p className="font-semibold break-words">
-          {r.description}
-          {r.archivedAt ? <span className="text-muted-foreground"> (encerrada)</span> : null}
-        </p>
-        <p className="text-muted-foreground text-sm break-words">
-          {RECURRENCE_KIND_LABEL[r.kind]} · todo dia {r.dayOfMonth} · {r.account.name}
-          {r.category ? ` · ${r.category.name}` : ""} ·{" "}
-          {r.endsOn ? `até ${shortMonth(r.endsOn.slice(0, 7))}` : "sem fim"}
-        </p>
-      </div>
-      <div className="flex items-center gap-3">
-        <AmountText cents={r.amount} className="font-bold" />
-        {r.canEdit && !r.archivedAt ? (
-          <ActionButton
-            action={archiveRecurrenceAction}
-            fields={{ walletId: r.walletId, recurrenceId: r.id }}
-            label={`Parar de repetir ${r.description}`}
-            confirm={`Parar de repetir ${r.description}? O que já aconteceu continua.`}
-            confirmLabel="Sim, parar"
-          >
-            Parar de repetir
-          </ActionButton>
-        ) : null}
-      </div>
-    </li>
-  );
-}
+const tabHref = (tab: FixedTab | null) => (tab ? `/fixas?mostrar=${tab}` : "/fixas");
 
-// Fixas e parcelas (M13.3a, item do menu; prancha O-Fixas): as entradas e saídas que se repetem
-// todo mês e as compras parceladas em andamento, com o que ainda falta pagar. Ajustes fica só com
-// configuração; esta é uma visão. A nova fixa é a aba Recorrência do Novo lançamento.
-export default async function FixedPage() {
+// Fixas e parcelas (M13.3a, item do menu; M13.3c, prancha O-Fixas): as entradas e saídas que se
+// repetem todo mês, com o valor previsto pela regra de cada uma, e as compras parceladas em
+// andamento, com o que ainda falta pagar. A fixa que chega do banco entra aqui sozinha (ADR-027);
+// o "⋯" muda o valor ou para de repetir. Ajustes fica só com configuração; esta é uma visão.
+export default async function FixedPage({ searchParams }: PageProps<"/fixas">) {
   const session = await requireUser(); // toda página do app começa conferindo a sessão
-  const page = await getFixedPage(session);
+  const page = await getFixedPage(session, await searchParams);
   const month = page.today.slice(0, 7);
-  const active = (list: Recurrence[]) => list.filter((r) => !r.archivedAt);
-  const monthly = (list: Recurrence[]) =>
-    active(list).reduce((sum, r) => sum + (r.amount < 0n ? -r.amount : r.amount), 0n);
+  const active = (list: FixedRecurrence[]) => list.filter((r) => !r.archivedAt);
+  const monthly = (list: FixedRecurrence[]) =>
+    active(list).reduce((sum, r) => sum + (r.expected < 0n ? -r.expected : r.expected), 0n);
   const toPay = page.installments.reduce((sum, i) => sum + i.remaining, 0n);
+  const shows = (tab: FixedTab) => page.tab === null || page.tab === tab;
 
   return (
     <>
@@ -87,109 +63,125 @@ export default async function FixedPage() {
           ) : null
         }
       />
-      <div className="flex flex-col gap-5">
-        <section aria-labelledby="entradas-fixas" className={SECTION}>
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 id="entradas-fixas" className={H2}>
-              Entradas fixas
-            </h2>
-            <span className="text-muted-foreground tabular font-mono text-sm">
-              {formatBRL(monthly(page.income))} por mês
-            </span>
-          </div>
-          {page.income.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
-              Nenhuma entrada fixa. O salário entra pela aba Recorrência do Novo lançamento, como
-              Entrada.
-            </p>
-          ) : (
-            <ul className="divide-y">
-              {page.income.map((r) => (
-                <RecurrenceRow key={r.id} r={r} />
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <section aria-labelledby="saidas-fixas" className={SECTION}>
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 id="saidas-fixas" className={H2}>
-              Saídas fixas
-            </h2>
-            <span className="text-muted-foreground tabular font-mono text-sm">
-              {active(page.expense).length} · {formatBRL(monthly(page.expense))} por mês
-            </span>
-          </div>
-          {page.expense.length === 0 ? (
-            <EmptyState
-              icon={Repeat}
-              title="Nenhuma saída fixa"
-              description="Aluguel, escola, assinaturas: cadastre pela aba Recorrência do Novo lançamento."
-            />
-          ) : (
-            <ul className="divide-y">
-              {page.expense.map((r) => (
-                <RecurrenceRow key={r.id} r={r} />
-              ))}
-            </ul>
-          )}
-          <div className="flex flex-wrap items-center gap-3 border-t pt-3">
-            <ActionButton action={generateRecurrencesAction} fields={{ month }} variant="outline">
-              <Repeat aria-hidden />
-              Lançar as deste mês
-            </ActionButton>
-            <span className="text-muted-foreground text-sm">
-              Cria, agendado, o lançamento de {monthName(month).toLowerCase()} de cada fixa (sem
-              repetir o que já existe).
-            </span>
-          </div>
-        </section>
-
-        <section aria-labelledby="parceladas" className={SECTION}>
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 id="parceladas" className={H2}>
-              Parceladas em andamento
-            </h2>
-            <span className="text-muted-foreground tabular font-mono text-sm">
-              {page.installments.length} · {formatBRL(toPay)} ainda a pagar
-            </span>
-          </div>
-          {page.installments.length === 0 ? (
-            <p className="text-muted-foreground text-sm">Nenhuma compra parcelada em andamento.</p>
-          ) : (
-            <ul className="divide-y">
-              {page.installments.map((i) => (
-                <li key={i.key} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-2 font-semibold break-words">
-                      {i.title}
-                      <span className="text-muted-foreground shrink-0 rounded-md border px-1.5 text-xs font-semibold tabular-nums">
-                        <span className="sr-only">parcela </span>
-                        {i.number}
-                        <span aria-hidden>/</span>
-                        <span className="sr-only"> de </span>
-                        {i.count}
-                      </span>
-                    </p>
-                    <p className="text-muted-foreground text-sm break-words">
-                      {i.accountName}
-                      {i.title !== i.bankText ? ` · ${i.bankText}` : ""} · faltam {i.remainingCount}{" "}
-                      de {formatBRL(i.perParcel)} · termina {shortMonth(i.endsIn)}
-                    </p>
-                  </div>
-                  <span className="flex flex-col items-end">
-                    <span className="tabular font-mono font-bold">{formatBRL(i.remaining)}</span>
-                    <span className="text-muted-foreground text-xs">ainda a pagar</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-          <p className="text-muted-foreground border-t pt-3 text-sm">
-            A parcela de agora é a da próxima fatura. A parcelada some daqui quando a última parcela
-            chega.
+      {page.changed ? (
+        <div
+          role="status"
+          data-testid="aviso-criado"
+          className="bg-income/12 mb-5 flex items-center gap-3 rounded-2xl p-3.5 md:p-4"
+        >
+          <span className="bg-card text-income flex size-9 shrink-0 items-center justify-center rounded-xl">
+            <Check aria-hidden className="size-5" />
+          </span>
+          <p className="min-w-0 flex-1 text-[0.9375rem] leading-snug">
+            <strong>{page.changed.name}</strong> mudou. O previsto dos próximos meses já usa o valor
+            e o dia novos.
           </p>
-        </section>
+          <Button asChild variant="ghost" size="icon" className="size-11 shrink-0 rounded-xl">
+            <Link href={tabHref(page.tab)} aria-label="Fechar o aviso">
+              <X aria-hidden />
+            </Link>
+          </Button>
+        </div>
+      ) : null}
+      <div className="flex flex-col gap-5">
+        <SegmentedNav
+          label="Mostrar"
+          items={TABS.map(({ tab, label, icon }) => ({
+            href: tabHref(tab),
+            label,
+            icon,
+            active: page.tab === tab,
+          }))}
+        />
+
+        {shows("entradas") ? (
+          <section aria-labelledby="entradas-fixas" className={SECTION}>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 id="entradas-fixas" className={H2}>
+                Entradas fixas
+              </h2>
+              <span className="text-muted-foreground tabular font-mono text-sm">
+                {formatBRL(monthly(page.income))} por mês
+              </span>
+            </div>
+            {page.income.length === 0 ? (
+              <p className="text-muted-foreground text-sm">
+                Nenhuma entrada fixa. Quando o salário chegar do banco, abra o lançamento e escolha
+                Tipo da receita: Fixa.
+              </p>
+            ) : (
+              <ul className="divide-y">
+                {page.income.map((r) => (
+                  <RecurrenceRow key={r.id} r={r} marked={page.changed?.id === r.id} />
+                ))}
+              </ul>
+            )}
+          </section>
+        ) : null}
+
+        {shows("saidas") ? (
+          <section aria-labelledby="saidas-fixas" className={SECTION}>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 id="saidas-fixas" className={H2}>
+                Saídas fixas
+              </h2>
+              <span className="text-muted-foreground tabular font-mono text-sm">
+                {active(page.expense).length} · {formatBRL(monthly(page.expense))} por mês
+              </span>
+            </div>
+            {page.expense.length === 0 ? (
+              <EmptyState
+                icon={Repeat}
+                title="Nenhuma saída fixa"
+                description="A fixa que chega do banco entra aqui sozinha. Aluguel e escola sem banco: a aba Recorrência do Novo lançamento."
+              />
+            ) : (
+              <ul className="divide-y">
+                {page.expense.map((r) => (
+                  <RecurrenceRow key={r.id} r={r} marked={page.changed?.id === r.id} />
+                ))}
+              </ul>
+            )}
+            <div className="flex flex-wrap items-center gap-3 border-t pt-3">
+              <ActionButton action={generateRecurrencesAction} fields={{ month }} variant="outline">
+                <Repeat aria-hidden />
+                Lançar as deste mês
+              </ActionButton>
+              <span className="text-muted-foreground text-sm">
+                Cria, agendado, o lançamento de {monthName(month).toLowerCase()} de cada fixa que o
+                FinTrack lança (sem repetir o que já existe).
+              </span>
+            </div>
+          </section>
+        ) : null}
+
+        {shows("parceladas") ? (
+          <section aria-labelledby="parceladas" className={SECTION}>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 id="parceladas" className={H2}>
+                Parceladas em andamento
+              </h2>
+              <span className="text-muted-foreground tabular font-mono text-sm">
+                {page.installments.length} · {formatBRL(toPay)} ainda a pagar
+              </span>
+            </div>
+            {page.installments.length === 0 ? (
+              <p className="text-muted-foreground text-sm">
+                Nenhuma compra parcelada em andamento.
+              </p>
+            ) : (
+              <ul className="divide-y">
+                {page.installments.map((i) => (
+                  <InstallmentRow key={i.key} i={i} />
+                ))}
+              </ul>
+            )}
+            <p className="text-muted-foreground border-t pt-3 text-sm">
+              As parcelas que faltam estão previstas nas faturas. A parcelada some daqui quando a
+              última chega do banco.
+            </p>
+          </section>
+        ) : null}
       </div>
     </>
   );

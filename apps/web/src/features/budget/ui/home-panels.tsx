@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { ChevronRight, CircleCheck, TriangleAlert } from "lucide-react";
 import { MoneyLink } from "@/components/money/money-link";
-import { percentOf } from "@/lib/chart";
 import { formatBRL } from "@/lib/money";
 import { NUMBER_LINK } from "@/lib/styles";
 import { cn } from "@/lib/utils";
-import type { AlertView, CashMonthView } from "../server/queries";
+import type { AlertView } from "../server/queries";
 
-// Os dois blocos da direita do Início (M08, canvas D): orçado × realizado (as categorias acima
-// do ritmo, com o ícone e a frase: a cor nunca é o único sinal) e o fluxo de caixa resumido.
+// Os blocos da direita do Início (M08, canvas D): o painel com título e orçado × realizado (as
+// categorias acima do ritmo, com o ícone e a frase: a cor nunca é o único sinal). O fluxo de
+// caixa resumido saiu no M13.3c: no lugar dele, Próximos meses (upcoming-months.tsx).
 
 /** Um bloco do painel: cartão branco com título (h2) e um link no canto. */
 export function Panel({
@@ -117,79 +117,6 @@ export function BudgetAlerts({
           dentro do orçado
         </span>
       </li>
-    </ul>
-  );
-}
-
-/** O fluxo de caixa resumido: o resultado de cada mês, com barras de entradas e saídas. */
-export function CashFlowMini({
-  months,
-  limit,
-}: {
-  months: readonly CashMonthView[];
-  limit?: number;
-}) {
-  const shown = limit ? months.slice(0, limit) : months;
-  let max = 0n;
-  for (const m of shown) for (const v of [m.income, m.fixed + m.other]) if (v > max) max = v;
-  return (
-    <ul className="flex flex-col gap-2" data-testid="fluxo-resumo">
-      {shown.map((m) => (
-        <li
-          key={m.month}
-          className={cn(
-            "grid items-center gap-2.5",
-            limit ? "grid-cols-[minmax(0,1fr)_auto]" : "grid-cols-[2.25rem_minmax(0,1fr)_7rem]",
-          )}
-        >
-          <span
-            className={cn(
-              "text-muted-foreground text-[0.8125rem] font-semibold",
-              limit && "text-foreground text-[0.9375rem]",
-            )}
-          >
-            {limit ? m.title : m.abbr}
-          </span>
-          {limit ? null : (
-            <span
-              role="img"
-              aria-label={`${m.title}: entradas ${formatBRL(m.income)}; despesas fixas ${formatBRL(m.fixed)}; faturas e outras saídas ${formatBRL(m.other)}; resultado ${formatBRL(m.net)}.`}
-              className="flex flex-col gap-[3px]"
-            >
-              <span
-                className="bg-income block h-[7px] rounded"
-                style={{ width: percentOf(m.income, max) }}
-              />
-              <span className="flex h-[7px]">
-                <span
-                  className="bg-expense block rounded-l"
-                  style={{ width: percentOf(m.fixed, max) }}
-                />
-                <span
-                  className="hatch block rounded-r"
-                  style={
-                    {
-                      width: percentOf(m.other, max),
-                      "--tone": "var(--expense)",
-                    } as React.CSSProperties
-                  }
-                />
-              </span>
-            </span>
-          )}
-          <Link
-            href={m.href}
-            aria-label={`Resultado de ${m.title}: ${m.net < 0n ? "−" : "+"} ${formatBRL(m.net < 0n ? -m.net : m.net)}. Ver o detalhe do mês`}
-            className={cn(
-              NUMBER_LINK,
-              "tabular text-right font-mono text-sm font-bold",
-              m.net < 0n ? "text-expense" : "text-income",
-            )}
-          >
-            {m.net < 0n ? "−" : "+"} {formatBRL(m.net < 0n ? -m.net : m.net)}
-          </Link>
-        </li>
-      ))}
     </ul>
   );
 }

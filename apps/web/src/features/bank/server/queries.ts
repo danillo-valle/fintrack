@@ -7,6 +7,10 @@ import {
   addMonthsToKey,
   firstDayOf,
   defaultStatement,
+  futureStatements,
+  statementOfMonth,
+  statementState,
+  statementWindow,
   householdPeople,
   monthOf,
   todayCivil,
@@ -19,6 +23,7 @@ import {
   authorizeConnectionOwner,
   accountBalances,
   cardAccountsOf,
+  cardForecast,
   cardStatements,
   connectionItemIds,
   getConnection,
@@ -32,7 +37,9 @@ import {
   statementPurchases,
   suggestLinks,
   type BankAccountForLink,
+  type CardStatementSummary,
   type ConnectionGrant,
+  type ForecastItem,
 } from "@fintrack/db";
 import { isProviderError } from "@fintrack/importers";
 import { AccessError, requireHouseholdAccess, requireScope } from "@/lib/access";
@@ -353,6 +360,75 @@ export const NATURE_PARAM: Record<string, SpendingNature> = {
   variaveis: "variable",
 };
 
+/** Uma fatura na página de Cartões: a gravada ou a que ainda não existe, com as previstas dela. */
+export type StatementView = CardStatementSummary & {
+  /** A fatura ainda não existe: só as previstas (fixas e parcelas) dela */
+  virtual: boolean;
+  forecast: ForecastItem[];
+  /** As previstas somadas (positivo = a pagar), no total e por tipo */
+  forecastTotal: bigint;
+  forecastByNature: { fixed: bigint; installment: bigint };
+};
+
+/** O id da fatura que ainda não existe, na URL (`?fatura=prevista-2026-12`). */
+const virtualId = (dueDate: CivilDate) => `prevista-${monthOf(dueDate)}`;
+
+/**
+ * As faturas gravadas e as que ainda não existem e já têm previstas (M13.3c, ADR-027; pranchas
+ * O-FaturaFutura e N-Projecao), cada uma com as previstas que vencem no mês dela.
+ */
+function withForecast(
+  real: readonly CardStatementSummary[],
+  forecast: Awaited<ReturnType<typeof cardForecast>>,
+  today: CivilDate,
+): StatementView[] {
+  const cycle = forecast.cycle;
+  const virtual: CardStatementSummary[] = cycle
+    ? futureStatements(
+        real,
+        forecast.items.map((i) => i.cashDate),
+        cycle,
+      ).map((s) => {
+        const previous = statementOfMonth(addMonthsToKey(s.referenceMonth, -1), cycle);
+        const window = statementWindow({
+          closingDate: s.closingDate,
+          previousClosingDate: previous.closingDate,
+        });
+        return {
+          id: virtualId(s.dueDate),
+          referenceMonth: s.referenceMonth,
+          closingDate: s.closingDate,
+          dueDate: s.dueDate,
+          window,
+          state: statementState({ window, today, paid: false }),
+          purchases: 0n,
+          purchaseCount: 0,
+          pendingCount: 0,
+          byNature: { fixed: 0n, installment: 0n, variable: 0n },
+          closed: null,
+          payments: [],
+          paid: 0n,
+        };
+      })
+    : [];
+  const virtualIds = new Set(virtual.map((v) => v.id));
+  return [...real, ...virtual]
+    .toSorted((a, b) => (a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : 0))
+    .map((s) => {
+      const lines = forecast.items.filter((i) => monthOf(i.cashDate) === monthOf(s.dueDate));
+      const sum = (source: "recurrence" | "installment") =>
+        lines.filter((l) => l.source === source).reduce((t, l) => t - l.amount, 0n);
+      const byNature = { fixed: sum("recurrence"), installment: sum("installment") };
+      return {
+        ...s,
+        virtual: virtualIds.has(s.id),
+        forecast: lines,
+        forecastTotal: byNature.fixed + byNature.installment,
+        forecastByNature: byNature,
+      };
+    });
+}
+
 /**
  * Cartões (M13.3a, prancha N-Cartoes): um cartão e uma fatura por vez. `?conta=` escolhe o cartão
  * (a conta da fatura) e `?fatura=` a fatura; sem eles, o primeiro cartão e a fatura que ainda vai
@@ -383,15 +459,20 @@ export async function getCardsPage(
       statements: await cardStatements(prisma, a, today),
     })),
   );
-  const statements = all.find((x) => x.account.id === chosen.id)?.statements ?? [];
+  const forecast = await cardForecast(prisma, scope, chosen.id, today);
+  const statements = withForecast(
+    all.find((x) => x.account.id === chosen.id)?.statements ?? [],
+    forecast,
+    today,
+  );
   const statement =
     statements.find((s) => s.id === one(params.fatura)) ?? defaultStatement(statements, today);
   const index = statement ? statements.indexOf(statement) : -1;
   const previous = index > 0 ? statements[index - 1] : null;
   const nature = NATURE_PARAM[one(params.tipo) ?? ""] ?? null;
   const [purchases, previousPaid, connection, grant] = await Promise.all([
-    statement ? statementPurchases(prisma, access.grant, statement.id) : [],
-    previous ? statementPaymentLines(prisma, chosen.id, previous) : [],
+    statement && !statement.virtual ? statementPurchases(prisma, access.grant, statement.id) : [],
+    previous && !previous.virtual ? statementPaymentLines(prisma, chosen.id, previous) : [],
     chosen.connectionId
       ? prisma.providerConnection.findUnique({
           where: { id: chosen.connectionId },

@@ -19,12 +19,15 @@ import {
   generateRecurrences,
   prisma,
   restoreTransaction,
+  setEntryType,
   setTransactionNature,
   suggestCategory,
+  updateRecurrence,
   updateTransaction,
 } from "@fintrack/db";
 import { centsToDecimal, type CategorySuggestion } from "@fintrack/core";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import {
   AccessError,
   requestContext,
@@ -43,8 +46,8 @@ import type { Session } from "@/lib/auth";
 import {
   exportSchema,
   generateSchema,
-  natureChoiceSchema,
   newEntrySchema,
+  parseEntryType,
   recurrenceIdSchema,
   recurrenceSchema,
   setNatureSchema,
@@ -52,6 +55,7 @@ import {
   transactionIdSchema,
   transactionSchema,
   transferSchema,
+  updateRecurrenceSchema,
 } from "../schemas";
 
 const LIST = "/lancamentos";
@@ -197,10 +201,8 @@ export async function updateTransactionAction(
   const session = await requireUser();
   const id = transactionIdSchema.safeParse(Object.fromEntries(formData));
   const parsed = transactionSchema.safeParse(Object.fromEntries(formData));
-  const nature = natureChoiceSchema.safeParse(Object.fromEntries(formData));
   if (!id.success) return invalid(id.error);
   if (!parsed.success) return invalid(parsed.error);
-  if (!nature.success) return invalid(nature.error);
   const data = parsed.data;
 
   const result = await runAction(async () => {
@@ -212,7 +214,7 @@ export async function updateTransactionAction(
       grant,
       target,
       account,
-      { ...data, cents: data.amount, nature: nature.data.nature },
+      { ...data, cents: data.amount },
       {
         scope: await requireScope(session, "view"),
         rememberRule: await ruleGrantIfAsked(session, data.rememberRule),
@@ -380,6 +382,66 @@ export async function archiveRecurrenceAction(
   });
   if (!result.error) await financeChanged(session);
   revalidatePath(FIXED);
+  return result;
+}
+
+/**
+ * Mudar o valor (Fixas e parcelas, ⋯; M13.3c): a regra do valor, o dia e o fim de uma
+ * recorrência. A recorrência é da carteira do crachá (IDOR: outra responde 404).
+ */
+export async function updateRecurrenceAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await requireUser();
+  const parsed = updateRecurrenceSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return invalid(parsed.error);
+  const { walletId, recurrenceId, ...settings } = parsed.data;
+  const result = await runAction(async () => {
+    const wallet = await requireWalletAccess(session, walletId, "edit");
+    await updateRecurrence(prisma, wallet, recurrenceId, settings, await requestContext());
+  });
+  if (result.error) return result;
+  await financeChanged(session);
+  revalidatePath(FIXED, "layout");
+  // O aviso vem no topo de Fixas e parcelas, com a linha marcada (a regra dos modais, M12.3a)
+  redirect(`${FIXED}?mudada=${recurrenceId}`);
+}
+
+/**
+ * O tipo de um lançamento que já existe (M13.3c, ADR-027): Fixa (repete todo mês, com o valor e o
+ * dia), Variável ou Parcelada (a parcela e o total). Com "as próximas desta loja também", a regra
+ * da loja passa a dar a categoria e o tipo.
+ */
+export async function setEntryTypeAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await requireUser();
+  const parsed = parseEntryType(formData);
+  if (!parsed.success) return invalid(parsed.error);
+  const { transactionId, rememberRule, choice } = parsed.data;
+  const result = await runAction(async () => {
+    const grant = await requireTransactionAccess(session, transactionId, "edit");
+    await setEntryType(
+      prisma,
+      grant,
+      choice,
+      { rememberRule: await ruleGrantIfAsked(session, rememberRule) },
+      await requestContext(),
+    );
+    return choice.type === "INSTALLMENT"
+      ? "Salvo. As parcelas que faltam ficam previstas nas próximas faturas."
+      : choice.type === "FIXED"
+        ? "Salvo. Ela fica prevista nos próximos meses até chegar."
+        : "Salvo. Ela não fica mais prevista.";
+  });
+  if (!result.error) {
+    await financeChanged(session);
+    revalidatePath(LIST, "layout");
+    revalidatePath(FIXED);
+    revalidatePath("/cartoes");
+  }
   return result;
 }
 

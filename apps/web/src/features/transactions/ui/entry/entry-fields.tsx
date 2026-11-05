@@ -23,7 +23,6 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { KIND_LABEL, METHOD_LABEL } from "@/lib/labels";
 import { formatBRL } from "@/lib/money";
 import { cn } from "@/lib/utils";
-import { natureDefaultText, NatureRadios, PURCHASE_NATURE_OPTIONS } from "../nature/nature-radios";
 import { PayerTile } from "../payer-tile";
 import { useEntry, useEntryRefs, type ExpenseType } from "./entry-provider";
 import { NATIVE_CHECK } from "@/lib/styles";
@@ -286,7 +285,6 @@ export function ClassificationFields() {
           "Crie categorias em Ajustes > Categorias."
         ) : null}
       </p>
-      <NatureField />
       {e.categoryId !== "" && (e.editing || e.correcting) && e.options.canManageCategories ? (
         <label className="flex min-h-11 items-center gap-2.5 text-sm font-semibold">
           <input type="checkbox" name="rememberRule" className={cn(NATIVE_CHECK, "size-5")} />
@@ -306,38 +304,6 @@ function rememberLabel(e: ReturnType<typeof useEntry>) {
   const what =
     e.existing?.natureView?.choosable && e.kind === "expense" ? " (categoria e tipo)" : "";
   return store ? `As próximas de “${store}” também${what}` : `As próximas desta loja também${what}`;
-}
-
-/**
- * Tipo da despesa de uma compra que já existe (M13.3b, canvas N-Detalhe): Fixa ou Variável, já
- * marcado com o de agora. A parcela é sempre Parcela. Lançar uma despesa nova continua com o Tipo
- * da despesa do M07.4 (variável, parcelada ou fixa todo mês), que fica acima.
- */
-function NatureField() {
-  const e = useEntry();
-  const view = e.existing?.natureView;
-  if (!e.editing || e.kind !== "expense" || !view) return null;
-  if (!view.choosable) {
-    return (
-      <p className="text-muted-foreground text-[0.8125rem]">
-        Tipo da despesa: Parcela. Uma compra parcelada é sempre Parcela.
-      </p>
-    );
-  }
-  const current = view.kind === "fixed" ? "FIXED" : "VARIABLE";
-  const category = e.options.categories.find((c) => c.id === e.categoryId) ?? null;
-  return (
-    <NatureRadios
-      name="nature"
-      legend="Tipo da despesa"
-      options={PURCHASE_NATURE_OPTIONS}
-      value={current}
-      before={current}
-      description={natureDefaultText(category, category?.defaultNature ?? null)}
-      idPrefix={e.fid("")}
-      className="pt-2"
-    />
-  );
 }
 
 /** Valor do "Pago com": a conta, ou a conta e um cartão dela ("conta:cartão"). */
