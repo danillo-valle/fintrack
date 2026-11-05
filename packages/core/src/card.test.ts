@@ -1,6 +1,8 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
+  futureStatements,
+  statementDueIn,
   installmentEntries,
   installmentPlan,
   statementFor,
@@ -284,5 +286,30 @@ describe("defaultStatement: a fatura que a página abre", () => {
   it("todas vencidas: a última; nenhuma: null", () => {
     expect(defaultStatement(list, "2027-01-01")).toEqual({ dueDate: "2026-12-09" });
     expect(defaultStatement([], "2026-11-03")).toBeNull();
+  });
+});
+
+describe("statementDueIn e futureStatements (M13.3c)", () => {
+  const cycle = { closingDay: 3, dueDay: 9 };
+  const late = { closingDay: 25, dueDay: 5 };
+  it("a fatura que vence no mês, nos dois tipos de ciclo", () => {
+    expect(statementDueIn("2026-12", cycle)).toEqual({
+      referenceMonth: "2026-12",
+      closingDate: "2026-12-03",
+      dueDate: "2026-12-09",
+    });
+    expect(statementDueIn("2026-12", late)).toEqual({
+      referenceMonth: "2026-11",
+      closingDate: "2026-11-25",
+      dueDate: "2026-12-05",
+    });
+  });
+  it("só as faturas que ainda não existem, uma por mês, em ordem", () => {
+    const result = futureStatements(
+      [{ dueDate: "2026-11-09" }],
+      ["2027-01-09", "2026-11-09", "2026-12-09", "2026-12-09"],
+      cycle,
+    );
+    expect(result.map((s) => s.dueDate)).toEqual(["2026-12-09", "2027-01-09"]);
   });
 });

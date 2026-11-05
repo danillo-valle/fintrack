@@ -39,6 +39,9 @@ export type AuditAction =
   | "recurrences.generated"
   | "recurrence.created"
   | "recurrence.archived"
+  // M13.3c: o que se repete (só ids, a regra e o dia; nunca valor)
+  | "recurrence.updated"
+  | "transaction.installment_set"
   | "account.created"
   | "account.archived"
   | "account.updated"

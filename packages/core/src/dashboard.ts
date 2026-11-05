@@ -8,6 +8,7 @@ import {
   ACCOUNTS_WINDOW,
   addFigures,
   averageCents,
+  addNatureCents,
   inNature,
   NO_NATURE_CENTS,
   budgetStatus,
@@ -64,10 +65,20 @@ export type PendingRow = {
   payer: string | null;
   /** Positivo */
   expense: Cents;
-  source: "recurrence" | "last-month";
+  /**
+   * recurrence: uma recorrência que ainda não chegou (a do app ou a do banco, ADR-027);
+   * last-month: a fixa do mês passado ainda sem recorrência (ADR-026); installment: uma parcela do
+   * banco que ainda vai cair (ADR-027)
+   */
+  source: "recurrence" | "last-month" | "installment";
   /** O nome (a descrição da recorrência ou o texto da compra do mês passado) */
   name: string;
 };
+
+/** O tipo de uma linha que ainda vai chegar: a parcela é parcela; o resto, fixa. */
+export function pendingNature(row: Pick<PendingRow, "source">): SpendingNature {
+  return row.source === "installment" ? "installment" : "fixed";
+}
 
 /** Um recorte: os filtros que a lista de lançamentos também entende. null = sem filtro. */
 export type Slice = {
@@ -103,13 +114,16 @@ export function figuresFor(
       spent: r.upToToday ? inNature(r.nature, r.expense) : NO_NATURE_CENTS,
       scheduled: r.upToToday ? NO_NATURE_CENTS : inNature(r.nature, r.expense),
       variableByWindow: new Map(variable === 0n ? [] : [[r.window, variable]]),
-      pending: 0n,
+      pending: NO_NATURE_CENTS,
     });
   }
-  const pend = sumCents(
-    pending.filter((p) => p.month === month && matches(p, slice)).map((p) => p.expense),
-  );
-  return { ...f, pending: f.pending + pend };
+  const pend = pending
+    .filter((p) => p.month === month && matches(p, slice))
+    .reduce(
+      (acc, p) => addNatureCents(acc, inNature(pendingNature(p), p.expense)),
+      NO_NATURE_CENTS,
+    );
+  return { ...f, pending: addNatureCents(f.pending, pend) };
 }
 
 /** Gasto de um mês fechado num recorte (tudo o que aconteceu no mês). */

@@ -13,17 +13,30 @@ import {
   installmentsInProgress,
   installmentSiblingKey,
   installmentStem,
+  monthOf,
+  projectedInstallments,
+  resolvePayer,
+  SHARED_PAYER_PARAM,
   signedAmount,
+  statedInstallmentValid,
   todayCivil,
   type Cents,
   type CivilDate,
   type InstallmentParcel,
+  type AccountKind,
+  type ForecastInstallment,
   type PaymentMethod,
 } from "@fintrack/core";
-import { DomainError, type AccountGrant, type WalletGrant, type WalletScope } from "./access";
+import {
+  DomainError,
+  type AccountGrant,
+  type TransactionGrant,
+  type WalletGrant,
+  type WalletScope,
+} from "./access";
 import { writeAudit, type RequestContext } from "./audit";
 import { assertUsableCategory, suggestCategory } from "./categories";
-import type { PrismaClient } from "./generated/prisma/client";
+import type { Prisma, PrismaClient } from "./generated/prisma/client";
 import { fromDbDecimal, toDbDecimal } from "./money";
 import {
   recordCorrection,
@@ -182,28 +195,48 @@ export async function createInstallmentPurchase(
   });
 }
 
+type ParcelInfo = {
+  label: string | null;
+  title: string;
+  bankText: string;
+  accountName: string;
+  category: string | null;
+};
+
+/** Uma parcela gravada, com a compra a que pertence e o que o previsto precisa dela. */
+type ReadParcel = InstallmentParcel & {
+  /** A compra parcelada do FinTrack (todas as parcelas já gravadas) ou do banco ("2/5") */
+  fromApp: boolean;
+  /** Ainda na revisão (fora das somas, ADR-011) */
+  pending: boolean;
+  walletId: string;
+  accountId: string;
+  accountKind: AccountKind;
+  cardId: string | null;
+  categoryId: string | null;
+  payer: string | null;
+};
+
 /**
- * As compras parceladas em andamento nas carteiras do escopo (M13.3a, Fixas e parcelas): as do
- * FinTrack e as que o banco informa ("2/5"), pela regra installmentsInProgress do core. Cada uma
- * com o nome (o "O que foi" da pessoa, senão o texto do banco sem o "NN/NN"), o cartão e a
- * categoria. Recebido ainda não conferido também conta: a parcela já está na fatura.
+ * As parcelas gravadas nas carteiras do escopo, uma por lançamento, e o nome de cada compra: o
+ * "O que foi" mais recente; sem nenhum, o nome da compra parcelada do FinTrack ou o texto do banco
+ * sem o "NN/NN". A parcela que a pessoa disse (ADR-027) conta como a do banco.
  */
-export async function installmentPurchases(
-  db: PrismaClient,
-  scope: WalletScope<"view">,
-  today: CivilDate,
-) {
-  if (scope.walletIds.length === 0) return [];
+async function readParcels(db: PrismaClient, walletIds: readonly string[]) {
   const rows = await db.transaction.findMany({
     where: {
-      walletId: { in: [...scope.walletIds] },
+      walletId: { in: [...walletIds] },
       deletedAt: null,
       transferId: null,
       OR: [{ installmentGroupId: { not: null } }, { providerInstallmentCount: { not: null } }],
     },
     orderBy: [{ occurredOn: "desc" }, { id: "asc" }],
     select: {
+      walletId: true,
       accountId: true,
+      cardId: true,
+      categoryId: true,
+      status: true,
       amount: true,
       description: true,
       label: true,
@@ -214,19 +247,13 @@ export async function installmentPurchases(
       providerInstallmentNumber: true,
       providerInstallmentCount: true,
       statement: { select: { dueDate: true } },
-      account: { select: { name: true } },
+      account: { select: { name: true, kind: true, holderId: true } },
+      card: { select: { holderId: true, sharedPurchases: true } },
       category: { select: { name: true } },
     },
   });
-  type Info = {
-    label: string | null;
-    title: string;
-    bankText: string;
-    accountName: string;
-    category: string | null;
-  };
-  const info = new Map<string, Info>();
-  const parcels: InstallmentParcel[] = [];
+  const info = new Map<string, ParcelInfo>();
+  const parcels: ReadParcel[] = [];
   for (const r of rows) {
     const amount = fromDbDecimal(r.amount);
     const number = r.installmentNumber ?? r.providerInstallmentNumber;
@@ -240,15 +267,27 @@ export async function installmentPurchases(
         installmentCount: r.providerInstallmentCount,
       });
     if (!key || number === null || count === null) continue;
+    const payer = resolvePayer({ card: r.card, account: r.account });
     parcels.push({
       key,
       number,
       count,
       amount,
       dueDate: civilFromDbDate(r.statement?.dueDate ?? r.occurredOn),
+      fromApp: r.installmentGroupId !== null,
+      pending: r.status === "PENDING",
+      walletId: r.walletId,
+      accountId: r.accountId,
+      accountKind: r.account.kind,
+      cardId: r.cardId,
+      categoryId: r.categoryId,
+      payer:
+        payer.kind === "shared"
+          ? SHARED_PAYER_PARAM
+          : payer.kind === "person"
+            ? payer.userId
+            : null,
     });
-    // As linhas vêm da mais recente para a mais antiga: o nome é o "O que foi" mais recente; sem
-    // nenhum, o nome da compra parcelada do FinTrack ou o texto do banco sem o "NN/NN"
     const known = info.get(key);
     const bankText = installmentStem(r.description);
     info.set(key, {
@@ -259,14 +298,158 @@ export async function installmentPurchases(
       category: known?.category ?? r.category?.name ?? null,
     });
   }
-  return installmentsInProgress(parcels, today).map((p) => {
-    const i = info.get(p.key) as Info;
-    return {
-      ...p,
-      title: i.label ?? i.title,
-      bankText: i.bankText,
-      accountName: i.accountName,
-      category: i.category,
-    };
+  const nameOf = (key: string) => {
+    const i = info.get(key) as ParcelInfo;
+    return { title: i.label ?? i.title, bankText: i.bankText, accountName: i.accountName };
+  };
+  return { parcels, info, nameOf };
+}
+
+/**
+ * As compras parceladas em andamento nas carteiras do escopo (M13.3a, Fixas e parcelas): as do
+ * FinTrack e as que o banco informa ("2/5"), pela regra installmentsInProgress do core. Cada uma
+ * com o nome, o cartão e a categoria. Recebido ainda não conferido também conta: a parcela já
+ * está na fatura.
+ */
+export async function installmentPurchases(
+  db: PrismaClient,
+  scope: WalletScope<"view">,
+  today: CivilDate,
+) {
+  if (scope.walletIds.length === 0) return [];
+  const { parcels, info, nameOf } = await readParcels(db, scope.walletIds);
+  return installmentsInProgress(parcels, today).map((p) => ({
+    ...p,
+    ...nameOf(p.key),
+    category: (info.get(p.key) as ParcelInfo).category,
+  }));
+}
+
+/** Uma parcela que ainda vai cair (ADR-027), com o que o previsto precisa para somá-la. */
+export type InstallmentPlan = ForecastInstallment & {
+  title: string;
+  bankText: string;
+  accountName: string;
+  cardId: string | null;
+};
+
+/**
+ * As parcelas previstas das compras parceladas do banco (e das que a pessoa disse): depois da
+ * mais recente que já foi conferida, uma por fatura, até a última (projectedInstallments). A do
+ * FinTrack não entra: todas as parcelas dela já estão gravadas. A parcela que chegou e está na
+ * revisão ainda não conta (fora das somas, como a cobrança da recorrência do banco), então a
+ * prevista dela continua. Só do mês de `today` em diante.
+ */
+export async function installmentPlans(
+  db: PrismaClient,
+  scope: WalletScope<"view">,
+  today: CivilDate,
+): Promise<InstallmentPlan[]> {
+  if (scope.walletIds.length === 0) return [];
+  const { parcels, nameOf } = await readParcels(db, scope.walletIds);
+  const counted = parcels.filter((p) => !p.fromApp && !p.pending);
+  const latest = new Map<string, (typeof counted)[number]>();
+  for (const p of counted) {
+    const seen = latest.get(p.key);
+    if (!seen || p.number > seen.number) latest.set(p.key, p);
+  }
+  const current = monthOf(today);
+  return projectedInstallments(counted)
+    .filter((p) => p.month >= current)
+    .map((p) => {
+      const from = latest.get(p.key) as (typeof counted)[number];
+      return {
+        ...p,
+        ...nameOf(p.key),
+        walletId: from.walletId,
+        accountId: from.accountId,
+        accountKind: from.accountKind,
+        cardId: from.cardId,
+        categoryId: from.categoryId,
+        payer: from.payer,
+      };
+    });
+}
+
+/**
+ * "Parcelada" numa compra em que o banco não disse a parcela (ADR-027, O-Parcelada): a parcela e o
+ * total vão para os campos da parcela do banco, marcados como ditos pela pessoa (a busca não
+ * apaga). A compra deixa de ter fixa/variável (o CHECK) e sai da recorrência do banco; as que
+ * faltam ficam previstas nas próximas faturas, e a cobrança do mês seguinte continua a parcela
+ * sozinha. null desfaz (só a parcela que a pessoa disse). Auditoria com o id e os números.
+ */
+export async function setTransactionInstallment(
+  db: PrismaClient,
+  grant: TransactionGrant<"edit">,
+  installment: { number: number; count: number } | null,
+  ctx: RequestContext,
+) {
+  await db.$transaction((tx) => setInstallmentTx(tx, grant, installment, ctx));
+}
+
+/** setTransactionInstallment dentro de uma transação aberta. */
+export async function setInstallmentTx(
+  tx: Prisma.TransactionClient,
+  grant: TransactionGrant<"edit">,
+  installment: { number: number; count: number } | null,
+  ctx: RequestContext,
+) {
+  if (installment && !statedInstallmentValid(installment)) {
+    throw new DomainError("INSTALLMENT_NOT_ALLOWED");
+  }
+  const row = await tx.transaction.findFirst({
+    where: { id: grant.transaction.id, deletedAt: null },
+    select: {
+      amount: true,
+      transferId: true,
+      reversalOfId: true,
+      installmentGroupId: true,
+      providerInstallmentCount: true,
+      installmentByPerson: true,
+      recurrence: { select: { origin: true } },
+    },
   });
+  if (!row) throw new DomainError("NOT_FOUND");
+  const bankSaid = row.providerInstallmentCount !== null && !row.installmentByPerson;
+  if (
+    fromDbDecimal(row.amount) >= 0n ||
+    row.transferId ||
+    row.reversalOfId ||
+    row.installmentGroupId ||
+    bankSaid ||
+    row.recurrence?.origin === "APP"
+  ) {
+    throw new DomainError("INSTALLMENT_NOT_ALLOWED");
+  }
+  if (!installment && !row.installmentByPerson) return;
+  await tx.transaction.update({
+    where: { id: grant.transaction.id },
+    data: installment
+      ? {
+          providerInstallmentNumber: installment.number,
+          providerInstallmentCount: installment.count,
+          installmentByPerson: true,
+          nature: null,
+          recurrenceId: null,
+        }
+      : {
+          providerInstallmentNumber: null,
+          providerInstallmentCount: null,
+          installmentByPerson: false,
+        },
+  });
+  await writeAudit(
+    tx,
+    {
+      actorId: grant.userId,
+      householdId: grant.transaction.householdId,
+      action: "transaction.installment_set",
+      entity: "transaction",
+      entityId: grant.transaction.id,
+      metadata: installment
+        ? { number: installment.number, count: installment.count }
+        : { cleared: true },
+    },
+    ctx,
+  );
 }

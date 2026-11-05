@@ -67,3 +67,21 @@ export function installmentsInProgress(
     a.remaining === b.remaining ? 0 : a.remaining > b.remaining ? -1 : 1,
   );
 }
+
+/** O total máximo de parcelas que a pessoa diz numa compra do banco (o CHECK das parcelas do banco). */
+export const STATED_INSTALLMENTS_MAX = 99;
+
+/**
+ * A parcela que a pessoa diz (M13.3c, ADR-027): de 2 a 99 parcelas, o número de 1 até o total. As
+ * mesmas regras do CHECK `transaction_provider_installment_check`.
+ */
+export function statedInstallmentValid(i: { number: number; count: number }): boolean {
+  return (
+    Number.isInteger(i.number) &&
+    Number.isInteger(i.count) &&
+    i.count >= 2 &&
+    i.count <= STATED_INSTALLMENTS_MAX &&
+    i.number >= 1 &&
+    i.number <= i.count
+  );
+}

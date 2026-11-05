@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { ACCOUNTS_WINDOW, natureTotal, subtreeOf, type CategoryNode } from "./budget";
+import {
+  ACCOUNTS_WINDOW,
+  NO_NATURE_CENTS,
+  natureTotal,
+  subtreeOf,
+  type CategoryNode,
+} from "./budget";
 import type { MonthKey } from "./dates";
 import {
   budgetRows,
@@ -97,7 +103,7 @@ describe("figuresFor e as somas de um recorte", () => {
       spent: { fixed: 0n, installment: 0n, variable: brl("482.35") },
       variableByWindow: new Map([[ACCOUNTS_WINDOW, brl("482.35")]]),
       scheduled: { fixed: 0n, installment: 0n, variable: 0n },
-      pending: 0n,
+      pending: NO_NATURE_CENTS,
     });
   });
 
@@ -148,7 +154,7 @@ describe("figuresFor e as somas de um recorte", () => {
       spent: { fixed: 0n, installment: 0n, variable: 0n },
       variableByWindow: new Map(),
       scheduled: { fixed: brl("2200"), installment: 0n, variable: 0n },
-      pending: brl("100"),
+      pending: { ...NO_NATURE_CENTS, fixed: brl("100") },
     });
   });
 
@@ -380,5 +386,38 @@ describe("monthlySeries (Evolução)", () => {
       slice: { categories: new Set(["mercado"]), payer: "dv" },
     });
     expect(dv[0]?.budget).toBeNull();
+  });
+});
+
+describe("o que ainda vai chegar, por tipo (ADR-027)", () => {
+  it("a parcela prevista entra nas parcelas; a recorrência, nas fixas", () => {
+    const f = figuresFor(
+      [],
+      [
+        {
+          month: "2026-12",
+          date: "2026-12-09",
+          walletId: "w",
+          categoryId: null,
+          payer: null,
+          expense: brl("640"),
+          source: "installment",
+          name: "Notebook",
+        },
+        {
+          month: "2026-12",
+          date: "2026-12-02",
+          walletId: "w",
+          categoryId: null,
+          payer: null,
+          expense: brl("21.90"),
+          source: "recurrence",
+          name: "Spotify",
+        },
+      ],
+      "2026-12",
+      {},
+    );
+    expect(f.pending).toEqual({ fixed: brl("21.90"), installment: brl("640"), variable: 0n });
   });
 });

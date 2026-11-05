@@ -46,6 +46,7 @@ import { defaultSuggesters, type CascadeServices } from "./categories";
 import { openSecret, SecretKeyError, type SecretKeyring } from "./connection-secret";
 import type { Prisma, PrismaClient } from "./generated/prisma/client";
 import type { SyncTrigger } from "./generated/prisma/enums";
+import { keepRecentLinked } from "./recurring";
 import { fromDbDecimal, fromDbDecimalOrNull, toDbDecimal } from "./money";
 import { alignOpenStatement } from "./statements";
 
@@ -265,6 +266,8 @@ export async function runSync(
         }
       }
     }
+    // O que chegou toma o lugar da prevista, e a fixa que ficou para trás vira previsão (ADR-027)
+    await keepRecentLinked(db, householdId, today);
 
     await db.$transaction([
       db.syncRun.update({
@@ -500,6 +503,7 @@ const EXISTING_SELECT = {
   providerCategory: true,
   providerInstallmentNumber: true,
   providerInstallmentCount: true,
+  installmentByPerson: true,
   originalAmount: true,
   originalCurrency: true,
   externalId: true,
@@ -691,8 +695,11 @@ async function saveTransactions(
       // junto com o dia, e não conta como mudança sozinha
       statementExternalId: statementId === null ? null : row.statementId,
       cardLastFour: row.providerCardLastFour,
+      // A parcela que a pessoa disse (ADR-027) não é do banco: o banco ainda não disse nenhuma
       installment:
-        row.providerInstallmentNumber !== null && row.providerInstallmentCount !== null
+        !row.installmentByPerson &&
+        row.providerInstallmentNumber !== null &&
+        row.providerInstallmentCount !== null
           ? { number: row.providerInstallmentNumber, count: row.providerInstallmentCount }
           : null,
       original:
@@ -725,10 +732,7 @@ async function saveTransactions(
         originalAmount: t.original ? toDbDecimal(t.original.amount) : null,
         originalCurrency: t.original?.currency ?? null,
         providerCategory: t.category,
-        providerInstallmentNumber: t.installment?.number ?? null,
-        providerInstallmentCount: t.installment?.count ?? null,
-        // O banco passou a dizer que é parcela: parcela não tem fixa/variável (o CHECK exige)
-        ...(t.installment ? { nature: null } : {}),
+        ...installmentFromBank(row, t.installment),
       },
     });
   }
@@ -744,6 +748,27 @@ async function saveTransactions(
       counts.updated += 1;
     }
   });
+}
+
+/**
+ * A parcela de um recebido que o banco mandou de novo. O banco diz a parcela: ela vale (e deixa
+ * de ser a que a pessoa disse); parcela não tem fixa/variável (o CHECK exige). O banco não diz:
+ * a que a pessoa disse continua (ADR-027), senão fica sem parcela.
+ */
+function installmentFromBank(
+  row: Pick<ExistingRow, "installmentByPerson">,
+  installment: { number: number; count: number } | null,
+): Prisma.TransactionUncheckedUpdateInput {
+  if (installment) {
+    return {
+      providerInstallmentNumber: installment.number,
+      providerInstallmentCount: installment.count,
+      installmentByPerson: false,
+      nature: null,
+    };
+  }
+  if (row.installmentByPerson) return {};
+  return { providerInstallmentNumber: null, providerInstallmentCount: null };
 }
 
 /**

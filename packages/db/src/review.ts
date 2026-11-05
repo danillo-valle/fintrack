@@ -55,6 +55,7 @@ import {
 import { randomUUID } from "node:crypto";
 import { DomainError, type WalletScope } from "./access";
 import { writeAudit, type RequestContext } from "./audit";
+import { linkRecurring } from "./recurring";
 import { natureViewOf } from "./nature";
 import type { Prisma, PrismaClient } from "./generated/prisma/client";
 import { localAiEnabled } from "./local-ai";
@@ -717,6 +718,8 @@ export async function confirmReceived(
       },
     });
     if (count === 0) await staleOrMissing(tx, scope, input.transactionId);
+    // A fixa confirmada toma o lugar da prevista, ou vira previsão (ADR-027)
+    await linkRecurring(tx, [input.transactionId], scope.userId, ctx);
     await writeAudit(
       tx,
       {
@@ -778,6 +781,7 @@ export async function confirmBulk(
       where: { id: { in: ids }, status: "PENDING", deletedAt: null },
       data: { status: "CONFIRMED", reviewedAt: now, reviewedById: scope.userId },
     });
+    await linkRecurring(tx, ids, scope.userId, ctx);
     await writeAudit(
       tx,
       {
@@ -964,6 +968,7 @@ export async function confirmPair(
       },
     });
     if (receivedUpdate.count === 0) throw new DomainError("REVIEW_STALE");
+    await linkRecurring(tx, [received.id], scope.userId, ctx);
     const match = await tx.transactionMatch.create({
       data: {
         householdId,
@@ -1177,6 +1182,8 @@ export async function confirmTransfer(
       });
       if (count === 0) throw new DomainError("REVIEW_STALE");
     }
+    // Transferência não se repete: sai da recorrência do banco, se estava (ADR-027)
+    await linkRecurring(tx, [received.id, other.id], scope.userId, ctx);
     const match = await tx.transactionMatch.create({
       data: {
         householdId,
@@ -1278,6 +1285,7 @@ export async function markTransfer(
       },
     });
     if (count === 0) throw new DomainError("REVIEW_STALE");
+    await linkRecurring(tx, [row.id], scope.userId, ctx);
     await writeAudit(
       tx,
       {

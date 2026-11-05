@@ -11,6 +11,7 @@
 import {
   ACCOUNTS_WINDOW,
   addMonthsToKey,
+  expectedAmount,
   civilFromDbDate,
   dbDateFromCivil,
   firstDayOf,
@@ -19,13 +20,14 @@ import {
   SHARED_PAYER_PARAM,
   statementWindow,
   type AccountKind,
-  type CashAccount,
   type CivilDate,
   type FixedCharge,
   type MonthKey,
   type NewRecurrence,
   type PaceWindow,
-  type ScheduledRecurrence,
+  type ForecastRecurrence,
+  type RecurrenceAmountRule,
+  type RecurrenceOrigin,
   type SpendingNature,
   type SpendingRow,
 } from "@fintrack/core";
@@ -207,20 +209,24 @@ export async function statementWindows(
   );
 }
 
-/** Uma recorrência do escopo, pronta para virar previsão (orçamento e fluxo de caixa). */
-export type RecurrencePlan = ScheduledRecurrence & {
-  walletId: string;
-  categoryId: string | null;
-  /** "Pago por" da recorrência: a mesma regra do lançamento (cartão, portador, titular) */
-  payer: string | null;
-  accountId: string;
-  account: CashAccount;
+/** Uma recorrência do escopo, pronta para virar previsão (orçamento, fluxo de caixa, previstas). */
+export type RecurrencePlan = ForecastRecurrence & {
+  id: string;
+  /** Quem traz o lançamento (ADR-027): o FinTrack gera ou o banco traz */
+  origin: RecurrenceOrigin;
+  amountRule: RecurrenceAmountRule;
+  cardId: string | null;
 };
 
+/** Quantos meses de cobranças a recorrência do banco olha para o valor previsto (a média de 3). */
+const ARRIVAL_MONTHS = 4;
+
 /**
- * As recorrências ativas do escopo e os meses em que cada uma já gerou lançamento. Lançamento
- * gerado e depois excluído também conta como "já gerado": quem excluiu decidiu que aquele mês não
- * acontece, e "Lançar as deste mês" também não o recria (chave única do M04).
+ * As recorrências ativas do escopo, com o valor previsto e os meses já realizados (ADR-027):
+ *   APP   o mês em que ela já gerou lançamento. Gerado e depois excluído também conta: quem
+ *         excluiu decidiu que aquele mês não acontece, e "Lançar as deste mês" não o recria
+ *   BANK  o mês com uma cobrança ligada CONFIRMADA e não excluída (o recebido ainda na revisão está
+ *         fora das somas, e a prevista continua). O valor vem das cobranças (expectedAmount)
  */
 export async function recurrencePlans(
   db: PrismaClient,
@@ -228,6 +234,7 @@ export async function recurrencePlans(
   months: readonly MonthKey[],
 ): Promise<RecurrencePlan[]> {
   if (months.length === 0) return [];
+  const first = addMonthsToKey(months[0] as MonthKey, -ARRIVAL_MONTHS);
   const recurrences = await db.recurrence.findMany({
     where: { walletId: { in: walletIdsOf(scope) }, archivedAt: null },
     orderBy: { id: "asc" },
@@ -236,7 +243,11 @@ export async function recurrencePlans(
       walletId: true,
       categoryId: true,
       accountId: true,
+      cardId: true,
       amount: true,
+      origin: true,
+      amountRule: true,
+      dayRule: true,
       dayOfMonth: true,
       startsOn: true,
       endsOn: true,
@@ -245,32 +256,49 @@ export async function recurrencePlans(
       transactions: {
         where: {
           occurredOn: {
-            gte: dbDateFromCivil(firstDayOf(months[0] as MonthKey)),
+            gte: dbDateFromCivil(firstDayOf(first)),
             lte: dbDateFromCivil(dayOfMonth(months.at(-1) as MonthKey, 31)),
           },
         },
-        select: { occurredOn: true },
+        select: { occurredOn: true, amount: true, status: true, deletedAt: true },
       },
     },
   });
   return recurrences.map((r) => {
     const payer = resolvePayer({ card: r.card, account: r.account });
+    const arrived = r.transactions.filter((t) => t.status === "CONFIRMED" && t.deletedAt === null);
+    const realized = r.origin === "BANK" ? arrived : r.transactions;
+    const fixed = fromDbDecimal(r.amount);
     return {
       id: r.id,
       walletId: r.walletId,
       categoryId: r.categoryId,
       accountId: r.accountId,
+      cardId: r.cardId,
+      origin: r.origin,
+      amountRule: r.amountRule,
       payer:
         payer.kind === "shared"
           ? SHARED_PAYER_PARAM
           : payer.kind === "person"
             ? payer.userId
             : null,
-      amount: fromDbDecimal(r.amount),
+      amount:
+        r.origin === "BANK"
+          ? expectedAmount(
+              r.amountRule,
+              fixed,
+              arrived.map((t) => ({
+                occurredOn: civilFromDbDate(t.occurredOn),
+                amount: fromDbDecimal(t.amount),
+              })),
+            )
+          : fixed,
       dayOfMonth: r.dayOfMonth,
+      dayRule: r.dayRule,
       startsOn: civilFromDbDate(r.startsOn),
       endsOn: r.endsOn ? civilFromDbDate(r.endsOn) : null,
-      materialized: new Set(r.transactions.map((t) => civilFromDbDate(t.occurredOn).slice(0, 7))),
+      materialized: new Set(realized.map((t) => civilFromDbDate(t.occurredOn).slice(0, 7))),
       account: {
         kind: r.account.kind,
         cycle:
