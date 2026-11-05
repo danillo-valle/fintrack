@@ -5,6 +5,7 @@ import {
   cleanText,
   dayOfMonth,
   decimalToCents,
+  EXPENSE_NATURES,
   addMonths,
   firstDayOf,
   monthOf,
@@ -17,6 +18,7 @@ import {
   type CategorizationSource,
   type CivilDate,
   type DateRange,
+  type ExpenseNature,
   type MonthKey,
   type PayerFilter,
   type PaymentMethod,
@@ -56,6 +58,26 @@ const checkbox = z
   .literal("on")
   .optional()
   .transform((v) => v === "on");
+
+// ── Fixa ou variável (M13.3b, ADR-026) ─────────────────────────────────────────
+
+const expenseNature = z.enum(EXPENSE_NATURES as [ExpenseNature, ...ExpenseNature[]]);
+
+/**
+ * O tipo da despesa escolhido numa tela: os botões Fixa/Variável chegam já marcados com o tipo de
+ * agora, e `natureBefore` diz qual era. Só o que a pessoa TROCOU vira marca; igual ao de antes,
+ * fica indefinido (a compra continua seguindo a categoria, se seguia).
+ */
+export const natureChoiceSchema = z
+  .object({ nature: expenseNature.optional(), natureBefore: expenseNature.optional() })
+  .transform(({ nature, natureBefore }) => ({
+    nature: nature && nature !== natureBefore ? nature : undefined,
+  }));
+
+/** O tipo num toque (a etiqueta da lista): o lançamento, o tipo e "as próximas desta loja também". */
+export const setNatureSchema = z
+  .object({ transactionId: z.uuid(), rememberRule: checkbox })
+  .and(natureChoiceSchema);
 
 // ── Lançamento ──────────────────────────────────────────────────────────────────
 

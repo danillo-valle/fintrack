@@ -15,6 +15,11 @@
 // caminho para ela, em vez de um "Criar" que o banco recusaria; e, num recebido ainda na revisão,
 // "É transferência" (para alguém do lar ou para uma conta sua fora do FinTrack) no pé do painel.
 //
+// M13.3b (ADR-026, canvas N-Revisao e N-CelRevisao): numa despesa avulsa, o tipo (Fixa ou Variável)
+// aparece no botão, ao lado de quem sugeriu, e o painel traz a escolha do tipo com "As próximas de X
+// também" (a regra da loja passa a dar a categoria e o tipo). Tocar numa categoria grava as duas
+// coisas; "Aplicar" grava o tipo e a regra sem trocar a categoria.
+//
 // Feito com <details>/<summary> e um <form> com a Server Action direta: abre, escolhe e grava
 // mesmo antes do JavaScript carregar (regra do M08). O JavaScript só acrescenta a busca, o Esc,
 // o "um aberto por vez" e devolver o foco à linha depois de escolher.
@@ -22,12 +27,20 @@ import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeftRight, ChevronRight, Plus, Search, TriangleAlert, X } from "lucide-react";
 import { ActionForm } from "@/components/feedback/action-form";
-import type { CategorizationSource } from "@fintrack/core";
+import { Button } from "@/components/ui/button";
+import type { CategorizationSource, NatureView } from "@fintrack/core";
 import { IconTile } from "@/components/visual/icon-tile";
 import { SourcePill } from "@/components/visual/source-pill";
 import { toneFor } from "@/components/visual/tone";
 import { cn } from "@/lib/utils";
+import { NatureTag } from "@/features/transactions/ui/nature/nature-tag";
+import {
+  natureDefaultText,
+  NatureRadios,
+  SHORT_NATURE_OPTIONS,
+} from "@/features/transactions/ui/nature/nature-radios";
 import { markTransferAction, setCategoryAction, type CategoryState } from "../server/actions";
+import { NATIVE_CHECK } from "@/lib/styles";
 
 export type CategoryChoice = { id: string; name: string; parent: string | null };
 
@@ -50,6 +63,8 @@ export function CategoryPicker({
     category: { id: string; name: string; parent: string | null } | null;
     categorizedBy: CategorizationSource | null;
     categorizationConfidence?: number | null;
+    /** O tipo da saída (M13.3b); nulo em entrada e transferência */
+    natureView?: NatureView | null;
   };
   /** As categorias do tipo do lançamento (despesa ou receita), as mais usadas primeiro */
   choices: readonly CategoryChoice[];
@@ -130,12 +145,17 @@ export function CategoryPicker({
             />
             <span className="flex min-w-0 flex-col items-start gap-1 text-left leading-tight">
               <span className="truncate text-sm font-semibold">{item.category.name}</span>
-              {item.categorizedBy ? (
-                <SourcePill
-                  source={item.categorizedBy}
-                  confidence={item.categorizationConfidence ?? null}
-                  className="h-5"
-                />
+              {item.categorizedBy || item.natureView ? (
+                <span className="flex flex-wrap gap-1">
+                  {item.categorizedBy ? (
+                    <SourcePill
+                      source={item.categorizedBy}
+                      confidence={item.categorizationConfidence ?? null}
+                      className="h-5"
+                    />
+                  ) : null}
+                  {item.natureView ? <NatureTag kind={item.natureView.kind} size="sm" /> : null}
+                </span>
               ) : null}
             </span>
             <span className="sr-only"> · trocar categoria de {item.description}</span>
@@ -239,7 +259,12 @@ function PickerBody({
   state: CategoryState;
   onSaved: () => void;
   pending: boolean;
-  item: { id: string; description: string; category: { id: string } | null };
+  item: {
+    id: string;
+    description: string;
+    category: { id: string; name: string } | null;
+    natureView?: NatureView | null;
+  };
   shown: readonly CategoryChoice[];
   query: string;
   exact: boolean;
@@ -253,6 +278,8 @@ function PickerBody({
   }, [state, onSaved]);
 
   const typed = query.trim();
+  const choosable = item.natureView?.choosable ?? false;
+  const current = item.natureView?.kind === "fixed" ? "FIXED" : "VARIABLE";
   return (
     <div className="flex flex-col gap-2.5">
       <input type="hidden" name="transactionId" value={item.id} />
@@ -358,13 +385,44 @@ function PickerBody({
           Criar “{typed.slice(0, 60)}”
         </button>
       ) : null}
+      {choosable ? (
+        <div className="border-t pt-2.5">
+          <NatureRadios
+            name="nature"
+            legend="Tipo da despesa"
+            options={SHORT_NATURE_OPTIONS}
+            value={current}
+            before={current}
+            description={natureDefaultText(item.category, item.natureView?.categoryNature ?? null)}
+            variant="segmented"
+            idPrefix={`${searchId}-`}
+          />
+        </div>
+      ) : null}
       <label htmlFor={ruleId} className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm">
-        <input id={ruleId} type="checkbox" name="rememberRule" className="accent-primary size-5" />
-        Sempre categorizar “{item.description}” assim
+        <input
+          id={ruleId}
+          type="checkbox"
+          name="rememberRule"
+          className={cn(NATIVE_CHECK, "size-5")}
+        />
+        As próximas de “{item.description}” também
       </label>
       <span className="text-muted-foreground text-xs">
-        Tocar numa categoria já salva. A escolha vira exemplo para as próximas sugestões.
+        Tocar numa categoria já salva{choosable ? ", com o tipo marcado" : ""}. A escolha vira
+        exemplo para as próximas sugestões.
       </span>
+      {item.category ? (
+        <Button
+          type="submit"
+          name="categoryId"
+          value={item.category.id}
+          disabled={pending}
+          className="self-end"
+        >
+          Aplicar<span className="sr-only"> sem trocar a categoria</span>
+        </Button>
+      ) : null}
     </div>
   );
 }

@@ -16,6 +16,7 @@ import {
   categoryGroupOf,
   comparisonFor,
   figuresFor,
+  fixedArrivals,
   incomeUpToToday,
   monthlySeries,
   monthOf,
@@ -27,6 +28,7 @@ import {
   monthsEndingAt,
   monthsStartingAt,
   payerParam,
+  missingFixedCharges,
   pendingOccurrences,
   percentVersus,
   projectMonth,
@@ -44,11 +46,20 @@ import {
   type Observation,
   type PayerFilter,
   type PendingRow,
+  type MonthFigures,
   type Projection,
   type Slice,
   type SpendingRow,
 } from "@fintrack/core";
-import { listCategories, listMyWallets, prisma, type RecurrencePlan } from "@fintrack/db";
+import {
+  fixedCharges,
+  listCategories,
+  listMyWallets,
+  prisma,
+  recurrenceNames,
+  type RecurrencePlan,
+  type WalletScope,
+} from "@fintrack/db";
 import { AccessError, requireHouseholdAccess, requireScope } from "@/lib/access";
 import type { Session } from "@/lib/auth";
 import { environmentsOf, environmentsSentence } from "@/features/transactions/environments";
@@ -64,6 +75,7 @@ import {
   cachedRecurrences,
   cachedSpending,
 } from "./data";
+import { civilDayMonth } from "@/lib/dates";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -160,16 +172,35 @@ type Context = Awaited<ReturnType<typeof context>>;
 
 const payerString = (payer: PayerFilter | null) => (payer ? payerParam(payer) : null);
 
-/** As recorrências que ainda não viraram lançamento, no formato das linhas de gasto. */
+/**
+ * O que o previsto do mês soma além do que já aconteceu (ADR-026), lido fora do cache das somas:
+ * as fixas do mês passado e deste (só no mês em andamento: os meses seguintes são do M13.3c) e os
+ * nomes das recorrências (o "faltam o aluguel e a escola").
+ */
+async function forecastInputs(scope: WalletScope<"view">, month: MonthKey, today: CivilDate) {
+  const [charges, names] = await Promise.all([
+    month === monthOf(today) ? fixedCharges(prisma, scope, month) : Promise.resolve([]),
+    recurrenceNames(prisma, scope),
+  ]);
+  return { charges, names };
+}
+
+type ForecastInputs = Awaited<ReturnType<typeof forecastInputs>>;
+
+/**
+ * O que ainda vai sair no mês, no formato das linhas de gasto: as recorrências que não viraram
+ * lançamento e as fixas do mês passado que ainda não chegaram (cada fixa uma vez, ADR-026).
+ */
 function pendingRows(
   plans: readonly RecurrencePlan[],
-  months: readonly MonthKey[],
+  inputs: ForecastInputs,
+  month: MonthKey,
   today: CivilDate,
-) {
+): PendingRow[] {
   const rows: PendingRow[] = [];
   for (const plan of plans) {
     if (plan.amount >= 0n) continue; // receita não é gasto
-    for (const o of pendingOccurrences(plan, months, today)) {
+    for (const o of pendingOccurrences(plan, [month], today)) {
       rows.push({
         month: o.month,
         date: o.date,
@@ -177,10 +208,12 @@ function pendingRows(
         categoryId: plan.categoryId,
         payer: plan.payer,
         expense: -plan.amount,
+        source: "recurrence",
+        name: inputs.names.get(plan.id) ?? "uma recorrência",
       });
     }
   }
-  return rows;
+  return [...rows, ...missingFixedCharges(inputs.charges, month)];
 }
 
 /** Nome do grupo (categoria de primeiro nível); null é "Sem categoria". */
@@ -253,25 +286,28 @@ export async function getHomeDashboard(session: Session, params: SearchParams) {
   // M10.3: o resumo pode ser do mês anterior (até o dia 5), com os 6 meses antes dele
   const period = summaryPeriod(today);
   const first = monthsBefore(period.month, 6)[0] as MonthKey;
-  const [spending, plans, budgets, cash, summaryBudgets, newRecurrences] = await Promise.all([
-    cachedSpending(scope, first, addMonthsToKey(month, 5), today),
-    cachedRecurrences(scope, monthsStartingAt(month, 6)),
-    cachedBudgets(scope, month, month),
-    cachedCash(scope, monthSpan(month).from, monthSpan(addMonthsToKey(month, 5)).to),
-    period.month === month
-      ? Promise.resolve(null)
-      : cachedBudgets(scope, period.month, period.month),
-    cachedNewRecurrences(scope, period.month),
-  ]);
+  const [spending, plans, budgets, cash, summaryBudgets, newRecurrences, forecast] =
+    await Promise.all([
+      cachedSpending(scope, first, addMonthsToKey(month, 5), today),
+      cachedRecurrences(scope, monthsStartingAt(month, 6)),
+      cachedBudgets(scope, month, month),
+      cachedCash(scope, monthSpan(month).from, monthSpan(addMonthsToKey(month, 5)).to),
+      period.month === month
+        ? Promise.resolve(null)
+        : cachedBudgets(scope, period.month, period.month),
+      cachedNewRecurrences(scope, period.month),
+      forecastInputs(scope, month, today),
+    ]);
   const { rows } = spending;
   const windows = new Map(spending.windows);
-  const pending = pendingRows(plans, [month], today);
+  const pending = pendingRows(plans, forecast, month, today);
   const slice: Slice = {};
   const base = { walletId: parsed.walletId };
   const span = monthSpan(month);
   const toDate = monthToDate(month, today);
 
-  const all = projectMonth(month, today, figuresFor(rows, pending, month, slice), windows);
+  const figures = figuresFor(rows, pending, month, slice);
+  const all = projectMonth(month, today, figures, windows);
   const budgetTotal = sumCents(budgets.map((b) => b.cents));
   const groups: GroupView[] = spendingByGroup({
     rows,
@@ -369,6 +405,13 @@ export async function getHomeDashboard(session: Session, params: SearchParams) {
         net: r.net,
       };
     })(),
+    /** O bloco "Previsto para {mês}" (M13.3b, ADR-026): as fixas, as parcelas e o variável */
+    forecast: forecastView({
+      projection: all,
+      figures,
+      pending,
+      arrived: fixedArrivals(forecast.charges, month),
+    }),
     summary: {
       projected: {
         cents: all.projected,
@@ -411,6 +454,37 @@ export async function getHomeDashboard(session: Session, params: SearchParams) {
   };
 }
 
+// ── Início: o previsto do mês (M13.3b, ADR-026, prancha N-Inicio) ─────────────
+
+export type ForecastView = ReturnType<typeof forecastView>;
+
+/** As três partes do previsto, cada uma com a frase do porquê. */
+function forecastView(input: {
+  projection: Projection;
+  figures: MonthFigures;
+  pending: readonly PendingRow[];
+  arrived: number;
+}) {
+  const { projection, figures, pending, arrived } = input;
+  // Uma fixa que falta aparece uma vez no nome, mesmo se cair duas vezes (a recorrência e o banco)
+  const missing = [...new Set(pending.map((p) => p.name))];
+  return {
+    spent: projection.spent,
+    fixed: {
+      cents: projection.parts.fixed,
+      arrived,
+      expected: arrived + pending.length,
+      missing,
+    },
+    installment: { cents: projection.parts.installment },
+    variable: {
+      cents: projection.parts.variable,
+      /** O variável que já saiu, base do ritmo */
+      spent: figures.spent.variable,
+    },
+  };
+}
+
 // ── Início: o resumo do mês (M10.3, linha F.3 do canvas) ───────────────────────
 
 /** Um pedaço da frase de uma observação: texto, ou um número que leva à lista. */
@@ -436,7 +510,6 @@ export type SummaryView = {
   missing: string | null;
 };
 
-const ddmm = (date: CivilDate) => `${date.slice(8, 10)}/${date.slice(5, 7)}`;
 const lower = (month: MonthKey) => monthName.format(at(month));
 
 const ABSENT_TEXT: Record<Observation["kind"], { current: string; closed: string }> = {
@@ -529,7 +602,7 @@ function summaryView(
           }),
           emphasis: "strong",
         },
-        { text: ` por mês, desde ${ddmm(r.startsOn)}. Em 12 meses: ` },
+        { text: ` por mês, desde ${civilDayMonth(r.startsOn)}. Em 12 meses: ` },
         { cents: o.yearly, href: "/fixas" },
       ],
     };
@@ -728,14 +801,15 @@ export async function getBudgetPage(session: Session, params: SearchParams) {
   const listHref = (link: ListLink) => transactionsHref({ ...link, back });
   const month = parsed.month;
   const months6 = monthsBefore(month, 6);
-  const [spending, plans, budgets] = await Promise.all([
+  const [spending, plans, budgets, forecast] = await Promise.all([
     cachedSpending(scope, months6[0] as MonthKey, month, today),
     cachedRecurrences(scope, [month]),
     cachedBudgets(scope, month, month),
+    forecastInputs(scope, month, today),
   ]);
   const { rows } = spending;
   const windows = new Map(spending.windows);
-  const pending = pendingRows(plans, [month], today);
+  const pending = pendingRows(plans, forecast, month, today);
   const payer = payerString(parsed.payer);
   const inMonth = budgets;
   const span = monthSpan(month);
@@ -891,14 +965,15 @@ export async function getEvolutionPage(session: Session, params: SearchParams) {
   const month = monthOf(today);
   const months = monthsEndingAt(month, parsed.span);
   const first = monthsBefore(months[0] as MonthKey, 6)[0] as MonthKey;
-  const [spending, plans, budgets] = await Promise.all([
+  const [spending, plans, budgets, forecast] = await Promise.all([
     cachedSpending(scope, first, month, today),
     cachedRecurrences(scope, [month]),
     cachedBudgets(scope, months[0] as MonthKey, month),
+    forecastInputs(scope, month, today),
   ]);
   const { rows } = spending;
   const windows = new Map(spending.windows);
-  const pending = pendingRows(plans, [month], today);
+  const pending = pendingRows(plans, forecast, month, today);
   const payer = payerString(parsed.payer);
   const base: Slice = { walletId: parsed.walletId, payer };
 

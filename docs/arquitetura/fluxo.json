@@ -339,18 +339,22 @@
       "help": "categorias-e-regras",
       "params": [],
       "searchParams": [
-        "editada"
+        "editada",
+        "revisar"
       ],
       "searchParamsTo": [],
       "session": "user",
       "loaders": [
-        "apps/web/src/features/categories/server/queries.ts#getCategoriesPage"
+        "apps/web/src/features/categories/server/queries.ts#getCategoriesPage",
+        "apps/web/src/features/categories/server/queries.ts#getCleanups"
       ],
       "actions": [
+        "apps/web/src/features/categories/server/actions.ts#applyCleanupAction",
         "apps/web/src/features/categories/server/actions.ts#createCategoryAction",
         "apps/web/src/features/categories/server/actions.ts#createRuleAction",
         "apps/web/src/features/categories/server/actions.ts#deleteRuleAction",
-        "apps/web/src/features/categories/server/actions.ts#setCategoryArchivedAction"
+        "apps/web/src/features/categories/server/actions.ts#setCategoryArchivedAction",
+        "apps/web/src/features/categories/server/actions.ts#undoCleanupAction"
       ],
       "clientComponents": [
         "apps/web/src/components/feedback/action-button.tsx",
@@ -360,12 +364,14 @@
         "apps/web/src/components/visual/use-popover.ts",
         "apps/web/src/features/auth/ui/form-alert.tsx",
         "apps/web/src/features/categories/ui/category-forms.tsx",
+        "apps/web/src/features/categories/ui/cleanup.tsx",
         "apps/web/src/lib/use-field-errors.ts",
         "apps/web/src/lib/use-renew-when-hidden.ts"
       ],
       "authCalls": [],
       "links": [
         "/ajuda/[…]",
+        "/ajustes/categorias",
         "/ajustes/categorias/[…]"
       ]
     },
@@ -1526,7 +1532,8 @@
         "apps/web/src/features/bank/server/actions.ts#setCategoryAction",
         "apps/web/src/features/bank/server/actions.ts#setLabelAction",
         "apps/web/src/features/transactions/server/actions.ts#deleteTransactionAction",
-        "apps/web/src/features/transactions/server/actions.ts#restoreTransactionAction"
+        "apps/web/src/features/transactions/server/actions.ts#restoreTransactionAction",
+        "apps/web/src/features/transactions/server/actions.ts#setNatureAction"
       ],
       "clientComponents": [
         "apps/web/src/components/feedback/action-form.tsx",
@@ -1537,6 +1544,7 @@
         "apps/web/src/features/auth/ui/form-alert.tsx",
         "apps/web/src/features/bank/ui/category-picker.tsx",
         "apps/web/src/features/bank/ui/label-editor.tsx",
+        "apps/web/src/features/transactions/ui/nature/nature-picker.tsx",
         "apps/web/src/features/transactions/ui/transaction-list.tsx",
         "apps/web/src/lib/use-field-errors.ts",
         "apps/web/src/lib/use-renew-when-hidden.ts"
@@ -2938,6 +2946,8 @@
         "packages/db/src/budgets.ts#listBudgets",
         "packages/db/src/categories.ts#categoryNodes",
         "packages/db/src/categories.ts#listCategories",
+        "packages/db/src/dashboard.ts#fixedCharges",
+        "packages/db/src/dashboard.ts#recurrenceNames",
         "packages/db/src/dashboard.ts#recurrencePlans",
         "packages/db/src/dashboard.ts#spendingRows",
         "packages/db/src/dashboard.ts#statementWindows",
@@ -2958,6 +2968,7 @@
         "packages/core/src/dates.ts#firstDayOf",
         "packages/core/src/dates.ts#monthOf",
         "packages/core/src/dates.ts#todayCivil",
+        "packages/core/src/fixed-charges.ts#missingFixedCharges",
         "packages/core/src/money.ts#sumCents",
         "packages/core/src/payer.ts#householdPeople",
         "packages/core/src/payer.ts#parsePayerParam",
@@ -3020,6 +3031,8 @@
         "packages/db/src/budgets.ts#listBudgets",
         "packages/db/src/categories.ts#categoryNodes",
         "packages/db/src/categories.ts#listCategories",
+        "packages/db/src/dashboard.ts#fixedCharges",
+        "packages/db/src/dashboard.ts#recurrenceNames",
         "packages/db/src/dashboard.ts#recurrencePlans",
         "packages/db/src/dashboard.ts#spendingRows",
         "packages/db/src/dashboard.ts#statementWindows",
@@ -3043,6 +3056,7 @@
         "packages/core/src/dates.ts#firstDayOf",
         "packages/core/src/dates.ts#monthOf",
         "packages/core/src/dates.ts#todayCivil",
+        "packages/core/src/fixed-charges.ts#missingFixedCharges",
         "packages/core/src/money.ts#sumCents",
         "packages/core/src/payer.ts#householdPeople",
         "packages/core/src/payer.ts#parsePayerParam",
@@ -3067,6 +3081,8 @@
         "packages/db/src/categories.ts#categoryNodes",
         "packages/db/src/categories.ts#listCategories",
         "packages/db/src/dashboard.ts#cashRows",
+        "packages/db/src/dashboard.ts#fixedCharges",
+        "packages/db/src/dashboard.ts#recurrenceNames",
         "packages/db/src/dashboard.ts#recurrencePlans",
         "packages/db/src/dashboard.ts#recurrencesStartedIn",
         "packages/db/src/dashboard.ts#spendingRows",
@@ -3096,6 +3112,8 @@
         "packages/core/src/dates.ts#firstDayOf",
         "packages/core/src/dates.ts#monthOf",
         "packages/core/src/dates.ts#todayCivil",
+        "packages/core/src/fixed-charges.ts#fixedArrivals",
+        "packages/core/src/fixed-charges.ts#missingFixedCharges",
         "packages/core/src/money.ts#sumCents",
         "packages/core/src/month-summary.ts#monthSummary",
         "packages/core/src/month-summary.ts#summaryPeriod",
@@ -3153,6 +3171,30 @@
       "services": [],
       "rules": [
         "packages/core/src/access.ts#canInHousehold"
+      ],
+      "redirects": [],
+      "financeChanged": false,
+      "session": "none"
+    },
+    {
+      "id": "apps/web/src/features/categories/server/queries.ts#getCleanups",
+      "file": "apps/web/src/features/categories/server/queries.ts",
+      "name": "getCleanups",
+      "input": [],
+      "permissions": [
+        "manage_categories"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/category-cleanup.ts#findCleanups",
+        "packages/db/src/category-cleanup.ts#undoableCleanups"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/dates.ts#todayCivil"
       ],
       "redirects": [],
       "financeChanged": false,
@@ -3847,6 +3889,8 @@
       "name": "setCategoryAction",
       "input": [
         "categoryId",
+        "nature",
+        "natureBefore",
         "newCategory",
         "rememberRule",
         "transactionId"
@@ -4344,6 +4388,35 @@
       "session": "user"
     },
     {
+      "id": "apps/web/src/features/categories/server/actions.ts#applyCleanupAction",
+      "file": "apps/web/src/features/categories/server/actions.ts",
+      "name": "applyCleanupAction",
+      "input": [
+        "archive",
+        "categoryId",
+        "expectedCount"
+      ],
+      "permissions": [
+        "manage_categories"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/category-cleanup.ts#applyCleanup"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [
+        "packages/core/src/dates.ts#todayCivil"
+      ],
+      "redirects": [
+        "/ajustes/categorias"
+      ],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
       "id": "apps/web/src/features/categories/server/actions.ts#createCategoryAction",
       "file": "apps/web/src/features/categories/server/actions.ts",
       "name": "createCategoryAction",
@@ -4490,11 +4563,35 @@
       "session": "user"
     },
     {
+      "id": "apps/web/src/features/categories/server/actions.ts#undoCleanupAction",
+      "file": "apps/web/src/features/categories/server/actions.ts",
+      "name": "undoCleanupAction",
+      "input": [
+        "cleanupId"
+      ],
+      "permissions": [
+        "manage_categories"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/category-cleanup.ts#undoCleanup"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
       "id": "apps/web/src/features/categories/server/actions.ts#updateCategoryAction",
       "file": "apps/web/src/features/categories/server/actions.ts",
       "name": "updateCategoryAction",
       "input": [
         "categoryId",
+        "defaultNature",
         "kind",
         "name"
       ],
@@ -4884,6 +4981,31 @@
       "session": "user"
     },
     {
+      "id": "apps/web/src/features/transactions/server/actions.ts#setNatureAction",
+      "file": "apps/web/src/features/transactions/server/actions.ts",
+      "name": "setNatureAction",
+      "input": [
+        "rememberRule",
+        "transactionId"
+      ],
+      "permissions": [
+        "manage_categories"
+      ],
+      "db": [
+        "packages/db/src/access.ts#authorizeHousehold",
+        "packages/db/src/access.ts#authorizeScope",
+        "packages/db/src/access.ts#authorizeTransaction",
+        "packages/db/src/transactions.ts#setTransactionNature"
+      ],
+      "tables": [],
+      "enqueues": [],
+      "services": [],
+      "rules": [],
+      "redirects": [],
+      "financeChanged": true,
+      "session": "user"
+    },
+    {
       "id": "apps/web/src/features/transactions/server/actions.ts#suggestCategoryAction",
       "file": "apps/web/src/features/transactions/server/actions.ts",
       "name": "suggestCategoryAction",
@@ -4921,6 +5043,8 @@
         "kind",
         "label",
         "method",
+        "nature",
+        "natureBefore",
         "notes",
         "occurredOn",
         "rememberRule",
@@ -5914,6 +6038,50 @@
       "tables": [
         "AuditLog",
         "Category",
+        "CategoryRule",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/category-cleanup.ts#applyCleanup",
+      "file": "packages/db/src/category-cleanup.ts",
+      "name": "applyCleanup",
+      "tables": [
+        "AuditLog",
+        "Category",
+        "CategoryCleanup",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/category-cleanup.ts#findCleanups",
+      "file": "packages/db/src/category-cleanup.ts",
+      "name": "findCleanups",
+      "tables": [
+        "Category",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/category-cleanup.ts#undoableCleanups",
+      "file": "packages/db/src/category-cleanup.ts",
+      "name": "undoableCleanups",
+      "tables": [
+        "CategoryCleanup"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/category-cleanup.ts#undoCleanup",
+      "file": "packages/db/src/category-cleanup.ts",
+      "name": "undoCleanup",
+      "tables": [
+        "AuditLog",
+        "Category",
+        "CategoryCleanup",
         "Transaction"
       ],
       "services": []
@@ -6081,6 +6249,28 @@
       "services": []
     },
     {
+      "id": "packages/db/src/dashboard.ts#fixedCharges",
+      "file": "packages/db/src/dashboard.ts",
+      "name": "fixedCharges",
+      "tables": [
+        "CardStatement",
+        "Category",
+        "FinancialAccount",
+        "PaymentCard",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
+      "id": "packages/db/src/dashboard.ts#recurrenceNames",
+      "file": "packages/db/src/dashboard.ts",
+      "name": "recurrenceNames",
+      "tables": [
+        "Recurrence"
+      ],
+      "services": []
+    },
+    {
       "id": "packages/db/src/dashboard.ts#recurrencePlans",
       "file": "packages/db/src/dashboard.ts",
       "name": "recurrencePlans",
@@ -6104,6 +6294,7 @@
       "name": "spendingRows",
       "tables": [
         "CardStatement",
+        "Category",
         "FinancialAccount",
         "PaymentCard",
         "Transaction"
@@ -6767,6 +6958,18 @@
       "services": []
     },
     {
+      "id": "packages/db/src/transactions.ts#setTransactionNature",
+      "file": "packages/db/src/transactions.ts",
+      "name": "setTransactionNature",
+      "tables": [
+        "AuditLog",
+        "Category",
+        "CategoryRule",
+        "Transaction"
+      ],
+      "services": []
+    },
+    {
       "id": "packages/db/src/transactions.ts#sumTransactions",
       "file": "packages/db/src/transactions.ts",
       "name": "sumTransactions",
@@ -6954,6 +7157,10 @@
     {
       "model": "Category",
       "table": "category"
+    },
+    {
+      "model": "CategoryCleanup",
+      "table": "category_cleanup"
     },
     {
       "model": "CategoryRule",

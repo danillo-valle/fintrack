@@ -32,6 +32,7 @@ import {
   isCivilDate,
   matchImportRows,
   runCascade,
+  storedNature,
   type CategorySuggestion,
   settlementCheck,
   statementForDueDate,
@@ -576,6 +577,13 @@ export async function importFilePreview(
         categoryId: suggestion?.categoryId ?? null,
         categorizedBy: suggestion ? suggestion.source : null,
         categorizationConfidence: suggestion?.confidence ?? null,
+        // O tipo que a regra da loja dá ("as próximas também", ADR-026); parcela não tem
+        nature: storedNature({
+          expense: t.amount < 0n,
+          installment: t.installment !== null,
+          transfer: false,
+          nature: suggestion?.nature,
+        }),
         amount: toDbDecimal(t.amount),
         occurredOn: dbDateFromCivil(t.occurredOn),
         description: t.description,

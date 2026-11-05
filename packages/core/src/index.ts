@@ -16,6 +16,8 @@ export * from "./budget";
 export * from "./dashboard";
 export * from "./month-summary";
 export * from "./cashflow";
+export * from "./fixed-charges";
+export * from "./category-cleanup";
 export * from "./flow";
 export * from "./balance";
 export * from "./installment-progress";

@@ -8,6 +8,8 @@ import {
   ACCOUNTS_WINDOW,
   addFigures,
   averageCents,
+  inNature,
+  NO_NATURE_CENTS,
   budgetStatus,
   categoryGroupOf,
   monthsBefore,
@@ -49,7 +51,11 @@ export type SpendingRow = {
   firstAfterToday: CivilDate | null;
 };
 
-/** Uma recorrência de despesa ainda não lançada no mês, já no recorte dela. */
+/**
+ * Uma fixa que ainda não chegou no mês, já no recorte dela (ADR-026): uma recorrência do app ainda
+ * não lançada (pelo valor previsto) ou uma fixa do banco do mês passado que ainda não veio neste
+ * (pelo valor do mês passado).
+ */
 export type PendingRow = {
   month: MonthKey;
   date: CivilDate;
@@ -58,6 +64,9 @@ export type PendingRow = {
   payer: string | null;
   /** Positivo */
   expense: Cents;
+  source: "recurrence" | "last-month";
+  /** O nome (a descrição da recorrência ou o texto da compra do mês passado) */
+  name: string;
 };
 
 /** Um recorte: os filtros que a lista de lançamentos também entende. null = sem filtro. */
@@ -91,17 +100,16 @@ export function figuresFor(
     if (r.month !== month || !matches(r, slice)) continue;
     const variable = r.upToToday && r.nature === "variable" ? r.expense : 0n;
     f = addFigures(f, {
-      spent: r.upToToday ? r.expense : 0n,
-      variableSpent: variable,
+      spent: r.upToToday ? inNature(r.nature, r.expense) : NO_NATURE_CENTS,
+      scheduled: r.upToToday ? NO_NATURE_CENTS : inNature(r.nature, r.expense),
       variableByWindow: new Map(variable === 0n ? [] : [[r.window, variable]]),
-      scheduled: r.upToToday ? 0n : r.expense,
-      pendingRecurrences: 0n,
+      pending: 0n,
     });
   }
   const pend = sumCents(
     pending.filter((p) => p.month === month && matches(p, slice)).map((p) => p.expense),
   );
-  return { ...f, pendingRecurrences: f.pendingRecurrences + pend };
+  return { ...f, pending: f.pending + pend };
 }
 
 /** Gasto de um mês fechado num recorte (tudo o que aconteceu no mês). */
@@ -322,8 +330,8 @@ export function budgetRows(input: {
         projection,
         comparison: comparisonFor(input.rows, input.month, slice),
         status: budgetStatus(projection.projected, budget),
-        onlyFixed:
-          figures.variableSpent === 0n && figures.scheduled + figures.pendingRecurrences > 0n,
+        // Sem variável: só fixas e parcelas, que não seguem o ritmo ("Fixa, vence dia N")
+        onlyFixed: projection.parts.variable === 0n && projection.projected > 0n,
         nextDue: future[0] ?? null,
         parts,
       };

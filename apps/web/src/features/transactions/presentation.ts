@@ -11,6 +11,7 @@ import {
   type MonthKey,
 } from "@fintrack/core";
 import type { ListPeriod } from "./schemas";
+import { civilDayMonth } from "@/lib/dates";
 
 const weekday = new Intl.DateTimeFormat("pt-BR", { weekday: "long", timeZone: "UTC" });
 const dayMonth = new Intl.DateTimeFormat("pt-BR", {
@@ -82,8 +83,7 @@ export function periodTitle(period: ListPeriod, today: CivilDate): string {
     if (period.from === firstDayOf(month) && period.to === dayOfMonth(month, 31)) {
       return monthTitle(month, today);
     }
-    const short = (d: CivilDate) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
-    return `${short(period.from)} a ${short(period.to)}`;
+    return `${civilDayMonth(period.from)} a ${civilDayMonth(period.to)}`;
   }
   const months = [...period.months].toSorted();
   const first = months[0] as MonthKey;
@@ -124,6 +124,6 @@ export function sliceTitle(input: {
     input.category ??
     (input.type === "expense" ? "Saídas" : input.type === "income" ? "Entradas" : "Recorte");
   const period = periodTitle(input.period, input.today).toLowerCase();
-  const until = input.upTo ? ` até ${input.upTo.slice(8, 10)}/${input.upTo.slice(5, 7)}` : "";
+  const until = input.upTo ? ` até ${civilDayMonth(input.upTo)}` : "";
   return `${what} · ${period}${until}`;
 }

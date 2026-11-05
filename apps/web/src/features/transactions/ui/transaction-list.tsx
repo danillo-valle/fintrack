@@ -2,9 +2,11 @@
 
 // A lista de lançamentos (M07; visual do M07.3 e M07.4, canvas C.2), agrupada por dia.
 //
-//   computador  [DV] Descrição ........ [Categoria] (Ambiente) Conta/cartão .... valor [lixeira]
+//   computador  [DV] Descrição ........ [Categoria] (Ambiente) [Fixa] Conta/cartão .... valor [lixeira]
 //   celular     [DV] Descrição ......................................... valor
-//                    [Categoria] (Ambiente)
+//                    [Categoria] (Ambiente) [Fixa]
+//
+// M13.3b: a etiqueta do tipo da despesa (Fixa, Variável ou Parcela); num toque, a escolha.
 //
 // O quadrado da frente é QUEM PAGOU (DV, NV, CP: M07.4); a categoria está na etiqueta. Quando não
 // dá para saber quem pagou (conta sem titular), o quadrado volta a ser a letra da categoria.
@@ -17,7 +19,7 @@ import Link from "next/link";
 import { useOptimistic, useTransition } from "react";
 import { toast } from "sonner";
 import { ArrowLeftRight, CalendarClock, CircleDashed, Trash2 } from "lucide-react";
-import type { CivilDate, Payer } from "@fintrack/core";
+import type { CivilDate, NatureView, Payer } from "@fintrack/core";
 import { undoToast } from "@/components/feedback/undo-toast";
 import { AmountText } from "@/components/money/amount-text";
 import { Button } from "@/components/ui/button";
@@ -27,6 +29,7 @@ import { INITIAL_ACTION_STATE } from "@/lib/action-state";
 import { cn } from "@/lib/utils";
 import { payerOptionFor, type PayerOption } from "../payers";
 import { dayLabel } from "../presentation";
+import { NaturePicker } from "./nature/nature-picker";
 import { PayerTile } from "./payer-tile";
 import { deleteTransactionAction, restoreTransactionAction } from "../server/actions";
 
@@ -48,6 +51,8 @@ export type ListItem = {
   payer: Payer;
   /** "Parcela 2 de 10" (M07.4); nulo fora de compra parcelada */
   installment: { number: number; count: number } | null;
+  /** O tipo da saída (M13.3b): nulo em entrada e transferência */
+  natureView: NatureView | null;
 };
 
 function formData(id: string) {
@@ -56,9 +61,9 @@ function formData(id: string) {
   return data;
 }
 
-// As colunas do computador (lg): ícone, descrição, categoria, ambiente, conta, valor, excluir
+// As colunas do computador (lg): ícone, descrição, categoria, ambiente, tipo, conta, valor, excluir
 const ROW =
-  "grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-x-3 px-3.5 py-3 lg:grid-cols-[2.5rem_minmax(0,2fr)_8rem_6rem_minmax(0,1.2fr)_8.25rem_2.25rem] lg:gap-x-3.5 lg:px-[1.125rem]";
+  "grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-x-3 px-3.5 py-3 lg:grid-cols-[2.5rem_minmax(0,2fr)_8rem_6rem_6.25rem_minmax(0,1.2fr)_8.25rem_2.25rem] lg:gap-x-3.5 lg:px-[1.125rem]";
 
 function categoryName(item: ListItem) {
   return item.transferId ? "Transferência" : (item.category?.name ?? "Sem categoria");
@@ -149,7 +154,7 @@ function DayGroup({
   return (
     <section aria-label={title} className="flex flex-col gap-2">
       <Heading className="text-muted-foreground px-1 text-sm font-bold">{title}</Heading>
-      <ul className="bg-card divide-y overflow-hidden rounded-[1.125rem] border">
+      <ul className="bg-card divide-y rounded-[1.125rem] border">
         {items.map((item) => (
           <TransactionRow
             key={item.id}
@@ -195,9 +200,23 @@ function TransactionRow({
           {item.installment ? <InstallmentBadge {...item.installment} /> : null}
           {item.status === "SCHEDULED" ? <Scheduled /> : null}
         </span>
-        <span className="flex gap-1.5 lg:contents">
+        <span className="flex flex-wrap items-center gap-1.5 lg:contents">
           <CategoryTag name={categoryName(item)} />
           <WalletTag wallet={item.wallet} />
+          <span className="flex lg:block">
+            {item.natureView ? (
+              <NaturePicker
+                item={{
+                  id: item.id,
+                  name: item.label ?? item.description,
+                  description: item.description,
+                  category: item.category,
+                  natureView: item.natureView,
+                }}
+                canEdit={item.canEdit}
+              />
+            ) : null}
+          </span>
           <PayingWith account={item.account} card={item.card} />
         </span>
       </div>

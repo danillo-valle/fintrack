@@ -9,7 +9,7 @@ import { Check, Info } from "lucide-react";
 import type { PairPreview } from "../../server/review";
 import { formatBRL } from "@/lib/money";
 import { ToneChip } from "@/components/visual/tone-chip";
-import { dayMonth } from "./parts";
+import { civilDayMonth } from "@/lib/dates";
 
 type Line = {
   label: string;
@@ -52,10 +52,10 @@ export function pairLines(preview: PairPreview): Line[] {
     },
     {
       label: "Data",
-      mine: dayMonth(own.occurredOn),
-      bank: dayMonth(received.occurredOn),
+      mine: civilDayMonth(own.occurredOn),
+      bank: civilDayMonth(received.occurredOn),
       keeps: sameDate ? null : "a do banco",
-      result: dayMonth(received.occurredOn),
+      result: civilDayMonth(received.occurredOn),
       numeric: true,
     },
     {

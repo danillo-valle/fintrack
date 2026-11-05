@@ -22,7 +22,6 @@ import {
   dbDateFromCivil,
   resolvePayer,
   settlementCheck,
-  spendingNature,
   statementForDueDate,
   statementState,
   statementWindow,
@@ -36,6 +35,7 @@ import { monthAsRange } from "./cash";
 import type { Prisma, PrismaClient } from "./generated/prisma/client";
 import type { StatementChargeKind, TransactionSource } from "./generated/prisma/enums";
 import { fromDbDecimal, fromDbDecimalOrNull } from "./money";
+import { NATURE_SELECT, natureOf, natureViewOf } from "./nature";
 
 /** As faturas que o banco ou o PDF fecharam (as que têm total e conferência). */
 const CLOSING_SOURCES = ["OPEN_FINANCE", "PDF"] as const satisfies readonly TransactionSource[];
@@ -66,11 +66,14 @@ const PURCHASE_SELECT = {
   installmentGroupId: true,
   installmentGroup: { select: { installmentCount: true } },
   recurrenceId: true,
+  nature: true,
   originalAmount: true,
   originalCurrency: true,
   walletId: true,
   wallet: { select: { name: true } },
-  category: { select: { id: true, name: true, parent: { select: { name: true } } } },
+  category: {
+    select: { id: true, name: true, defaultNature: true, parent: { select: { name: true } } },
+  },
   card: { select: { lastFour: true, holderId: true, sharedPurchases: true } },
   account: { select: { holderId: true } },
 } satisfies Prisma.TransactionSelect;
@@ -99,8 +102,10 @@ function toPurchase(row: PurchaseRow, accountWalletId: string) {
         : row.providerInstallmentNumber !== null && row.providerInstallmentCount !== null
           ? { number: row.providerInstallmentNumber, count: row.providerInstallmentCount }
           : null,
-    /** Fixa, parcela ou variável (spendingNature): as abas da fatura */
-    nature: spendingNature(row),
+    /** Fixa, parcela ou variável (natureOf, ADR-026): as abas da fatura e a etiqueta da linha */
+    nature: natureOf(row),
+    /** A etiqueta e a escolha do tipo (só na compra; o estorno não tem tipo) */
+    natureView: natureViewOf(row, { expense: row.amount.isNegative(), transfer: false }),
     original:
       row.originalAmount !== null && row.originalCurrency !== null
         ? { amount: fromDbDecimal(row.originalAmount), currency: row.originalCurrency }
@@ -183,9 +188,7 @@ export async function cardStatements(
         amount: true,
         status: true,
         source: true,
-        recurrenceId: true,
-        installmentGroupId: true,
-        providerInstallmentCount: true,
+        ...NATURE_SELECT,
       },
     }),
     account.connectionId
@@ -222,7 +225,7 @@ export async function cardStatements(
     }
     entry.count += 1;
     if (t.status === "PENDING") entry.pending += 1;
-    entry.byNature[spendingNature(t)] -= amount;
+    entry.byNature[natureOf(t)] -= amount;
     byStatement.set(id, entry);
   }
   const cutoff = importFrom?.importFrom ? civilFromDbDate(importFrom.importFrom) : null;

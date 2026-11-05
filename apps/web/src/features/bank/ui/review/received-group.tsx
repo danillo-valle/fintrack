@@ -34,7 +34,8 @@ import { TEXT_LINK } from "@/lib/styles";
 import { CategoryPicker, type CategoryChoice } from "../category-picker";
 import { LabelEditor } from "../label-editor";
 import { TransferMark } from "../transfer-mark";
-import { CardChip, CategoryLabel, dayMonth, monthName, SMALL_BUTTON, SMALL_PRIMARY } from "./parts";
+import { civilDayMonth } from "@/lib/dates";
+import { CardChip, CategoryLabel, monthName, SMALL_BUTTON, SMALL_PRIMARY } from "./parts";
 import { ReviewForm, ReviewSubmit } from "./review-actions";
 
 /** Quantas linhas cada grupo mostra antes do "Ver os outros N". */
@@ -136,7 +137,7 @@ function ReceivedRow({
         </span>
         <span className="flex flex-wrap items-center gap-1.5">
           <span className="text-muted-foreground tabular font-mono text-xs">
-            {dayMonth(item.occurredOn)}
+            {civilDayMonth(item.occurredOn)}
           </span>
           <CardChip card={item.card} unknownLastFour={item.unknownLastFour} />
         </span>

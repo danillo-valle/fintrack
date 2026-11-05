@@ -12,6 +12,7 @@ import {
   explainRules,
   civilFromDbDate,
   normalizeRulePattern,
+  suggestRulePattern,
   runCascade,
   AUTOMATIC_SOURCES,
   LOCAL_AI_BULK_SOURCES,
@@ -21,6 +22,7 @@ import {
   type CategorySuggestion,
   type ClassifierCandidate,
   type ClassifierPort,
+  type ExpenseNature,
   type RuleMatch,
   type SuggestionInput,
 } from "@fintrack/core";
@@ -62,6 +64,7 @@ export async function listCategories(
       id: true,
       name: true,
       kind: true,
+      defaultNature: true,
       parentId: true,
       archivedAt: true,
       parent: { select: { name: true } },
@@ -72,6 +75,8 @@ export async function listCategories(
     id: c.id,
     name: c.name,
     kind: c.kind,
+    /** Fixa ou variável por padrão (M13.3b): o das despesas dela que ninguém marcou */
+    defaultNature: c.defaultNature,
     parentId: c.parentId,
     parentName: c.parent?.name ?? null,
     archived: c.archivedAt !== null,
@@ -123,7 +128,8 @@ export async function createCategory(
 }
 
 /**
- * Editar categoria (M13.2): o nome e o tipo. O nome continua único no lar (CATEGORY_EXISTS). O tipo
+ * Editar categoria (M13.2): o nome, o tipo e (M13.3b, ADR-026) se as despesas dela são fixas ou
+ * variáveis por padrão. O nome continua único no lar (CATEGORY_EXISTS). O tipo
  * só muda numa categoria sem pai, sem subcategorias, sem recorrência nem orçado, e com todos os
  * lançamentos do sinal do tipo novo (saída = despesa, entrada = receita): a regra do M07 não deixa
  * um lançamento usar categoria do outro tipo. Auditoria só com os nomes dos campos.
@@ -132,16 +138,19 @@ export async function updateCategory(
   db: PrismaClient,
   grant: HouseholdGrant<"manage_categories">,
   categoryId: string,
-  input: { name: string; kind: "EXPENSE" | "INCOME" },
+  input: { name: string; kind: "EXPENSE" | "INCOME"; defaultNature: ExpenseNature },
   ctx: RequestContext,
 ) {
   const householdId = grant.household.id;
+  // Receita não é fixa nem variável: guarda o padrão neutro
+  const defaultNature = input.kind === "EXPENSE" ? input.defaultNature : "VARIABLE";
   await db.$transaction(async (tx) => {
     const current = await tx.category.findFirst({
       where: { id: categoryId, householdId },
       select: {
         name: true,
         kind: true,
+        defaultNature: true,
         parentId: true,
         _count: { select: { children: true, recurrences: true, budgets: true } },
       },
@@ -164,11 +173,12 @@ export async function updateCategory(
     const changed = [
       ...(input.name !== current.name ? ["name"] : []),
       ...(input.kind !== current.kind ? ["kind"] : []),
+      ...(defaultNature !== current.defaultNature ? ["defaultNature"] : []),
     ];
     try {
       await tx.category.update({
         where: { id: categoryId },
-        data: { name: input.name, kind: input.kind },
+        data: { name: input.name, kind: input.kind, defaultNature },
       });
     } catch (error) {
       // @@unique([householdId, name]): nome repetido no lar
@@ -176,6 +186,13 @@ export async function updateCategory(
         throw new DomainError("CATEGORY_EXISTS");
       }
       throw error;
+    }
+    // Virou receita: as regras dela deixam de dar fixa/variável
+    if (input.kind === "INCOME" && current.kind === "EXPENSE") {
+      await tx.categoryRule.updateMany({
+        where: { categoryId, householdId },
+        data: { nature: null },
+      });
     }
     await writeAudit(
       tx,
@@ -265,30 +282,51 @@ export async function listRules(db: PrismaClient, grant: HouseholdGrant<"view">)
       pattern: true,
       match: true,
       priority: true,
+      nature: true,
       category: { select: { id: true, name: true, archivedAt: true } },
     },
   });
 }
 
+/** A entrada de uma regra: o texto procurado e o que ele dá (a categoria e, se houver, o tipo). */
+export type RuleInput = {
+  categoryId: string;
+  pattern: string;
+  match: RuleMatch;
+  priority?: number;
+  /** "As próximas também" com o tipo (M13.3b, ADR-026); nulo = o tipo segue a categoria */
+  nature?: ExpenseNature | null;
+};
+
+/** A regra pode dar esta categoria: do lar, ativa e de despesa quando traz o tipo. */
+async function assertRuleCategory(
+  tx: Prisma.TransactionClient,
+  householdId: string,
+  input: Pick<RuleInput, "categoryId" | "nature">,
+) {
+  const category = await tx.category.findFirst({
+    where: { id: input.categoryId, householdId, archivedAt: null },
+    select: { kind: true },
+  });
+  if (!category) throw new DomainError("CATEGORY_INVALID");
+  if (input.nature && category.kind !== "EXPENSE") throw new DomainError("NATURE_NOT_ALLOWED");
+}
+
 /**
- * Cria uma regra texto → categoria. Recebe o cliente da transação quando nasce de uma
- * correção (a regra e a correção gravam juntas). O padrão é normalizado como o banco exige.
+ * Cria uma regra texto → categoria (Ajustes › Categorização). O padrão é normalizado como o banco
+ * exige.
  */
 export async function createRuleTx(
   tx: Prisma.TransactionClient,
   grant: HouseholdGrant<"manage_categories">,
-  input: { categoryId: string; pattern: string; match: RuleMatch; priority?: number },
+  input: RuleInput,
   ctx: RequestContext,
   origin: "manual" | "correction" = "manual",
 ) {
   const householdId = grant.household.id;
   const pattern = normalizeRulePattern(input.pattern);
   if (!pattern) throw new DomainError("RULE_PATTERN_INVALID");
-  const category = await tx.category.count({
-    where: { id: input.categoryId, householdId, archivedAt: null },
-  });
-  if (category === 0) throw new DomainError("CATEGORY_INVALID");
-
+  await assertRuleCategory(tx, householdId, input);
   const rule = await tx.categoryRule.create({
     data: {
       householdId,
@@ -296,6 +334,7 @@ export async function createRuleTx(
       pattern,
       match: input.match,
       priority: input.priority ?? 100,
+      nature: input.nature ?? null,
     },
   });
   await writeAudit(
@@ -306,7 +345,7 @@ export async function createRuleTx(
       action: "category_rule.created",
       entity: "category_rule",
       entityId: rule.id,
-      metadata: { match: input.match, origin },
+      metadata: { match: input.match, origin, nature: rule.nature },
     },
     ctx,
   );
@@ -316,10 +355,72 @@ export async function createRuleTx(
 export async function createRule(
   db: PrismaClient,
   grant: HouseholdGrant<"manage_categories">,
-  input: { categoryId: string; pattern: string; match: RuleMatch; priority?: number },
+  input: RuleInput,
   ctx: RequestContext,
 ) {
   return db.$transaction((tx) => createRuleTx(tx, grant, input, ctx));
+}
+
+/**
+ * "As próximas desta loja também" (M07 "sempre categorizar assim"; com o tipo no M13.3b): a regra
+ * "contém" do texto passa a dar esta categoria e este tipo. Se já existe regra "contém" com o mesmo
+ * texto, ela muda (a mais forte, se houver mais de uma); senão nasce uma. `nature` indefinido mantém
+ * o tipo que a regra já dava. Sem texto que identifique a loja, nada muda (devolve null).
+ */
+export async function rememberRuleTx(
+  tx: Prisma.TransactionClient,
+  grant: HouseholdGrant<"manage_categories">,
+  input: {
+    description: string;
+    pattern?: string;
+    categoryId: string;
+    nature?: ExpenseNature | null;
+  },
+  ctx: RequestContext,
+) {
+  const householdId = grant.household.id;
+  const pattern = normalizeRulePattern(
+    input.pattern ?? suggestRulePattern(input.description) ?? "",
+  );
+  if (!pattern) return null;
+  const existing = await tx.categoryRule.findFirst({
+    where: { householdId, pattern, match: "CONTAINS" },
+    orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
+    select: { id: true, categoryId: true, nature: true },
+  });
+  if (!existing) {
+    return createRuleTx(
+      tx,
+      grant,
+      { categoryId: input.categoryId, pattern, match: "CONTAINS", nature: input.nature ?? null },
+      ctx,
+      "correction",
+    );
+  }
+  const nature = input.nature === undefined ? existing.nature : input.nature;
+  await assertRuleCategory(tx, householdId, { categoryId: input.categoryId, nature });
+  const changed = [
+    ...(existing.categoryId !== input.categoryId ? ["category"] : []),
+    ...(existing.nature !== nature ? ["nature"] : []),
+  ];
+  if (changed.length === 0) return existing;
+  const rule = await tx.categoryRule.update({
+    where: { id: existing.id },
+    data: { categoryId: input.categoryId, nature },
+  });
+  await writeAudit(
+    tx,
+    {
+      actorId: grant.userId,
+      householdId,
+      action: "category_rule.updated",
+      entity: "category_rule",
+      entityId: rule.id,
+      metadata: { changed, nature },
+    },
+    ctx,
+  );
+  return rule;
 }
 
 export async function deleteRule(
@@ -399,7 +500,14 @@ export function ruleSuggester(db: PrismaClient, scope: WalletScope<"view">): Cat
         householdId: scope.householdId,
         category: { archivedAt: null, kind: categoryKind(input.kind) },
       },
-      select: { id: true, categoryId: true, pattern: true, match: true, priority: true },
+      select: {
+        id: true,
+        categoryId: true,
+        pattern: true,
+        match: true,
+        priority: true,
+        nature: true,
+      },
     });
     return explainRules(rules, input.description);
   });

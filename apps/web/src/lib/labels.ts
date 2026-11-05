@@ -3,7 +3,9 @@
 // aqui vira erro de compilação. Sem banco: serve à tela do servidor e à do navegador.
 import type {
   CategorizationSource,
+  ExpenseNature,
   PaymentMethod,
+  SpendingNature,
   StatementChargeKind,
   TransactionKind,
 } from "@fintrack/core";
@@ -49,6 +51,18 @@ export const SOURCE_LABEL: Record<CategorizationSource, string> = {
   CLASSIFIER: "Classificador",
   LLM: "IA local",
   MANUAL: "Você",
+};
+
+/** O tipo da despesa (M13.3b, ADR-026): a etiqueta da linha e as escolhas. */
+export const SPENDING_NATURE_LABEL: Record<SpendingNature, string> = {
+  fixed: "Fixa",
+  variable: "Variável",
+  installment: "Parcela",
+};
+
+export const EXPENSE_NATURE_LABEL: Record<ExpenseNature, string> = {
+  FIXED: "Fixa",
+  VARIABLE: "Variável",
 };
 
 export const RECURRENCE_KIND_LABEL = {

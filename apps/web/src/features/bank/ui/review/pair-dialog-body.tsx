@@ -1,7 +1,7 @@
 // O miolo do "Confirmar o par", igual no modal e na página inteira (M09.2).
 import type { PairPreview } from "../../server/review";
 import { formatBRL } from "@/lib/money";
-import { dayMonth } from "./parts";
+import { civilDayMonth } from "@/lib/dates";
 import { PairCompare } from "./pair-compare";
 import { PairConfirmForm } from "./pair-confirm-form";
 
@@ -11,7 +11,7 @@ export function pairSubtitle(preview: PairPreview) {
     ? ((preview.own.category ?? preview.received.category)?.name ?? preview.own.description)
     : preview.own.description;
   const cents = preview.received.amount;
-  return `${name} · ${dayMonth(preview.received.occurredOn)} · ${formatBRL(cents < 0n ? -cents : cents)}`;
+  return `${name} · ${civilDayMonth(preview.received.occurredOn)} · ${formatBRL(cents < 0n ? -cents : cents)}`;
 }
 
 export function PairDialogBody({ preview, formId }: { preview: PairPreview; formId: string }) {

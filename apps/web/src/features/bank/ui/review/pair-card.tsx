@@ -10,7 +10,8 @@ import { CircleDashed, Clock, Link2, RefreshCw, type LucideIcon } from "lucide-r
 import type { PairView } from "../../server/review";
 import { AmountText } from "@/components/money/amount-text";
 import { ToneChip } from "@/components/visual/tone-chip";
-import { CardChip, CategoryLabel, dayMonth, SMALL_BUTTON, SMALL_PRIMARY } from "./parts";
+import { civilDayMonth } from "@/lib/dates";
+import { CardChip, CategoryLabel, SMALL_BUTTON, SMALL_PRIMARY } from "./parts";
 import { ReviewForm, ReviewSubmit } from "./review-actions";
 
 /** O motivo da sugestão, como o canvas escreve. */
@@ -23,7 +24,7 @@ export function pairReason(pair: Pick<PairView, "kind" | "daysApart" | "received
     return { text: `Parcela ${number} de ${count}`, icon: Clock };
   }
   if (pair.kind === "REFUND")
-    return { text: `Estorno da compra de ${dayMonth(pair.own.occurredOn)}`, icon: RefreshCw };
+    return { text: `Estorno da compra de ${civilDayMonth(pair.own.occurredOn)}`, icon: RefreshCw };
   if (pair.daysApart === 0) return { text: "Mesmo valor, mesmo dia", icon: Link2 };
   const after = pair.received.occurredOn > pair.own.occurredOn;
   const days = pair.daysApart === 1 ? "1 dia" : `${pair.daysApart} dias`;
@@ -81,7 +82,7 @@ export function PairCard({ pair }: { pair: PairView }) {
             },
             {
               label: "Data",
-              value: <span className="tabular font-mono">{dayMonth(own.occurredOn)}</span>,
+              value: <span className="tabular font-mono">{civilDayMonth(own.occurredOn)}</span>,
             },
             {
               label: "Categoria",
@@ -103,7 +104,9 @@ export function PairCard({ pair }: { pair: PairView }) {
             },
             {
               label: "Data",
-              value: <span className="tabular font-mono">{dayMonth(received.occurredOn)}</span>,
+              value: (
+                <span className="tabular font-mono">{civilDayMonth(received.occurredOn)}</span>
+              ),
             },
             {
               label: "Cartão",

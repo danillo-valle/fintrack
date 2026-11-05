@@ -5,6 +5,7 @@ import {
   ACCOUNTS_WINDOW,
   decimalToCents,
   figuresFor,
+  natureTotal,
   resolvePayer,
   SHARED_PAYER_PARAM,
   spendingNature,
@@ -419,8 +420,8 @@ describe("agregações do painel", () => {
       categoryId: cats.alimentacao,
       payers: [{ kind: "person", userId: h.partner.id }],
     });
-    expect(partnerAlimentacao.spent).toBe(-list.expense);
-    expect(partnerAlimentacao.spent).toBe(brl("197.25"));
+    expect(natureTotal(partnerAlimentacao.spent)).toBe(-list.expense);
+    expect(natureTotal(partnerAlimentacao.spent)).toBe(brl("197.25"));
   });
 
   it("recorrências: o mês já lançado não volta como previsto", async () => {

@@ -26,10 +26,10 @@ import { requireUser } from "@/lib/auth/session";
 import { CHARGE_LABEL } from "@/lib/labels";
 import { formatBRL } from "@/lib/money";
 import { cn } from "@/lib/utils";
+import { civilDayMonth } from "@/lib/dates";
 
 export const metadata: Metadata = { title: "Cartões" };
 
-const dm = (date: string) => `${date.slice(8, 10)}/${date.slice(5, 7)}`;
 const monthName = new Intl.DateTimeFormat("pt-BR", { month: "long", timeZone: "UTC" });
 const monthOfDue = (date: string) => monthName.format(new Date(`${date}T12:00:00Z`));
 const NATURE_TABS = [
@@ -128,7 +128,7 @@ export default async function CardsPage({ searchParams }: PageProps<"/cartoes">)
                     <span className="text-muted-foreground tabular truncate font-mono text-xs">
                       {[
                         a.lastFour ? `···· ${a.lastFour}` : null,
-                        a.bill ? `vence ${dm(a.bill.dueDate)}` : null,
+                        a.bill ? `vence ${civilDayMonth(a.bill.dueDate)}` : null,
                       ]
                         .filter(Boolean)
                         .join(" · ")}
@@ -152,7 +152,7 @@ export default async function CardsPage({ searchParams }: PageProps<"/cartoes">)
               {previous ? (
                 <Link
                   href={query({ fatura: previous.id, tipo: natureParam })}
-                  aria-label={`Fatura anterior: vence em ${dm(previous.dueDate)}`}
+                  aria-label={`Fatura anterior: vence em ${civilDayMonth(previous.dueDate)}`}
                   className={ARROW}
                 >
                   <ChevronLeft aria-hidden className="size-[1.125rem]" />
@@ -162,21 +162,21 @@ export default async function CardsPage({ searchParams }: PageProps<"/cartoes">)
               )}
               <div className="min-w-0 flex-1 text-center">
                 <h2 id="fatura-titulo" className="text-lg font-extrabold md:text-xl">
-                  Fatura que vence em {dm(statement.dueDate)}
+                  Fatura que vence em {civilDayMonth(statement.dueDate)}
                 </h2>
                 <p className="text-muted-foreground text-[0.8125rem]">
                   {STATE_TEXT[statement.state]}
                   {statement.state === "upcoming"
-                    ? ` (abre em ${dm(statement.window.start)})`
+                    ? ` (abre em ${civilDayMonth(statement.window.start)})`
                     : ""}{" "}
-                  · fecha em {dm(statement.closingDate)} · compras de {dm(statement.window.start)} a{" "}
-                  {dm(statement.window.end)}
+                  · fecha em {civilDayMonth(statement.closingDate)} · compras de{" "}
+                  {civilDayMonth(statement.window.start)} a {civilDayMonth(statement.window.end)}
                 </p>
               </div>
               {next ? (
                 <Link
                   href={query({ fatura: next.id, tipo: natureParam })}
-                  aria-label={`Próxima fatura: vence em ${dm(next.dueDate)}`}
+                  aria-label={`Próxima fatura: vence em ${civilDayMonth(next.dueDate)}`}
                   className={ARROW}
                 >
                   <ChevronRight aria-hidden className="size-[1.125rem]" />
@@ -326,7 +326,7 @@ export default async function CardsPage({ searchParams }: PageProps<"/cartoes">)
               {statement.payments.map((p) => (
                 <ChargeRow
                   key={`${p.paidOn}-${p.amount}`}
-                  label={`Pago em ${dm(p.paidOn)}`}
+                  label={`Pago em ${civilDayMonth(p.paidOn)}`}
                   cents={p.amount}
                   muted
                 />
@@ -344,11 +344,11 @@ export default async function CardsPage({ searchParams }: PageProps<"/cartoes">)
 
         {previous && page.previousPaid.length > 0 ? (
           <Note icon={ArrowLeftRight}>
-            A fatura que venceu em {dm(previous.dueDate)} foi paga{" "}
+            A fatura que venceu em {civilDayMonth(previous.dueDate)} foi paga{" "}
             {page.previousPaid
               .map(
                 (p) =>
-                  `em ${dm(p.paidOn)}${p.fromAccount ? ` pela ${p.fromAccount}` : ""} (${formatBRL(p.amount)})`,
+                  `em ${civilDayMonth(p.paidOn)}${p.fromAccount ? ` pela ${p.fromAccount}` : ""} (${formatBRL(p.amount)})`,
               )
               .join(" e ")}
             .

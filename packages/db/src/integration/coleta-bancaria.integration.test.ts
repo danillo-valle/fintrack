@@ -340,11 +340,17 @@ describe("conexão, ligação e sincronização", () => {
     if (!access.ok) throw new Error("sem acesso");
     const household = await authorizeHousehold(prisma, h.holder.id, "manage_categories");
     if (!household.ok) throw new Error("sem lar");
-    await setTransactionCategory(prisma, access.grant, cats.restaurante.id, {}, TEST_CTX);
     await setTransactionCategory(
       prisma,
       access.grant,
-      cats.mercado.id,
+      { categoryId: cats.restaurante.id },
+      {},
+      TEST_CTX,
+    );
+    await setTransactionCategory(
+      prisma,
+      access.grant,
+      { categoryId: cats.mercado.id },
       { rememberRule: { grant: household.grant } },
       TEST_CTX,
     );
@@ -371,7 +377,13 @@ describe("conexão, ligação e sincronização", () => {
     const salaryAccess = await authorizeTransaction(prisma, h.holder.id, salary.id, "edit");
     if (!salaryAccess.ok) throw new Error("sem acesso");
     await expect(
-      setTransactionCategory(prisma, salaryAccess.grant, cats.mercado.id, {}, TEST_CTX),
+      setTransactionCategory(
+        prisma,
+        salaryAccess.grant,
+        { categoryId: cats.mercado.id },
+        {},
+        TEST_CTX,
+      ),
     ).rejects.toMatchObject({
       code: "CATEGORY_INVALID",
     });

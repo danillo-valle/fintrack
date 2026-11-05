@@ -94,7 +94,10 @@ pode, mas não numa carteira pessoal.
 `transaction.restored`, `transactions.exported`, `recurrence.created`, `recurrence.archived`,
 `recurrences.generated`, `account.created`, `account.archived`, `card.created`,
 `card.archived`, `category.created`, `category.archived`, `category_rule.created`,
-`category_rule.deleted`. Lançar e editar não vão para a auditoria (seriam milhares de linhas;
+`category_rule.deleted`. Desde o M13.3b: `category_rule.updated` (a regra da loja que passou a
+dar outra categoria ou tipo), `transaction.nature_set` (só o id e a marca fixa/variável),
+`category.cleanup` e `category.cleanup_undone` (a limpeza de uma categoria que era transferência:
+só ids e contagens). Lançar e editar não vão para a auditoria (seriam milhares de linhas;
 o lançamento guarda quem criou e quando mudou). Nunca vão para a auditoria: segredo do
 convite, senha, token, número de cartão (nem os 4 finais), descrição ou valor de lançamento;
 e-mail aparece mascarado (`***@exemplo.com`).

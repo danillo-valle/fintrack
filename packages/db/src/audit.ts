@@ -51,6 +51,7 @@ export type AuditAction =
   | "category.archived"
   | "category.updated"
   | "category_rule.created"
+  | "category_rule.updated"
   | "category_rule.deleted"
   // M08: orçamento (só ids, mês e contagens; nunca valores)
   | "budget.set"
@@ -75,6 +76,10 @@ export type AuditAction =
   | "transaction.transfer_marked"
   | "transaction.transfer_unmarked"
   | "transaction.labeled"
+  // M13.3b: fixa ou variável e a limpeza de categorias (só ids, a marca e contagens; nunca o texto)
+  | "transaction.nature_set"
+  | "category.cleanup"
+  | "category.cleanup_undone"
   // M09.3: extrato importado (só ids e contagens; nunca nome do arquivo, final ou valor)
   | "file.imported"
   | "classifier.trained"

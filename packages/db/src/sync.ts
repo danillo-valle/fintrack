@@ -26,6 +26,7 @@ import {
   importWindow,
   installmentSiblingKey,
   runCascade,
+  storedNature,
   bankBillStatement,
   todayCivil,
   type CivilDate,
@@ -634,13 +635,16 @@ async function saveTransactions(
           installmentCount: t.installment?.count ?? null,
         }) ?? "",
       );
-      const suggestion = sibling?.categoryId
-        ? { categoryId: sibling.categoryId, source: "HISTORY" as const, confidence: 100 }
+      const cascade = sibling?.categoryId
+        ? null
         : await runCascade(suggesters, {
             description: incoming.description,
             kind,
             providerCategory: t.category,
           });
+      const suggestion = sibling?.categoryId
+        ? { categoryId: sibling.categoryId, source: "HISTORY" as const, confidence: 100 }
+        : cascade;
       creates.push({
         householdId: input.householdId,
         walletId: destination.walletId,
@@ -650,6 +654,13 @@ async function saveTransactions(
         categoryId: suggestion?.categoryId ?? null,
         categorizedBy: suggestion ? suggestion.source : null,
         categorizationConfidence: suggestion?.confidence ?? null,
+        // O tipo que a regra da loja dá ("as próximas também", ADR-026); parcela não tem
+        nature: storedNature({
+          expense: kind === "expense",
+          installment: t.installment !== null,
+          transfer: false,
+          nature: cascade?.nature,
+        }),
         amount: toDbDecimal(t.amount),
         occurredOn: dbDateFromCivil(t.occurredOn),
         description: incoming.description,
@@ -716,6 +727,8 @@ async function saveTransactions(
         providerCategory: t.category,
         providerInstallmentNumber: t.installment?.number ?? null,
         providerInstallmentCount: t.installment?.count ?? null,
+        // O banco passou a dizer que é parcela: parcela não tem fixa/variável (o CHECK exige)
+        ...(t.installment ? { nature: null } : {}),
       },
     });
   }

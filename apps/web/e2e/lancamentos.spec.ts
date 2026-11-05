@@ -119,17 +119,21 @@ test.describe("o uso diário", () => {
     await expect(page.getByRole("link", { name: "Supermercado Bom Preço" })).toBeVisible();
     await expectNoA11yViolations(page);
 
-    // 3. Corrigir a categoria e pedir "sempre categorizar assim"
+    // 3. Corrigir a categoria e pedir "as próximas desta loja também" (a regra)
     await page.getByRole("link", { name: "Supermercado Bom Preço" }).click();
     await expect(
       page.getByRole("heading", { level: 1, name: "Supermercado Bom Preço" }),
     ).toBeVisible();
     await waitForReady(page);
     await page
-      .getByLabel("Categoria")
+      .getByLabel("Categoria", { exact: true })
       .filter({ visible: true })
       .selectOption({ label: "Restaurante" });
-    await page.getByLabel("Sempre categorizar assim").check();
+    // Visível: a lista de antes fica escondida na página (Cache Components), com o painel do tipo
+    await page
+      .getByLabel(/^As próximas de “Supermercado Bom Preço” também/)
+      .filter({ visible: true })
+      .check();
     await page.getByRole("button", { name: "Salvar alterações" }).click();
     await expect(page.getByText("Lançamento salvo.")).toBeVisible();
 

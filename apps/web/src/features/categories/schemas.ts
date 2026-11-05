@@ -14,7 +14,10 @@ export const categorySchema = z.object({
     .transform((v) => v || null),
 });
 
-/** Editar categoria (M13.2): o nome e o tipo (o servidor confere se o tipo pode mudar). */
+/**
+ * Editar categoria (M13.2): o nome, o tipo (o servidor confere se o tipo pode mudar) e, no M13.3b,
+ * se as despesas dela são fixas ou variáveis por padrão.
+ */
 export const editCategorySchema = z.object({
   categoryId: z.uuid(),
   name: textField()
@@ -22,6 +25,8 @@ export const editCategorySchema = z.object({
     .min(1, "Dê um nome à categoria.")
     .max(60, "Use no máximo 60 caracteres."),
   kind: z.enum(["EXPENSE", "INCOME"], { error: "Escolha despesa ou receita." }),
+  /** M13.3b: as despesas dela são fixas ou variáveis por padrão (numa receita, o servidor ignora) */
+  defaultNature: z.enum(["FIXED", "VARIABLE"]).default("VARIABLE"),
 });
 
 export const archiveCategorySchema = z.object({
@@ -55,3 +60,16 @@ export const localAiProposalSchema = z.object({
     .default("")
     .transform((v) => v || null),
 });
+
+/** "Tratar os N como transferência" (M13.3b, ADR-026): a categoria, os N que a pessoa viu e o arquivar. */
+export const applyCleanupSchema = z.object({
+  categoryId: z.uuid(),
+  expectedCount: z.coerce.number().int().min(1).max(100_000),
+  archive: z
+    .literal("on")
+    .optional()
+    .transform((v) => v === "on"),
+});
+
+/** O Desfazer de uma limpeza (30 minutos). */
+export const undoCleanupSchema = z.object({ cleanupId: z.uuid() });

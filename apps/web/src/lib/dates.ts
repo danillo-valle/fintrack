@@ -54,6 +54,11 @@ const isoDayFormat = new Intl.DateTimeFormat("en-CA", {
   day: "2-digit",
 });
 
+/** "02/10": o dia e o mês de uma data AAAA-MM-DD, sem fuso (a data civil já é de São Paulo). */
+export function civilDayMonth(date: string): string {
+  return `${date.slice(8, 10)}/${date.slice(5, 7)}`;
+}
+
 /** 01/10/2026 */
 export function formatDate(date: Date): string {
   return dayFormat.format(date);

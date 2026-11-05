@@ -255,7 +255,39 @@ describe("pairedFields", () => {
         { cardId: "c-0002", description: bankText, categoryId: "cat-x", categorizedBy: "RULE" },
         ownSide,
       ),
-    ).toEqual({ ...rest, label: description, cardId: "c-0002", categorizationConfidence: null });
+    ).toEqual({
+      ...rest,
+      label: description,
+      cardId: "c-0002",
+      categorizationConfidence: null,
+      nature: null,
+    });
+  });
+
+  it("a marca fixa/variável segue a categoria que ficou; parcela e transferência não têm (ADR-026)", () => {
+    const bank = {
+      cardId: null,
+      description: bankText,
+      categoryId: "cat-x",
+      categorizedBy: "RULE",
+      nature: "FIXED" as const,
+    };
+    expect(pairedFields(bank, { ...ownSide, nature: "VARIABLE" })).toMatchObject({
+      nature: "VARIABLE",
+    });
+    expect(pairedFields(bank, ownSide)).toMatchObject({ nature: null });
+    expect(pairedFields(bank, { ...ownSide, categoryId: null, categorizedBy: null })).toMatchObject(
+      { nature: "FIXED" },
+    );
+    expect(
+      pairedFields({ ...bank, providerInstallmentCount: 6 }, { ...ownSide, nature: "FIXED" }),
+    ).toMatchObject({ nature: null });
+    expect(
+      pairedFields(bank, { ...ownSide, nature: "FIXED", installmentGroupId: "g-1" }),
+    ).toMatchObject({ nature: null });
+    expect(
+      pairedFields(bank, { ...ownSide, categoryId: null, categorizedBy: null, transferId: "t-1" }),
+    ).toMatchObject({ nature: null });
   });
 
   it("a sua descrição igual à do banco (sem acento, caixa e pontuação) não vira O que foi", () => {

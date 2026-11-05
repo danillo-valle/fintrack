@@ -3,12 +3,11 @@ import Link from "next/link";
 import { ReceiptText } from "lucide-react";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
-import { MoneyLink } from "@/components/money/money-link";
 import { Button } from "@/components/ui/button";
-import { HighlightCard, StatCard, SummaryGrid } from "@/components/visual/summary";
 import { budgetQuery } from "@/features/budget/schemas";
 import { getHomeDashboard } from "@/features/budget/server/queries";
 import { EnvironmentRow } from "@/features/budget/ui/environment-row";
+import { ForecastBlock } from "@/features/budget/ui/forecast-block";
 import { GroupSpendingChart, GroupSpendingTable } from "@/features/budget/ui/group-spending";
 import { BudgetAlerts, CashFlowMini, Panel } from "@/features/budget/ui/home-panels";
 import { MonthResult } from "@/features/budget/ui/month-result";
@@ -29,7 +28,7 @@ export const metadata: Metadata = { title: "Início" };
 
 // Início (M08, canvas D; o dinheiro de verdade no M13.3a, prancha N-Inicio): como estamos este mês.
 // O resultado do mês (cada compra uma vez, no cartão pelo vencimento da fatura), o que está nas
-// contas, o guardado e as faturas a pagar; o previsto de fim de mês e o orçado; o gasto por
+// contas, o guardado e as faturas a pagar; o previsto de fim de mês em três partes (M13.3b) e o orçado; o gasto por
 // categoria contra o mês passado e a média de 6 meses; as categorias acima do ritmo; e o resultado
 // dos próximos 6 meses. Todo número leva aos lançamentos que o compõem.
 export default async function HomePage({ searchParams }: PageProps<"/">) {
@@ -122,59 +121,20 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
           </>
         ) : null}
 
-        <SummaryGrid
-          label={`Previsto para ${home.monthName}`}
-          className="md:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]"
-        >
-          <HighlightCard
-            label="Saídas previstas até o fim do mês"
-            data-testid="inicio-previsto"
-            note={
-              summary.budgetCount > 0 ? (
-                <>
-                  de{" "}
-                  <Link href={summary.budget.href} className={cn(NUMBER_LINK, "tabular font-mono")}>
-                    {formatBRL(summary.budget.cents)}
-                  </Link>{" "}
-                  orçados{left ? ` · ${left}` : ""}
-                </>
-              ) : (
-                <>
-                  Sem orçamento neste mês.{" "}
-                  <Link href={summary.budget.href} className={NUMBER_LINK}>
-                    Definir
-                  </Link>
-                </>
-              )
-            }
-          >
-            <MoneyLink
-              cents={summary.projected.cents}
-              href={summary.projected.href}
-              label="Saídas previstas até o fim do mês"
-            />
-          </HighlightCard>
-          <StatCard
-            label="Orçado no mês"
-            className="hidden md:flex"
-            note={summary.budgetCount === 1 ? "1 categoria" : `${summary.budgetCount} categorias`}
-          >
-            <Link
-              href={summary.budget.href}
-              className={cn(NUMBER_LINK, "tabular font-mono")}
-              data-testid="inicio-orcado"
-            >
-              {formatBRL(summary.budget.cents)}
-            </Link>
-          </StatCard>
-        </SummaryGrid>
-        <p className="text-muted-foreground -mt-2 px-1 text-[0.8125rem]">
-          As contas fixas, as assinaturas e as compras parceladas em andamento ficam em{" "}
-          <Link href="/fixas" className={NUMBER_LINK}>
-            Fixas e parcelas
-          </Link>
-          .
-        </p>
+        {/* M13.3b (ADR-026): o previsto em três partes; as fixas e as parcelas uma vez cada */}
+        <ForecastBlock
+          monthLabel={home.monthName}
+          elapsedDays={home.elapsedDays}
+          monthDays={home.monthDays}
+          total={summary.projected}
+          forecast={home.forecast}
+          budget={{
+            cents: summary.budget.cents,
+            href: summary.budget.href,
+            count: summary.budgetCount,
+            left,
+          }}
+        />
 
         {home.alerts.length > 0 ? (
           <section aria-labelledby="atencao" className="flex flex-col gap-2 md:hidden">

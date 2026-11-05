@@ -3,6 +3,7 @@
 // Server Actions de categorias e regras (M07): sessão → zod → crachá "manage_categories" do
 // lar → operação (com auditoria). As duas pessoas do lar organizam.
 import {
+  applyCleanup,
   createCategory,
   createRule,
   deleteRule,
@@ -10,6 +11,7 @@ import {
   setCategoryArchived,
   setLocalAi,
   trainNow,
+  undoCleanup,
   updateCategory,
   type TrainOutcome,
 } from "@fintrack/db";
@@ -25,13 +27,16 @@ import {
 import { requireUser } from "@/lib/auth/session";
 import { financeChanged } from "@/lib/finance-cache";
 import { classifierPort } from "@/lib/ml/classifier";
+import { todayCivil } from "@fintrack/core";
 import {
+  applyCleanupSchema,
   archiveCategorySchema,
   categorySchema,
   editCategorySchema,
   localAiSwitchSchema,
   ruleIdSchema,
   ruleSchema,
+  undoCleanupSchema,
 } from "../schemas";
 
 const PAGE = "/ajustes/categorias";
@@ -58,8 +63,9 @@ export async function createCategoryAction(
 }
 
 /**
- * Editar categoria (M13.2, prancha M-Categoria): o nome e o tipo. Volta para Categorias com o aviso.
- * O tipo só muda sem subcategorias, recorrência, orçado e lançamento do outro sinal.
+ * Editar categoria (M13.2, prancha M-Categoria; M13.3b, N-FixaVariavel): o nome, o tipo e o padrão
+ * fixa/variável das despesas. Volta para Categorias com o aviso. O tipo só muda sem subcategorias,
+ * recorrência, orçado e lançamento do outro sinal.
  */
 export async function updateCategoryAction(
   _prev: ActionState,
@@ -213,5 +219,52 @@ export async function setLocalAiAction(
   });
   revalidatePath("/ajustes/categorizacao");
   revalidatePath("/lancamentos/recebidos");
+  return result;
+}
+
+/**
+ * "Tratar os N como transferência" (M13.3b, ADR-026, prancha N-Limpeza): os lançamentos da
+ * categoria que eram transferência viram transferência (os pares com o outro lado; os sozinhos, de
+ * um lado só para uma conta fora do FinTrack). Só nas carteiras que a pessoa edita. Volta para
+ * Categorias, com o Desfazer no topo por 30 minutos.
+ */
+export async function applyCleanupAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await requireUser();
+  const parsed = applyCleanupSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return invalid(parsed.error);
+  const result = await runAction(async () => {
+    const grant = await requireHouseholdAccess(session, "manage_categories");
+    const scope = await requireScope(session, "edit");
+    await applyCleanup(prisma, grant, scope, parsed.data, await requestContext(), todayCivil());
+  });
+  if (result.error) return result;
+  await financeChanged(session);
+  revalidatePath(PAGE);
+  revalidatePath("/lancamentos", "layout");
+  redirect(PAGE);
+}
+
+/** O Desfazer da limpeza: cada lançamento volta como estava, e a categoria desarquivada. */
+export async function undoCleanupAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await requireUser();
+  const parsed = undoCleanupSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return invalid(parsed.error);
+  const result = await runAction(async () => {
+    const grant = await requireHouseholdAccess(session, "manage_categories");
+    const scope = await requireScope(session, "edit");
+    await undoCleanup(prisma, grant, scope, parsed.data.cleanupId, await requestContext());
+    return "Desfeito: os lançamentos voltaram como estavam.";
+  });
+  if (!result.error) {
+    await financeChanged(session);
+    revalidatePath(PAGE);
+    revalidatePath("/lancamentos", "layout");
+  }
   return result;
 }

@@ -9,14 +9,14 @@ import { AmountText } from "@/components/money/amount-text";
 import { ToneChip } from "@/components/visual/tone-chip";
 import { CHARGE_LABEL } from "@/lib/labels";
 import { formatBRL } from "@/lib/money";
-import { dayMonth } from "../review/parts";
+import { civilDayMonth } from "@/lib/dates";
 import { PdfFileIcon } from "./pdf-file-icon";
 
 /** Quantas linhas a conferência mostra (o resto aparece em Recebidos depois). */
 export const PREVIEW_ROWS = 10;
 
 const year = (date: string) => date.slice(0, 4);
-const fullDate = (date: string) => `${dayMonth(date)}/${year(date)}`;
+const fullDate = (date: string) => `${civilDayMonth(date)}/${year(date)}`;
 
 /** O resumo da fatura em PDF: banco, final, vencimento e o perfil que leu. */
 export function InvoiceSummary({
@@ -138,7 +138,9 @@ export function PreviewSummary({
   const title = [
     institution ?? (kind === "CREDIT_CARD" ? "Fatura do cartão" : "Extrato da conta"),
     lastFour ? `${what} final ${lastFour}` : null,
-    period ? `${dayMonth(period.from)} a ${dayMonth(period.to)}/${year(period.to)}` : null,
+    period
+      ? `${civilDayMonth(period.from)} a ${civilDayMonth(period.to)}/${year(period.to)}`
+      : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -264,12 +266,12 @@ export function PreviewRows({
             className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2.5 gap-y-1 py-2.5 md:grid-cols-[3.5rem_minmax(0,1fr)_13.125rem_9.375rem] md:items-center md:gap-x-3 max-md:[&:nth-child(5)]:border-b-0 max-md:[&:nth-child(n+6)]:hidden"
           >
             <span className="text-muted-foreground tabular hidden font-mono text-[0.8125rem] md:block">
-              {dayMonth(row.occurredOn)}
+              {civilDayMonth(row.occurredOn)}
             </span>
             <span className="truncate text-[0.9375rem] font-semibold">{row.description}</span>
             <span className="col-span-2 row-start-2 flex items-center gap-1.5 md:col-span-1 md:col-start-3 md:row-start-1">
               <span className="text-muted-foreground tabular font-mono text-xs md:hidden">
-                {dayMonth(row.occurredOn)}
+                {civilDayMonth(row.occurredOn)}
               </span>
               <ToneChip tone={chip.tone} icon={chip.icon}>
                 {chip.label}

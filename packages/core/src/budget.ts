@@ -98,20 +98,75 @@ export function monthsStartingAt(first: MonthKey, count: number): MonthKey[] {
 // ── Natureza do gasto ─────────────────────────────────────────────────────────
 
 /**
- * Fixa = gerada por uma recorrência (conta fixa, assinatura); parcela = de uma compra parcelada,
- * a do FinTrack ou a que o banco informa ("3 de 6", M13.3a); variável = todo o resto. Não é
- * coluna: sai do lançamento (ADR-004). A mesma regra está em SQL (NATURE_SQL, packages/db).
+ * Fixa, parcela ou variável (ADR-026). A ordem decide:
+ * 1. parcela: a compra parcelada do FinTrack ou a parcela que o banco informa ("3 de 6", M13.3a).
+ *    Sempre parcela, ninguém troca;
+ * 2. a marca da compra (`nature`), quando a pessoa (ou a regra "as próximas desta loja") marcou;
+ * 3. fixa, se veio de uma recorrência do app (conta fixa, assinatura);
+ * 4. o padrão da categoria (`categoryNature`); sem categoria, variável.
+ * A mesma regra está em SQL (NATURE_SQL, packages/db), com o teste de concordância.
  */
 export type SpendingNature = "fixed" | "installment" | "variable";
 
-export function spendingNature(t: {
+/** O tipo que a pessoa escolhe (a coluna `nature` e o padrão da categoria). */
+export type ExpenseNature = "FIXED" | "VARIABLE";
+
+export const EXPENSE_NATURES: readonly ExpenseNature[] = ["FIXED", "VARIABLE"];
+
+export type NatureInput = {
   recurrenceId: string | null;
   installmentGroupId: string | null;
   providerInstallmentCount?: number | null;
-}): SpendingNature {
-  if (t.recurrenceId) return "fixed";
+  /** A marca da compra; nula = segue a recorrência ou a categoria */
+  nature?: ExpenseNature | null;
+  /** O padrão da categoria da compra; nulo = sem categoria */
+  categoryNature?: ExpenseNature | null;
+};
+
+export function spendingNature(t: NatureInput): SpendingNature {
   if (t.installmentGroupId || t.providerInstallmentCount) return "installment";
-  return "variable";
+  if (t.nature) return t.nature === "FIXED" ? "fixed" : "variable";
+  if (t.recurrenceId) return "fixed";
+  return t.categoryNature === "FIXED" ? "fixed" : "variable";
+}
+
+/** Uma parcela não tem marca: a escolha de fixa ou variável não aparece nela. */
+export function natureIsChoosable(t: NatureInput): boolean {
+  return !t.installmentGroupId && !t.providerInstallmentCount;
+}
+
+/** O que a tela precisa para mostrar e trocar o tipo de uma despesa (a etiqueta da linha). */
+export type NatureView = {
+  kind: SpendingNature;
+  /** Fixa ou variável pode ser escolhida (não é parcela) */
+  choosable: boolean;
+  /** O padrão da categoria (nulo = sem categoria): "Padrão de Assinaturas: Fixa" */
+  categoryNature: ExpenseNature | null;
+};
+
+/** O tipo de uma saída para a tela; nulo numa entrada ou numa transferência (não têm tipo). */
+export function natureView(
+  t: NatureInput & { expense: boolean; transfer: boolean },
+): NatureView | null {
+  if (!t.expense || t.transfer) return null;
+  return {
+    kind: spendingNature(t),
+    choosable: natureIsChoosable(t),
+    categoryNature: t.categoryNature ?? null,
+  };
+}
+
+/**
+ * A marca que se grava num lançamento (ADR-026): só numa saída que não é parcela nem
+ * transferência. Nas outras, nula (o CHECK do banco também barra).
+ */
+export function storedNature(t: {
+  expense: boolean;
+  installment: boolean;
+  transfer: boolean;
+  nature: ExpenseNature | null | undefined;
+}): ExpenseNature | null {
+  return t.expense && !t.installment && !t.transfer ? (t.nature ?? null) : null;
 }
 
 // ── O previsto de fim de mês ──────────────────────────────────────────────────
@@ -130,26 +185,50 @@ export function monthWindow(month: MonthKey): PaceWindow {
   return { start: firstDayOf(month), end: dayOfMonth(month, 31) };
 }
 
+/** Um valor por tipo de despesa (fixa, parcela, variável). */
+export type NatureCents = Readonly<Record<SpendingNature, Cents>>;
+
+export const NO_NATURE_CENTS: NatureCents = { fixed: 0n, installment: 0n, variable: 0n };
+
+export function addNatureCents(a: NatureCents, b: NatureCents): NatureCents {
+  return {
+    fixed: a.fixed + b.fixed,
+    installment: a.installment + b.installment,
+    variable: a.variable + b.variable,
+  };
+}
+
+/** A soma dos três tipos. */
+export function natureTotal(n: NatureCents): Cents {
+  return n.fixed + n.installment + n.variable;
+}
+
+/** Um valor só num tipo. */
+export function inNature(nature: SpendingNature, cents: Cents): NatureCents {
+  return { ...NO_NATURE_CENTS, [nature]: cents };
+}
+
 /** O que se sabe de um mês (num recorte: uma categoria, um ambiente, uma pessoa). */
 export type MonthFigures = {
-  /** Gasto que conta no mês e já aconteceu (até hoje; no mês fechado, o mês inteiro). Positivo */
-  spent: Cents;
-  /** A parte variável do `spent` (sem recorrência e sem parcela) */
-  variableSpent: Cents;
-  /** A mesma parte variável, por janela (ACCOUNTS_WINDOW ou o id da fatura) */
+  /** Gasto que conta no mês e já aconteceu (até hoje; no mês fechado, o mês inteiro), por tipo */
+  spent: NatureCents;
+  /** Lançamentos do mês com data depois de hoje (parcelas e fixas agendadas), por tipo */
+  scheduled: NatureCents;
+  /** O variável que já aconteceu, por janela (ACCOUNTS_WINDOW ou o id da fatura): o ritmo */
   variableByWindow: ReadonlyMap<string, Cents>;
-  /** Lançamentos do mês com data depois de hoje (parcelas e fixas agendadas) */
-  scheduled: Cents;
-  /** Recorrências do mês que ainda não viraram lançamento, pelo valor previsto */
-  pendingRecurrences: Cents;
+  /**
+   * As fixas que ainda não chegaram no mês (ADR-026): as recorrências do app ainda não lançadas,
+   * pelo valor previsto, e as fixas do banco do mês passado que ainda não vieram neste. Sempre
+   * fixas; entram uma vez, sem ritmo
+   */
+  pending: Cents;
 };
 
 export const NO_FIGURES: MonthFigures = {
-  spent: 0n,
-  variableSpent: 0n,
+  spent: NO_NATURE_CENTS,
+  scheduled: NO_NATURE_CENTS,
   variableByWindow: new Map(),
-  scheduled: 0n,
-  pendingRecurrences: 0n,
+  pending: 0n,
 };
 
 export function addFigures(a: MonthFigures, b: MonthFigures): MonthFigures {
@@ -158,11 +237,10 @@ export function addFigures(a: MonthFigures, b: MonthFigures): MonthFigures {
     byWindow.set(key, (byWindow.get(key) ?? 0n) + cents);
   }
   return {
-    spent: a.spent + b.spent,
-    variableSpent: a.variableSpent + b.variableSpent,
+    spent: addNatureCents(a.spent, b.spent),
+    scheduled: addNatureCents(a.scheduled, b.scheduled),
     variableByWindow: byWindow,
-    scheduled: a.scheduled + b.scheduled,
-    pendingRecurrences: a.pendingRecurrences + b.pendingRecurrences,
+    pending: a.pending + b.pending,
   };
 }
 
@@ -172,6 +250,8 @@ export type Projection = {
   spent: Cents;
   /** Previsto para o mês inteiro (no fechado, igual ao gasto) */
   projected: Cents;
+  /** O previsto por tipo (soma = projected): as fixas e as parcelas uma vez, o variável no ritmo */
+  parts: NatureCents;
   /** Só a parte do previsto que vem do ritmo do variável (0 no mês fechado) */
   pace: Cents;
   /** Dias já passados e dias do mês (no mês em andamento) */
@@ -204,11 +284,13 @@ export function projectMonth(
   const { year, month: m } = parseMonthKey(month);
   const monthDays = daysInMonth(year, m);
   const phase = monthPhase(month, today);
+  const spent = natureTotal(f.spent);
   if (phase === "closed") {
     return {
       phase,
-      spent: f.spent,
-      projected: f.spent,
+      spent,
+      projected: spent,
+      parts: f.spent,
       pace: 0n,
       elapsedDays: monthDays,
       monthDays,
@@ -218,10 +300,18 @@ export function projectMonth(
   for (const [key, variable] of f.variableByWindow) {
     pace += windowPace(variable, windows.get(key) ?? monthWindow(month), today);
   }
+  // A fixa e a parcela entram uma vez: o que já saiu, o agendado e (a fixa) o que ainda falta
+  // chegar. Só o variável segue o ritmo (ADR-026)
+  const parts: NatureCents = {
+    fixed: f.spent.fixed + f.scheduled.fixed + f.pending,
+    installment: f.spent.installment + f.scheduled.installment,
+    variable: f.spent.variable + f.scheduled.variable + pace,
+  };
   return {
     phase,
-    spent: f.spent,
-    projected: f.spent + f.scheduled + f.pendingRecurrences + pace,
+    spent,
+    projected: natureTotal(parts),
+    parts,
     pace,
     elapsedDays: phase === "current" ? parseCivilDate(today).day : 0,
     monthDays,

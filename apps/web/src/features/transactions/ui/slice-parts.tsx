@@ -11,8 +11,7 @@ import { TEXT_LINK } from "@/lib/styles";
 import type { PayerOption } from "../payers";
 import type { ListPart } from "../server/queries";
 import { TransactionList } from "./transaction-list";
-
-const dm = (date: CivilDate) => `${date.slice(8, 10)}/${date.slice(5, 7)}`;
+import { civilDayMonth } from "@/lib/dates";
 
 /** O total de uma parte: as saídas, ou as entradas quando a parte só tem entradas. */
 const partTotal = (part: ListPart) => part.totals.net;
@@ -117,7 +116,7 @@ export function SliceParts({
     else
       bills.push({
         key,
-        title: `${item.account.name} · fatura que vence em ${dm(due)}`,
+        title: `${item.account.name} · fatura que vence em ${civilDayMonth(due)}`,
         items: [item],
       });
   }

@@ -10,12 +10,14 @@
 // A linha vira colunas pela largura da LISTA (contêiner, @3xl = 48rem), não da tela: na página do
 // cartão a lista divide a tela com a fatura, e as colunas não cabiam (o texto entrava na vizinha).
 import { CircleDashed, Globe } from "lucide-react";
-import type { CategorizationSource } from "@fintrack/core";
+import type { CategorizationSource, NatureView } from "@fintrack/core";
 import { AmountText } from "@/components/money/amount-text";
 import { ToneChip } from "@/components/visual/tone-chip";
 import { formatBRL } from "@/lib/money";
+import { NatureTag } from "@/features/transactions/ui/nature/nature-tag";
 import { CategoryPicker, type CategoryChoice } from "./category-picker";
 import { LabelEditor } from "./label-editor";
+import { civilDayMonth } from "@/lib/dates";
 
 export type ReceivedRowData = {
   id: string;
@@ -30,13 +32,13 @@ export type ReceivedRowData = {
   /** A confiança da camada que sugeriu (M10.1) */
   categorizationConfidence?: number | null;
   installment: { number: number; count: number } | null;
+  /** O tipo da saída (M13.3b): no botão da categoria e no painel dela */
+  natureView: NatureView | null;
   original: { amount: bigint; currency: string } | null;
   /** Uma frase pequena: "no ambiente Caio" (a compra do adicional), por exemplo */
   note?: string | null;
   canEdit: boolean;
 };
-
-const dayMonth = (date: string) => `${date.slice(8, 10)}/${date.slice(5, 7)}`;
 
 /** "US$ 48,61" sem passar por number: os centavos com a moeda na frente. */
 function originalLabel(original: { amount: bigint; currency: string }) {
@@ -62,7 +64,7 @@ export function ReceivedList({
           className="relative grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1.5 py-2.5 @3xl:grid-cols-[3.25rem_minmax(0,1fr)_minmax(0,22rem)_7rem] @3xl:items-center @3xl:gap-y-0"
         >
           <span className="text-muted-foreground tabular hidden font-mono text-[0.8125rem] @3xl:block">
-            {dayMonth(item.occurredOn)}
+            {civilDayMonth(item.occurredOn)}
           </span>
           <span className="flex min-w-0 flex-col gap-1">
             <span className="flex min-w-0 items-center gap-2">
@@ -84,7 +86,9 @@ export function ReceivedList({
               ) : null}
             </span>
             <span className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-              <span className="tabular font-mono @3xl:hidden">{dayMonth(item.occurredOn)}</span>
+              <span className="tabular font-mono @3xl:hidden">
+                {civilDayMonth(item.occurredOn)}
+              </span>
               {item.status === "PENDING" ? (
                 <ToneChip tone={4} icon={CircleDashed}>
                   Recebido
@@ -126,8 +130,9 @@ export function ReceivedList({
                 </span>
               </>
             ) : (
-              <span className="text-muted-foreground text-sm">
+              <span className="text-muted-foreground flex items-center gap-1.5 text-sm">
                 {item.category?.name ?? "Sem categoria"}
+                {item.natureView ? <NatureTag kind={item.natureView.kind} size="sm" /> : null}
               </span>
             )}
           </span>

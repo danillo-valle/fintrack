@@ -6,7 +6,8 @@ import { EmptyState } from "@/components/feedback/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { ActionsMenu, MENU_ITEM } from "@/components/visual/actions-menu";
 import { deleteRuleAction, setCategoryArchivedAction } from "@/features/categories/server/actions";
-import { getCategoriesPage } from "@/features/categories/server/queries";
+import { getCategoriesPage, getCleanups } from "@/features/categories/server/queries";
+import { CleanupBanner, CleanupReview, UndoCleanups } from "@/features/categories/ui/cleanup";
 import { CategoryForm, RuleForm } from "@/features/categories/ui/category-forms";
 import { requireUser } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
@@ -19,11 +20,15 @@ const MATCH = { CONTAINS: "contém", STARTS_WITH: "começa com", EQUALS: "é igu
 // Categorias e regras do lar (M07). As regras são a primeira camada da cascata de sugestão:
 // "se a descrição contém X, a categoria é Y". Regras também nascem de uma correção no
 // lançamento ("sempre categorizar assim"). M13.2: cada categoria tem o menu "⋯" com Editar (nome e
-// tipo) e Arquivar; depois de editar, o aviso no topo.
+// tipo) e Arquivar; depois de editar, o aviso no topo. M13.3b (ADR-026, prancha N-Limpeza): o aviso
+// das categorias que eram transferência, a revisão (?revisar=transferencias) e o Desfazer por 30
+// minutos; o padrão fixa/variável de cada categoria e o tipo que cada regra dá.
 export default async function CategoriesPage({ searchParams }: PageProps<"/ajustes/categorias">) {
   const session = await requireUser();
   const page = await getCategoriesPage(session);
-  const editedId = (await searchParams).editada;
+  const params = await searchParams;
+  const editedId = params.editada;
+  const reviewing = params.revisar === "transferencias";
   if (!page) {
     return (
       <>
@@ -37,6 +42,7 @@ export default async function CategoriesPage({ searchParams }: PageProps<"/ajust
     );
   }
   const active = page.categories.filter((c) => !c.archived);
+  const cleanups = page.canManage ? await getCleanups(session) : { candidates: [], undoable: [] };
   const edited =
     typeof editedId === "string" ? (page.categories.find((c) => c.id === editedId) ?? null) : null;
 
@@ -58,6 +64,25 @@ export default async function CategoriesPage({ searchParams }: PageProps<"/ajust
             <strong className="break-words">Categoria “{edited.name}” atualizada.</strong>
           </p>
         ) : null}
+        <UndoCleanups cleanups={cleanups.undoable} />
+        {reviewing ? (
+          cleanups.candidates.length > 0 ? (
+            <div id="limpeza" className="flex flex-col gap-4">
+              {cleanups.candidates.map((c) => (
+                <CleanupReview key={c.category.id} candidate={c} backHref="/ajustes/categorias" />
+              ))}
+            </div>
+          ) : (
+            <p role="status" className="text-muted-foreground text-sm">
+              Nenhuma categoria parece transferência agora.
+            </p>
+          )
+        ) : (
+          <CleanupBanner
+            candidates={cleanups.candidates}
+            reviewHref="/ajustes/categorias?revisar=transferencias#limpeza"
+          />
+        )}
         <section aria-labelledby="categorias" className={SECTION}>
           <h2 id="categorias" className="mb-3 font-semibold">
             Categorias
@@ -73,7 +98,11 @@ export default async function CategoriesPage({ searchParams }: PageProps<"/ajust
                     {c.name}
                     <span className="text-muted-foreground text-sm">
                       {" "}
-                      · {c.kind === "EXPENSE" ? "despesa" : "receita"} · {c.transactionCount}{" "}
+                      ·{" "}
+                      {c.kind === "EXPENSE"
+                        ? `despesa ${c.defaultNature === "FIXED" ? "fixa" : "variável"}`
+                        : "receita"}{" "}
+                      · {c.transactionCount}{" "}
                       {c.transactionCount === 1 ? "lançamento" : "lançamentos"}
                       {c.archived ? " · arquivada" : ""}
                     </span>
@@ -134,6 +163,7 @@ export default async function CategoriesPage({ searchParams }: PageProps<"/ajust
                 <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 py-2">
                   <span className="break-words">
                     {MATCH[r.match]} “{r.pattern}” → {r.category.name}
+                    {r.nature ? ` · ${r.nature === "FIXED" ? "fixa" : "variável"}` : ""}
                     {r.category.archivedAt ? " (categoria arquivada)" : ""}
                   </span>
                   {page.canManage ? (

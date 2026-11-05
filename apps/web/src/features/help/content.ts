@@ -166,6 +166,10 @@ export const HELP_ARTICLES = [
       },
       {
         kind: "p",
+        text: "Cada saída tem a etiqueta do tipo: **Fixa**, **Variável** ou **Parcela**. Toque nela para trocar entre Fixa e Variável (veja **Fixa ou variável**).",
+      },
+      {
+        kind: "p",
         text: "Quando você chega aqui por um número do Início ou do Orçamento (Mercado em novembro, por exemplo), a lista mostra o número em **duas partes**: **Nas contas** e **Nos cartões**, por fatura, cada uma com o seu total. A soma das duas é o número que você tocou.",
       },
       {
@@ -198,7 +202,7 @@ export const HELP_ARTICLES = [
           "**Fatura até agora** soma tudo o que o banco vai cobrar nela, inclusive o que ainda espera revisão. O estorno abate.",
           "**Fixas**, **Parcelas** e **Variáveis** dividem a fatura; as abas da lista mostram cada parte.",
           "A compra conta no mês em que a fatura **vence**: é assim que o Início e o Orçamento somam.",
-          "Na lista, a categoria e o **O que foi** mudam em um toque.",
+          "Na lista, a categoria e o **O que foi** mudam em um toque. O botão da categoria mostra também o tipo (**Fixa** ou **Variável**), que se troca no mesmo painel.",
         ],
       },
       {
@@ -228,6 +232,38 @@ export const HELP_ARTICLES = [
       {
         kind: "p",
         text: 'No Novo lançamento com cartão de crédito, escolha **Parcelada** e o número de vezes (de 2 a 24): uma parcela em cada fatura, e os centavos que sobram vão na primeira. A parcela que o banco informa ("02/05") também aparece aqui. A parcela de agora é a da próxima fatura; a compra some da lista quando a última chega.',
+      },
+    ],
+  },
+  {
+    slug: "fixa-ou-variavel",
+    title: "Fixa ou variável",
+    topic: "lancamentos",
+    summary:
+      "O tipo de cada saída: pela categoria, trocado numa compra e nas próximas da mesma loja.",
+    screen: null,
+    body: [
+      {
+        kind: "p",
+        text: "Toda saída tem um tipo: **Fixa** (a assinatura, a escola: todo mês, quase o mesmo valor), **Variável** (o mercado, o posto: muda com o uso) ou **Parcela** (a compra parcelada, sempre Parcela). O tipo decide como a saída entra no **previsto do mês**: a fixa e a parcela entram uma vez; só a variável segue o ritmo do mês.",
+      },
+      { kind: "h", text: "De onde vem o tipo" },
+      {
+        kind: "list",
+        items: [
+          "Da **categoria**: em Ajustes › Categorias, no **⋯** › **Editar**, escolha se as despesas dela são **Fixas** ou **Variáveis** por padrão.",
+          "Da **compra**: toque na etiqueta **Fixa** ou **Variável** da linha (em Lançamentos), no botão da categoria (em Cartões e em Recebidos) ou em **Tipo da despesa**, ao editar o lançamento.",
+          "As que vêm de uma **recorrência** do app são fixas.",
+        ],
+      },
+      {
+        kind: "p",
+        text: "Trocar o padrão da categoria muda as compras dela que você não marcou à mão; as que você marcou ficam como estão. Marcar uma compra como fixa **não cria recorrência**: a próxima cobrança continua vindo do banco.",
+      },
+      { kind: "h", text: "As próximas desta loja também" },
+      {
+        kind: "p",
+        text: "Ao trocar a categoria ou o tipo, marque **As próximas de NETFLIX.COM também** (com o texto do banco da compra). O que chegar do banco com o mesmo texto já vem com a categoria e o tipo. Isso é uma regra: aparece em Ajustes › Categorias, em **Regras**, e pode ser apagada lá.",
       },
     ],
   },
@@ -304,7 +340,7 @@ export const HELP_ARTICLES = [
         items: [
           "**Par sugerido**: o banco mandou algo que você já lançou (mesmo valor, até 5 dias). Confirmar o par junta os dois: o texto do banco fica e a sua descrição vira o **O que foi**.",
           "**Transferência entre suas contas**: a saída de uma conta e a entrada na outra, do mesmo valor. Confirmar liga os dois lados, que saem das somas de gasto e de receita. Quando a entrada cai num cartão, é o **pagamento da fatura**: não conta como gasto, porque as compras já contam pelo cartão.",
-          "**Sem par**: escolha a categoria e confirme. Os que já têm categoria podem ir juntos em **Confirmar os N**.",
+          "**Sem par**: escolha a categoria e confirme. Os que já têm categoria podem ir juntos em **Confirmar os N**. No painel da categoria, **Tipo da despesa** (Fixa ou Variável) e **As próximas de X também** valem junto; **Aplicar** salva o tipo sem trocar a categoria.",
           "**Estorno**: ligue ao original para os dois se anularem.",
         ],
       },
@@ -370,6 +406,10 @@ export const HELP_ARTICLES = [
       },
       {
         kind: "p",
+        text: "**Previsto para** o mês mostra quanto deve sair até o fim do mês, em três partes: as **Fixas** (uma vez cada: as que já chegaram, e as do mês passado que ainda vão chegar, pelo valor de lá), as **Parcelas** (a parcela do mês de cada compra) e as **Variáveis** (o que já saiu, no ritmo do mês). Fixa ou variável vem da categoria, e você troca em cada compra.",
+      },
+      {
+        kind: "p",
         text: "**Na conta hoje** mostra só a conta corrente: o que dá para gastar agora, e quanto sobra **depois das faturas** que ainda vencem no mês. A poupança fica em **Guardado**, com o que mudou no mês. **Faturas a pagar** mostra a fatura de cada cartão que vence agora; o pagamento da fatura anterior não abate a fatura aberta.",
       },
     ],
@@ -391,7 +431,7 @@ export const HELP_ARTICLES = [
       },
       {
         kind: "p",
-        text: "O **previsto** soma o que já foi gasto, o que está agendado e o ritmo do mês. Use o orçamento da categoria de cima ou das de baixo, não os dois.",
+        text: "O **previsto** soma o que já foi gasto, o que está agendado, as fixas que ainda vão chegar (uma vez cada) e o ritmo do mês, só nas variáveis. Use o orçamento da categoria de cima ou das de baixo, não os dois.",
       },
     ],
   },
@@ -491,11 +531,16 @@ export const HELP_ARTICLES = [
       },
       {
         kind: "p",
-        text: "Uma **regra** diz: descrição que contém, começa com ou é igual a um texto vai para tal categoria. Regras vêm antes de tudo na sugestão. Ao corrigir uma categoria, **Sempre categorizar assim** cria a regra para você.",
+        text: "Uma **regra** diz: descrição que contém, começa com ou é igual a um texto vai para tal categoria. Regras vêm antes de tudo na sugestão. Ao trocar a categoria ou o tipo de uma compra, **As próximas de X também** cria (ou muda) a regra para você, e ela passa a dar também o tipo (fixa ou variável).",
       },
       {
         kind: "p",
-        text: "No **⋯** de cada categoria, **Editar** muda o nome e o tipo. O tipo (despesa ou receita) só muda numa categoria sem subcategorias, sem orçado e sem conta fixa, e com todos os lançamentos do tipo novo.",
+        text: "No **⋯** de cada categoria, **Editar** muda o nome, o tipo e se as despesas dela são **Fixas** ou **Variáveis** por padrão. O tipo (despesa ou receita) só muda numa categoria sem subcategorias, sem orçado e sem conta fixa, e com todos os lançamentos do tipo novo.",
+      },
+      { kind: "h", text: "Categorias que eram transferência" },
+      {
+        kind: "p",
+        text: "Quando uma categoria parece guardar transferências (o resgate da poupança, o Pix entre as suas contas), o topo da tela avisa. **Revisar** mostra os pares que o FinTrack achou (de onde saiu → para onde foi) e os que ficam sem o outro lado. **Tratar os N como transferência** tira esses lançamentos do gasto e da receita; os sem o outro lado viram transferência para uma conta sua fora do FinTrack. Por 30 minutos aparece **Desfazer**: tudo volta como estava, com a categoria.",
       },
       {
         kind: "faq",

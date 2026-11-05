@@ -48,6 +48,7 @@ describe("rótulos", () => {
     // + 3 do M10.2b (IA local ligada, desligada, categoria proposta criada e aplicada)
     // + 7 do M11 (código, vincular, desvincular, ligar, desligar, lançar e desfazer pelo bot)
     // + 1 do M13.1 (cartão editado)
-    expect(Object.keys(AUDIT_ACTION_LABEL)).toHaveLength(63);
+    // + 4 do M13.3b (regra mudada, tipo da despesa, limpeza de categoria e o Desfazer dela)
+    expect(Object.keys(AUDIT_ACTION_LABEL)).toHaveLength(67);
   });
 });

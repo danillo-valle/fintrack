@@ -108,6 +108,9 @@ const DOMAIN_ERROR_MESSAGE: Record<DomainErrorCode, string> = {
     "O tipo desta conta não muda: ela é ligada ao banco, ou é cartão ou vale. O apelido, sim.",
   CATEGORY_KIND_LOCKED:
     "O tipo não muda enquanto a categoria tiver subcategorias ou lançamentos do outro tipo. Troque a categoria deles antes.",
+  NATURE_NOT_ALLOWED:
+    "Fixa ou variável é só para despesa avulsa. Parcela e transferência já têm o tipo delas.",
+  CLEANUP_NOT_NEEDED: "Essa categoria não tem mais lançamentos que sejam transferência.",
   REFUND_NOT_ALLOWED:
     "Esse crédito não é estorno daquela compra (valor, loja ou prazo diferentes).",
   UNDO_EXPIRED: "Não dá mais para desfazer: o lançamento mudou depois.",
@@ -174,6 +177,7 @@ export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
   "category.updated": "editou uma categoria",
   "category.archived": "arquivou ou restaurou uma categoria",
   "category_rule.created": "criou uma regra de categoria",
+  "category_rule.updated": "mudou uma regra de categoria",
   "category_rule.deleted": "apagou uma regra de categoria",
   "budget.set": "definiu o orçado de uma categoria",
   "budget.removed": "tirou o orçado de uma categoria",
@@ -194,6 +198,9 @@ export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
   "transaction.transfer_marked": "marcou um recebido como transferência",
   "transaction.transfer_unmarked": "desmarcou uma transferência",
   "transaction.labeled": "deu um nome (O que foi) a um lançamento",
+  "transaction.nature_set": "marcou um gasto como fixo ou variável",
+  "category.cleanup": "limpou uma categoria que era de transferências",
+  "category.cleanup_undone": "desfez a limpeza de uma categoria",
   "file.imported": "importou um extrato (OFX)",
   "classifier.trained": "treinou o classificador de categorias",
   "local_ai.enabled": "ligou a IA local",
