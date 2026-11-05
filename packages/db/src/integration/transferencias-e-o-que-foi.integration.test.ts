@@ -306,7 +306,7 @@ describe("transferência de um lado só (M13.2)", () => {
     await setTransactionCategory(
       prisma,
       grant.grant,
-      cats.mercado.id,
+      { categoryId: cats.mercado.id },
       { rememberRule: null },
       TEST_CTX,
     );
@@ -479,7 +479,7 @@ describe("Editar categoria (M13.2)", () => {
           prisma,
           grant,
           cats.salario.id,
-          { name: "Mercado", kind: "INCOME" },
+          { name: "Mercado", kind: "INCOME", defaultNature: "VARIABLE" },
           TEST_CTX,
         ),
       ),
@@ -497,7 +497,13 @@ describe("Editar categoria (M13.2)", () => {
     });
     expect(
       await codeOf(
-        updateCategory(prisma, grant, escola.id, { name: "Escola", kind: "EXPENSE" }, TEST_CTX),
+        updateCategory(
+          prisma,
+          grant,
+          escola.id,
+          { name: "Escola", kind: "EXPENSE", defaultNature: "VARIABLE" },
+          TEST_CTX,
+        ),
       ),
     ).toBe("CATEGORY_KIND_LOCKED");
     // Trocada a categoria da entrada, a Escola vira despesa
@@ -505,13 +511,25 @@ describe("Editar categoria (M13.2)", () => {
       where: { id: entrada.id },
       data: { categoryId: cats.salario.id },
     });
-    await updateCategory(prisma, grant, escola.id, { name: "Escola", kind: "EXPENSE" }, TEST_CTX);
+    await updateCategory(
+      prisma,
+      grant,
+      escola.id,
+      { name: "Escola", kind: "EXPENSE", defaultNature: "VARIABLE" },
+      TEST_CTX,
+    );
     expect((await prisma.category.findUniqueOrThrow({ where: { id: escola.id } })).kind).toBe(
       "EXPENSE",
     );
     expect(
       await codeOf(
-        updateCategory(prisma, grant, other.home.id, { name: "Z", kind: "EXPENSE" }, TEST_CTX),
+        updateCategory(
+          prisma,
+          grant,
+          other.home.id,
+          { name: "Z", kind: "EXPENSE", defaultNature: "VARIABLE" },
+          TEST_CTX,
+        ),
       ),
     ).toBe("NOT_FOUND");
   });

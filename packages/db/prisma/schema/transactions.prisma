@@ -154,6 +154,9 @@ model Transaction {
   /// Transferência de um lado só (M13.2): o outro lado é de outra pessoa do lar ou de uma conta fora
   /// do FinTrack. CHECK: só com transferId
   transferPeer              TransferPeer?
+  /// Fixa ou variável marcada na compra (M13.3b, ADR-026). Nula = segue a recorrência ou o padrão
+  /// da categoria. CHECK: nunca numa parcela (a do FinTrack ou a que o banco informa)
+  nature                    ExpenseNature?
   /// Estorno: aponta para a compra estornada
   reversalOfId              String?               @db.Uuid
   /// Compra em outra moeda (M09.1): o valor e a moeda originais; `amount` fica em reais.
@@ -234,6 +237,14 @@ model Transaction {
 
 /// O tipo de um par da revisão (M09.2, ADR-012).
 /// O outro lado de uma transferência marcada só de um lado (M13.2).
+/// O tipo de uma despesa que a pessoa escolhe (M13.3b). A parcela não está aqui: é calculada
+enum ExpenseNature {
+  FIXED
+  VARIABLE
+
+  @@map("expense_nature")
+}
+
 enum TransferPeer {
   /// Uma conta de outra pessoa do lar (que quem marca não vê)
   HOUSEHOLD
@@ -506,4 +517,30 @@ model LocalAiAttempt {
 
   @@index([householdId, attemptedAt])
   @@map("local_ai_attempt")
+}
+
+/// Uma limpeza de categoria que era transferência (M13.3b, ADR-026): os lançamentos dela viraram
+/// transferências. `before` guarda cada lançamento como estava (para o "Desfazer" de 30 minutos).
+/// CHECK: contagem positiva; undoneAt depois de createdAt
+model CategoryCleanup {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  householdId      String    @db.Uuid
+  categoryId       String    @db.Uuid
+  /// Quantos lançamentos viraram transferência
+  transactionCount Int
+  /// A categoria foi arquivada junto
+  archived         Boolean
+  /// [{ id, categoryId, categorizedBy, categorizationConfidence, nature, transferId, transferPeer,
+  ///    cleanedTransferId }]: como cada um estava e o transferId que a limpeza deu
+  before           Json
+  createdById      String?
+  createdAt        DateTime  @default(now())
+  undoneAt         DateTime?
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  category  Category  @relation(fields: [categoryId, householdId], references: [id, householdId], onDelete: Cascade)
+  createdBy User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([householdId, createdAt(sort: Desc)])
+  @@map("category_cleanup")
 }

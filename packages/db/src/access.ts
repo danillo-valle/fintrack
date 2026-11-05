@@ -203,6 +203,9 @@ export type DomainErrorCode =
   | "LABEL_NOT_ALLOWED" // o "O que foi" é só para o que veio do banco, do OFX ou do PDF
   | "ACCOUNT_KIND_LOCKED" // o tipo desta conta não muda (ligada ao banco, ou cartão e vale)
   | "CATEGORY_KIND_LOCKED" // o tipo da categoria não muda: ela tem subcategorias ou lançamentos do outro sinal
+  // ── Fixa ou variável e a limpeza de categorias (M13.3b) ──
+  | "NATURE_NOT_ALLOWED" // fixa ou variável só numa despesa avulsa (parcela e transferência têm o tipo delas)
+  | "CLEANUP_NOT_NEEDED" // a categoria não tem mais lançamentos que sejam transferência
   // ── Importar extrato (M09.3) ──
   | "FILE_PREVIEW_EXPIRED" // a conferência venceu (1 hora), foi cancelada ou já foi importada
   | "FILE_ACCOUNT_KIND_MISMATCH" // extrato de conta só em corrente ou poupança; fatura, em cartão

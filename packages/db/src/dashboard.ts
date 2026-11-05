@@ -10,6 +10,7 @@
 // concordam.
 import {
   ACCOUNTS_WINDOW,
+  addMonthsToKey,
   civilFromDbDate,
   dbDateFromCivil,
   firstDayOf,
@@ -20,6 +21,7 @@ import {
   type AccountKind,
   type CashAccount,
   type CivilDate,
+  type FixedCharge,
   type MonthKey,
   type NewRecurrence,
   type PaceWindow,
@@ -31,6 +33,7 @@ import type { WalletScope } from "./access";
 import { CASH_JOINS_SQL, CASH_ON_SQL, EXPENSE_SQL, INCOME_SQL } from "./cash";
 import { Prisma, type PrismaClient } from "./generated/prisma/client";
 import { fromDbDecimal } from "./money";
+import { NATURE_SQL } from "./nature";
 
 const NO_WALLET = "00000000-0000-0000-0000-000000000000";
 
@@ -43,14 +46,6 @@ const PAYER_SQL = Prisma.sql`CASE
     WHEN c."sharedPurchases" THEN ${SHARED_PAYER_PARAM}
     WHEN t."cardId" IS NOT NULL THEN c."holderId"
     ELSE a."holderId"
-  END`;
-
-/** A natureza do gasto (spendingNature), em SQL: a parcela do banco também é parcela. */
-export const NATURE_SQL = Prisma.sql`CASE
-    WHEN t."recurrenceId" IS NOT NULL THEN 'fixed'
-    WHEN t."installmentGroupId" IS NOT NULL OR t."providerInstallmentCount" IS NOT NULL
-      THEN 'installment'
-    ELSE 'variable'
   END`;
 
 type RawSpending = {
@@ -117,6 +112,66 @@ export async function spendingRows(
     expense: fromDbDecimal(r.expense),
     income: fromDbDecimal(r.income),
     firstAfterToday: r.firstAfterToday ? civilFromDbDate(r.firstAfterToday) : null,
+  }));
+}
+
+type RawFixedCharge = {
+  month: string;
+  cashOn: Date;
+  walletId: string;
+  categoryId: string | null;
+  payer: string | null;
+  description: string;
+  label: string | null;
+  recurrenceId: string | null;
+  expense: Prisma.Decimal;
+};
+
+/**
+ * As saídas fixas (NATURE_SQL) do mês passado e de `month`, uma por lançamento, para o previsto
+ * contar cada fixa uma vez (missingFixedCharges, ADR-026). As mesmas regras das somas: data de
+ * caixa, sem transferência, sem excluído e sem recebido ainda na revisão.
+ */
+export async function fixedCharges(
+  db: PrismaClient,
+  scope: WalletScope<"view">,
+  month: MonthKey,
+): Promise<FixedCharge[]> {
+  const from = dbDateFromCivil(firstDayOf(addMonthsToKey(month, -1)));
+  const to = dbDateFromCivil(dayOfMonth(month, 31));
+  const rows = await db.$queryRaw<RawFixedCharge[]>(Prisma.sql`
+    SELECT
+      to_char(${CASH_ON_SQL}, 'YYYY-MM') AS "month",
+      ${CASH_ON_SQL} AS "cashOn",
+      t."walletId"::text AS "walletId",
+      t."categoryId"::text AS "categoryId",
+      ${PAYER_SQL} AS "payer",
+      t."description" AS "description",
+      t."label" AS "label",
+      t."recurrenceId"::text AS "recurrenceId",
+      ${EXPENSE_SQL} AS "expense"
+    FROM "transaction" t
+    ${CASH_JOINS_SQL}
+    LEFT JOIN "payment_card" c ON c."id" = t."cardId"
+    WHERE t."walletId" = ANY(${walletIdsOf(scope)}::uuid[])
+      AND t."deletedAt" IS NULL
+      AND t."status" <> 'PENDING' -- recebido do banco: fora das somas até a revisão (ADR-011)
+      AND t."transferId" IS NULL
+      AND t."occurredOn" BETWEEN (${from}::date - interval '2 months')::date AND ${to}::date
+      AND ${CASH_ON_SQL} BETWEEN ${from}::date AND ${to}::date
+      AND ${NATURE_SQL} = 'fixed'
+      AND ${EXPENSE_SQL} > 0
+  `);
+  return rows.map((r) => ({
+    month: r.month,
+    cashOn: civilFromDbDate(r.cashOn),
+    walletId: r.walletId,
+    categoryId: r.categoryId,
+    payer: r.payer,
+    description: r.description,
+    label: r.label,
+    recurrenceId: r.recurrenceId,
+    expense: fromDbDecimal(r.expense),
   }));
 }
 
@@ -225,6 +280,21 @@ export async function recurrencePlans(
       },
     };
   });
+}
+
+/**
+ * Os nomes das recorrências ativas do escopo (o "faltam o aluguel e a escola" do previsto, ADR-026).
+ * Fora do cache das somas: renomear aparece na hora.
+ */
+export async function recurrenceNames(
+  db: PrismaClient,
+  scope: WalletScope<"view">,
+): Promise<Map<string, string>> {
+  const rows = await db.recurrence.findMany({
+    where: { walletId: { in: walletIdsOf(scope) }, archivedAt: null },
+    select: { id: true, description: true },
+  });
+  return new Map(rows.map((r) => [r.id, r.description]));
 }
 
 type RawCash = {

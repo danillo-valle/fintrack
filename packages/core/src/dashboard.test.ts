@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ACCOUNTS_WINDOW, subtreeOf, type CategoryNode } from "./budget";
+import { ACCOUNTS_WINDOW, natureTotal, subtreeOf, type CategoryNode } from "./budget";
 import type { MonthKey } from "./dates";
 import {
   budgetRows,
@@ -81,6 +81,8 @@ const pending: PendingRow[] = [
     categoryId: "aluguel",
     payer: "dv",
     expense: brl("100"),
+    source: "recurrence",
+    name: "Aluguel",
   },
 ];
 
@@ -92,11 +94,10 @@ describe("figuresFor e as somas de um recorte", () => {
         categories: new Set(["mercado"]),
       }),
     ).toEqual({
-      spent: brl("482.35"),
-      variableSpent: brl("482.35"),
+      spent: { fixed: 0n, installment: 0n, variable: brl("482.35") },
       variableByWindow: new Map([[ACCOUNTS_WINDOW, brl("482.35")]]),
-      scheduled: 0n,
-      pendingRecurrences: 0n,
+      scheduled: { fixed: 0n, installment: 0n, variable: 0n },
+      pending: 0n,
     });
   });
 
@@ -113,7 +114,7 @@ describe("figuresFor e as somas de um recorte", () => {
         [ACCOUNTS_WINDOW, brl("50")],
       ]),
     );
-    expect(f.variableSpent).toBe(brl("200"));
+    expect(f.spent.variable).toBe(brl("200"));
   });
 
   it("o resultado do mês: entradas, o que saiu das contas e as faturas (M13.3a)", () => {
@@ -138,17 +139,16 @@ describe("figuresFor e as somas de um recorte", () => {
       categories: new Set(["mercado"]),
       payer: "nv",
     });
-    expect(f.spent).toBe(brl("197.25"));
+    expect(natureTotal(f.spent)).toBe(brl("197.25"));
   });
 
   it("o agendado e a recorrência pendente ficam separados do gasto", () => {
     const f = figuresFor(rows, pending, "2026-10", { categories: new Set(["aluguel"]) });
     expect(f).toEqual({
-      spent: 0n,
-      variableSpent: 0n,
+      spent: { fixed: 0n, installment: 0n, variable: 0n },
       variableByWindow: new Map(),
-      scheduled: brl("2200"),
-      pendingRecurrences: brl("100"),
+      scheduled: { fixed: brl("2200"), installment: 0n, variable: 0n },
+      pending: brl("100"),
     });
   });
 

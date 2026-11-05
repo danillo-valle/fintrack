@@ -12,6 +12,7 @@
 //
 // Tudo que está neste arquivo é puro: recebe textos e listas, devolve a sugestão. Quem busca
 // as regras e o histórico no banco (e só nas carteiras que a pessoa pode ver) é o @fintrack/db.
+import type { ExpenseNature } from "./budget";
 
 // ── Texto ───────────────────────────────────────────────────────────────────────
 
@@ -89,6 +90,8 @@ export type CategoryRuleLike = {
   pattern: string;
   match: RuleMatch;
   priority: number;
+  /** "As próximas desta loja também" (ADR-026): a regra dá também o tipo da despesa */
+  nature?: ExpenseNature | null;
 };
 
 /** O padrão de uma regra como o banco guarda (normalizado). null se ficar curto ou longo demais. */
@@ -194,6 +197,8 @@ export type CategorySuggestion = {
   reason: string;
   /** Regra que respondeu (para a tela mostrar e para a auditoria) */
   ruleId?: string;
+  /** O tipo da despesa que a regra marca (ADR-026); só a camada das regras dá um */
+  nature?: ExpenseNature;
 };
 
 /**
@@ -302,6 +307,7 @@ export function explainRules(
       confidence: 100,
       reason: `regra: ${what}`,
       ruleId: rule.id,
+      ...(rule.nature ? { nature: rule.nature } : {}),
     },
     detail: `A descrição ${what}`,
   };

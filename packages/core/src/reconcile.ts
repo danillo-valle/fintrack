@@ -23,6 +23,7 @@
 //     decidiu do SEU lado (categoria, ambiente, observação); a sua descrição vira o "O que foi"
 //     (label) e a do banco fica (M13.2);
 //   - transferência = os dois lados do banco ficam, com o mesmo transferId e sem categoria (M13.2).
+import type { ExpenseNature } from "./budget";
 import { matchText, merchantKey } from "./categorization";
 import { sameText } from "./label";
 import { daysBetween, type CivilDate } from "./dates";
@@ -275,13 +276,15 @@ export type TransferSuggestion = {
 export const transferKey = (a: string, b: string) => (a < b ? `${a}:${b}` : `${b}:${a}`);
 
 /**
- * A transferência possível entre dois lançamentos, ou null: valores opostos ao centavo, contas
- * diferentes, até 5 dias, a saída fora de um cartão (compra no cartão não é transferência) e pelo
- * menos um dos dois ainda na revisão.
+ * O formato de transferência entre dois lançamentos, ou null: valores opostos ao centavo, contas
+ * diferentes, até 5 dias e a saída fora de um cartão (compra no cartão não é transferência). Base
+ * da sugestão da revisão (transferCandidate) e da limpeza de categorias (M13.3b).
  */
-export function transferCandidate(a: TransferSide, b: TransferSide): TransferSuggestion | null {
+export function transferShape(
+  a: Omit<TransferSide, "pending">,
+  b: Omit<TransferSide, "pending">,
+): TransferSuggestion | null {
   if (a.amount === 0n || a.amount !== -b.amount || a.accountId === b.accountId) return null;
-  if (!a.pending && !b.pending) return null;
   const [out, into] = a.amount < 0n ? [a, b] : [b, a];
   if (out.accountKind === "CREDIT_CARD") return null;
   const daysApart = Math.abs(daysBetween(out.occurredOn, into.occurredOn));
@@ -295,9 +298,35 @@ export function transferCandidate(a: TransferSide, b: TransferSide): TransferSug
 }
 
 /**
- * As transferências sugeridas: cada lançamento entra em no máximo uma, da data mais próxima para
- * a mais distante (no empate, pelos ids, para a tela não trocar de sugestão a cada visita).
+ * A transferência que a revisão sugere entre dois lançamentos, ou null: o formato de
+ * transferência (transferShape) com pelo menos um dos dois ainda na revisão.
  */
+export function transferCandidate(a: TransferSide, b: TransferSide): TransferSuggestion | null {
+  if (!a.pending && !b.pending) return null;
+  return transferShape(a, b);
+}
+
+/**
+ * As arestas escolhidas: cada lançamento em no máximo uma, da data mais próxima para a mais
+ * distante (no empate, pelos ids, para a tela não trocar de sugestão a cada visita).
+ */
+export function pickTransfers(edges: readonly TransferSuggestion[]): TransferSuggestion[] {
+  const used = new Set<string>();
+  const chosen: TransferSuggestion[] = [];
+  const sorted = edges.toSorted(
+    (x, y) =>
+      x.daysApart - y.daysApart || x.outId.localeCompare(y.outId) || x.inId.localeCompare(y.inId),
+  );
+  for (const edge of sorted) {
+    if (used.has(edge.outId) || used.has(edge.inId)) continue;
+    used.add(edge.outId);
+    used.add(edge.inId);
+    chosen.push(edge);
+  }
+  return chosen;
+}
+
+/** As transferências sugeridas na revisão: cada lançamento em no máximo uma (pickTransfers). */
 export function suggestTransfers(
   sides: readonly TransferSide[],
   rejected: ReadonlySet<string> = new Set(),
@@ -312,19 +341,7 @@ export function suggestTransfers(
       if (candidate) edges.push(candidate);
     }
   }
-  const used = new Set<string>();
-  const chosen: TransferSuggestion[] = [];
-  const sorted = edges.toSorted(
-    (x, y) =>
-      x.daysApart - y.daysApart || x.outId.localeCompare(y.outId) || x.inId.localeCompare(y.inId),
-  );
-  for (const edge of sorted) {
-    if (used.has(edge.outId) || used.has(edge.inId)) continue;
-    used.add(edge.outId);
-    used.add(edge.inId);
-    chosen.push(edge);
-  }
-  return chosen;
+  return pickTransfers(edges);
 }
 
 // ── Juntar o par ────────────────────────────────────────────────────────────────
@@ -343,6 +360,8 @@ export type OwnSide = {
   installmentNumber: number | null;
   recurrenceId: string | null;
   transferId: string | null;
+  /** A marca fixa/variável do seu lançamento (M13.3b, ADR-026) */
+  nature?: ExpenseNature | null;
 };
 
 export type BankSide = {
@@ -352,6 +371,10 @@ export type BankSide = {
   categoryId: string | null;
   categorizedBy: string | null;
   categorizationConfidence?: number | null;
+  /** A marca que o recebido já tinha (a regra "as próximas desta loja", ADR-026) */
+  nature?: ExpenseNature | null;
+  /** A parcela que o banco informa ("3 de 6"): parcela não tem marca */
+  providerInstallmentCount?: number | null;
 };
 
 /**
@@ -385,6 +408,14 @@ export function pairedFields(bank: BankSide, own: OwnSide) {
     installmentNumber: own.installmentNumber,
     recurrenceId: own.recurrenceId,
     transferId: own.transferId,
+    // A marca segue a categoria escolhida: a sua, senão a do recebido. Parcela e transferência
+    // não têm marca (ADR-026)
+    nature:
+      own.transferId || own.installmentGroupId || bank.providerInstallmentCount
+        ? null
+        : ownCategory
+          ? (own.nature ?? null)
+          : (bank.nature ?? null),
   };
 }
 

@@ -426,3 +426,26 @@ describe("categorizationConfidence: só quando a pessoa aceitou a sugestão", ()
     expect(categorizationConfidence(chosen, suggestion)).toBe(expected);
   });
 });
+
+describe("a regra com o tipo da despesa (ADR-026)", () => {
+  const rule = {
+    id: "r",
+    categoryId: "assinaturas",
+    pattern: "netflix",
+    match: "CONTAINS",
+    priority: 100,
+  } as const;
+
+  it("a regra que marca fixa devolve o tipo junto com a categoria", () => {
+    expect(suggestFromRules([{ ...rule, nature: "FIXED" }], "NETFLIX.COM")).toMatchObject({
+      categoryId: "assinaturas",
+      nature: "FIXED",
+    });
+  });
+
+  it("a regra sem tipo não marca nada (a compra segue a categoria)", () => {
+    const s = suggestFromRules([{ ...rule, nature: null }], "NETFLIX.COM");
+    expect(s?.categoryId).toBe("assinaturas");
+    expect(s && "nature" in s).toBe(false);
+  });
+});

@@ -28,7 +28,6 @@ import {
   sameText,
   signedAmount,
   subtreeOf,
-  suggestRulePattern,
   toCsv,
   TRANSFER_METHODS,
   transferLegs,
@@ -39,6 +38,8 @@ import {
   type PayerFilter,
   type Totals,
   type TransactionKind,
+  storedNature,
+  type ExpenseNature,
 } from "@fintrack/core";
 import {
   authorizeWallet,
@@ -54,12 +55,13 @@ import { cashOnInAny, EXPENSE_WHERE, INCOME_WHERE, occurredOnInAny } from "./cas
 import {
   assertUsableCategory,
   categoryNodes,
-  createRuleTx,
+  rememberRuleTx,
   suggestCategory,
   type CascadeServices,
 } from "./categories";
 import { Prisma, type PrismaClient } from "./generated/prisma/client";
 import { fromDbDecimal, toDbDecimal } from "./money";
+import { NATURE_SELECT, natureViewOf } from "./nature";
 
 // ── Entrada ─────────────────────────────────────────────────────────────────────
 
@@ -79,6 +81,11 @@ export type TransactionInput = {
    * é a da origem e não muda; o nome que a pessoa dá vai aqui
    */
   label?: string | null;
+  /**
+   * Fixa ou variável (M13.3b, ADR-026), só numa despesa avulsa. Nulo = o tipo segue a categoria;
+   * indefinido = o que a regra da loja sugeriu (no lançar) ou o que já estava (no editar)
+   */
+  nature?: ExpenseNature | null;
   /** De onde veio (M11): o formulário (MANUAL, o padrão) ou o bot. Com origem, o id na origem
    * impede lançar duas vezes a mesma proposta (chave única conta + origem + id) */
   origin?: TransactionOrigin | null;
@@ -91,7 +98,10 @@ export type TransactionOrigin = { source: "BOT"; externalId: string };
 export type CategorizationOptions = {
   /** Carteiras que a pessoa vê: a cascata roda de novo AQUI, no servidor (não confia na tela) */
   scope: WalletScope<"view">;
-  /** "Sempre categorizar assim": cria a regra a partir da correção (precisa do crachá do lar) */
+  /**
+   * "As próximas desta loja também": a regra da loja passa a dar a categoria (e o tipo, quando a
+   * tela mostra o tipo) escolhidos. Precisa do crachá do lar
+   */
   rememberRule?: { grant: HouseholdGrant<"manage_categories">; pattern?: string } | null;
   /** As camadas que dependem do serviço Python (M10.1: o classificador). Sem elas, a cascata
    * roda com as do banco (regras, histórico, banco) */
@@ -120,7 +130,10 @@ export function sameHousehold(wallet: WalletGrant<"edit">, account: AccountGrant
   if (wallet.wallet.householdId !== account.account.householdId) throw new DomainError("NOT_FOUND");
 }
 
-/** Registra a correção como exemplo de treino e, se pedido, cria a regra. */
+/**
+ * Registra a correção como exemplo de treino (M10): só quando a pessoa trocou a categoria que a
+ * cascata sugeriu ou a que estava gravada.
+ */
 export async function recordCorrection(
   tx: Prisma.TransactionClient,
   input: {
@@ -132,8 +145,6 @@ export async function recordCorrection(
     to: string | null;
     userId: string;
   },
-  options: Pick<CategorizationOptions, "rememberRule">,
-  ctx: RequestContext,
 ) {
   if (!isCorrection({ chosenCategoryId: input.to, previousCategoryId: input.from.categoryId })) {
     return;
@@ -150,18 +161,30 @@ export async function recordCorrection(
       createdById: input.userId,
     },
   });
-  if (options.rememberRule && input.to) {
-    const pattern = options.rememberRule.pattern ?? suggestRulePattern(input.description);
-    if (pattern) {
-      await createRuleTx(
-        tx,
-        options.rememberRule.grant,
-        { categoryId: input.to, pattern, match: "CONTAINS" },
-        ctx,
-        "correction",
-      );
-    }
-  }
+}
+
+/**
+ * "As próximas desta loja também", se a pessoa pediu e há categoria: a regra da loja passa a dar
+ * esta categoria e, quando `nature` vem definido, este tipo (rememberRuleTx).
+ */
+export async function rememberForNext(
+  tx: Prisma.TransactionClient,
+  options: Pick<CategorizationOptions, "rememberRule">,
+  input: { description: string; categoryId: string | null; nature?: ExpenseNature | null },
+  ctx: RequestContext,
+) {
+  if (!options.rememberRule || !input.categoryId) return;
+  await rememberRuleTx(
+    tx,
+    options.rememberRule.grant,
+    {
+      description: input.description,
+      pattern: options.rememberRule.pattern,
+      categoryId: input.categoryId,
+      nature: input.nature,
+    },
+    ctx,
+  );
 }
 
 // ── Lançar ──────────────────────────────────────────────────────────────────────
@@ -195,6 +218,18 @@ export async function createTransaction(
       input.categoryId,
       input.kind,
     );
+    // O tipo: o escolhido; sem escolha, o da regra da loja quando a categoria é a que ela deu
+    const nature = storedNature({
+      expense: input.kind === "expense",
+      installment: false,
+      transfer: false,
+      nature:
+        input.nature !== undefined
+          ? input.nature
+          : categoryId !== null && categoryId === suggestion?.categoryId
+            ? suggestion.nature
+            : null,
+    });
     const created = await tx.transaction.create({
       data: {
         householdId: wallet.wallet.householdId,
@@ -205,6 +240,7 @@ export async function createTransaction(
         categoryId,
         categorizedBy: categorizedBy(categoryId, suggestion),
         categorizationConfidence: categorizationConfidence(categoryId, suggestion),
+        nature,
         amount: toDbDecimal(amount),
         occurredOn: dbDateFromCivil(input.occurredOn),
         description: input.description,
@@ -216,18 +252,19 @@ export async function createTransaction(
       },
       select: { id: true },
     });
-    await recordCorrection(
+    await recordCorrection(tx, {
+      householdId: wallet.wallet.householdId,
+      transactionId: created.id,
+      description: input.description,
+      kind: input.kind,
+      from: { categoryId: suggestion?.categoryId ?? null, source: suggestion?.source ?? null },
+      to: categoryId,
+      userId: wallet.userId,
+    });
+    await rememberForNext(
       tx,
-      {
-        householdId: wallet.wallet.householdId,
-        transactionId: created.id,
-        description: input.description,
-        kind: input.kind,
-        from: { categoryId: suggestion?.categoryId ?? null, source: suggestion?.source ?? null },
-        to: categoryId,
-        userId: wallet.userId,
-      },
       options,
+      { description: input.description, categoryId, nature: input.nature },
       ctx,
     );
     return { id: created.id, suggestion };
@@ -256,17 +293,22 @@ export async function getTransaction(db: PrismaClient, grant: TransactionGrant<"
       status: true,
       source: true,
       transferId: true,
-      recurrenceId: true,
       createdAt: true,
       updatedAt: true,
+      ...NATURE_SELECT,
       wallet: { select: { name: true } },
       account: { select: { name: true } },
-      category: { select: { name: true } },
+      category: { select: { name: true, defaultNature: true } },
       createdBy: { select: { name: true } },
     },
   });
   return {
     ...t,
+    /** O tipo da saída (M13.3b): o Tipo da despesa na edição; nulo em entrada e transferência */
+    natureView: natureViewOf(t, {
+      expense: t.amount.isNegative(),
+      transfer: t.transferId !== null,
+    }),
     amount: fromDbDecimal(t.amount),
     occurredOn: civilFromDbDate(t.occurredOn),
     canEdit: grant.wallet.role !== "VIEWER",
@@ -310,7 +352,14 @@ export async function updateTransaction(
   await db.$transaction(async (tx) => {
     const current = await tx.transaction.findFirst({
       where: { id: grant.transaction.id, deletedAt: null },
-      select: { categoryId: true, categorizedBy: true, categorizationConfidence: true },
+      select: {
+        categoryId: true,
+        categorizedBy: true,
+        categorizationConfidence: true,
+        nature: true,
+        installmentGroupId: true,
+        providerInstallmentCount: true,
+      },
     });
     if (!current) throw new DomainError("NOT_FOUND");
     const categoryId = await assertUsableCategory(
@@ -319,6 +368,14 @@ export async function updateTransaction(
       input.categoryId,
       input.kind,
     );
+    const installment = Boolean(current.installmentGroupId || current.providerInstallmentCount);
+    if (installment && input.nature) throw new DomainError("NATURE_NOT_ALLOWED");
+    const nature = storedNature({
+      expense: input.kind === "expense",
+      installment,
+      transfer: false,
+      nature: input.nature === undefined ? current.nature : input.nature,
+    });
     const unchanged = categoryId !== null && categoryId === current.categoryId;
     await tx.transaction.update({
       where: { id: grant.transaction.id },
@@ -332,6 +389,7 @@ export async function updateTransaction(
         categorizationConfidence: unchanged
           ? current.categorizationConfidence
           : categorizationConfidence(categoryId, suggestion),
+        nature,
         amount: toDbDecimal(amount),
         occurredOn: dbDateFromCivil(input.occurredOn),
         description,
@@ -339,33 +397,36 @@ export async function updateTransaction(
         notes: input.notes ?? null,
       },
     });
-    await recordCorrection(
+    await recordCorrection(tx, {
+      householdId: target.wallet.householdId,
+      transactionId: grant.transaction.id,
+      description,
+      kind: input.kind,
+      from: { categoryId: current.categoryId, source: current.categorizedBy },
+      to: categoryId,
+      userId: grant.userId,
+    });
+    await rememberForNext(
       tx,
-      {
-        householdId: target.wallet.householdId,
-        transactionId: grant.transaction.id,
-        description,
-        kind: input.kind,
-        from: { categoryId: current.categoryId, source: current.categorizedBy },
-        to: categoryId,
-        userId: grant.userId,
-      },
       options,
+      { description, categoryId, nature: installment ? undefined : nature },
       ctx,
     );
   });
 }
 
 /**
- * Só a categoria, num clique (M09.1: "Escolher categoria" nos lançamentos recebidos do banco).
- * Mesma regra da edição: escolher outra categoria que não a gravada é uma CORREÇÃO (exemplo de
- * treino) e, com "sempre categorizar assim", vira regra. A revisão (PENDING → CONFIRMED) é outra
- * ação, do M09.2: aqui o status não muda.
+ * A categoria (e, M13.3b, o tipo da despesa) num clique (M09.1: "Escolher categoria" nos
+ * lançamentos recebidos do banco e na página do cartão). Mesma regra da edição: escolher outra
+ * categoria que não a gravada é uma CORREÇÃO (exemplo de treino). `nature` indefinido mantém a
+ * marca; definido, só numa despesa avulsa (NATURE_NOT_ALLOWED). Com "as próximas desta loja
+ * também", a regra da loja passa a dar a categoria e o tipo que o lançamento ficou. A revisão
+ * (PENDING → CONFIRMED) é outra ação, do M09.2: aqui o status não muda.
  */
 export async function setTransactionCategory(
   db: PrismaClient,
   grant: TransactionGrant<"edit">,
-  categoryId: string,
+  input: { categoryId: string; nature?: ExpenseNature | null },
   options: Pick<CategorizationOptions, "rememberRule">,
   ctx: RequestContext,
 ) {
@@ -380,6 +441,9 @@ export async function setTransactionCategory(
         status: true,
         transferId: true,
         transferPeer: true,
+        nature: true,
+        installmentGroupId: true,
+        providerInstallmentCount: true,
       },
     });
     if (!current) throw new DomainError("NOT_FOUND");
@@ -388,20 +452,50 @@ export async function setTransactionCategory(
     const unmark = current.transferPeer !== null && current.status === "PENDING";
     if (current.transferId && !unmark) throw new DomainError("TRANSFER_READONLY");
     const kind = fromDbDecimal(current.amount) < 0n ? "expense" : "income";
-    const chosen = await assertUsableCategory(tx, grant.transaction.householdId, categoryId, kind);
-    if (chosen === current.categoryId) return; // a mesma: nada muda (e não vira exemplo)
-    await tx.transaction.update({
-      where: { id: grant.transaction.id },
-      data: {
-        categoryId: chosen,
-        categorizedBy: "MANUAL",
-        categorizationConfidence: null,
-        ...(unmark ? { transferId: null, transferPeer: null } : {}),
-      },
-    });
-    await recordCorrection(
+    const chosen = await assertUsableCategory(
       tx,
-      {
+      grant.transaction.householdId,
+      input.categoryId,
+      kind,
+    );
+    const installment = Boolean(current.installmentGroupId || current.providerInstallmentCount);
+    const choosable = kind === "expense" && !installment;
+    if (input.nature && !choosable) throw new DomainError("NATURE_NOT_ALLOWED");
+    const nature = storedNature({
+      expense: kind === "expense",
+      installment,
+      transfer: false,
+      nature: input.nature === undefined ? current.nature : input.nature,
+    });
+    const categoryChanged = chosen !== current.categoryId;
+    if (categoryChanged || unmark || nature !== current.nature) {
+      await tx.transaction.update({
+        where: { id: grant.transaction.id },
+        data: {
+          ...(categoryChanged
+            ? { categoryId: chosen, categorizedBy: "MANUAL", categorizationConfidence: null }
+            : {}),
+          nature,
+          ...(unmark ? { transferId: null, transferPeer: null } : {}),
+        },
+      });
+    }
+    if (nature !== current.nature) {
+      await writeAudit(
+        tx,
+        {
+          actorId: grant.userId,
+          householdId: grant.transaction.householdId,
+          action: "transaction.nature_set",
+          entity: "transaction",
+          entityId: grant.transaction.id,
+          metadata: { nature, rule: Boolean(options.rememberRule) },
+        },
+        ctx,
+      );
+    }
+    if (categoryChanged) {
+      await recordCorrection(tx, {
         householdId: grant.transaction.householdId,
         transactionId: grant.transaction.id,
         description: current.description,
@@ -409,24 +503,78 @@ export async function setTransactionCategory(
         from: { categoryId: current.categoryId, source: current.categorizedBy },
         to: chosen,
         userId: grant.userId,
-      },
-      // A cascata não roda de novo aqui: a correção compara com o que estava gravado
+      });
+    }
+    // A regra fica igual ao lançamento: a categoria e o tipo (a parcela não tem tipo: o da regra fica)
+    await rememberForNext(
+      tx,
       options,
+      {
+        description: current.description,
+        categoryId: chosen,
+        nature: choosable ? nature : undefined,
+      },
       ctx,
     );
-    // Sem categoria antes: não é correção, mas o "sempre categorizar assim" ainda vale
-    if (current.categoryId === null && options.rememberRule && chosen) {
-      const pattern = options.rememberRule.pattern ?? suggestRulePattern(current.description);
-      if (pattern) {
-        await createRuleTx(
-          tx,
-          options.rememberRule.grant,
-          { categoryId: chosen, pattern, match: "CONTAINS" },
-          ctx,
-          "correction",
-        );
-      }
+  });
+}
+
+/**
+ * Só o tipo da despesa (M13.3b, ADR-026), num toque na marca da lista: fixa, variável, nulo
+ * (volta a seguir a categoria) ou indefinido (fica como está: só "as próximas"). Só numa despesa avulsa: parcela e transferência
+ * respondem NATURE_NOT_ALLOWED. Com "as próximas desta loja também", a regra da loja passa a dar a
+ * categoria do lançamento e este tipo (precisa de categoria). Não cria recorrência. Auditoria só
+ * com o id e a marca.
+ */
+export async function setTransactionNature(
+  db: PrismaClient,
+  grant: TransactionGrant<"edit">,
+  choice: ExpenseNature | null | undefined,
+  options: Pick<CategorizationOptions, "rememberRule">,
+  ctx: RequestContext,
+) {
+  await db.$transaction(async (tx) => {
+    const current = await tx.transaction.findFirst({
+      where: { id: grant.transaction.id, deletedAt: null },
+      select: {
+        amount: true,
+        description: true,
+        categoryId: true,
+        nature: true,
+        transferId: true,
+        installmentGroupId: true,
+        providerInstallmentCount: true,
+      },
+    });
+    if (!current) throw new DomainError("NOT_FOUND");
+    const expense = fromDbDecimal(current.amount) < 0n;
+    const installment = Boolean(current.installmentGroupId || current.providerInstallmentCount);
+    if (!expense || installment || current.transferId) {
+      throw new DomainError("NATURE_NOT_ALLOWED");
     }
+    if (options.rememberRule && !current.categoryId) throw new DomainError("CATEGORY_INVALID");
+    const nature = choice === undefined ? current.nature : choice;
+    if (current.nature !== nature) {
+      await tx.transaction.update({ where: { id: grant.transaction.id }, data: { nature } });
+      await writeAudit(
+        tx,
+        {
+          actorId: grant.userId,
+          householdId: grant.transaction.householdId,
+          action: "transaction.nature_set",
+          entity: "transaction",
+          entityId: grant.transaction.id,
+          metadata: { nature, rule: Boolean(options.rememberRule) },
+        },
+        ctx,
+      );
+    }
+    await rememberForNext(
+      tx,
+      options,
+      { description: current.description, categoryId: current.categoryId, nature },
+      ctx,
+    );
   });
 }
 
@@ -802,12 +950,17 @@ const LIST_SELECT = {
   categorizedBy: true,
   categorizationConfidence: true,
   installmentNumber: true,
+  installmentGroupId: true,
   installmentGroup: { select: { installmentCount: true } },
+  /** A marca fixa/variável da compra (M13.3b, ADR-026) */
+  nature: true,
   wallet: { select: { id: true, name: true, kind: true } },
   account: { select: { id: true, name: true, kind: true, holderId: true } },
   /** A fatura da compra no cartão (M13.3a): a data de caixa e o "fatura que vence em" */
   statement: { select: { id: true, dueDate: true } },
-  category: { select: { id: true, name: true, parent: { select: { name: true } } } },
+  category: {
+    select: { id: true, name: true, defaultNature: true, parent: { select: { name: true } } },
+  },
   card: { select: { nickname: true, lastFour: true, holderId: true, sharedPurchases: true } },
   // M09.1: o que o banco informa (parcela, compra em outra moeda)
   providerInstallmentNumber: true,
@@ -832,6 +985,11 @@ function toItem(row: ListRow) {
   } = row;
   return {
     ...rest,
+    /** O tipo da saída (ADR-026): a etiqueta da linha e a escolha; nulo em entrada e transferência */
+    natureView: natureViewOf(row, {
+      expense: row.amount.isNegative(),
+      transfer: row.transferId !== null,
+    }),
     /** A fatura (só compra no cartão), com o vencimento */
     statement: statement ? { id: statement.id, dueDate: civilFromDbDate(statement.dueDate) } : null,
     /** A data de caixa (ADR-025): o vencimento da fatura no cartão, senão o dia */

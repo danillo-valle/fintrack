@@ -16,7 +16,11 @@ import {
   projectMonth,
   ACCOUNTS_WINDOW,
   windowPace,
+  natureIsChoosable,
+  NO_FIGURES,
   spendingNature,
+  storedNature,
+  natureView,
   subtreeOf,
   type CategoryNode,
 } from "./budget";
@@ -94,69 +98,108 @@ describe("meses", () => {
   });
 });
 
-describe("spendingNature", () => {
-  it("recorrência é fixa; compra parcelada é parcela; o resto é variável", () => {
-    expect(spendingNature({ recurrenceId: "r", installmentGroupId: null })).toBe("fixed");
-    expect(spendingNature({ recurrenceId: null, installmentGroupId: "g" })).toBe("installment");
-    expect(spendingNature({ recurrenceId: null, installmentGroupId: null })).toBe("variable");
-    // A parcela que o banco informa ("3 de 6") também é parcela: não entra no ritmo (M13.3a)
+describe("spendingNature (ADR-026)", () => {
+  const base = { recurrenceId: null, installmentGroupId: null } as const;
+
+  it("recorrência é fixa, parcelada é parcela, o resto é variável", () => {
+    expect(spendingNature({ ...base, recurrenceId: "r" })).toBe("fixed");
+    expect(spendingNature({ ...base, installmentGroupId: "g" })).toBe("installment");
+    expect(spendingNature(base)).toBe("variable");
+  });
+
+  it("a parcela do banco é parcela, e nenhuma marca muda isso", () => {
+    expect(spendingNature({ ...base, providerInstallmentCount: 6 })).toBe("installment");
     expect(
-      spendingNature({ recurrenceId: null, installmentGroupId: null, providerInstallmentCount: 6 }),
+      spendingNature({
+        ...base,
+        providerInstallmentCount: 6,
+        nature: "FIXED",
+        categoryNature: "FIXED",
+      }),
     ).toBe("installment");
+    expect(natureIsChoosable({ ...base, installmentGroupId: "g" })).toBe(false);
+    expect(natureIsChoosable({ ...base, providerInstallmentCount: 3 })).toBe(false);
+    expect(natureIsChoosable(base)).toBe(true);
+  });
+
+  it("a marca da compra vale mais que a recorrência e que a categoria", () => {
+    expect(spendingNature({ ...base, nature: "VARIABLE", recurrenceId: "r" })).toBe("variable");
+    expect(spendingNature({ ...base, nature: "FIXED", categoryNature: "VARIABLE" })).toBe("fixed");
+    expect(spendingNature({ ...base, nature: "VARIABLE", categoryNature: "FIXED" })).toBe(
+      "variable",
+    );
+  });
+
+  it("sem marca: a recorrência, depois o padrão da categoria; sem categoria, variável", () => {
+    expect(spendingNature({ ...base, recurrenceId: "r", categoryNature: "VARIABLE" })).toBe(
+      "fixed",
+    );
+    expect(spendingNature({ ...base, categoryNature: "FIXED" })).toBe("fixed");
+    expect(spendingNature({ ...base, categoryNature: "VARIABLE" })).toBe("variable");
+    expect(spendingNature({ ...base, categoryNature: null })).toBe("variable");
   });
 });
 
+/** Um valor por tipo: fixa, parcela, variável. */
+const n = (fixed = 0n, installment = 0n, variable = 0n) => ({ fixed, installment, variable });
+
 describe("projectMonth (decisão do M08: previsto + ritmo do variável)", () => {
-  const none = {
-    spent: 0n,
-    variableSpent: 0n,
-    variableByWindow: new Map<string, bigint>(),
-    scheduled: 0n,
-    pendingRecurrences: 0n,
-  };
+  const none = NO_FIGURES;
   /** Gasto variável nas contas (a janela do mês) */
   const inAccounts = (cents: bigint) => new Map([[ACCOUNTS_WINDOW, cents]]);
 
   it("o exemplo do canvas: Mercado, R$ 482,35 em 9 dias de 31 → R$ 1.661,43", () => {
     const p = projectMonth("2026-10", "2026-10-09", {
       ...none,
-      spent: brl("482.35"),
-      variableSpent: brl("482.35"),
+      spent: n(0n, 0n, brl("482.35")),
       variableByWindow: inAccounts(brl("482.35")),
     });
     expect(p.projected).toBe(brl("1661.43"));
     expect(p.pace).toBe(brl("1179.08"));
+    expect(p.parts).toEqual(n(0n, 0n, brl("1661.43")));
     expect(p).toMatchObject({ phase: "current", elapsedDays: 9, monthDays: 31 });
   });
 
   it("fixa e parcela entram pelo valor; só o variável é extrapolado", () => {
     const p = projectMonth("2026-10", "2026-10-09", {
       ...none,
-      spent: brl("129.90"), // internet já paga (fixa)
-      variableSpent: 0n,
-      scheduled: brl("2200"), // aluguel agendado para o dia 10
-      pendingRecurrences: brl("310"), // luz e água ainda não lançadas
+      spent: n(brl("129.90")), // internet já paga (fixa)
+      scheduled: n(brl("2200"), brl("150")), // aluguel e a parcela agendados
+      pending: brl("310"), // luz e água ainda não lançadas
     });
-    expect(p.projected).toBe(brl("2639.90"));
+    expect(p.projected).toBe(brl("2789.90"));
+    expect(p.parts).toEqual(n(brl("2639.90"), brl("150"), 0n));
     expect(p.pace).toBe(0n);
+  });
+
+  it("a assinatura que já chegou no dia 2 não se multiplica pelo ritmo (ADR-026)", () => {
+    // R$ 55,90 de Netflix (fixa) e R$ 300 de mercado (variável) em 3 dias de novembro
+    const p = projectMonth("2026-11", "2026-11-03", {
+      ...none,
+      spent: n(brl("55.90"), 0n, brl("300")),
+      variableByWindow: inAccounts(brl("300")),
+    });
+    expect(p.parts.fixed).toBe(brl("55.90"));
+    expect(p.parts.variable).toBe(brl("3000")); // 300 + 300 × 27 ÷ 3
+    expect(p.projected).toBe(brl("3055.90"));
   });
 
   it("mês fechado: o previsto é o gasto (nada agendado conta)", () => {
     const p = projectMonth("2026-09", "2026-10-09", {
-      spent: brl("1298.40"),
-      variableSpent: brl("1298.40"),
+      spent: n(0n, 0n, brl("1298.40")),
       variableByWindow: inAccounts(brl("1298.40")),
-      scheduled: brl("99"),
-      pendingRecurrences: brl("99"),
+      scheduled: n(brl("99")),
+      pending: brl("99"),
     });
     expect(p).toMatchObject({ phase: "closed", spent: brl("1298.40"), projected: brl("1298.40") });
+    expect(p.parts).toEqual(n(0n, 0n, brl("1298.40")));
   });
 
   it("mês futuro: só o que já está previsto", () => {
     const p = projectMonth("2026-11", "2026-10-09", {
       ...none,
-      scheduled: brl("1284.30"),
-      pendingRecurrences: brl("2869.60"),
+      scheduled: n(0n, brl("1284.30")),
+      pending: brl("2869.60"),
     });
     expect(p).toMatchObject({ phase: "future", spent: 0n, projected: brl("4153.90") });
   });
@@ -164,30 +207,32 @@ describe("projectMonth (decisão do M08: previsto + ritmo do variável)", () => 
   it("no último dia, o previsto é o gasto mais o agendado (não há dias para o ritmo)", () => {
     const p = projectMonth("2026-10", "2026-10-31", {
       ...none,
-      spent: brl("900"),
-      variableSpent: brl("900"),
+      spent: n(0n, 0n, brl("900")),
       variableByWindow: inAccounts(brl("900")),
     });
     expect(p.projected).toBe(brl("900"));
   });
 
-  it("propriedade: o previsto nunca é menor que o gasto até hoje", () => {
+  it("propriedade: o previsto nunca é menor que o gasto, e as partes somam o previsto", () => {
     fc.assert(
       fc.property(
         fc.integer({ min: 1, max: 31 }),
         fc.bigInt(0n, 10n ** 9n),
         fc.bigInt(0n, 10n ** 9n),
         fc.bigInt(0n, 10n ** 9n),
-        (day, fixedPart, variable, scheduled) => {
+        fc.bigInt(0n, 10n ** 9n),
+        (day, fixedPart, variable, scheduled, pending) => {
           const today = `2026-10-${String(day).padStart(2, "0")}`;
           const p = projectMonth("2026-10", today, {
-            spent: fixedPart + variable,
-            variableSpent: variable,
+            spent: n(fixedPart, 0n, variable),
             variableByWindow: inAccounts(variable),
-            scheduled,
-            pendingRecurrences: 0n,
+            scheduled: n(0n, scheduled),
+            pending,
           });
-          return p.projected >= p.spent;
+          return (
+            p.projected >= p.spent &&
+            p.parts.fixed + p.parts.installment + p.parts.variable === p.projected
+          );
         },
       ),
     );
@@ -195,13 +240,7 @@ describe("projectMonth (decisão do M08: previsto + ritmo do variável)", () => 
 });
 
 describe("o ritmo por janela (M13.3a, ADR-025)", () => {
-  const none = {
-    spent: 0n,
-    variableSpent: 0n,
-    variableByWindow: new Map<string, bigint>(),
-    scheduled: 0n,
-    pendingRecurrences: 0n,
-  };
+  const none = NO_FIGURES;
 
   it("a fatura que vence no mês e já fechou não cresce: ritmo zero", () => {
     // Fatura do Master que vence 09/11: compras de 03/10 a 02/11. Hoje, 03/11, ela já fechou
@@ -212,8 +251,7 @@ describe("o ritmo por janela (M13.3a, ADR-025)", () => {
       "2026-11-03",
       {
         ...none,
-        spent: brl("2318.40"),
-        variableSpent: brl("1263.40"),
+        spent: n(brl("1055"), 0n, brl("1263.40")),
         variableByWindow: new Map([["fatura-nov", brl("1263.40")]]),
       },
       new Map([["fatura-nov", fatura]]),
@@ -226,8 +264,7 @@ describe("o ritmo por janela (M13.3a, ADR-025)", () => {
     // R$ 501,77 em 3 dias de novembro → R$ 4.515,93 nos 27 que faltam
     const p = projectMonth("2026-11", "2026-11-03", {
       ...none,
-      spent: brl("501.77"),
-      variableSpent: brl("501.77"),
+      spent: n(0n, 0n, brl("501.77")),
       variableByWindow: new Map([[ACCOUNTS_WINDOW, brl("501.77")]]),
     });
     expect(p.pace).toBe(brl("4515.93"));
@@ -247,8 +284,7 @@ describe("o ritmo por janela (M13.3a, ADR-025)", () => {
       "2026-11-03",
       {
         ...none,
-        spent: brl("100"),
-        variableSpent: brl("100"),
+        spent: n(0n, 0n, brl("100")),
         variableByWindow: new Map([["fatura-dez", brl("100")]]),
       },
       new Map([["fatura-dez", dezembro]]),
@@ -368,5 +404,33 @@ describe("budgetsToCopy (copiar do mês anterior)", () => {
     const second = budgetsToCopy(previous, first.copy, tree);
     expect(second.copy).toEqual([]);
     expect(second.kept).toBe(2);
+  });
+});
+
+describe("a marca que se grava (ADR-026)", () => {
+  const base = { expense: true, installment: false, transfer: false, nature: "FIXED" as const };
+  it("só numa saída avulsa", () => {
+    expect(storedNature(base)).toBe("FIXED");
+    expect(storedNature({ ...base, nature: undefined })).toBeNull();
+    expect(storedNature({ ...base, expense: false })).toBeNull();
+    expect(storedNature({ ...base, installment: true })).toBeNull();
+    expect(storedNature({ ...base, transfer: true })).toBeNull();
+  });
+});
+
+describe("o tipo para a tela (ADR-026)", () => {
+  const base = { recurrenceId: null, installmentGroupId: null, expense: true, transfer: false };
+  it("só numa saída que não é transferência; a parcela não se escolhe", () => {
+    expect(natureView({ ...base, categoryNature: "FIXED" })).toEqual({
+      kind: "fixed",
+      choosable: true,
+      categoryNature: "FIXED",
+    });
+    expect(natureView({ ...base, providerInstallmentCount: 6 })).toMatchObject({
+      kind: "installment",
+      choosable: false,
+    });
+    expect(natureView({ ...base, expense: false })).toBeNull();
+    expect(natureView({ ...base, transfer: true })).toBeNull();
   });
 });

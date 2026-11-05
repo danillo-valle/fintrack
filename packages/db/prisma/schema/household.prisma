@@ -68,6 +68,7 @@ model Household {
   invites                HouseholdInvite[]
   categorizationExamples CategorizationExample[]
   transactionMatches     TransactionMatch[]
+  categoryCleanups       CategoryCleanup[]
   fileImports            FileImport[]
   classifierModels       ClassifierModel[]
   localAiAttempts        LocalAiAttempt[]

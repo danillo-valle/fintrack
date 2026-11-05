@@ -27,6 +27,7 @@ import type { PrismaClient } from "./generated/prisma/client";
 import { fromDbDecimal, toDbDecimal } from "./money";
 import {
   recordCorrection,
+  rememberForNext,
   resolvePayment,
   sameHousehold,
   type CategorizationOptions,
@@ -154,20 +155,17 @@ export async function createInstallmentPurchase(
       ids.push(created.id);
     }
     // A correção de categoria vale para a compra, não para cada parcela: um exemplo de treino
-    await recordCorrection(
-      tx,
-      {
-        householdId,
-        transactionId: ids[0]!,
-        description: input.description,
-        kind: "expense",
-        from: { categoryId: suggestion?.categoryId ?? null, source: suggestion?.source ?? null },
-        to: categoryId,
-        userId: wallet.userId,
-      },
-      options,
-      ctx,
-    );
+    await recordCorrection(tx, {
+      householdId,
+      transactionId: ids[0]!,
+      description: input.description,
+      kind: "expense",
+      from: { categoryId: suggestion?.categoryId ?? null, source: suggestion?.source ?? null },
+      to: categoryId,
+      userId: wallet.userId,
+    });
+    // Parcela não tem tipo: a regra da loja guarda só a categoria (e o tipo que já dava)
+    await rememberForNext(tx, options, { description: input.description, categoryId }, ctx);
     await writeAudit(
       tx,
       {

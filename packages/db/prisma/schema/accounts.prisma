@@ -168,17 +168,20 @@ model PaymentCard {
 
 /// Categoria, com subcategorias (parentId). Os nomes não se repetem dentro do grupo.
 model Category {
-  id          String       @id @default(uuid(7)) @db.Uuid
-  householdId String       @db.Uuid
-  parentId    String?      @db.Uuid
-  name        String
-  kind        CategoryKind
+  id            String        @id @default(uuid(7)) @db.Uuid
+  householdId   String        @db.Uuid
+  parentId      String?       @db.Uuid
+  name          String
+  kind          CategoryKind
+  /// As despesas desta categoria são, por padrão, fixas ou variáveis (M13.3b, ADR-026). A compra
+  /// marcada à mão (transaction.nature) vale mais; a parcela é sempre parcela
+  defaultNature ExpenseNature @default(VARIABLE)
   /// Nome de um token de cor do tema ("chart-3"), nunca uma cor fixa
-  color       String?
+  color         String?
   /// Arquivar em vez de apagar: categoria usada em lançamentos não pode ser apagada
-  archivedAt  DateTime?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  archivedAt    DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   household        Household               @relation(fields: [householdId], references: [id], onDelete: Cascade)
   // NoAction (e não Restrict): o banco confere no FIM do comando. Assim, apagar o grupo apaga
@@ -191,6 +194,8 @@ model Category {
   recurrences      Recurrence[]
   examplesTo       CategorizationExample[] @relation("ExampleTo")
   examplesFrom     CategorizationExample[] @relation("ExampleFrom")
+  /// As limpezas desta categoria que era transferência (M13.3b)
+  cleanups         CategoryCleanup[]
   /// Propostas da IA local de uma categoria nova DENTRO desta (M10.2b)
   localAiProposals LocalAiAttempt[]        @relation("LocalAiProposedParent")
 
@@ -203,15 +208,17 @@ model Category {
 
 /// Regra de categorização: se a descrição combina com `pattern`, o lançamento vai para a categoria.
 model CategoryRule {
-  id          String    @id @default(uuid(7)) @db.Uuid
-  householdId String    @db.Uuid
-  categoryId  String    @db.Uuid
+  id          String         @id @default(uuid(7)) @db.Uuid
+  householdId String         @db.Uuid
+  categoryId  String         @db.Uuid
   /// Texto procurado, já em minúsculas e sem acento. CHECK: de 2 a 100 caracteres
   pattern     String
-  match       RuleMatch @default(CONTAINS)
+  match       RuleMatch      @default(CONTAINS)
   /// Menor número vence quando duas regras combinam
-  priority    Int       @default(100)
-  createdAt   DateTime  @default(now())
+  priority    Int            @default(100)
+  /// "As próximas desta loja também" (M13.3b, ADR-026): a regra dá também o tipo da despesa
+  nature      ExpenseNature?
+  createdAt   DateTime       @default(now())
 
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
   category  Category  @relation(fields: [categoryId, householdId], references: [id, householdId], onDelete: Cascade)

@@ -42,6 +42,7 @@ model User {
   // Revisão do que veio do banco (M09.2)
   transactionsReviewed   Transaction[]           @relation("TransactionReviewer")
   matchesDecided         TransactionMatch[]
+  categoryCleanups       CategoryCleanup[]
   // Extratos enviados (M09.3)
   fileImports            FileImport[]
 

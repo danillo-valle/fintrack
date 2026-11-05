@@ -32,6 +32,7 @@ import {
   LOCAL_AI_BULK_SOURCES,
   pairCandidate,
   pairedFields,
+  type BankSide,
   pairKey,
   PAIR_WINDOW_DAYS,
   REFUND_WINDOW_DAYS,
@@ -54,9 +55,10 @@ import {
 import { randomUUID } from "node:crypto";
 import { DomainError, type WalletScope } from "./access";
 import { writeAudit, type RequestContext } from "./audit";
+import { natureViewOf } from "./nature";
 import type { Prisma, PrismaClient } from "./generated/prisma/client";
 import { localAiEnabled } from "./local-ai";
-import type { CategorizationSource, TransferPeer } from "./generated/prisma/enums";
+import type { CategorizationSource, ExpenseNature, TransferPeer } from "./generated/prisma/enums";
 import { fromDbDecimal, toDbDecimal } from "./money";
 import { personalWalletsOf, rerouteWallet } from "./sync";
 
@@ -84,6 +86,7 @@ const RECEIVED_SELECT = {
   categorizationConfidence: true,
   transferId: true,
   transferPeer: true,
+  nature: true,
   notes: true,
   status: true,
   deletedAt: true,
@@ -104,7 +107,9 @@ const RECEIVED_SELECT = {
     },
   },
   wallet: { select: { name: true } },
-  category: { select: { id: true, name: true, parent: { select: { name: true } } } },
+  category: {
+    select: { id: true, name: true, defaultNature: true, parent: { select: { name: true } } },
+  },
   card: { select: { lastFour: true, isAdditional: true, holder: { select: { name: true } } } },
   account: { select: { name: true, kind: true } },
   statement: { select: { referenceMonth: true } },
@@ -133,6 +138,7 @@ const OWN_SELECT = {
   installmentNumber: true,
   recurrenceId: true,
   transferId: true,
+  nature: true,
   installmentGroup: { select: { installmentCount: true } },
   wallet: { select: { name: true } },
   category: { select: { id: true, name: true, parent: { select: { name: true } } } },
@@ -171,7 +177,7 @@ function ownForMatch(row: OwnRow): OwnForMatch {
   };
 }
 
-const categoryView = (c: ReceivedRow["category"]) =>
+const categoryView = (c: { id: string; name: string; parent: { name: string } | null } | null) =>
   c ? { id: c.id, name: c.name, parent: c.parent?.name ?? null } : null;
 
 export type ReceivedView = ReturnType<typeof receivedView>;
@@ -207,6 +213,11 @@ function receivedView(row: ReceivedRow, editable: ReadonlySet<string>, aiOn = fa
     categorizedBy: row.categorizedBy,
     categorizationConfidence: row.categorizationConfidence,
     isTransfer: row.transferId !== null,
+    /** O tipo da saída (M13.3b, ADR-026): a etiqueta no botão da categoria e a escolha */
+    natureView: natureViewOf(row, {
+      expense: match.amount < 0n,
+      transfer: row.transferId !== null,
+    }),
     /** Transferência marcada de um lado só (M13.2): para alguém do lar ou para fora */
     transferPeer: row.transferPeer,
     wallet: { id: row.walletId, name: row.wallet.name },
@@ -654,16 +665,7 @@ export async function pairPreview(
     daysApart: candidate.daysApart,
     received: receivedView(received, editable),
     own: ownView(own),
-    result: pairedFields(
-      {
-        cardId: received.cardId,
-        description: received.description,
-        categoryId: received.categoryId,
-        categorizedBy: received.categorizedBy,
-        categorizationConfidence: received.categorizationConfidence,
-      },
-      own,
-    ),
+    result: pairedFields(bankSideOf(received), own),
   };
 }
 
@@ -851,6 +853,8 @@ type ReceivedBefore = {
   recurrenceId: string | null;
   transferId: string | null;
   transferPeer: TransferPeer | null;
+  /** A marca fixa/variável (M13.3b); antes do M13.3b não existia: nula */
+  nature: ExpenseNature | null;
   reversalOfId: string | null;
 };
 
@@ -878,6 +882,7 @@ const snapshotOf = (row: ReceivedRow): ReceivedBefore => ({
   recurrenceId: row.recurrenceId,
   transferId: row.transferId,
   transferPeer: row.transferPeer,
+  nature: row.nature,
   reversalOfId: row.reversalOfId,
 });
 
@@ -889,6 +894,19 @@ async function pendingReceived(tx: Db, scope: WalletScope<"edit">, id: string) {
   if (!row) throw new DomainError("NOT_FOUND");
   if (row.status !== "PENDING") throw new DomainError("REVIEW_STALE");
   return row;
+}
+
+/** O lado do banco de um par (pairedFields): o que o recebido traz e decide. */
+function bankSideOf(received: ReceivedRow): BankSide {
+  return {
+    cardId: received.cardId,
+    description: received.description,
+    categoryId: received.categoryId,
+    categorizedBy: received.categorizedBy,
+    categorizationConfidence: received.categorizationConfidence,
+    nature: received.nature,
+    providerInstallmentCount: received.providerInstallmentCount,
+  };
 }
 
 async function ownSide(tx: Db, scope: WalletScope<"edit">, id: string) {
@@ -923,16 +941,7 @@ export async function confirmPair(
     const candidate = pairCandidate(receivedForMatch(received), ownForMatch(own));
     if (!candidate) throw new DomainError("PAIR_NOT_ALLOWED");
 
-    const fields = pairedFields(
-      {
-        cardId: received.cardId,
-        description: received.description,
-        categoryId: received.categoryId,
-        categorizedBy: received.categorizedBy,
-        categorizationConfidence: received.categorizationConfidence,
-      },
-      own,
-    );
+    const fields = pairedFields(bankSideOf(received), own);
     // O seu sai primeiro: a parcela (grupo, número) é única e passa para o recebido
     const ownUpdate = await tx.transaction.updateMany({
       where: { id: own.id, deletedAt: null },
@@ -1155,6 +1164,8 @@ export async function confirmTransfer(
       categoryId: null,
       categorizedBy: null,
       categorizationConfidence: null,
+      // Transferência não é gasto: sem categoria e sem o tipo da despesa (ADR-026)
+      nature: null,
     };
     for (const row of [received, other]) {
       const pending = row.status === "PENDING";
@@ -1263,6 +1274,7 @@ export async function markTransfer(
         categoryId: null,
         categorizedBy: null,
         categorizationConfidence: null,
+        nature: null,
       },
     });
     if (count === 0) throw new DomainError("REVIEW_STALE");
@@ -1336,6 +1348,7 @@ function parseReceivedBefore(value: Prisma.JsonValue | null): ReceivedBefore {
     recurrenceId: str("recurrenceId"),
     transferId: str("transferId"),
     transferPeer: str("transferPeer") as TransferPeer | null,
+    nature: str("nature") as ExpenseNature | null,
     reversalOfId: str("reversalOfId"),
   };
 }
