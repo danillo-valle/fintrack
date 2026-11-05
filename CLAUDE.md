@@ -112,6 +112,16 @@ Projeto de portfólio construído em módulos (M00 a M12); cada módulo é uma m
   troca num toque (`features/transactions/ui/nature/`). A limpeza das categorias que eram transferência fica em
   Ajustes › Categorias (`packages/core/src/category-cleanup.ts`, `packages/db/src/category-cleanup.ts`), com o
   Desfazer de 30 minutos (`category_cleanup`)
+- v1.5.0 (M13.3c, ADR-027, canvas linhas N e O): o que se repete nos próximos meses. A recorrência do banco
+  (`origin BANK`, `matchKey` = `seriesKey`) só prevê: a cobrança que chega toma o lugar da prevista (`linkRecurring`,
+  `packages/db/src/recurring.ts`), e toda saída fixa conferida vira previsão. O valor (`amountRule`: o último, a média
+  de 3 meses ou fixo, `expectedAmount`) e o dia (`dayRule`: o dia ou o N-ésimo dia útil, `nthBusinessDay`). A parcela
+  dita pela pessoa (`installmentByPerson`) e as que faltam previstas (`installmentPlans`). As previstas numa regra só
+  (`forecastLines`, core; `forecastItems`, `packages/db/src/forecast.ts`): Cartões com a fatura que ainda não abriu
+  (`futureStatements`), a conta com o mês previsto e as faturas que ela paga (`accountForecast`, `billPayers`), o
+  Início com Próximos meses (`features/budget/ui/upcoming-months.tsx`) e o Fluxo e o Orçamento com as fixas e
+  parcelas por vir. O tipo num lugar só: a seção Tipo do lançamento (`setEntryType`,
+  `features/transactions/ui/repeat/`); Mudar o valor no "⋯" de Fixas e parcelas (`/fixas/[recurrenceId]`)
 
 Regras específicas do Next.js 16: @apps/web/AGENTS.md
 

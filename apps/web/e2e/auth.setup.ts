@@ -109,6 +109,19 @@ setup("cria a conta de teste com 2FA e guarda a sessão", async ({ request }) =>
         category: "Mercado",
       },
     ],
+    recurrences: [
+      {
+        id: ANA_FINANCE.recurrenceId,
+        walletId: ANA_HOUSEHOLD.personalWalletId,
+        account: "Conta da Ana",
+        kind: "FIXED_BILL",
+        amount: "-1800.00",
+        dayOfMonth: 5,
+        startsOn: `${todaySaoPaulo().slice(0, 7)}-01`,
+        description: "Aluguel da Ana",
+        category: "Moradia",
+      },
+    ],
   });
   mkdirSync("e2e/.auth", { recursive: true });
   writeFileSync(TOTP_FILE, secret ?? "");

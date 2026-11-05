@@ -7,41 +7,44 @@ description: Como construir telas e componentes no FinTrack com shadcn/ui, Tailw
 
 ## De onde vem cada peça
 
-| Preciso de                             | Use                                                                | Onde está                                                               |
-| -------------------------------------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------- |
-| Botão, campo, rótulo, esqueleto, aviso | shadcn/ui                                                          | `src/components/ui/` (gerado pelo CLI; não edite à mão sem motivo)      |
-| Mostrar um valor em reais              | `<AmountText cents={...} />`                                       | `src/components/money/amount-text.tsx`                                  |
-| Digitar um valor em reais              | `<MoneyInput value onValueChange />`                               | `src/components/money/money-input.tsx`                                  |
-| Tela sem dados                         | `<EmptyState icon title description action />`                     | `src/components/feedback/empty-state.tsx`                               |
-| Carregando                             | `<ListSkeleton />` ou `loading.tsx` da rota (formas desfocadas)    | `src/components/feedback/list-skeleton.tsx`                             |
-| Resumo do topo (destaque + números)    | `<SummaryGrid>` + `<HighlightCard>` + `<StatCard tone icon>`       | `src/components/visual/summary.tsx`                                     |
-| Saldo, entradas e saídas               | `<TotalsSummary totals label balanceLabel testIdPrefix />`         | `src/features/transactions/ui/totals-summary.tsx`                       |
-| Superfície de destaque livre (perfil)  | `<SoftPanel labelledBy>`                                           | `src/components/visual/summary.tsx`                                     |
-| Ações secundárias da página            | `<ActionBar label>` + `<ActionBarLink href icon tone>`             | `src/components/visual/action-bar.tsx`                                  |
-| Chips + ações + painel de filtros      | `<ListToolbar chipsLabel chips actions panel activeCount />`       | `src/components/visual/list-toolbar.tsx`                                |
-| Novo lançamento no cabeçalho           | `<NewTransactionButton />` em `PageHeader actions`                 | `src/features/transactions/ui/new-transaction-button.tsx`               |
-| Lista de coisas (linhas agrupadas)     | `<SurfaceList>` + `<SurfaceRow leading title meta trailing />`     | `src/components/visual/surface-list.tsx`                                |
-| Ícone colorido de categoria/tipo       | `<IconTile tone={toneFor(id)} letter / icon />`                    | `src/components/visual/icon-tile.tsx` e `tone.ts`                       |
-| Atalho ou filtro rápido                | `<ChipLink href active>`                                           | `src/components/visual/chip.tsx`                                        |
-| Escolher uma entre poucas (na URL)     | `<SegmentedNav label items />` (links com `aria-current`)          | `src/components/visual/segmented-nav.tsx`                               |
-| Seletor de ambiente (carteira)         | `<EnvironmentSwitcher environments current hrefFor />`             | `src/features/transactions/ui/environment-switcher.tsx`                 |
-| Quem pagou (DV, NV, CP)                | `<PayerTile payer />` (texto na tinta `--chart-N-ink`)             | `src/features/transactions/ui/payer-tile.tsx`                           |
-| Filtro "Pago por"                      | `<PayerChips payers current hrefFor />` no `extra` da ListToolbar  | `src/features/transactions/ui/payer-chips.tsx`                          |
-| Bloco de uma página com título         | `<Section id title description>`                                   | `src/components/visual/section.tsx`                                     |
-| Caixa de marcar ou rádio nativo        | `className={cn(NATIVE_CHECK, "size-5")}` (cor e anel do tema)      | `src/lib/styles.ts`                                                     |
-| Fixa, Variável ou Parcela (M13.3b)     | `<NatureTag>`, `<NatureRadios>` e `<NaturePicker>` (a etiqueta)    | `src/features/transactions/ui/nature/`                                  |
-| Ações de uma linha atrás do "⋯"        | `<ActionsMenu label>` + itens com `MENU_ITEM` (M13.1)              | `src/components/visual/actions-menu.tsx`                                |
-| Filtro de marcar (Período, Pago por)   | `<CheckCombo label value selection>` + `<CheckRow>` num form GET   | `src/components/visual/check-combo.tsx`                                 |
-| Topo de lista com Filtros e CSV        | `<ListHeader id title subtitle actions panel activeCount />`       | `src/components/visual/list-header.tsx`                                 |
-| Quem é uma pessoa (iniciais na cor)    | `<PersonAvatar initials tone size>` (M13.1)                        | `src/components/visual/person-avatar.tsx`                               |
-| Formulário por cima da página          | `<RouteModal title description footer>` numa rota `@modal/(.)rota` | `src/components/ui/route-modal.tsx` (exemplo: novo lançamento)          |
-| Formulário de lançamento               | `EntryProvider` + `EntryForm` + `EntrySubmit`/`EntryModalActions`  | `src/features/transactions/ui/entry/`                                   |
-| Erro                                   | `<ErrorState onRetry />` ou `error.tsx` da rota                    | `src/components/feedback/error-state.tsx`                               |
-| Título da página                       | `<PageHeader title description actions help />`                    | `src/components/layout/page-header.tsx`                                 |
-| O "?" da tela (Ajuda, M12.3a)          | `help="<artigo>"` no `PageHeader` (obrigatório; `null` na Ajuda)   | `src/features/help/content.ts`                                          |
-| Rodapé de formulário em modal          | `<StepFooter formId submitLabel backLabel backHref closesModal />` | `src/components/feedback/step-footer.tsx`                               |
-| Excluir                                | Sem "tem certeza?": exclua e ofereça "Desfazer" com `undoToast`    | `src/components/feedback/undo-toast.ts` (exemplo em `dev/ui/demos.tsx`) |
-| Mover o foco depois de um aviso        | `focusAfterToast(() => elemento)`                                  | `src/lib/focus.ts`                                                      |
+| Preciso de                             | Use                                                                     | Onde está                                                               |
+| -------------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Botão, campo, rótulo, esqueleto, aviso | shadcn/ui                                                               | `src/components/ui/` (gerado pelo CLI; não edite à mão sem motivo)      |
+| Mostrar um valor em reais              | `<AmountText cents={...} />`                                            | `src/components/money/amount-text.tsx`                                  |
+| Digitar um valor em reais              | `<MoneyInput value onValueChange />`                                    | `src/components/money/money-input.tsx`                                  |
+| Tela sem dados                         | `<EmptyState icon title description action />`                          | `src/components/feedback/empty-state.tsx`                               |
+| Carregando                             | `<ListSkeleton />` ou `loading.tsx` da rota (formas desfocadas)         | `src/components/feedback/list-skeleton.tsx`                             |
+| Resumo do topo (destaque + números)    | `<SummaryGrid>` + `<HighlightCard>` + `<StatCard tone icon>`            | `src/components/visual/summary.tsx`                                     |
+| Saldo, entradas e saídas               | `<TotalsSummary totals label balanceLabel testIdPrefix />`              | `src/features/transactions/ui/totals-summary.tsx`                       |
+| Superfície de destaque livre (perfil)  | `<SoftPanel labelledBy>`                                                | `src/components/visual/summary.tsx`                                     |
+| Ações secundárias da página            | `<ActionBar label>` + `<ActionBarLink href icon tone>`                  | `src/components/visual/action-bar.tsx`                                  |
+| Chips + ações + painel de filtros      | `<ListToolbar chipsLabel chips actions panel activeCount />`            | `src/components/visual/list-toolbar.tsx`                                |
+| Novo lançamento no cabeçalho           | `<NewTransactionButton />` em `PageHeader actions`                      | `src/features/transactions/ui/new-transaction-button.tsx`               |
+| Lista de coisas (linhas agrupadas)     | `<SurfaceList>` + `<SurfaceRow leading title meta trailing />`          | `src/components/visual/surface-list.tsx`                                |
+| Ícone colorido de categoria/tipo       | `<IconTile tone={toneFor(id)} letter / icon />`                         | `src/components/visual/icon-tile.tsx` e `tone.ts`                       |
+| Atalho ou filtro rápido                | `<ChipLink href active>`                                                | `src/components/visual/chip.tsx`                                        |
+| Escolher uma entre poucas (na URL)     | `<SegmentedNav label items />` (links com `aria-current`)               | `src/components/visual/segmented-nav.tsx`                               |
+| Seletor de ambiente (carteira)         | `<EnvironmentSwitcher environments current hrefFor />`                  | `src/features/transactions/ui/environment-switcher.tsx`                 |
+| Quem pagou (DV, NV, CP)                | `<PayerTile payer />` (texto na tinta `--chart-N-ink`)                  | `src/features/transactions/ui/payer-tile.tsx`                           |
+| Filtro "Pago por"                      | `<PayerChips payers current hrefFor />` no `extra` da ListToolbar       | `src/features/transactions/ui/payer-chips.tsx`                          |
+| Bloco de uma página com título         | `<Section id title description>`                                        | `src/components/visual/section.tsx`                                     |
+| Caixa de marcar ou rádio nativo        | `className={cn(NATIVE_CHECK, "size-5")}` (cor e anel do tema)           | `src/lib/styles.ts`                                                     |
+| Fixa, Variável ou Parcela (M13.3b)     | `<NatureTag>`, `<NatureRadios>` e `<NaturePicker>` (a etiqueta)         | `src/features/transactions/ui/nature/`                                  |
+| Ações de uma linha atrás do "⋯"        | `<ActionsMenu label>` + itens com `MENU_ITEM` (M13.1)                   | `src/components/visual/actions-menu.tsx`                                |
+| O valor e o dia de uma recorrência     | `<RepeatSettingsFields settings previews field />` (M13.3c)             | `src/features/transactions/ui/repeat/repeat-settings-fields.tsx`        |
+| Previstas (ainda não são lançamento)   | `<ForecastList rows label />`: borda tracejada, "Prevista"/"Não chegou" | `src/features/transactions/ui/repeat/forecast-list.tsx`                 |
+| A linha das parcelas de uma compra     | `<ParcelTrack number count dueMonth />` (M13.3c)                        | `src/features/transactions/ui/repeat/parcel-track.tsx`                  |
+| Filtro de marcar (Período, Pago por)   | `<CheckCombo label value selection>` + `<CheckRow>` num form GET        | `src/components/visual/check-combo.tsx`                                 |
+| Topo de lista com Filtros e CSV        | `<ListHeader id title subtitle actions panel activeCount />`            | `src/components/visual/list-header.tsx`                                 |
+| Quem é uma pessoa (iniciais na cor)    | `<PersonAvatar initials tone size>` (M13.1)                             | `src/components/visual/person-avatar.tsx`                               |
+| Formulário por cima da página          | `<RouteModal title description footer>` numa rota `@modal/(.)rota`      | `src/components/ui/route-modal.tsx` (exemplo: novo lançamento)          |
+| Formulário de lançamento               | `EntryProvider` + `EntryForm` + `EntrySubmit`/`EntryModalActions`       | `src/features/transactions/ui/entry/`                                   |
+| Erro                                   | `<ErrorState onRetry />` ou `error.tsx` da rota                         | `src/components/feedback/error-state.tsx`                               |
+| Título da página                       | `<PageHeader title description actions help />`                         | `src/components/layout/page-header.tsx`                                 |
+| O "?" da tela (Ajuda, M12.3a)          | `help="<artigo>"` no `PageHeader` (obrigatório; `null` na Ajuda)        | `src/features/help/content.ts`                                          |
+| Rodapé de formulário em modal          | `<StepFooter formId submitLabel backLabel backHref closesModal />`      | `src/components/feedback/step-footer.tsx`                               |
+| Excluir                                | Sem "tem certeza?": exclua e ofereça "Desfazer" com `undoToast`         | `src/components/feedback/undo-toast.ts` (exemplo em `dev/ui/demos.tsx`) |
+| Mover o foco depois de um aviso        | `focusAfterToast(() => elemento)`                                       | `src/lib/focus.ts`                                                      |
 
 Componente novo do shadcn: `pnpm dlx shadcn@latest add <nome>` dentro de `apps/web`.
 Antes de criar um componente próprio, veja se ele já existe no catálogo: `/dev/ui`.

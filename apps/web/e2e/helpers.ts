@@ -170,6 +170,8 @@ export const ANA_FINANCE = {
   moradiaId: "e2e00000-0000-4000-8000-00000000a022",
   salarioId: "e2e00000-0000-4000-8000-00000000a023",
   transactionId: "e2e00000-0000-4000-8000-00000000a030",
+  /** M13.3c: o aluguel da Ana (a recorrência do app), para Mudar o valor */
+  recurrenceId: "e2e00000-0000-4000-8000-00000000a040",
 } as const;
 
 /** Páginas do app (exigem sessão). Os testes de acessibilidade, de foco e de proteção passam por cada uma. */
@@ -199,6 +201,9 @@ export const PAGES = [
   "/cartoes",
   `/cartoes?conta=${ANA_FINANCE.cardAccountId}`,
   "/fixas",
+  // M13.3c: uma parte de Fixas e parcelas e Mudar o valor na página inteira (o modal: previsao.spec.ts)
+  "/fixas?mostrar=saidas",
+  `/fixas/${ANA_FINANCE.recurrenceId}`,
   "/lancamentos/novo?aba=transferencia",
   "/lancamentos/novo?aba=recorrencia",
   "/lancamentos?tipo=despesa&volta=%2F",
@@ -698,6 +703,18 @@ export async function createFinanceDirect(input: {
     /** O apelido de um cartão da conta (M07.4: "Pago por" segue o cartão) */
     card?: string;
   }[];
+  /** Recorrências do app (M13.3c): o valor com sinal, o dia e o começo */
+  recurrences?: {
+    id?: string;
+    walletId: string;
+    account: string;
+    kind: "FIXED_BILL" | "SUBSCRIPTION" | "INCOME";
+    amount: string;
+    dayOfMonth: number;
+    startsOn: string;
+    description: string;
+    category?: string;
+  }[];
 }) {
   const accounts: Record<string, { id: string; kind: AccountKind }> = {};
   const cards: Record<string, string> = {};
@@ -769,6 +786,26 @@ export async function createFinanceDirect(input: {
         t.description,
         t.transferId ?? null,
         t.card ? cards[t.card] : null,
+      ],
+    );
+  }
+  for (const r of input.recurrences ?? []) {
+    const account = accounts[r.account]!;
+    await sql(
+      `INSERT INTO recurrence (id, "householdId", "walletId", "accountId", "categoryId", kind, method, description, amount, "dayOfMonth", "startsOn", "updatedAt")
+       VALUES (COALESCE($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())`,
+      [
+        r.id ?? null,
+        input.householdId,
+        r.walletId,
+        account.id,
+        r.category ? categories[r.category] : null,
+        r.kind,
+        account.kind === "CREDIT_CARD" ? "CREDIT" : "PIX",
+        r.description,
+        r.amount,
+        r.dayOfMonth,
+        r.startsOn,
       ],
     );
   }

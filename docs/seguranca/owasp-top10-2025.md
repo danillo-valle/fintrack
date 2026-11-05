@@ -104,6 +104,11 @@ outra pessoa vem vazia);
 que eram transferência só olha e só muda os lançamentos das carteiras que quem limpa edita; aplicar
 ou desfazer a limpeza de outro lar dá o mesmo NOT_FOUND; o tipo da despesa num toque passa pelo
 crachá do lançamento, e a auditoria guarda só o id e a marca);
+`packages/db/src/integration/o-que-se-repete.integration.test.ts` (M13.3c: Mudar o valor de uma
+recorrência com o crachá de outra carteira dá o mesmo NOT_FOUND; o tipo do lançamento e a parcela dita
+passam pelo crachá do lançamento; a recorrência criada sozinha na busca só nasce na carteira do
+lançamento; a auditoria guarda a regra e o dia, nunca o valor) e `apps/web/e2e/previsao.spec.ts`
+(Mudar o valor de uma recorrência de outra pessoa ou inventada dá a página 404);
 `packages/db/src/permissoes-doc.test.ts` (o `docs/permissoes.md` bate com a matriz);
 `apps/web/e2e/cabecalhos.spec.ts`, bloco "pedido de outra origem é recusado" (**novo no M12.1**:
 o mesmo pedido de uma Server Action é recusado com outra origem e grava com a origem do app; a
