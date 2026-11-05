@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { CategoryNode } from "./budget";
+import { ACCOUNTS_WINDOW, type CategoryNode } from "./budget";
 import type { BudgetRecord, SpendingRow } from "./dashboard";
 import { decimalToCents } from "./money";
 import { monthSummary, summaryPeriod, SUMMARY_LIMIT, type NewRecurrence } from "./month-summary";
@@ -20,6 +20,7 @@ const nodes: CategoryNode[] = [
 ];
 
 const row = (r: Partial<SpendingRow> & Pick<SpendingRow, "month">): SpendingRow => ({
+  window: ACCOUNTS_WINDOW,
   walletId: CASA,
   categoryId: "mercado",
   payer: null,
@@ -64,6 +65,7 @@ const summary = (input: Partial<Parameters<typeof monthSummary>[0]>) =>
     budgets: [],
     nodes,
     recurrences: [],
+    windows: new Map(),
     ...input,
   });
 

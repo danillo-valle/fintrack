@@ -96,6 +96,10 @@ carteira, arquivado ou inventado responde igual; o portador e o ambiente são co
 transferência com a conta de outra pessoa do lar, que quem liga não edita, ou de outro lar dá o
 mesmo NOT_FOUND; Editar conta e Editar categoria de fora respondem igual; o "O que foi" nunca vai
 para a auditoria, que guarda só a contagem);
+`apps/web/e2e/coleta-bancaria.spec.ts` e `apps/web/e2e/lancamentos.spec.ts` (M13.3a: o endereço
+antigo da página do cartão de outra pessoa dá a página 404, sem nada da fatura no HTML; Cartões com o
+id de um cartão de outra pessoa mostra os cartões de quem pede, e a lista filtrada pela carteira de
+outra pessoa vem vazia);
 `packages/db/src/permissoes-doc.test.ts` (o `docs/permissoes.md` bate com a matriz);
 `apps/web/e2e/cabecalhos.spec.ts`, bloco "pedido de outra origem é recusado" (**novo no M12.1**:
 o mesmo pedido de uma Server Action é recusado com outra origem e grava com a origem do app; a

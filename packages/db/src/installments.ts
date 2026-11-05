@@ -7,19 +7,24 @@
 // transação só: ou a compra entra inteira, ou não entra.
 import {
   categorizedBy,
+  civilFromDbDate,
   dbDateFromCivil,
   installmentEntries,
+  installmentsInProgress,
+  installmentSiblingKey,
+  installmentStem,
   signedAmount,
   todayCivil,
   type Cents,
   type CivilDate,
+  type InstallmentParcel,
   type PaymentMethod,
 } from "@fintrack/core";
-import { DomainError, type AccountGrant, type WalletGrant } from "./access";
+import { DomainError, type AccountGrant, type WalletGrant, type WalletScope } from "./access";
 import { writeAudit, type RequestContext } from "./audit";
 import { assertUsableCategory, suggestCategory } from "./categories";
 import type { PrismaClient } from "./generated/prisma/client";
-import { toDbDecimal } from "./money";
+import { fromDbDecimal, toDbDecimal } from "./money";
 import {
   recordCorrection,
   resolvePayment,
@@ -176,5 +181,94 @@ export async function createInstallmentPurchase(
       ctx,
     );
     return { groupId: group.id, transactionIds: ids, suggestion };
+  });
+}
+
+/**
+ * As compras parceladas em andamento nas carteiras do escopo (M13.3a, Fixas e parcelas): as do
+ * FinTrack e as que o banco informa ("2/5"), pela regra installmentsInProgress do core. Cada uma
+ * com o nome (o "O que foi" da pessoa, senão o texto do banco sem o "NN/NN"), o cartão e a
+ * categoria. Recebido ainda não conferido também conta: a parcela já está na fatura.
+ */
+export async function installmentPurchases(
+  db: PrismaClient,
+  scope: WalletScope<"view">,
+  today: CivilDate,
+) {
+  if (scope.walletIds.length === 0) return [];
+  const rows = await db.transaction.findMany({
+    where: {
+      walletId: { in: [...scope.walletIds] },
+      deletedAt: null,
+      transferId: null,
+      OR: [{ installmentGroupId: { not: null } }, { providerInstallmentCount: { not: null } }],
+    },
+    orderBy: [{ occurredOn: "desc" }, { id: "asc" }],
+    select: {
+      accountId: true,
+      amount: true,
+      description: true,
+      label: true,
+      occurredOn: true,
+      installmentGroupId: true,
+      installmentNumber: true,
+      installmentGroup: { select: { installmentCount: true, description: true } },
+      providerInstallmentNumber: true,
+      providerInstallmentCount: true,
+      statement: { select: { dueDate: true } },
+      account: { select: { name: true } },
+      category: { select: { name: true } },
+    },
+  });
+  type Info = {
+    label: string | null;
+    title: string;
+    bankText: string;
+    accountName: string;
+    category: string | null;
+  };
+  const info = new Map<string, Info>();
+  const parcels: InstallmentParcel[] = [];
+  for (const r of rows) {
+    const amount = fromDbDecimal(r.amount);
+    const number = r.installmentNumber ?? r.providerInstallmentNumber;
+    const count = r.installmentGroup?.installmentCount ?? r.providerInstallmentCount;
+    const key =
+      r.installmentGroupId ??
+      installmentSiblingKey({
+        accountId: r.accountId,
+        amount,
+        description: r.description,
+        installmentCount: r.providerInstallmentCount,
+      });
+    if (!key || number === null || count === null) continue;
+    parcels.push({
+      key,
+      number,
+      count,
+      amount,
+      dueDate: civilFromDbDate(r.statement?.dueDate ?? r.occurredOn),
+    });
+    // As linhas vêm da mais recente para a mais antiga: o nome é o "O que foi" mais recente; sem
+    // nenhum, o nome da compra parcelada do FinTrack ou o texto do banco sem o "NN/NN"
+    const known = info.get(key);
+    const bankText = installmentStem(r.description);
+    info.set(key, {
+      label: known?.label ?? r.label,
+      title: known?.title ?? r.installmentGroup?.description ?? bankText,
+      bankText: known?.bankText ?? bankText,
+      accountName: known?.accountName ?? r.account.name,
+      category: known?.category ?? r.category?.name ?? null,
+    });
+  }
+  return installmentsInProgress(parcels, today).map((p) => {
+    const i = info.get(p.key) as Info;
+    return {
+      ...p,
+      title: i.label ?? i.title,
+      bankText: i.bankText,
+      accountName: i.accountName,
+      category: i.category,
+    };
   });
 }

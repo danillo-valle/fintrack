@@ -14,6 +14,8 @@ import {
   monthsStartingAt,
   percentVersus,
   projectMonth,
+  ACCOUNTS_WINDOW,
+  windowPace,
   spendingNature,
   subtreeOf,
   type CategoryNode,
@@ -97,17 +99,30 @@ describe("spendingNature", () => {
     expect(spendingNature({ recurrenceId: "r", installmentGroupId: null })).toBe("fixed");
     expect(spendingNature({ recurrenceId: null, installmentGroupId: "g" })).toBe("installment");
     expect(spendingNature({ recurrenceId: null, installmentGroupId: null })).toBe("variable");
+    // A parcela que o banco informa ("3 de 6") também é parcela: não entra no ritmo (M13.3a)
+    expect(
+      spendingNature({ recurrenceId: null, installmentGroupId: null, providerInstallmentCount: 6 }),
+    ).toBe("installment");
   });
 });
 
 describe("projectMonth (decisão do M08: previsto + ritmo do variável)", () => {
-  const none = { spent: 0n, variableSpent: 0n, scheduled: 0n, pendingRecurrences: 0n };
+  const none = {
+    spent: 0n,
+    variableSpent: 0n,
+    variableByWindow: new Map<string, bigint>(),
+    scheduled: 0n,
+    pendingRecurrences: 0n,
+  };
+  /** Gasto variável nas contas (a janela do mês) */
+  const inAccounts = (cents: bigint) => new Map([[ACCOUNTS_WINDOW, cents]]);
 
   it("o exemplo do canvas: Mercado, R$ 482,35 em 9 dias de 31 → R$ 1.661,43", () => {
     const p = projectMonth("2026-10", "2026-10-09", {
       ...none,
       spent: brl("482.35"),
       variableSpent: brl("482.35"),
+      variableByWindow: inAccounts(brl("482.35")),
     });
     expect(p.projected).toBe(brl("1661.43"));
     expect(p.pace).toBe(brl("1179.08"));
@@ -116,6 +131,7 @@ describe("projectMonth (decisão do M08: previsto + ritmo do variável)", () => 
 
   it("fixa e parcela entram pelo valor; só o variável é extrapolado", () => {
     const p = projectMonth("2026-10", "2026-10-09", {
+      ...none,
       spent: brl("129.90"), // internet já paga (fixa)
       variableSpent: 0n,
       scheduled: brl("2200"), // aluguel agendado para o dia 10
@@ -129,6 +145,7 @@ describe("projectMonth (decisão do M08: previsto + ritmo do variável)", () => 
     const p = projectMonth("2026-09", "2026-10-09", {
       spent: brl("1298.40"),
       variableSpent: brl("1298.40"),
+      variableByWindow: inAccounts(brl("1298.40")),
       scheduled: brl("99"),
       pendingRecurrences: brl("99"),
     });
@@ -149,6 +166,7 @@ describe("projectMonth (decisão do M08: previsto + ritmo do variável)", () => 
       ...none,
       spent: brl("900"),
       variableSpent: brl("900"),
+      variableByWindow: inAccounts(brl("900")),
     });
     expect(p.projected).toBe(brl("900"));
   });
@@ -165,12 +183,84 @@ describe("projectMonth (decisão do M08: previsto + ritmo do variável)", () => 
           const p = projectMonth("2026-10", today, {
             spent: fixedPart + variable,
             variableSpent: variable,
+            variableByWindow: inAccounts(variable),
             scheduled,
             pendingRecurrences: 0n,
           });
           return p.projected >= p.spent;
         },
       ),
+    );
+  });
+});
+
+describe("o ritmo por janela (M13.3a, ADR-025)", () => {
+  const none = {
+    spent: 0n,
+    variableSpent: 0n,
+    variableByWindow: new Map<string, bigint>(),
+    scheduled: 0n,
+    pendingRecurrences: 0n,
+  };
+
+  it("a fatura que vence no mês e já fechou não cresce: ritmo zero", () => {
+    // Fatura do Master que vence 09/11: compras de 03/10 a 02/11. Hoje, 03/11, ela já fechou
+    const fatura = { start: "2026-10-03", end: "2026-11-02" };
+    expect(windowPace(brl("1263.40"), fatura, "2026-11-03")).toBe(0n);
+    const p = projectMonth(
+      "2026-11",
+      "2026-11-03",
+      {
+        ...none,
+        spent: brl("2318.40"),
+        variableSpent: brl("1263.40"),
+        variableByWindow: new Map([["fatura-nov", brl("1263.40")]]),
+      },
+      new Map([["fatura-nov", fatura]]),
+    );
+    expect(p.pace).toBe(0n);
+    expect(p.projected).toBe(brl("2318.40"));
+  });
+
+  it("nas contas, o mês inteiro: o mesmo número do M08", () => {
+    // R$ 501,77 em 3 dias de novembro → R$ 4.515,93 nos 27 que faltam
+    const p = projectMonth("2026-11", "2026-11-03", {
+      ...none,
+      spent: brl("501.77"),
+      variableSpent: brl("501.77"),
+      variableByWindow: new Map([[ACCOUNTS_WINDOW, brl("501.77")]]),
+    });
+    expect(p.pace).toBe(brl("4515.93"));
+  });
+
+  it("fatura aberta que vence no mês: o ritmo só até o fechamento dela", () => {
+    // Fecha 10/11 e vence 17/11: compras de 10/10 a 09/11. Hoje, 03/11: 25 dias passados, 6 faltam
+    const fatura = { start: "2026-10-10", end: "2026-11-09" };
+    expect(windowPace(brl("250"), fatura, "2026-11-03")).toBe(brl("60"));
+  });
+
+  it("mês futuro: a fatura dele que já está aberta tem ritmo, as contas não", () => {
+    // Fecha 25 e vence 5: a fatura de dezembro (compras de 25/10 a 24/11) está aberta hoje
+    const dezembro = { start: "2026-10-25", end: "2026-11-24" };
+    const p = projectMonth(
+      "2026-12",
+      "2026-11-03",
+      {
+        ...none,
+        spent: brl("100"),
+        variableSpent: brl("100"),
+        variableByWindow: new Map([["fatura-dez", brl("100")]]),
+      },
+      new Map([["fatura-dez", dezembro]]),
+    );
+    // 10 dias passados (25/10 a 03/11), 21 faltam: 100 × 21 ÷ 10 = 210
+    expect(p).toMatchObject({ phase: "future", spent: brl("100"), pace: brl("210") });
+    expect(p.projected).toBe(brl("310"));
+  });
+
+  it("janela que ainda não começou: sem ritmo", () => {
+    expect(windowPace(brl("100"), { start: "2026-11-04", end: "2026-12-03" }, "2026-11-03")).toBe(
+      0n,
     );
   });
 });

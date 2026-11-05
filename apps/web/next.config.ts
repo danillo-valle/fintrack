@@ -70,6 +70,20 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: [...STATIC_SECURITY_HEADERS] }];
   },
+
+  // Endereços antigos (M13.3a, ADR-025): a transferência virou uma aba do Novo lançamento e as
+  // recorrências, Fixas e parcelas. O redirecionamento é da resposta HTTP, antes de qualquer
+  // página: o destino confere a sessão como sempre.
+  async redirects() {
+    return [
+      {
+        source: "/lancamentos/transferencia",
+        destination: "/lancamentos/novo?aba=transferencia",
+        permanent: true,
+      },
+      { source: "/lancamentos/recorrencias", destination: "/fixas", permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;

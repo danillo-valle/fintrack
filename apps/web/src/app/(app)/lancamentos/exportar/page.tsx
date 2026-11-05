@@ -3,7 +3,7 @@ import { Download } from "lucide-react";
 import { todayCivil } from "@fintrack/core";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
-import { parseFilters } from "@/features/transactions/schemas";
+import { parseFilters, periodBounds } from "@/features/transactions/schemas";
 import { getExportPage } from "@/features/transactions/server/queries";
 import { ExportForm } from "@/features/transactions/ui/export-form";
 import { requireRecentAuth } from "@/lib/auth/session";
@@ -16,6 +16,8 @@ export const metadata: Metadata = { title: "Exportar lançamentos" };
 export default async function ExportPage({ searchParams }: PageProps<"/lancamentos/exportar">) {
   const session = await requireRecentAuth("/lancamentos/exportar");
   const { filters, walletId } = parseFilters(await searchParams, todayCivil());
+  // O CSV leva um período de dias (de/até): o da lista, do primeiro ao último dia
+  const period = periodBounds(filters.period);
   const { wallets } = await getExportPage(session);
 
   return (
@@ -34,15 +36,16 @@ export default async function ExportPage({ searchParams }: PageProps<"/lancament
       ) : (
         <>
           <p className="text-muted-foreground mb-4 max-w-md text-sm">
-            O arquivo leva os lançamentos da carteira no período, inclusive transferências. A
-            exportação fica registrada na atividade do lar.
+            O arquivo leva os lançamentos da carteira no período, inclusive transferências. A compra
+            no cartão entra pelo vencimento da fatura, como na lista. A exportação fica registrada
+            na atividade do lar.
           </p>
           <ExportForm
             wallets={wallets}
             defaults={{
               walletId: wallets.some((w) => w.id === walletId) ? walletId : null,
-              from: filters.from,
-              to: filters.to,
+              from: period.from,
+              to: period.to,
             }}
           />
         </>

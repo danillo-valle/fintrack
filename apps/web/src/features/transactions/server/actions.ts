@@ -52,6 +52,8 @@ import {
 } from "../schemas";
 
 const LIST = "/lancamentos";
+/** Fixas e parcelas (M13.3a): onde as recorrências aparecem */
+const FIXED = "/fixas";
 
 function invalid(error: { issues: { message: string }[] }): ActionState {
   return { error: error.issues[0]?.message ?? "Confira o que foi digitado.", success: null };
@@ -317,10 +319,10 @@ export async function createRecurrenceAction(
       { ...data, cents: data.amount },
       await requestContext(),
     );
-    return 'Recorrência criada. Use "Lançar as deste mês" para gerar o lançamento agendado.';
+    return 'Recorrência criada. Em Fixas e parcelas, "Lançar as deste mês" gera o lançamento agendado.';
   });
   if (!result.error) await financeChanged(session);
-  revalidatePath(`${LIST}/recorrencias`);
+  revalidatePath(FIXED);
   return result;
 }
 
@@ -337,7 +339,7 @@ export async function archiveRecurrenceAction(
     return "Recorrência encerrada. Os lançamentos já gerados continuam.";
   });
   if (!result.error) await financeChanged(session);
-  revalidatePath(`${LIST}/recorrencias`);
+  revalidatePath(FIXED);
   return result;
 }
 
@@ -362,7 +364,7 @@ export async function generateRecurrencesAction(
   });
   if (!result.error) await financeChanged(session);
   revalidatePath(LIST);
-  revalidatePath(`${LIST}/recorrencias`);
+  revalidatePath(FIXED);
   return result;
 }
 
@@ -388,7 +390,7 @@ export async function exportTransactionsAction(
     const { csv, rows } = await exportTransactions(
       prisma,
       grant,
-      { from, to },
+      { periods: [{ from, to }] },
       await requestContext(),
     );
     file = { name: `fintrack-${slug(grant.wallet.name)}-${from}-a-${to}.csv`, content: csv };

@@ -5,6 +5,9 @@ import {
   installmentPlan,
   statementFor,
   statementOfMonth,
+  defaultStatement,
+  statementState,
+  statementWindow,
   type CardCycle,
 } from "./card";
 import { addDays, addMonthsToKey, civilDate, compareCivil, daysBetween, monthOf } from "./dates";
@@ -210,5 +213,76 @@ describe("installmentEntries", () => {
     });
     expect(first!.referenceMonth).toBe("2026-11");
     expect(first!.occurredOn).toBe("2026-10-26");
+  });
+});
+
+describe("statementWindow: o período de uma fatura gravada (M13.3a)", () => {
+  it("do fechamento anterior ao dia antes do fechamento", () => {
+    expect(
+      statementWindow({ closingDate: "2026-11-03", previousClosingDate: "2026-10-03" }),
+    ).toEqual({ start: "2026-10-03", end: "2026-11-02" });
+  });
+
+  it("o banco mudou o dia do fechamento (3 → 5): o período fica com 33 dias", () => {
+    expect(
+      statementWindow({ closingDate: "2026-11-05", previousClosingDate: "2026-10-03" }),
+    ).toEqual({ start: "2026-10-03", end: "2026-11-04" });
+  });
+
+  it("sem a anterior, ou com um mês faltando no meio: um mês antes do fechamento", () => {
+    expect(statementWindow({ closingDate: "2026-11-03", previousClosingDate: null })).toEqual({
+      start: "2026-10-03",
+      end: "2026-11-02",
+    });
+    expect(
+      statementWindow({ closingDate: "2026-12-03", previousClosingDate: "2026-10-03" }),
+    ).toEqual({ start: "2026-11-03", end: "2026-12-02" });
+  });
+
+  it("propriedade: no ciclo, a janela da fatura é o período de statementFor", () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 1, max: 31 }),
+        fc.integer({ min: 1, max: 31 }),
+        fc.integer({ min: 0, max: 800 }),
+        (closingDay, dueDay, offset) => {
+          fc.pre(closingDay !== dueDay);
+          const cycle = { closingDay, dueDay };
+          const day = addDays("2025-01-01", offset);
+          const statement = statementFor(day, cycle);
+          const previous = statementOfMonth(addMonthsToKey(statement.referenceMonth, -1), cycle);
+          const w = statementWindow({
+            closingDate: statement.closingDate,
+            previousClosingDate: previous.closingDate,
+          });
+          return compareCivil(w.start, day) <= 0 && compareCivil(day, w.end) <= 0;
+        },
+      ),
+    );
+  });
+});
+
+describe("statementState: em que pé está a fatura", () => {
+  const window = { start: "2026-10-03", end: "2026-11-02" };
+  it.each([
+    ["2026-10-02", false, "upcoming"],
+    ["2026-10-03", false, "open"],
+    ["2026-11-02", false, "open"],
+    ["2026-11-03", false, "closed"],
+    ["2026-11-10", true, "paid"],
+  ] as const)("hoje %s, paga %s: %s", (today, paid, state) => {
+    expect(statementState({ window, today, paid })).toBe(state);
+  });
+});
+
+describe("defaultStatement: a fatura que a página abre", () => {
+  const list = [{ dueDate: "2026-10-09" }, { dueDate: "2026-11-09" }, { dueDate: "2026-12-09" }];
+  it("a primeira que ainda vence; no dia do vencimento, ela mesma", () => {
+    expect(defaultStatement(list, "2026-11-03")).toEqual({ dueDate: "2026-11-09" });
+    expect(defaultStatement(list, "2026-11-09")).toEqual({ dueDate: "2026-11-09" });
+  });
+  it("todas vencidas: a última; nenhuma: null", () => {
+    expect(defaultStatement(list, "2027-01-01")).toEqual({ dueDate: "2026-12-09" });
+    expect(defaultStatement([], "2026-11-03")).toBeNull();
   });
 });

@@ -24,7 +24,7 @@ import {
   undoMatch,
   unmarkTransfer,
 } from "../review";
-import { openStatementTotals } from "../statements";
+import { statementsDueIn } from "../statements";
 import { setTransactionCategory, setTransactionLabel } from "../transactions";
 import {
   createTestCategories,
@@ -213,8 +213,14 @@ describe("transferência entre contas (M13.2)", () => {
       occurredOn: "2026-10-09",
       description: "DEBITO AUT FATURA CARTAO",
     });
-    const before = (await openStatementTotals(prisma, [h.card.id], today)).get(h.card.id);
-    expect(before?.total).toBe(-184000n); // o crédito abatia: a fatura ficava negativa
+    const dueInNovember = async () =>
+      (await statementsDueIn(prisma, [h.card.id], "2026-11", today)).map((s) => ({
+        amount: s.amount,
+        closingDate: s.closingDate,
+        dueDate: s.dueDate,
+      }));
+    // O crédito abatia: a fatura ficava negativa
+    expect((await dueInNovember())[0]?.amount).toBe(-184000n);
     const { billPayment } = await confirmTransfer(
       prisma,
       holder,
@@ -222,8 +228,9 @@ describe("transferência entre contas (M13.2)", () => {
       TEST_CTX,
     );
     expect(billPayment).toBe(true);
-    const after = (await openStatementTotals(prisma, [h.card.id], today)).get(h.card.id);
-    expect(after).toEqual({ total: 10000n, closingDate: "2026-11-03", dueDate: "2026-11-09" });
+    expect(await dueInNovember()).toEqual([
+      { amount: 10000n, closingDate: "2026-11-03", dueDate: "2026-11-09" },
+    ]);
   });
 
   it("recusada não volta; carteira que a pessoa não edita ou de outro lar: NOT_FOUND", async () => {

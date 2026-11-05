@@ -11,6 +11,7 @@ import {
   lastFourOf,
   openStatementWindow,
   settlementCheck,
+  bankBillStatement,
   statementForDueDate,
   suggestAccountLink,
   type ImportedFields,
@@ -109,6 +110,33 @@ describe("statementForDueDate", () => {
   it("sem ciclo: usa o fechamento do banco ou o vencimento menos 10 dias", () => {
     expect(statementForDueDate("2026-10-05", null, "2026-09-26").closingDate).toBe("2026-09-26");
     expect(statementForDueDate("2026-10-05", null).closingDate).toBe("2026-09-25");
+  });
+});
+
+describe("bankBillStatement", () => {
+  const cycle = { closingDay: 27, dueDay: 5 };
+
+  it("o dia do fechamento do banco vale mais que o ciclo cadastrado", () => {
+    // O banco fecha a aberta em 21/11: a de 30/10 fechou em 21/10, não em 27/10 (o ciclo)
+    expect(bankBillStatement("2026-10-30", "2026-11-21", cycle)).toEqual({
+      referenceMonth: "2026-10",
+      closingDate: "2026-10-21",
+      dueDate: "2026-10-30",
+    });
+  });
+
+  it("fecha no mês anterior ao vencimento quando o dia cai depois dele", () => {
+    expect(bankBillStatement("2026-10-05", "2026-10-27", cycle).closingDate).toBe("2026-09-27");
+  });
+
+  it("dia que o mês não tem: o último dia do mês", () => {
+    expect(bankBillStatement("2026-03-08", "2026-04-30", null).closingDate).toBe("2026-02-28");
+  });
+
+  it("sem a data do banco: a regra do ciclo", () => {
+    expect(bankBillStatement("2026-10-05", null, cycle)).toEqual(
+      statementForDueDate("2026-10-05", cycle),
+    );
   });
 });
 

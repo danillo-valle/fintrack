@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Sparkles,
   Tags,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
@@ -24,7 +25,15 @@ import { SignOutButton } from "@/features/auth/ui/sign-out-button";
 
 export const metadata: Metadata = { title: "Ajustes" };
 
-const LINKS: { href: string; title: string; detail: string; icon: LucideIcon; tone: Tone }[] = [
+const LINKS: {
+  href: string;
+  title: string;
+  detail: string;
+  icon: LucideIcon;
+  tone: Tone;
+  /** Só no celular: no computador está no menu lateral (M13.3a) */
+  mobileOnly?: boolean;
+}[] = [
   {
     href: "/ajustes/contas",
     title: "Contas e cartões",
@@ -59,6 +68,15 @@ const LINKS: { href: string; title: string; detail: string; icon: LucideIcon; to
     detail: "Lançar um gasto pelo WhatsApp ou pelo Telegram",
     icon: MessageCircle,
     tone: 2,
+  },
+  // M13.3a: no celular, Carteiras saiu da barra de baixo para Cartões caber; fica aqui
+  {
+    href: "/carteiras",
+    title: "Carteiras",
+    detail: "Os ambientes (Casa, o pessoal) e quem vê cada um",
+    icon: Wallet,
+    tone: 3,
+    mobileOnly: true,
   },
   {
     href: "/ajustes/lar",
@@ -119,7 +137,7 @@ export default async function SettingsPage() {
         <nav aria-label="Ajustes">
           <SurfaceList>
             {LINKS.map((l) => (
-              <li key={l.href}>
+              <li key={l.href} className={l.mobileOnly ? "md:hidden" : undefined}>
                 <Link
                   href={l.href}
                   className="hover:bg-muted focus-visible:ring-ring flex min-h-16 items-center gap-3 px-4 py-3 outline-none focus-visible:ring-3 focus-visible:ring-inset"

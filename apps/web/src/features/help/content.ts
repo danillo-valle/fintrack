@@ -140,28 +140,38 @@ export const HELP_ARTICLES = [
   // ── Lançamentos ────────────────────────────────────────────────────────────────────────
   {
     slug: "lancamentos",
-    title: "A lista, os filtros e os totais",
+    title: "Lançamentos: uma conta por vez",
     topic: "lancamentos",
     summary:
-      "Os lançamentos por dia, com filtros que ficam no endereço e os totais do que está na tela.",
+      "O que entrou e saiu de cada conta (corrente, poupança), com o saldo; o cartão fica em Cartões.",
     screen: "/lancamentos",
     body: [
       {
         kind: "p",
-        text: "A lista mostra os lançamentos do período, agrupados por dia. O quadrado da frente diz **quem pagou** (as iniciais); no ambiente Casa, o filtro **Pago por** separa as compras de cada um.",
+        text: "**Lançamentos** mostra só o que passou pelas contas que não são cartão: débito, Pix, boletos, salário. As abas no alto escolhem a conta (**Conta corrente**, **Poupança**). As compras no cartão de crédito ficam em **Cartões**, por fatura, e nunca aparecem misturadas com o débito.",
+      },
+      {
+        kind: "p",
+        text: "O resumo traz o **saldo no começo do período**, as **entradas**, as **saídas** e o **saldo hoje** (numa conta ligada ao banco, o que o banco informa). Transferências (para a poupança, para alguém do lar) e o pagamento das faturas aparecem na lista, porque saíram da conta, mas ficam fora das entradas e das saídas.",
       },
       { kind: "h", text: "Filtrar" },
       {
         kind: "list",
         items: [
-          "Os botões de período (este mês, mês passado…) mudam o intervalo.",
-          "**Filtros** abre categoria, conta, tipo e busca pela descrição.",
+          "**Período**: marque um ou vários meses, ou use os atalhos (este mês, mês passado, últimos 3 meses).",
+          "**Pago por**: marque uma ou várias pessoas; **Todos** tira o filtro.",
+          "**Filtros**, no canto da lista, abre categoria, tipo e busca pela descrição. **CSV** exporta o que está na lista.",
           "O endereço guarda os filtros: dá para salvar nos favoritos ou mandar o link.",
         ],
       },
       {
         kind: "p",
-        text: "Os **totais** do topo somam exatamente o que a lista mostra. Transferências entre as suas contas não entram em entradas nem saídas.",
+        text: "Quando você chega aqui por um número do Início ou do Orçamento (Mercado em novembro, por exemplo), a lista mostra o número em **duas partes**: **Nas contas** e **Nos cartões**, por fatura, cada uma com o seu total. A soma das duas é o número que você tocou.",
+      },
+      {
+        kind: "faq",
+        q: "Por que uma compra de outubro no cartão aparece em novembro?",
+        a: "No cartão, cada compra conta no mês em que a **fatura vence**, que é quando o dinheiro sai da conta. Uma compra depois do fechamento entra na fatura seguinte.",
       },
       {
         kind: "faq",
@@ -171,21 +181,53 @@ export const HELP_ARTICLES = [
     ],
   },
   {
-    slug: "parcelada-e-fixa",
-    title: "Parcelada e conta fixa",
+    slug: "cartoes",
+    title: "Cartões: uma fatura por vez",
     topic: "lancamentos",
-    summary: "Uma compra em várias faturas e as contas que se repetem todo mês.",
-    screen: "/lancamentos/recorrencias",
+    summary:
+      "As compras de cada cartão de crédito, fatura por fatura, com o vencimento, o limite e a conferência.",
+    screen: "/cartoes",
     body: [
+      {
+        kind: "p",
+        text: "**Cartões** mostra um cartão e uma fatura por vez. As setas ao lado do título passam para a fatura anterior e para a próxima; ela abre na fatura que ainda vai vencer.",
+      },
+      {
+        kind: "list",
+        items: [
+          "**Fatura até agora** soma tudo o que o banco vai cobrar nela, inclusive o que ainda espera revisão. O estorno abate.",
+          "**Fixas**, **Parcelas** e **Variáveis** dividem a fatura; as abas da lista mostram cada parte.",
+          "A compra conta no mês em que a fatura **vence**: é assim que o Início e o Orçamento somam.",
+          "Na lista, a categoria e o **O que foi** mudam em um toque.",
+        ],
+      },
+      {
+        kind: "p",
+        text: "Quando o banco ou o PDF fecha a fatura, aparecem o total, os encargos (IOF, juros) e a **conferência ao centavo**. A fatura paga diz quando e de qual conta saiu o pagamento.",
+      },
+    ],
+  },
+  {
+    slug: "parcelada-e-fixa",
+    title: "Fixas e compras parceladas",
+    topic: "lancamentos",
+    summary:
+      "As contas que se repetem todo mês e as compras parceladas, com o que ainda falta pagar.",
+    screen: "/fixas",
+    body: [
+      {
+        kind: "p",
+        text: "**Fixas e parcelas**, no menu, junta o que se repete e o que ainda vai ser cobrado: as **entradas fixas** (o salário), as **saídas fixas** (aluguel, escola, assinaturas) e as **parceladas em andamento**, com quantas parcelas faltam, quanto ainda falta pagar e quando termina.",
+      },
+      { kind: "h", text: "Uma fixa nova" },
+      {
+        kind: "p",
+        text: "No **Novo lançamento**, a aba **Recorrência**: conta fixa, assinatura ou entrada, o valor por mês, o dia e até quando. **Lançar as deste mês** cria, agendado, o lançamento de cada uma (sem repetir o que já existe). **Parar de repetir** não apaga nada que já aconteceu.",
+      },
       { kind: "h", text: "Compra parcelada" },
       {
         kind: "p",
-        text: "No Novo lançamento com cartão de crédito, escolha **Parcelada** e o número de vezes (de 2 a 24). O FinTrack cria uma parcela em cada fatura; se o valor não divide certinho, os centavos que sobram vão na primeira.",
-      },
-      { kind: "h", text: "Conta fixa ou assinatura" },
-      {
-        kind: "p",
-        text: "Escolha **Conta fixa / Assinatura** e o dia do mês. O lançamento deste mês entra na hora e os próximos aparecem em **Recorrências**, onde **Lançar as deste mês** cria as que faltam sem duplicar.",
+        text: 'No Novo lançamento com cartão de crédito, escolha **Parcelada** e o número de vezes (de 2 a 24): uma parcela em cada fatura, e os centavos que sobram vão na primeira. A parcela que o banco informa ("02/05") também aparece aqui. A parcela de agora é a da próxima fatura; a compra some da lista quando a última chega.',
       },
     ],
   },
@@ -194,11 +236,11 @@ export const HELP_ARTICLES = [
     title: "Transferência entre contas",
     topic: "lancamentos",
     summary: "Dinheiro que sai de uma conta sua e entra em outra, sem contar como gasto.",
-    screen: "/lancamentos/transferencia",
+    screen: "/lancamentos/novo?aba=transferencia",
     body: [
       {
         kind: "p",
-        text: "Use para pix entre as suas contas, saque, e para **pagar a fatura** do cartão (da conta corrente para a conta do cartão). A transferência vira dois lançamentos ligados e não entra nas somas de entradas e saídas.",
+        text: "No **Novo lançamento**, a aba **Transferência**: escolha de onde sai, para onde vai, o valor e a data. Use para pix entre as suas contas, guardar na poupança, saque, e para **pagar a fatura** do cartão (da conta corrente para a conta do cartão). A transferência vira dois lançamentos ligados e não entra nas somas de entradas e saídas.",
       },
     ],
   },
@@ -324,7 +366,11 @@ export const HELP_ARTICLES = [
       },
       {
         kind: "p",
-        text: "Com o banco ligado, **Na conta hoje** mostra quanto há em cada conta e o total, e **Seus cartões** mostra a fatura aberta de cada cartão, com o fechamento, o vencimento e o limite disponível. O pagamento da fatura anterior não abate a fatura aberta.",
+        text: "**Resultado do mês** junta tudo uma vez só: as **entradas** nas contas, as **saídas** (o que saiu das contas mais as faturas que vencem no mês) e o que **sobra**. No cartão, cada compra conta no mês em que a fatura vence. O pagamento da fatura e as transferências entre as suas contas não entram, porque não são gasto nem receita.",
+      },
+      {
+        kind: "p",
+        text: "**Na conta hoje** mostra só a conta corrente: o que dá para gastar agora, e quanto sobra **depois das faturas** que ainda vencem no mês. A poupança fica em **Guardado**, com o que mudou no mês. **Faturas a pagar** mostra a fatura de cada cartão que vence agora; o pagamento da fatura anterior não abate a fatura aberta.",
       },
     ],
   },

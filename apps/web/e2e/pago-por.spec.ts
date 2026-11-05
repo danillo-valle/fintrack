@@ -12,11 +12,13 @@
 import { expect, type Browser, type TestInfo } from "@playwright/test";
 import {
   brl,
+  choosePayers,
   createFinanceDirect,
   createHouseholdDirect,
   createTestUser,
   deleteHouseholds,
   expectNoA11yViolations,
+  expensesSlicePath,
   openPage,
   personInNewTab,
   sql,
@@ -173,7 +175,8 @@ test.describe("pago por e ambientes", () => {
     const p = await couple(browser, testInfo, "pagopor");
     const page = p.page;
 
-    await openPage(page, "/lancamentos");
+    // M13.3a: as despesas deste mês e do próximo, em duas partes (contas e cartões)
+    await openPage(page, expensesSlicePath());
     // Quem pagou, pelas iniciais: Bruna (BP), Caio (CL) e o cartão conjunto (CP)
     await expect(
       rowOf(page, "Feira do sábado").getByRole("img", { name: "Pago por Bruna" }),
@@ -186,28 +189,25 @@ test.describe("pago por e ambientes", () => {
     ).toHaveText("CP");
     // O pessoal do Caio não existe para a Bruna (nem a linha, nem o total)
     await expect(page.getByText("Presente secreto do Caio")).toHaveCount(0);
-    await expect(page.getByTestId("total-saidas")).toContainText(brl("R$ 377,70"));
+    await expect(page.getByTestId("recorte-total")).toContainText(brl("R$ 377,70"));
     await expectNoA11yViolations(page);
 
-    // Filtro "Pago por": Compartilhado
-    const payerNav = page.getByRole("navigation", { name: "Pago por" });
-    await payerNav.getByRole("link", { name: "Compartilhado" }).click();
+    // Pago por: Compartilhado
+    await choosePayers(page, ["Compartilhado"]);
     await expect(page).toHaveURL(/pago=compartilhado/);
     await expect(page.getByRole("link", { name: "Supermercado do mês" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Feira do sábado" })).toHaveCount(0);
-    await expect(page.getByTestId("total-saidas")).toContainText(brl("R$ 212,30"));
-    await expect(payerNav.getByRole("link", { name: "Compartilhado" })).toHaveAttribute(
-      "aria-current",
-      "true",
-    );
+    await expect(page.getByTestId("recorte-total")).toContainText(brl("R$ 212,30"));
+    await expect(page.getByRole("button", { name: /^Pago por/ })).toContainText("Compartilhado");
 
-    // Filtro "Pago por": Caio
-    await payerNav.getByRole("link", { name: "Caio" }).click();
+    // Pago por: Caio e Compartilhado juntos (M13.3a: vários)
+    await choosePayers(page, ["Caio", "Compartilhado"]);
     await expect(page.getByRole("link", { name: "Farmácia da esquina" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Supermercado do mês" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Supermercado do mês" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Feira do sábado" })).toHaveCount(0);
 
     // Todos de novo
-    await payerNav.getByRole("link", { name: "Todos" }).click();
+    await choosePayers(page, []);
     await expect(page).not.toHaveURL(/pago=/);
     await expect(page.getByRole("link", { name: "Livro da Bruna" })).toBeVisible();
     await p.close();
@@ -217,7 +217,7 @@ test.describe("pago por e ambientes", () => {
     const p = await couple(browser, testInfo, "ambiente");
     const page = p.page;
 
-    await openPage(page, "/lancamentos");
+    await openPage(page, expensesSlicePath());
     const switcher = page.getByRole("navigation", { name: "Ambiente" });
     // Tudo que vejo, Casa e o pessoal da Bruna; o do Caio, nunca
     await expect(switcher.getByRole("link")).toHaveCount(3);
@@ -231,7 +231,7 @@ test.describe("pago por e ambientes", () => {
     await expect(page).toHaveURL(new RegExp(`carteira=${p.casa}`));
     await expect(page.getByRole("link", { name: "Supermercado do mês" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Livro da Bruna" })).toHaveCount(0);
-    await expect(page.getByTestId("total-saidas")).toContainText(brl("R$ 337,80"));
+    await expect(page.getByTestId("recorte-total")).toContainText(brl("R$ 337,80"));
 
     // O Início usa o mesmo seletor
     await openPage(page, "/");
@@ -280,11 +280,15 @@ test.describe("tipo da despesa", () => {
       { amount: "-100.00", status: "SCHEDULED", n: 3 },
     ]);
 
-    await openPage(page, "/lancamentos");
-    const row = rowOf(page, "Cadeira de escritório");
+    // M13.3a: a compra no cartão fica em Cartões, na fatura que vence primeiro: a da parcela 1
+    await openPage(page, `/cartoes?conta=${p.accounts["Cartão da casa"]!.id}`);
+    const row = page
+      .getByRole("list", { name: "Compras desta fatura" })
+      .getByRole("listitem")
+      .filter({ hasText: "Cadeira de escritório" });
     await expect(row).toHaveCount(1);
-    await expect(row.getByTitle("Parcela 1 de 3")).toBeVisible();
-    await expect(row.getByRole("img", { name: "Pago por Compartilhado" })).toBeVisible();
+    await expect(row).toContainText("parcela 1/3");
+    await expect(row).toContainText("final 0003 · Compartilhado");
     await p.close();
   });
 
@@ -320,7 +324,7 @@ test.describe("tipo da despesa", () => {
     expect(await count()).toBe("1");
 
     // "Lançar as deste mês" não cria outra
-    await openPage(page, "/lancamentos/recorrencias");
+    await openPage(page, "/fixas");
     await expect(page.getByText("Streaming de filmes")).toBeVisible();
     await page.getByRole("button", { name: "Lançar as deste mês" }).click();
     await expect(
@@ -346,7 +350,7 @@ test.describe("compras conjuntas em Ajustes > Contas", () => {
       .click();
     await expect(page.getByText(/Cartão marcado como de compras conjuntas/)).toBeVisible();
 
-    await openPage(page, "/lancamentos");
+    await openPage(page, expensesSlicePath());
     await expect(
       rowOf(page, "Farmácia da esquina").getByRole("img", { name: "Pago por Compartilhado" }),
     ).toBeVisible();

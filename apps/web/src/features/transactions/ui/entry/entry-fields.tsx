@@ -8,7 +8,6 @@
 // Tab (WCAG 2.4.3), e o Valor primeiro mantém o lançamento em menos de 10 s.)
 // Cada bloco lê e escreve o estado pelo useEntry(); nenhum guarda estado próprio. As medidas são
 // as do desenho, apertadas o bastante para o modal caber numa tela de 720 px de altura.
-import Link from "next/link";
 import { Layers, ReceiptText, Repeat, Sparkles, type LucideIcon } from "lucide-react";
 import { MoneyInput } from "@/components/money/money-input";
 import {
@@ -30,13 +29,13 @@ import { useEntry, useEntryRefs, type ExpenseType } from "./entry-provider";
 const CONTROL = "h-[2.625rem] rounded-xl";
 const MAX_INSTALLMENTS = 24;
 
-/** Despesa, Receita e o caminho para Transferência, num seletor só. */
+/** Despesa ou Receita (a transferência e a recorrência são abas do Novo lançamento, M13.3a). */
 export function KindField() {
   const e = useEntry();
   return (
     <FieldSet>
       <FieldLegend className="sr-only">Tipo</FieldLegend>
-      <div className="bg-muted grid grid-cols-3 gap-1 rounded-xl p-1">
+      <div className="bg-muted grid grid-cols-2 gap-1 rounded-xl p-1">
         {/* Rádios nativos: teclado (setas) e leitor de tela funcionam sem código extra */}
         {(["expense", "income"] as const).map((option) => (
           <label
@@ -61,15 +60,6 @@ export function KindField() {
             {KIND_LABEL[option]}
           </label>
         ))}
-        {/* Transferência é outro formulário (duas contas, sem categoria): um link, não um rádio */}
-        {e.editing ? null : (
-          <Link
-            href="/lancamentos/transferencia"
-            className="text-muted-foreground hover:text-foreground focus-visible:ring-ring compact:h-[2.125rem] flex h-[2.375rem] items-center justify-center rounded-[0.5625rem] text-sm font-semibold outline-none focus-visible:ring-3"
-          >
-            Transferência
-          </Link>
-        )}
       </div>
     </FieldSet>
   );

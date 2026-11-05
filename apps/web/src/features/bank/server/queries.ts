@@ -6,26 +6,30 @@ import {
   addDays,
   addMonthsToKey,
   firstDayOf,
+  defaultStatement,
   householdPeople,
   monthOf,
   todayCivil,
   type CivilDate,
   type HouseholdPerson,
+  type SpendingNature,
 } from "@fintrack/core";
 import {
   authorizeAccountView,
   authorizeConnectionOwner,
-  bankLinkedAccounts,
-  cardStatementView,
+  accountBalances,
+  cardAccountsOf,
+  cardStatements,
   connectionItemIds,
   getConnection,
   importWalletOptions,
   linkableAccounts,
   listHouseholdMembers,
-  openStatementTotals,
   listCategories,
   prisma,
   receivedSummary,
+  statementPaymentLines,
+  statementPurchases,
   suggestLinks,
   type BankAccountForLink,
   type ConnectionGrant,
@@ -37,6 +41,7 @@ import { logger } from "@/lib/logger";
 import { DAILY_CRON } from "./jobs";
 import { keyringReady } from "./keyring";
 import { pluggyFor } from "./provider";
+import { payersOf } from "@/features/transactions/server/queries";
 
 /** A conexão de quem está logado (ou null, sem lar ou sem carteira pessoal). */
 export async function myConnectionGrant(session: Session): Promise<ConnectionGrant | null> {
@@ -209,81 +214,94 @@ export async function getSyncHistory(session: Session) {
   };
 }
 
-// ── Início: contas e cartões ────────────────────────────────────────────────────
+// ── Início: o dinheiro de verdade ──────────────────────────────────────────────
 
 /**
- * As contas ligadas ao banco no recorte do Início (as carteiras do escopo), separadas como no
- * canvas M (M13.2): "Na conta hoje" (corrente e poupança, com o total) e "Seus cartões" (a fatura
- * aberta com o fechamento e o vencimento DELA, o limite e quem usa). Mais o aviso de recebidos e
- * a linha "Banco atualizado às … · buscado às …".
+ * O dinheiro de verdade no recorte do Início (M13.3a, prancha N-Inicio): "Na conta hoje" (as
+ * correntes, com o saldo e o que sobra depois das faturas do mês), "Guardado" (as poupanças, com o
+ * que mudou no mês) e "Faturas a pagar" (a fatura de cada cartão que vence agora). São os números
+ * do banco, com os recebidos ainda não conferidos (ADR-025). Mais o aviso de recebidos e a linha
+ * "Banco atualizado às … · buscado às …".
  */
 export async function getBankHome(session: Session, walletId: string | null) {
   const scope = await requireScope(session, "view", walletId);
-  const [accounts, received, grant, people] = await Promise.all([
-    bankLinkedAccounts(prisma, scope.walletIds),
+  const today = todayCivil();
+  const month = monthOf(today);
+  const [balances, cardAccounts, received, grant, people] = await Promise.all([
+    accountBalances(prisma, scope, { today, periodStart: firstDayOf(month) }),
+    cardAccountsOf(prisma, scope.walletIds),
     receivedSummary(prisma, scope.walletIds),
     myConnectionGrant(session),
     peopleOf(session),
   ]);
-  if (accounts.length === 0 && received.count === 0) return null;
-  const connectionIds = [
-    ...new Set(
-      (
-        await prisma.financialAccount.findMany({
-          where: { id: { in: accounts.map((a) => a.id) } },
-          select: { connectionId: true },
-        })
-      )
-        .map((a) => a.connectionId)
-        .filter((id): id is string => id !== null),
-    ),
-  ];
-  const [items, connections] = await Promise.all([
+  if (balances.length === 0 && cardAccounts.length === 0 && received.count === 0) return null;
+  const connectionIds = await prisma.financialAccount.findMany({
+    where: {
+      id: { in: [...balances.map((a) => a.id), ...cardAccounts.map((c) => c.id)] },
+      connectionId: { not: null },
+    },
+    select: { connectionId: true },
+  });
+  const ids = [...new Set(connectionIds.map((a) => a.connectionId as string))];
+  const [items, connections, statements] = await Promise.all([
     prisma.providerItem.findMany({
-      where: { connectionId: { in: connectionIds } },
+      where: { connectionId: { in: ids } },
       select: { bankUpdatedAt: true },
     }),
     prisma.providerConnection.findMany({
-      where: { id: { in: connectionIds } },
+      where: { id: { in: ids } },
       select: { lastSyncedAt: true },
     }),
+    Promise.all(
+      cardAccounts.map(async (card) => ({
+        card,
+        statements: await cardStatements(prisma, card, today),
+      })),
+    ),
   ]);
-  const today = todayCivil();
-  const open = await openStatementTotals(
-    prisma,
-    accounts.map((a) => a.id),
-    today,
-  );
   const latest = (dates: (Date | null)[]) =>
     dates.filter((d): d is Date => d !== null).sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
   const byId = new Map(people.map((p) => [p.userId, p]));
-  const money = accounts
-    .filter((a) => a.kind !== "CREDIT_CARD")
-    .map((a) => ({
-      id: a.id,
-      name: a.name,
-      kind: a.kind,
-      wallet: a.wallet,
-      balance: a.balance?.balance ?? null,
-      asOf: a.balance?.asOf ?? null,
-    }));
-  const cards = accounts
-    .filter((a) => a.kind === "CREDIT_CARD")
-    .map((a) => ({
-      id: a.id,
-      name: a.name,
-      lastFour: a.lastFour,
-      additionalCount: a.additionalCount,
-      holders: a.holderIds.flatMap((id) => {
+  const cards = statements.map(({ card, statements: list }) => {
+    const bill = defaultStatement(list, today);
+    return {
+      id: card.id,
+      name: card.name,
+      lastFour: card.lastFour,
+      holders: card.holderIds.flatMap((id) => {
         const person = byId.get(id);
         return person ? [person] : [];
       }),
-      open: open.get(a.id) ?? null,
-      creditLimit: a.balance?.creditLimit ?? null,
-      availableCredit: a.balance?.availableCredit ?? null,
-    }));
+      bill: bill
+        ? {
+            id: bill.id,
+            dueDate: bill.dueDate,
+            closingDate: bill.closingDate,
+            state: bill.state,
+            amount: bill.closed?.total ?? bill.purchases,
+          }
+        : null,
+      creditLimit: card.creditLimit,
+      availableCredit: card.availableCredit,
+    };
+  });
+  const checking = balances.filter((a) => a.kind !== "SAVINGS");
+  const savings = balances.filter((a) => a.kind === "SAVINGS");
+  // As faturas que vencem neste mês e ainda não foram pagas: saem da conta até o fim do mês
+  const dueThisMonth = cards.flatMap((c) =>
+    c.bill && monthOf(c.bill.dueDate) === month && c.bill.state !== "paid" ? [c.bill.amount] : [],
+  );
+  const inAccounts = checking.reduce((sum, a) => sum + a.balance.today, 0n);
+  const toPay = dueThisMonth.reduce((sum, v) => sum + v, 0n);
   return {
-    accounts: money,
+    month,
+    checking,
+    savings,
+    inAccounts,
+    afterBills: inAccounts - toPay,
+    toPay,
+    saved: savings.reduce((sum, a) => sum + a.balance.today, 0n),
+    savedChange: savings.reduce((sum, a) => sum + a.balance.change, 0n),
     cards,
     received,
     bankUpdatedAt: latest(items.map((i) => i.bankUpdatedAt)),
@@ -328,45 +346,111 @@ export async function categoryChoices(session: Session) {
   }
 }
 
-export async function getCardPage(session: Session, accountId: string) {
-  const access = await authorizeAccountView(prisma, session.user.id, accountId);
-  if (!access.ok) throw new AccessError("NOT_FOUND");
+/** A natureza da compra pela aba da fatura (`?tipo=`). */
+export const NATURE_PARAM: Record<string, SpendingNature> = {
+  fixas: "fixed",
+  parcelas: "installment",
+  variaveis: "variable",
+};
+
+/**
+ * Cartões (M13.3a, prancha N-Cartoes): um cartão e uma fatura por vez. `?conta=` escolhe o cartão
+ * (a conta da fatura) e `?fatura=` a fatura; sem eles, o primeiro cartão e a fatura que ainda vai
+ * vencer. Quem vê: quem vê o ambiente da conta do cartão (o crachá da conta).
+ */
+export async function getCardsPage(
+  session: Session,
+  params: Record<string, string | string[] | undefined>,
+) {
+  const one = (value: string | string[] | undefined) =>
+    (Array.isArray(value) ? value[0] : value)?.trim() || null;
+  const scope = await requireScope(session, "view");
   const today = todayCivil();
-  const [view, categories, connection, grant, card] = await Promise.all([
-    cardStatementView(prisma, access.grant, today),
+  const [accounts, categories, people, payers] = await Promise.all([
+    cardAccountsOf(prisma, scope.walletIds),
     categoryChoices(session),
-    access.grant.account.connectionId
+    peopleOf(session),
+    payersOf(session),
+  ]);
+  const requested = one(params.conta);
+  const chosen = accounts.find((a) => a.id === requested) ?? accounts[0] ?? null;
+  if (!chosen) return { accounts: [], today, chosen: null } as const;
+  const access = await authorizeAccountView(prisma, session.user.id, chosen.id);
+  if (!access.ok) throw new AccessError("NOT_FOUND");
+  const all = await Promise.all(
+    accounts.map(async (a) => ({
+      account: a,
+      statements: await cardStatements(prisma, a, today),
+    })),
+  );
+  const statements = all.find((x) => x.account.id === chosen.id)?.statements ?? [];
+  const statement =
+    statements.find((s) => s.id === one(params.fatura)) ?? defaultStatement(statements, today);
+  const index = statement ? statements.indexOf(statement) : -1;
+  const previous = index > 0 ? statements[index - 1] : null;
+  const nature = NATURE_PARAM[one(params.tipo) ?? ""] ?? null;
+  const [purchases, previousPaid, connection, grant] = await Promise.all([
+    statement ? statementPurchases(prisma, access.grant, statement.id) : [],
+    previous ? statementPaymentLines(prisma, chosen.id, previous) : [],
+    chosen.connectionId
       ? prisma.providerConnection.findUnique({
-          where: { id: access.grant.account.connectionId },
+          where: { id: chosen.connectionId },
           select: {
             userId: true,
             lastSyncedAt: true,
-            items: { select: { bankUpdatedAt: true, institution: true } },
+            items: { select: { bankUpdatedAt: true } },
           },
         })
       : null,
     myConnectionGrant(session),
-    // O cartão principal da conta (o primeiro cadastrado), para o título "Mastercard final 0001"
-    prisma.paymentCard.findFirst({
-      where: { accountId, archivedAt: null },
-      orderBy: { createdAt: "asc" },
-      select: { lastFour: true },
-    }),
   ]);
+  const byId = new Map(people.map((p) => [p.userId, p]));
   const bankUpdatedAt =
     connection?.items
       .map((i) => i.bankUpdatedAt)
       .filter((d): d is Date => d !== null)
       .sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
   return {
-    ...view,
+    today,
+    accounts: all.map(({ account, statements: list }) => {
+      const bill = defaultStatement(list, today);
+      return {
+        ...account,
+        holders: account.holderIds.flatMap((id) => {
+          const person = byId.get(id);
+          return person ? [person] : [];
+        }),
+        bill: bill ? { dueDate: bill.dueDate, amount: bill.closed?.total ?? bill.purchases } : null,
+      };
+    }),
+    chosen,
     wallet: access.grant.wallet.wallet,
     canEdit: access.grant.wallet.role !== "VIEWER",
+    statements,
+    statement,
+    previous,
+    next: index >= 0 ? (statements[index + 1] ?? null) : null,
+    previousPaid,
+    nature,
+    purchases: nature ? purchases.filter((p) => p.nature === nature) : purchases,
+    /** Quem pagou cada compra, pelo nome (o "final 0001 · Lia" da linha) */
+    payers,
     categories,
-    lastFour: card?.lastFour ?? null,
     lastSyncedAt: connection?.lastSyncedAt ?? null,
     bankUpdatedAt,
     canSync: Boolean(grant?.connectionId && connection && connection.userId === session.user.id),
-    today,
   };
+}
+
+/**
+ * Para onde vai o endereço antigo de uma conta (`/carteiras/conta/[id]`, M09.1): o cartão para
+ * Cartões, o resto para Lançamentos. Conta que a pessoa não vê: null (a página responde 404).
+ */
+export async function accountPageTarget(session: Session, accountId: string) {
+  const access = await authorizeAccountView(prisma, session.user.id, accountId);
+  if (!access.ok) return null;
+  const { account } = access.grant;
+  return account.kind === "CREDIT_CARD"
+    ? `/cartoes?conta=${account.id}`
+    : `/lancamentos?conta=${account.id}`;
 }

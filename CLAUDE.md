@@ -95,6 +95,14 @@ Projeto de portfólio construído em módulos (M00 a M12); cada módulo é uma m
   entre contas e o pagamento da fatura ligados na revisão (`MatchKind` `TRANSFER`, `suggestTransfers`) e a
   transferência de um lado só (`transferPeer`), o "O que foi" (`label`: o nome da pessoa, a descrição continua a do
   banco; vale para as parcelas irmãs), Editar conta e Editar categoria pelo menu "⋯"
+- v1.3.0 (M13.3a, ADR-025, canvas linha N): contas e cartões separados. Toda compra no cartão tem fatura (gatilho
+  `transaction_card_statement`, `fintrack_statement_for` = `statementFor` do core) e conta no mês do VENCIMENTO
+  (data de caixa: `CASH_ON_SQL`/`cashOnWhere`, `packages/db/src/cash.ts`); no cartão o estorno abate a saída
+  (`flowOf`); o ritmo do mês por janela (`PaceWindow`: o mês nas contas, o período da fatura no cartão).
+  Lançamentos uma conta por vez com o saldo (`accountBalances`), o recorte do painel em duas partes (`listView`),
+  Período e Pago por como combos de marcar (`?mes=`, `?pago=` repetidos), Cartões por fatura (`/cartoes`,
+  `cardStatements`), o Início com Resultado, Na conta hoje, Guardado e Faturas a pagar, Novo lançamento com abas
+  (`?aba=`) e Fixas e parcelas (`/fixas`) no menu
 
 Regras específicas do Next.js 16: @apps/web/AGENTS.md
 

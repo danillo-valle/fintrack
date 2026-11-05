@@ -14,6 +14,9 @@ export type CivilDate = string;
 /** Um mês no formato "AAAA-MM", como "2026-10". */
 export type MonthKey = string;
 
+/** Um período de dias, com o primeiro e o último (inclusive). */
+export type DateRange = { from: CivilDate; to: CivilDate };
+
 const CIVIL_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const MONTH_RE = /^(\d{4})-(\d{2})$/;
 

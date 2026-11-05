@@ -12,7 +12,6 @@ import {
   budgetRows,
   budgetStatus,
   cashBucketOf,
-  cashDateFor,
   cashFlow,
   categoryGroupOf,
   comparisonFor,
@@ -21,7 +20,9 @@ import {
   monthlySeries,
   monthOf,
   monthPhase,
+  monthResult,
   monthSummary,
+  NO_FIGURES,
   monthsBefore,
   monthsEndingAt,
   monthsStartingAt,
@@ -53,14 +54,7 @@ import type { Session } from "@/lib/auth";
 import { environmentsOf, environmentsSentence } from "@/features/transactions/environments";
 import type { PayerOption } from "@/features/transactions/payers";
 import { payersOf } from "@/features/transactions/server/queries";
-import {
-  monthSpan,
-  monthsSpan,
-  monthToDate,
-  statementSpan,
-  transactionsHref,
-  type ListLink,
-} from "../links";
+import { monthSpan, monthsSpan, monthToDate, transactionsHref, type ListLink } from "../links";
 import { budgetQuery, parseBudgetParams } from "../schemas";
 import {
   cachedBudgets,
@@ -259,7 +253,7 @@ export async function getHomeDashboard(session: Session, params: SearchParams) {
   // M10.3: o resumo pode ser do mês anterior (até o dia 5), com os 6 meses antes dele
   const period = summaryPeriod(today);
   const first = monthsBefore(period.month, 6)[0] as MonthKey;
-  const [rows, plans, budgets, cash, summaryBudgets, newRecurrences] = await Promise.all([
+  const [spending, plans, budgets, cash, summaryBudgets, newRecurrences] = await Promise.all([
     cachedSpending(scope, first, addMonthsToKey(month, 5), today),
     cachedRecurrences(scope, monthsStartingAt(month, 6)),
     cachedBudgets(scope, month, month),
@@ -269,13 +263,15 @@ export async function getHomeDashboard(session: Session, params: SearchParams) {
       : cachedBudgets(scope, period.month, period.month),
     cachedNewRecurrences(scope, period.month),
   ]);
+  const { rows } = spending;
+  const windows = new Map(spending.windows);
   const pending = pendingRows(plans, [month], today);
   const slice: Slice = {};
   const base = { walletId: parsed.walletId };
   const span = monthSpan(month);
   const toDate = monthToDate(month, today);
 
-  const all = projectMonth(month, today, figuresFor(rows, pending, month, slice));
+  const all = projectMonth(month, today, figuresFor(rows, pending, month, slice), windows);
   const budgetTotal = sumCents(budgets.map((b) => b.cents));
   const groups: GroupView[] = spendingByGroup({
     rows,
@@ -284,6 +280,7 @@ export async function getHomeDashboard(session: Session, params: SearchParams) {
     month,
     today,
     slice,
+    windows,
   }).map((g) => {
     const categoryId = g.groupId ?? "none";
     const link = (s: { from: CivilDate; to: CivilDate }): string =>
@@ -319,6 +316,7 @@ export async function getHomeDashboard(session: Session, params: SearchParams) {
     month,
     today,
     payer: null,
+    windows,
   });
   const alerts: AlertView[] = rowsOfBudget
     .filter((r) => r.status.kind === "over")
@@ -353,8 +351,24 @@ export async function getHomeDashboard(session: Session, params: SearchParams) {
     todayLabel: todayLabel(today),
     month,
     monthLabel: monthLabel(month),
+    /** "novembro" */
+    monthName: lower(month),
     elapsedDays: all.elapsedDays,
     monthDays: all.monthDays,
+    /** O resultado do mês até hoje (M13.3a): entradas nas contas, saídas e o que sobra */
+    result: (() => {
+      const r = monthResult(rows, month, slice);
+      return {
+        income: { cents: r.income, href: listHref({ ...base, ...toDate, type: "income" }) },
+        expense: {
+          cents: r.accounts + r.cards,
+          href: listHref({ ...base, ...toDate, type: "expense" }),
+        },
+        accounts: r.accounts,
+        cards: r.cards,
+        net: r.net,
+      };
+    })(),
     summary: {
       projected: {
         cents: all.projected,
@@ -391,6 +405,7 @@ export async function getHomeDashboard(session: Session, params: SearchParams) {
         budgets: summaryBudgets ?? budgets,
         nodes: ctx.tree,
         recurrences: newRecurrences,
+        windows,
       }),
     ),
   };
@@ -515,7 +530,7 @@ function summaryView(
           emphasis: "strong",
         },
         { text: ` por mês, desde ${ddmm(r.startsOn)}. Em 12 meses: ` },
-        { cents: o.yearly, href: "/lancamentos/recorrencias" },
+        { cents: o.yearly, href: "/fixas" },
       ],
     };
   });
@@ -564,17 +579,17 @@ function cashMovements(
   today: CivilDate,
 ): (CashMovement & { accountId: string | null })[] {
   const movements: (CashMovement & { accountId: string | null })[] = cash.map((r) => ({
-    date: cashDateFor(r.occurredOn, r.account, r.statementDue),
+    date: r.cashOn,
     amount: r.amount,
-    bucket: cashBucketOf(r.amount, r.fromRecurrence),
+    bucket: cashBucketOf({ amount: r.amount, accountKind: r.accountKind }, r.fromRecurrence),
     accountId: r.accountId,
   }));
   for (const plan of plans) {
     for (const o of pendingOccurrences(plan, months, today)) {
       movements.push({
-        date: cashDateFor(o.date, plan.account),
+        date: o.cashDate,
         amount: plan.amount,
-        bucket: cashBucketOf(plan.amount, true),
+        bucket: cashBucketOf({ amount: plan.amount, accountKind: plan.account.kind }, true),
         accountId: null, // ainda não é lançamento: aparece como "Recorrências a lançar"
       });
     }
@@ -615,7 +630,7 @@ export async function getCashFlowPage(session: Session, params: SearchParams) {
   const byAccount = new Map<string | null, { income: bigint; expense: bigint }>();
   for (const m of movements) {
     const entry = byAccount.get(m.accountId) ?? { income: 0n, expense: 0n };
-    if (m.amount > 0n) entry.income += m.amount;
+    if (m.bucket === "income") entry.income += m.amount;
     else entry.expense -= m.amount;
     byAccount.set(m.accountId, entry);
   }
@@ -623,27 +638,26 @@ export async function getCashFlowPage(session: Session, params: SearchParams) {
   const detail: CashDetailRow[] = [...byAccount.entries()]
     .map(([accountId, sums]) => {
       if (accountId === null) {
-        const href = "/lancamentos/recorrencias";
+        const href = "/fixas";
         return {
           key: "recorrencias",
-          name: "Recorrências ainda não lançadas",
+          name: "Fixas ainda não lançadas",
           note: "Pelo valor previsto de cada uma",
           income: sums.income > 0n ? { cents: sums.income, href } : null,
           expense: sums.expense > 0n ? { cents: sums.expense, href } : null,
         };
       }
       const acc = accounts.get(accountId);
-      const cycle = acc?.account.kind === "CREDIT_CARD" ? acc.account.cycle : null;
-      const statement = cycle ? statementSpan(detailMonth, cycle) : null;
-      const period = statement ?? span;
+      // Na data de caixa (ADR-025), o mês de um cartão é a fatura que vence nele
       const link = (type: ListLink["type"]) =>
-        listHref({ walletId: parsed.walletId, accountId, ...period, type });
+        listHref({ walletId: parsed.walletId, accountId, ...span, type });
       return {
         key: accountId,
         name: acc?.accountName ?? "Conta",
-        note: statement
-          ? `Fatura que vence em ${monthTitle(detailMonth).toLowerCase()}: compras de ${formatShort(statement.from)} a ${formatShort(statement.to)}`
-          : "Lançamentos do mês",
+        note:
+          acc?.accountKind === "CREDIT_CARD"
+            ? `Fatura que vence em ${monthTitle(detailMonth).toLowerCase()}`
+            : "Lançamentos do mês",
         income: sums.income > 0n ? { cents: sums.income, href: link("income") } : null,
         expense: sums.expense > 0n ? { cents: sums.expense, href: link("expense") } : null,
       };
@@ -664,11 +678,9 @@ export async function getCashFlowPage(session: Session, params: SearchParams) {
     flow,
     totals: { income: totalIncome, out: totalOut, cumulative: flow.at(-1)?.cumulative ?? 0n },
     detail: { month: detailMonth, title: monthTitle(detailMonth), rows: detail },
-    recurrencesHref: "/lancamentos/recorrencias",
+    recurrencesHref: "/fixas",
   };
 }
-
-const formatShort = (date: CivilDate) => `${date.slice(8, 10)}/${date.slice(5, 7)}`;
 
 // ── Orçamento do mês ───────────────────────────────────────────────────────────
 
@@ -716,11 +728,13 @@ export async function getBudgetPage(session: Session, params: SearchParams) {
   const listHref = (link: ListLink) => transactionsHref({ ...link, back });
   const month = parsed.month;
   const months6 = monthsBefore(month, 6);
-  const [rows, plans, budgets] = await Promise.all([
+  const [spending, plans, budgets] = await Promise.all([
     cachedSpending(scope, months6[0] as MonthKey, month, today),
     cachedRecurrences(scope, [month]),
     cachedBudgets(scope, month, month),
   ]);
+  const { rows } = spending;
+  const windows = new Map(spending.windows);
   const pending = pendingRows(plans, [month], today);
   const payer = payerString(parsed.payer);
   const inMonth = budgets;
@@ -745,6 +759,7 @@ export async function getBudgetPage(session: Session, params: SearchParams) {
     month,
     today,
     payer,
+    windows,
   }).map((r) => {
     const link = (s: { from: CivilDate; to: CivilDate }, who: string | null = payer) =>
       listHref({
@@ -805,12 +820,8 @@ export async function getBudgetPage(session: Session, params: SearchParams) {
   const over = view.filter((r) => r.status.kind === "over");
   const singleWallet =
     parsed.walletId && ctx.editable.has(parsed.walletId) ? parsed.walletId : null;
-  const projection = projectMonth(month, today, {
-    spent: totals.spent,
-    variableSpent: 0n,
-    scheduled: 0n,
-    pendingRecurrences: 0n,
-  });
+  // Só para os dias do mês da tela ("dia 3 de 30"): os números vêm das linhas
+  const projection = projectMonth(month, today, NO_FIGURES);
 
   return {
     hasWallets: ctx.hasWallets,
@@ -880,11 +891,13 @@ export async function getEvolutionPage(session: Session, params: SearchParams) {
   const month = monthOf(today);
   const months = monthsEndingAt(month, parsed.span);
   const first = monthsBefore(months[0] as MonthKey, 6)[0] as MonthKey;
-  const [rows, plans, budgets] = await Promise.all([
+  const [spending, plans, budgets] = await Promise.all([
     cachedSpending(scope, first, month, today),
     cachedRecurrences(scope, [month]),
     cachedBudgets(scope, months[0] as MonthKey, month),
   ]);
+  const { rows } = spending;
+  const windows = new Map(spending.windows);
   const pending = pendingRows(plans, [month], today);
   const payer = payerString(parsed.payer);
   const base: Slice = { walletId: parsed.walletId, payer };
@@ -925,6 +938,7 @@ export async function getEvolutionPage(session: Session, params: SearchParams) {
       months,
       today,
       slice,
+      windows,
     }).map((p) => ({
       ...p,
       abbr: monthAbbr(p.month),

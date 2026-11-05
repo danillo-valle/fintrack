@@ -3,17 +3,21 @@
 // quem digita. Nada do formulário é confiável, nem o <select> de forma de pagamento.
 import {
   cleanText,
+  dayOfMonth,
   decimalToCents,
   addMonths,
+  firstDayOf,
+  monthOf,
   isCivilDate,
   MAX_ABS_CENTS,
-  monthRange,
   parsePayerParam,
   payerParam,
   PAYMENT_METHODS,
   TRANSFER_METHODS,
   type CategorizationSource,
   type CivilDate,
+  type DateRange,
+  type MonthKey,
   type PayerFilter,
   type PaymentMethod,
 } from "@fintrack/core";
@@ -195,16 +199,26 @@ export const generateSchema = z.object({
 
 export type TransactionTypeFilter = "expense" | "income" | "transfer";
 
-/** O mesmo formato que o @fintrack/db recebe (TransactionFilters). */
+/**
+ * O período da lista (M13.3a): meses marcados no combo do Período (um ou vários, não precisam ser
+ * seguidos) ou dias de/até (o que um número do painel abre: "do dia 1 até hoje"). Vale pela data
+ * de caixa (ADR-025): no cartão, o mês do vencimento da fatura.
+ */
+export type ListPeriod =
+  | { kind: "months"; months: readonly MonthKey[] }
+  | { kind: "range"; from: CivilDate; to: CivilDate };
+
+/** O mesmo formato que o @fintrack/db recebe (TransactionFilters), com o período ainda na forma da URL. */
 export type ListFilters = {
-  from: CivilDate;
-  to: CivilDate;
+  period: ListPeriod;
+  /** Só o que já aconteceu até este dia (`?aconteceu=`): o "gasto até hoje" do painel */
+  upTo: CivilDate | null;
   accountId: string | null;
   categoryId: string | null;
   text: string | null;
   type: TransactionTypeFilter | null;
-  /** "Pago por" (M07.4): Compartilhado ou uma pessoa */
-  payer: PayerFilter | null;
+  /** "Pago por" (M07.4): Compartilhado ou pessoas; vazio = todos (M13.3a: várias) */
+  payers: readonly PayerFilter[];
   /** Recebidos do banco esperando revisão (M09.1); fora disso, a lista não os mostra */
   received: boolean;
   /** Quem categorizou (M10.1, `?quem=`): os números de Ajustes › Categorização levam aqui */
@@ -215,9 +229,51 @@ export type ParsedFilters = {
   filters: ListFilters;
   walletId: string | null;
   cursor: string | null;
+  /** O cursor da parte dos cartões, no recorte do painel (M13.3a) */
+  cardCursor: string | null;
   /** De onde se veio (M08): uma tela do painel, para o link "Voltar para Orçamento · Mercado" */
   back: string | null;
 };
+
+/** Os períodos que o banco recebe: um por mês marcado, ou o de/até. */
+export function periodRanges(period: ListPeriod): DateRange[] {
+  if (period.kind === "range") return [{ from: period.from, to: period.to }];
+  return period.months.map((month) => ({ from: firstDayOf(month), to: dayOfMonth(month, 31) }));
+}
+
+/** O primeiro e o último dia do período (o saldo no começo, o CSV). */
+export function periodBounds(period: ListPeriod): DateRange {
+  const ranges = periodRanges(period);
+  return {
+    from: ranges.map((r) => r.from).toSorted()[0] as CivilDate,
+    to: ranges
+      .map((r) => r.to)
+      .toSorted()
+      .at(-1) as CivilDate,
+  };
+}
+
+/**
+ * O que a lista mostra (M13.3a, ADR-025):
+ *   received  a fila do banco (`?situacao=recebidos`)
+ *   account   uma conta que não é cartão (o padrão de Lançamentos)
+ *   slice     o recorte que um número do painel abre, em duas partes (contas e cartões): sem conta
+ *             escolhida e com algum filtro que não é período, ambiente ou Pago por
+ */
+export type ListView = "received" | "account" | "slice";
+
+export function listView(parsed: ParsedFilters): ListView {
+  const f = parsed.filters;
+  if (f.received) return "received";
+  if (f.accountId) return "account";
+  return hasSliceFilters(parsed) ? "slice" : "account";
+}
+
+/** Algum filtro além do período, do ambiente e do Pago por (o que um número do painel escreve). */
+export function hasSliceFilters(parsed: ParsedFilters): boolean {
+  const f = parsed.filters;
+  return Boolean(f.categoryId || f.type || f.text || f.categorizedBy || f.upTo || parsed.back);
+}
 
 /**
  * O "volta" só aceita as telas do painel, com os parâmetros delas: nunca outro site nem outro
@@ -230,6 +286,11 @@ export const backOrNull = (value: string | null) => (value && BACK.test(value) ?
 type SearchParams = Record<string, string | string[] | undefined>;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
+/** No máximo 24 meses marcados (o combo mostra 12 por vez) */
+const MAX_MONTHS = 24;
+/** No máximo uma pessoa por pessoa do lar mais o Compartilhado; mais que isso é lixo na URL */
+const MAX_PAYERS = 12;
 const TYPES: Record<string, TransactionTypeFilter> = {
   despesa: "expense",
   receita: "income",
@@ -255,71 +316,127 @@ const TYPE_PARAM: Record<TransactionTypeFilter, string> = {
 
 const one = (value: string | string[] | undefined) =>
   (Array.isArray(value) ? value[0] : value)?.trim() || null;
+const many = (value: string | string[] | undefined) =>
+  (Array.isArray(value) ? value : value === undefined ? [] : [value])
+    .map((v) => v.trim())
+    .filter(Boolean);
+const dateOrNull = (value: string | null) => (value && isCivilDate(value) ? value : null);
 const idOrNull = (value: string | null) => (value && UUID.test(value) ? value.toLowerCase() : null);
 
 /**
  * Lê os filtros da URL. Os nomes são em português porque aparecem na barra de endereço:
- *   /lancamentos?de=2026-10-01&ate=2026-10-31&carteira=<id>&conta=<id>&categoria=<id|sem>&q=mercado&tipo=despesa&pago=<id|compartilhado>
+ *   /lancamentos?mes=2026-10&mes=2026-08   meses marcados no Período (um ou vários, M13.3a)
+ *   /lancamentos?de=2026-10-01&ate=2026-10-09   dias (o "até hoje" de um número do painel)
+ *   &carteira=<id>&conta=<id>&categoria=<id|sem>&q=mercado&tipo=despesa
+ *   &pago=<id>&pago=compartilhado   Pago por: uma ou várias pessoas (M13.3a)
+ *   &aconteceu=2026-11-03   só o que já aconteceu até o dia (o "gasto até hoje", M13.3a)
  *   /lancamentos?quem=classificador   quem categorizou (M10.1): regra, historico, banco,
  *                                     classificador ou voce
  *   /lancamentos?situacao=recebidos   os recebidos do banco que esperam revisão (M09.1); sem
- *                                     datas, os dos últimos 12 meses
+ *                                     período, os dos últimos 12 meses
  * Nada aqui é confiável: valor fora do formato é ignorado (cai no padrão), nunca vira erro; o
  * texto da busca chega sem caractere nulo nem invisível (cleanText, M12.4a).
  * O id de carteira passa depois pelo escopo do servidor: carteira alheia = lista vazia.
  */
 export function parseFilters(params: SearchParams, today: CivilDate): ParsedFilters {
   const received = one(params.situacao) === "recebidos";
-  const month = monthRange(today);
-  let from = one(params.de);
-  let to = one(params.ate);
-  from = from && isCivilDate(from) ? from : received ? addMonths(today, -12) : month.from;
-  to = to && isCivilDate(to) ? to : received ? today : month.to;
-  if (from > to) [from, to] = [to, from];
-
   const category = one(params.categoria);
   // A busca é o único texto livre da URL: limpa antes de chegar ao banco (M12.4a)
   const text = cleanText(one(params.q) ?? "").trim();
   return {
     filters: {
-      from,
-      to,
+      period: parsePeriod(params, today, received),
+      upTo: dateOrNull(one(params.aconteceu)),
       accountId: idOrNull(one(params.conta)),
       categoryId: category === "sem" ? "none" : idOrNull(category),
       text: text ? text.slice(0, 100) : null,
       type: TYPES[one(params.tipo) ?? ""] ?? null,
       // A pessoa passa depois pelo escopo: filtrar por quem não está no lar só esvazia a lista
-      payer: parsePayerParam(one(params.pago)),
+      payers: uniqueBy(
+        many(params.pago)
+          .slice(0, MAX_PAYERS)
+          .flatMap((p) => {
+            const payer = parsePayerParam(p);
+            return payer ? [payer] : [];
+          }),
+        payerParam,
+      ),
       received,
       categorizedBy: CATEGORIZED_BY[one(params.quem) ?? ""] ?? null,
     },
     walletId: idOrNull(one(params.carteira)),
     cursor: one(params.cursor),
+    cardCursor: one(params.cursorCartoes),
     back: backOrNull(one(params.volta)),
   };
 }
 
+function parsePeriod(params: SearchParams, today: CivilDate, received: boolean): ListPeriod {
+  let from = one(params.de);
+  let to = one(params.ate);
+  if (from && to && isCivilDate(from) && isCivilDate(to)) {
+    if (from > to) [from, to] = [to, from];
+    return { kind: "range", from, to };
+  }
+  const months = [...new Set(many(params.mes).filter((m) => MONTH.test(m)))]
+    .slice(0, MAX_MONTHS)
+    .toSorted();
+  if (months.length > 0) return { kind: "months", months };
+  if (received) return { kind: "range", from: addMonths(today, -12), to: today };
+  return { kind: "months", months: [monthOf(today)] };
+}
+
+function uniqueBy<T>(items: readonly T[], key: (item: T) => string): T[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const k = key(item);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+/** O valor de um parâmetro: um texto, vários (mes, pago) ou null para tirar. */
+export type QueryValue = string | readonly string[] | null;
+
 /** O contrário: monta a URL de volta (próxima página, limpar um filtro, exportar o mesmo). */
 export function filtersToQuery(
-  parsed: { filters: ListFilters; walletId: string | null; back?: string | null },
-  extra: Record<string, string | null> = {},
+  parsed: {
+    filters: ListFilters;
+    walletId: string | null;
+    back?: string | null;
+  },
+  extra: Record<string, QueryValue> = {},
 ): string {
   const { filters: f, walletId } = parsed;
   const query = new URLSearchParams();
-  query.set("de", f.from);
-  query.set("ate", f.to);
+  if (f.period.kind === "range") {
+    query.set("de", f.period.from);
+    query.set("ate", f.period.to);
+  } else {
+    for (const month of f.period.months) query.append("mes", month);
+  }
+  if (f.upTo) query.set("aconteceu", f.upTo);
   if (walletId) query.set("carteira", walletId);
   if (f.accountId) query.set("conta", f.accountId);
   if (f.categoryId) query.set("categoria", f.categoryId === "none" ? "sem" : f.categoryId);
   if (f.text) query.set("q", f.text);
   if (f.type) query.set("tipo", TYPE_PARAM[f.type]);
-  if (f.payer) query.set("pago", payerParam(f.payer));
+  for (const payer of f.payers) query.append("pago", payerParam(payer));
   if (f.received) query.set("situacao", "recebidos");
   if (f.categorizedBy) query.set("quem", CATEGORIZED_BY_PARAM[f.categorizedBy]);
   if (parsed.back) query.set("volta", parsed.back);
   for (const [key, value] of Object.entries(extra)) {
-    if (value === null) query.delete(key);
-    else query.set(key, value);
+    query.delete(key);
+    // O período é um só: trocar os meses tira o de/até, e o contrário
+    if (key === "mes" && value !== null) {
+      query.delete("de");
+      query.delete("ate");
+    }
+    if ((key === "de" || key === "ate") && value !== null) query.delete("mes");
+    if (value === null) continue;
+    if (typeof value === "string") query.set(key, value);
+    else for (const v of value) query.append(key, v);
   }
   return query.toString();
 }

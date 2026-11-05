@@ -26,7 +26,7 @@ import {
   importWindow,
   installmentSiblingKey,
   runCascade,
-  statementForDueDate,
+  bankBillStatement,
   todayCivil,
   type CivilDate,
   type ImportedFields,
@@ -46,6 +46,7 @@ import { openSecret, SecretKeyError, type SecretKeyring } from "./connection-sec
 import type { Prisma, PrismaClient } from "./generated/prisma/client";
 import type { SyncTrigger } from "./generated/prisma/enums";
 import { fromDbDecimal, fromDbDecimalOrNull, toDbDecimal } from "./money";
+import { alignOpenStatement } from "./statements";
 
 export type SyncOutcome =
   | {
@@ -215,6 +216,18 @@ export async function runSync(
         const account = linked.get(bankAccount.externalId);
         if (!account) continue; // conta que a pessoa escolheu não importar
         await saveBalance(db, account.id, bankAccount, now);
+        if (account.kind === "CREDIT_CARD") {
+          // As datas da fatura aberta, como o banco informa, antes das compras (ADR-025)
+          await alignOpenStatement(
+            db,
+            account,
+            {
+              closeDate: bankAccount.credit?.closeDate ?? null,
+              dueDate: bankAccount.credit?.dueDate ?? null,
+            },
+            today,
+          );
+        }
         const statements =
           account.kind === "CREDIT_CARD"
             ? await saveBills(
@@ -344,7 +357,9 @@ async function saveBills(
       : null;
   for (const bill of bills) {
     if (compareCivil(bill.dueDate, importFrom) < 0) continue;
-    const statement = statementForDueDate(bill.dueDate, cycle, bank.credit?.closeDate ?? null);
+    // O fechamento no dia em que o banco fecha a fatura aberta, não no do ciclo cadastrado: a compra
+    // que o banco ainda não pôs numa fatura fica na aberta, e não numa fatura fechada (ADR-025)
+    const statement = bankBillStatement(bill.dueDate, bank.credit?.closeDate ?? null, cycle);
     const data = {
       closingDate: dbDateFromCivil(statement.closingDate),
       dueDate: dbDateFromCivil(statement.dueDate),
@@ -661,7 +676,9 @@ async function saveTransactions(
       occurredOn: civilFromDbDate(row.occurredOn),
       description: row.description,
       amount: fromDbDecimal(row.amount),
-      statementExternalId: row.statementId,
+      // Sem a fatura do banco, a da compra é a que o gatilho escolheu pelo dia (ADR-025): ela muda
+      // junto com o dia, e não conta como mudança sozinha
+      statementExternalId: statementId === null ? null : row.statementId,
       cardLastFour: row.providerCardLastFour,
       installment:
         row.providerInstallmentNumber !== null && row.providerInstallmentCount !== null

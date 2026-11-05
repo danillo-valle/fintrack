@@ -11,10 +11,11 @@ import { getHomeDashboard } from "@/features/budget/server/queries";
 import { EnvironmentRow } from "@/features/budget/ui/environment-row";
 import { GroupSpendingChart, GroupSpendingTable } from "@/features/budget/ui/group-spending";
 import { BudgetAlerts, CashFlowMini, Panel } from "@/features/budget/ui/home-panels";
+import { MonthResult } from "@/features/budget/ui/month-result";
 import { MonthSummary } from "@/features/budget/ui/month-summary";
 import { ViewToggle } from "@/features/budget/ui/view-toggle";
 import { getBankHome } from "@/features/bank/server/queries";
-import { AccountsToday, CardsSummary } from "@/features/bank/ui/home-money";
+import { BillsToPay, MoneyNow } from "@/features/bank/ui/home-money";
 import { ReceivedBanner } from "@/features/bank/ui/received-banner";
 import { SyncLine } from "@/features/bank/ui/sync-line";
 import { NewTransactionButton } from "@/features/transactions/ui/new-transaction-button";
@@ -26,10 +27,11 @@ import { cn } from "@/lib/utils";
 // Título da aba igual ao h1, como nas outras páginas: "Início · FinTrack" (WCAG 2.4.2)
 export const metadata: Metadata = { title: "Início" };
 
-// Início (M08, canvas D "Início: orçamento, gasto por categoria e fluxo"): como estamos este mês.
-// O previsto de fim de mês, o gasto até hoje, o orçado e as entradas; o gasto por categoria contra
-// o mês passado e a média de 6 meses; as categorias acima do ritmo; e o resultado dos próximos 6
-// meses. Todo número leva aos lançamentos que o compõem.
+// Início (M08, canvas D; o dinheiro de verdade no M13.3a, prancha N-Inicio): como estamos este mês.
+// O resultado do mês (cada compra uma vez, no cartão pelo vencimento da fatura), o que está nas
+// contas, o guardado e as faturas a pagar; o previsto de fim de mês e o orçado; o gasto por
+// categoria contra o mês passado e a média de 6 meses; as categorias acima do ritmo; e o resultado
+// dos próximos 6 meses. Todo número leva aos lançamentos que o compõem.
 export default async function HomePage({ searchParams }: PageProps<"/">) {
   // Toda página do app começa conferindo a sessão (skill auth-guard)
   const session = await requireUser();
@@ -69,6 +71,13 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
         ? `passa ${formatBRL(summary.status.by)}`
         : null;
   const sideLink = cn(NUMBER_LINK, "text-chart-1-ink text-sm font-semibold");
+  const sync = bank ? (
+    <SyncLine
+      bankUpdatedAt={bank.bankUpdatedAt}
+      lastSyncedAt={bank.lastSyncedAt}
+      canSync={bank.canSync}
+    />
+  ) : null;
 
   return (
     <>
@@ -90,41 +99,32 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
         {/* M10.3: o resumo do mês, logo abaixo do ambiente (linha F.3 do canvas) */}
         <MonthSummary summary={home.summaryOfMonth} />
 
-        {/* M13.2 (canvas M): quanto há nas contas hoje e como estão os cartões, separados */}
+        {/* M13.3a (ADR-025, prancha N-Inicio): o resultado do mês, uma vez cada compra */}
+        <MonthResult
+          monthLabel={home.monthName}
+          elapsedDays={home.elapsedDays}
+          result={home.result}
+          received={bank?.received.count ?? 0}
+        />
+
+        {/* O dinheiro de verdade: as contas, a poupança e as faturas, como o banco mostra */}
         {bank ? (
           <>
-            <AccountsToday
-              accounts={bank.accounts}
-              aside={
-                <SyncLine
-                  bankUpdatedAt={bank.bankUpdatedAt}
-                  lastSyncedAt={bank.lastSyncedAt}
-                  canSync={bank.canSync}
-                />
-              }
+            <MoneyNow bank={bank} aside={sync} />
+            <BillsToPay
+              bank={bank}
+              aside={bank.checking.length === 0 && bank.savings.length === 0 ? sync : undefined}
             />
-            <CardsSummary
-              cards={bank.cards}
-              aside={
-                bank.accounts.length === 0 ? (
-                  <SyncLine
-                    bankUpdatedAt={bank.bankUpdatedAt}
-                    lastSyncedAt={bank.lastSyncedAt}
-                    canSync={bank.canSync}
-                  />
-                ) : undefined
-              }
+            <ReceivedBanner
+              count={bank.received.count}
+              uncategorized={bank.received.uncategorized}
             />
           </>
         ) : null}
-        {bank ? (
-          <ReceivedBanner count={bank.received.count} uncategorized={bank.received.uncategorized} />
-        ) : null}
 
         <SummaryGrid
-          // M10.3: "Resumo de outubro" agora é o resumo em observações; este é o dos números
-          label={`Números de ${home.monthLabel}`}
-          className="md:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]"
+          label={`Previsto para ${home.monthName}`}
+          className="md:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]"
         >
           <HighlightCard
             label="Saídas previstas até o fim do mês"
@@ -155,25 +155,6 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
             />
           </HighlightCard>
           <StatCard
-            label="Gasto até hoje"
-            tone="expense"
-            data-testid="inicio-gasto"
-            note={
-              <span className="hidden md:inline">
-                {bank && bank.received.count > 0
-                  ? "só lançamentos confirmados"
-                  : "variáveis, fixas e parcelas"}
-              </span>
-            }
-          >
-            <MoneyLink
-              cents={summary.spent.cents}
-              href={summary.spent.href}
-              label="Gasto até hoje"
-              className="text-expense"
-            />
-          </StatCard>
-          <StatCard
             label="Orçado no mês"
             className="hidden md:flex"
             note={summary.budgetCount === 1 ? "1 categoria" : `${summary.budgetCount} categorias`}
@@ -186,21 +167,14 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
               {formatBRL(summary.budget.cents)}
             </Link>
           </StatCard>
-          <StatCard
-            label="Entradas"
-            tone="income"
-            data-testid="inicio-entradas"
-            note={<span className="hidden md:inline">até hoje</span>}
-          >
-            <MoneyLink
-              cents={summary.income.cents}
-              href={summary.income.href}
-              label="Entradas até hoje"
-              sign="+"
-              className="text-income"
-            />
-          </StatCard>
         </SummaryGrid>
+        <p className="text-muted-foreground -mt-2 px-1 text-[0.8125rem]">
+          As contas fixas, as assinaturas e as compras parceladas em andamento ficam em{" "}
+          <Link href="/fixas" className={NUMBER_LINK}>
+            Fixas e parcelas
+          </Link>
+          .
+        </p>
 
         {home.alerts.length > 0 ? (
           <section aria-labelledby="atencao" className="flex flex-col gap-2 md:hidden">

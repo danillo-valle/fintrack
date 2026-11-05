@@ -166,7 +166,7 @@ test("antes do React carregar, Lançar as deste mês chega ao servidor e roda a 
   });
   await context.route("**/_next/static/**/*.js", (route) => route.abort());
   const page = await context.newPage();
-  await page.goto("/lancamentos/recorrencias");
+  await page.goto("/fixas");
   await expect(page.locator("html[data-hydrated]")).toHaveCount(0);
 
   const response = page.waitForResponse(
@@ -228,11 +228,11 @@ test("depois de um envio, sair e voltar mostra o formulário sem o aviso de ante
 }, testInfo) => {
   const p = await alone(browser, testInfo, "voltar");
   const page = p.page;
-  await openPage(page, "/lancamentos/recorrencias");
+  await openPage(page, "/fixas");
   await page.getByRole("button", { name: "Lançar as deste mês" }).click();
   await expect(page.getByText(NADA_NOVO)).toBeVisible();
 
-  // Navegação dentro do app (link do menu, sem recarregar): Recorrências fica escondida no documento
+  // Navegação dentro do app (link do menu, sem recarregar): Fixas e parcelas fica escondida no documento
   await page
     .getByRole("link", { name: "Início", exact: true })
     .filter({ visible: true })
@@ -241,7 +241,7 @@ test("depois de um envio, sair e voltar mostra o formulário sem o aviso de ante
   await expect(page.getByRole("heading", { level: 1, name: "Início" })).toBeVisible();
   await expect(page.getByText(NADA_NOVO)).toBeHidden();
   await page.goBack();
-  await expect(page).toHaveURL(/\/lancamentos\/recorrencias$/);
+  await expect(page).toHaveURL(/\/fixas$/);
   await expect(page.getByRole("button", { name: "Lançar as deste mês" })).toBeVisible();
   await expect(page.getByText(NADA_NOVO)).toBeHidden();
   await p.close();

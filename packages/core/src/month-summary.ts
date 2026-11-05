@@ -27,6 +27,7 @@ import {
   percentVersus,
   subtreeOf,
   type CategoryNode,
+  type PaceWindow,
 } from "./budget";
 import { addMonthsToKey, monthOf, parseCivilDate, type CivilDate, type MonthKey } from "./dates";
 import type { Cents } from "./money";
@@ -115,6 +116,8 @@ export function monthSummary(input: {
   budgets: readonly BudgetRecord[];
   nodes: readonly CategoryNode[];
   recurrences: readonly NewRecurrence[];
+  /** As janelas das faturas do mês (o ritmo de cada cartão, ADR-025) */
+  windows: ReadonlyMap<string, PaceWindow>;
 }): MonthSummary {
   const parents = new Map(input.nodes.map((n) => [n.id, n.parentId] as const));
   const groupOf = (categoryId: string) => categoryGroupOf(categoryId, parents);
@@ -127,6 +130,7 @@ export function monthSummary(input: {
     month: input.month,
     today: input.today,
     payer: null,
+    windows: input.windows,
   }).flatMap((r) =>
     r.status.kind === "over" && r.budget !== null
       ? [
@@ -150,6 +154,7 @@ export function monthSummary(input: {
     month: input.month,
     today: input.today,
     slice: {},
+    windows: input.windows,
   }).flatMap((g) => {
     if (g.groupId === null) return []; // "Sem categoria" não tem costume
     const slice: Slice = { categories: subtreeOf(g.groupId, input.nodes) };

@@ -2,7 +2,7 @@
 //
 // Rode com: pnpm test:integration
 import {
-  cashDateFor,
+  ACCOUNTS_WINDOW,
   decimalToCents,
   figuresFor,
   resolvePayer,
@@ -13,6 +13,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { authorizeScope, authorizeWallet, DomainError, type WalletGrant } from "../access";
 import { copyBudgets, listBudgets, setBudget, undoCopyBudgets } from "../budgets";
+import { monthAsRange } from "../cash";
 import { cashRows, recurrencePlans, recurrencesStartedIn, spendingRows } from "../dashboard";
 import { removeHouseholdMember } from "../households";
 import { listTransactions, sumTransactions } from "../transactions";
@@ -357,11 +358,12 @@ describe("agregações do painel", () => {
   it("Pago por e natureza: o SQL concorda com o core, lançamento por lançamento", async () => {
     await seedOctober();
     const scope = await scopeOf(h.holder.id);
-    const filters = { from: "2026-09-01", to: "2026-10-31" };
+    // Até novembro: as compras de outubro no cartão depois do fechamento vencem em novembro
+    const filters = { periods: [{ from: "2026-09-01", to: "2026-11-30" }] };
     const { items } = await listTransactions(prisma, scope, filters, null, 500);
     const rows = await spendingRows(prisma, scope, {
       from: "2026-09",
-      to: "2026-10",
+      to: "2026-11",
       today: "2026-10-09",
     });
     expect(items.length).toBeGreaterThan(5);
@@ -375,6 +377,8 @@ describe("agregações do painel", () => {
             : null;
       const match = rows.find(
         (r) =>
+          r.month === item.cashOn.slice(0, 7) &&
+          r.window === (item.statement?.id ?? ACCOUNTS_WINDOW) &&
           r.walletId === item.wallet.id &&
           r.categoryId === (item.category?.id ?? null) &&
           r.payer === key &&
@@ -382,6 +386,7 @@ describe("agregações do painel", () => {
             spendingNature({
               recurrenceId: item.recurrenceId,
               installmentGroupId: item.installment ? "grupo" : null,
+              providerInstallmentCount: item.installment?.count ?? null,
             }),
       );
       expect(match, `linha para ${item.description} ${item.amount}`).toBeDefined();
@@ -393,29 +398,26 @@ describe("agregações do painel", () => {
     const scope = await scopeOf(h.holder.id);
     const rows = await spendingRows(prisma, scope, {
       from: "2026-09",
-      to: "2026-10",
+      to: "2026-11",
       today: "2026-10-31",
     });
-    for (const month of ["2026-09", "2026-10"]) {
-      const totals = await sumTransactions(prisma, scope, {
-        from: `${month}-01`,
-        to: `${month}-${month === "2026-09" ? "30" : "31"}`,
-      });
+    for (const month of ["2026-09", "2026-10", "2026-11"]) {
+      const totals = await sumTransactions(prisma, scope, { periods: [monthAsRange(month)] });
       const expense = rows.filter((r) => r.month === month).reduce((s, r) => s + r.expense, 0n);
       const income = rows.filter((r) => r.month === month).reduce((s, r) => s + r.income, 0n);
       expect(expense).toBe(-totals.expense);
       expect(income).toBe(totals.income);
     }
-    // E o recorte "Mercado + Feira (Alimentação), Pago por: parceira" bate com a lista filtrada
-    const partnerAlimentacao = figuresFor(rows, [], "2026-10", {
+    // E o recorte "Mercado + Feira (Alimentação), Pago por: parceira" bate com a lista filtrada.
+    // A compra dela de 05/10 no cartão (fecha 3, vence 9) conta em novembro, no vencimento
+    const partnerAlimentacao = figuresFor(rows, [], "2026-11", {
       categories: new Set([cats.alimentacao, cats.mercado, cats.feira]),
       payer: h.partner.id,
     });
     const list = await sumTransactions(prisma, scope, {
-      from: "2026-10-01",
-      to: "2026-10-31",
+      periods: [monthAsRange("2026-11")],
       categoryId: cats.alimentacao,
-      payer: { kind: "person", userId: h.partner.id },
+      payers: [{ kind: "person", userId: h.partner.id }],
     });
     expect(partnerAlimentacao.spent).toBe(-list.expense);
     expect(partnerAlimentacao.spent).toBe(brl("197.25"));
@@ -433,15 +435,23 @@ describe("agregações do painel", () => {
     expect(plan?.payer).toBe(h.holder.id); // conta corrente da titular, sem cartão
   });
 
-  it("fluxo de caixa: compra no cartão sai no vencimento da fatura", async () => {
+  it("fluxo de caixa: compra no cartão sai no vencimento da fatura (ADR-025)", async () => {
     await seedOctober();
     const rows = await cashRows(prisma, await scopeOf(h.holder.id), "2026-10-01", "2026-12-31");
-    const card = rows.find((r) => r.accountId === h.card.id && r.occurredOn === "2026-10-05");
-    expect(card).toBeDefined();
-    // O cartão do fixture fecha dia 3 e vence dia 9: compra em 05/10 vence em 09/11
-    expect(cashDateFor(card!.occurredOn, card!.account, card!.statementDue)).toBe("2026-11-09");
-    // Setembro entra (pode vencer em outubro); transferências nunca
-    expect(rows.some((r) => r.occurredOn === "2026-09-15")).toBe(true);
+    const card = rows
+      .filter((r) => r.accountId === h.card.id)
+      .map((r) => [r.cashOn, r.amount] as const)
+      .toSorted();
+    // O cartão do fixture fecha dia 3 e vence dia 9: 02/10 vence em 09/10; 05/10 e 06/10, em 09/11
+    expect(card).toEqual([
+      ["2026-10-09", brl("-230.10")],
+      ["2026-11-09", brl("-252.25")],
+    ]);
+    // A data de caixa manda no período: o Pix de 15/09 fica fora; transferências nunca entram
+    expect(rows.some((r) => r.cashOn === "2026-09-15")).toBe(false);
+    expect(
+      rows.every((r) => r.accountKind === "CREDIT_CARD" || r.accountId === h.checking.id),
+    ).toBe(true);
   });
 
   it("o escopo manda: a parceira não vê o pessoal da titular", async () => {

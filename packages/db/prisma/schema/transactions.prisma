@@ -5,7 +5,8 @@
 //                        QUEM PAGA      accountId (+ cardId, opcional) e method
 //                        DE QUEM É      walletId (o ambiente: "Casa", "Danillo"...)
 //                        O QUE É        categoryId
-//   CardStatement      fatura do cartão (competência ≠ caixa)
+//   CardStatement      fatura do cartão (competência ≠ caixa). Toda compra no cartão tem uma
+//                      (M13.3a): a aberta, a fechada pelo banco ou uma futura (parcela)
 //   InstallmentGroup   compra parcelada → N lançamentos, um por fatura
 //   Recurrence         conta fixa, assinatura ou receita que se repete todo mês; os
 //                      lançamentos que ela gera apontam para ela (recurrenceId)
@@ -140,7 +141,9 @@ model Transaction {
   /// Id do lançamento na origem (FITID do OFX, id da Pluggy, ocorrência da recorrência).
   /// CHECK: obrigatório fora do MANUAL
   externalId                String?
-  /// Fatura em que a compra entrou (só cartão de crédito)
+  /// Fatura em que a compra entrou (só cartão de crédito). Toda compra no cartão tem (M13.3a,
+  /// ADR-025): o gatilho transaction_card_statement preenche a vazia pela fintrack_statement_for.
+  /// A compra conta no mês do vencimento dela (a data de caixa, CASH_ON_SQL)
   statementId               String?               @db.Uuid
   installmentGroupId        String?               @db.Uuid
   /// 1, 2, 3... CHECK: preenchido junto com installmentGroupId, nunca sozinho

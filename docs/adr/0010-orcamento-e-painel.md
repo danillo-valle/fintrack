@@ -164,3 +164,11 @@ Decisões tomadas com o Danillo antes do código: orçado **por ambiente e por p
 
 - **Em aberto:** o React #418 depois de um envio antes do React no build de produção. Não foi
   conferido de novo no Next 16.4.3 (pendências do README).
+
+## Adendo do M13.3a (03/11/2026): o mês da compra no cartão
+
+O gasto do orçamento, do painel e da evolução passou a contar a compra no cartão no mês do
+**vencimento** da fatura (ADR-025), como o fluxo de caixa já fazia: as somas são pela data de
+caixa. O previsto do mês estende o variável por janela (o mês nas contas, o período da fatura em
+cada cartão), e a parcela que o banco informa é parcela (fora do ritmo). Os números de outubro e
+de novembro mudam de propósito.

@@ -358,7 +358,7 @@ export function CashDetail({
                     href={r.income.href}
                     label={`${r.name}, entradas de ${title.toLowerCase()}`}
                     sign="+"
-                    goes={r.key === "recorrencias" ? "Ver as recorrências" : undefined}
+                    goes={r.key === "recorrencias" ? "Ver as fixas" : undefined}
                     className="text-income font-bold"
                   />
                 ) : null}
@@ -368,7 +368,7 @@ export function CashDetail({
                     href={r.expense.href}
                     label={`${r.name}, saídas de ${title.toLowerCase()}`}
                     sign="−"
-                    goes={r.key === "recorrencias" ? "Ver as recorrências" : undefined}
+                    goes={r.key === "recorrencias" ? "Ver as fixas" : undefined}
                     className="text-expense font-bold"
                   />
                 ) : null}
@@ -378,9 +378,9 @@ export function CashDetail({
         </ul>
       )}
       <p className="text-muted-foreground text-xs">
-        Fatura de cartão: as compras do ciclo que vence neste mês.{" "}
-        <Link href="/lancamentos/recorrencias" className={NUMBER_LINK}>
-          Recorrências
+        Fatura de cartão: as compras do ciclo que vence neste mês. As{" "}
+        <Link href="/fixas" className={NUMBER_LINK}>
+          fixas
         </Link>{" "}
         ainda não lançadas entram pelo valor previsto.
       </p>

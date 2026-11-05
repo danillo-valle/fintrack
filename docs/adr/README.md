@@ -17,7 +17,7 @@ Modelo para um ADR novo: copie `0001-stack-e-monorepo.md` e troque o conteúdo.
 | 007 | [Lançamentos, contas e categorização preparada para IA](0007-lancamentos-e-categorizacao.md)                                | aceita | vale; LLM no ADR-016         |
 | 008 | [Visual "Elétrico" com vidro só na moldura](0008-visual-eletrico.md)                                                        | aceita | vale                         |
 | 009 | ["Pago por", ambientes, parcelas e despesas fixas](0009-pago-por-parcelas-e-fixas.md)                                       | aceita | vale                         |
-| 010 | [Orçamento, painel e cache das somas](0010-orcamento-e-painel.md)                                                           | aceita | vale                         |
+| 010 | [Orçamento, painel e cache das somas](0010-orcamento-e-painel.md)                                                           | aceita | vale; o mês no ADR-025       |
 | 011 | [Coleta bancária com o Meu Pluggy](0011-coleta-bancaria.md)                                                                 | aceita | vale; adendos M13.1 e M13.2  |
 | 012 | [Revisão e reconciliação do que vem do banco](0012-revisao-e-reconciliacao.md)                                              | aceita | vale; adendo M13.2           |
 | 013 | [Importar extrato OFX](0013-importar-extrato.md)                                                                            | aceita | vale                         |
@@ -32,6 +32,7 @@ Modelo para um ADR novo: copie `0001-stack-e-monorepo.md` e troque o conteúdo.
 | 022 | [A Ajuda no app e o HIBP com tempo limite](0022-ajuda-no-app.md)                                                            | aceita | vale                         |
 | 023 | [A arquitetura documentada a partir do código: o mapa do fluxo, o C4 e o site](0023-arquitetura-documentada.md)             | aceita | nova (M12.3b)                |
 | 024 | [A preparação para os dados reais: zerar, backup de ponta a ponta, alerta e ZAP ativo](0024-preparacao-para-dados-reais.md) | aceita | nova (M12.4a); adendo M12.4b |
+| 025 | [Contas e cartões separados: toda compra no cartão tem fatura e conta no vencimento](0025-contas-e-cartoes-separados.md)    | aceita | nova (M13.3a)                |
 
 ## Revisão de 28/10/2026 (M12.3b)
 

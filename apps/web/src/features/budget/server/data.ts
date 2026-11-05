@@ -10,7 +10,13 @@
 // Só números e ids saem daqui. Nomes (de categoria, carteira, pessoa) são lidos fora do cache, a
 // cada página: renomear algo aparece na hora, sem precisar invalidar nada.
 import "server-only";
-import type { CivilDate, MonthKey } from "@fintrack/core";
+import {
+  ACCOUNTS_WINDOW,
+  type CivilDate,
+  type MonthKey,
+  type PaceWindow,
+  type SpendingRow,
+} from "@fintrack/core";
 import {
   cashRows,
   categoryNodes,
@@ -19,6 +25,7 @@ import {
   recurrencePlans,
   recurrencesStartedIn,
   spendingRows,
+  statementWindows,
   type WalletScope,
 } from "@fintrack/db";
 import { cacheLife, cacheTag } from "next/cache";
@@ -29,16 +36,23 @@ function tagged(scope: WalletScope<"view">) {
   if (scope.householdId) cacheTag(financeTag(scope.householdId));
 }
 
-/** Gasto e entradas por mês, ambiente, categoria, quem pagou e natureza. */
+/**
+ * Gasto e entradas por mês (o da data de caixa, ADR-025), janela, ambiente, categoria, quem pagou
+ * e natureza, com o período de compras de cada fatura que aparece nas linhas (o ritmo de cada
+ * cartão). As janelas saem como lista de pares: o cache guarda listas, e quem lê monta o mapa.
+ */
 export async function cachedSpending(
   scope: WalletScope<"view">,
   from: MonthKey,
   to: MonthKey,
   today: CivilDate,
-) {
+): Promise<{ rows: SpendingRow[]; windows: [string, PaceWindow][] }> {
   "use cache";
   tagged(scope);
-  return spendingRows(prisma, scope, { from, to, today });
+  const rows = await spendingRows(prisma, scope, { from, to, today });
+  const statementIds = [...new Set(rows.map((r) => r.window))].filter((w) => w !== ACCOUNTS_WINDOW);
+  const windows = await statementWindows(prisma, statementIds);
+  return { rows, windows: [...windows.entries()] };
 }
 
 /** As recorrências ativas e os meses em que já viraram lançamento. */
@@ -62,7 +76,7 @@ export async function cachedBudgets(scope: WalletScope<"view">, from: MonthKey, 
   return listBudgets(prisma, scope, from, to);
 }
 
-/** Os lançamentos do fluxo de caixa, somados por dia, conta, fatura e origem. */
+/** Os lançamentos do fluxo de caixa, somados por data de caixa, conta, origem e entrada/saída. */
 export async function cachedCash(scope: WalletScope<"view">, from: CivilDate, to: CivilDate) {
   "use cache";
   tagged(scope);

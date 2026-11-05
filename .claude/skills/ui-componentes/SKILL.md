@@ -29,6 +29,8 @@ description: Como construir telas e componentes no FinTrack com shadcn/ui, Tailw
 | Filtro "Pago por"                      | `<PayerChips payers current hrefFor />` no `extra` da ListToolbar  | `src/features/transactions/ui/payer-chips.tsx`                          |
 | Bloco de uma página com título         | `<Section id title description>`                                   | `src/components/visual/section.tsx`                                     |
 | Ações de uma linha atrás do "⋯"        | `<ActionsMenu label>` + itens com `MENU_ITEM` (M13.1)              | `src/components/visual/actions-menu.tsx`                                |
+| Filtro de marcar (Período, Pago por)   | `<CheckCombo label value selection>` + `<CheckRow>` num form GET   | `src/components/visual/check-combo.tsx`                                 |
+| Topo de lista com Filtros e CSV        | `<ListHeader id title subtitle actions panel activeCount />`       | `src/components/visual/list-header.tsx`                                 |
 | Quem é uma pessoa (iniciais na cor)    | `<PersonAvatar initials tone size>` (M13.1)                        | `src/components/visual/person-avatar.tsx`                               |
 | Formulário por cima da página          | `<RouteModal title description footer>` numa rota `@modal/(.)rota` | `src/components/ui/route-modal.tsx` (exemplo: novo lançamento)          |
 | Formulário de lançamento               | `EntryProvider` + `EntryForm` + `EntrySubmit`/`EntryModalActions`  | `src/features/transactions/ui/entry/`                                   |
@@ -226,3 +228,16 @@ que sai com `method="post"`: antes do React, o envio vai no corpo para a própri
 mostra de novo, e nada vai para a URL (M10.0). Tela de entrada nova usa o `AuthCard`, que traz o
 `ContentReady` (a marca que os testes esperam). Menu ou popover aberto fecha num `useLayoutEffect` de limpeza.
 Estado que precisa recomeçar a cada visita vem da URL, não de `useState`.
+
+## Contas e cartões separados (M13.3a, ADR-025)
+
+- Débito e cartão **nunca na mesma lista**. Lançamentos mostra uma conta que não é cartão por vez
+  (abas com `SegmentedNav`); Cartões mostra uma fatura por vez. Um número do painel que soma os
+  dois abre o recorte em duas partes (`SliceParts`), cada uma com o seu total.
+- Filtro que vai para a URL com vários valores (`?mes=`, `?pago=`) é um combo de marcar
+  (`CheckCombo`) com um formulário GET; os outros filtros vão junto em campos escondidos
+  (`KeepParams`), para trocar um não perder os outros. O `selection` (o que a URL marcou, inteiro)
+  faz o painel nascer de novo depois de um atalho: a navegação do Next mantém o combo montado, e o
+  `defaultChecked` das caixas só vale na primeira montagem.
+- Uma visão nova é um item do menu (`nav-items.ts`), nunca uma página de Ajustes. A barra do
+  celular tem 5 lugares (`desktopOnly` tira um item dela).

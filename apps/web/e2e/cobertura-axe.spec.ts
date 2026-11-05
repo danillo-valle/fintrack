@@ -3,6 +3,8 @@
 // existe no meio de um fluxo (precisa de um código, de um arquivo, de um par) e o teste desse
 // fluxo roda o axe com ela à vista: aí ela entra em FLOW_AXE, com o arquivo e um trecho que prova.
 //
+// Rota que só leva a outra tela (redirect) entra em REDIRECTS, com o teste que confere o destino.
+//
 // Tela nova sem nenhum dos dois faz este teste falhar, com o nome da rota. Ele não abre navegador:
 // lê as pastas do app e os arquivos de teste.
 import { readdirSync, readFileSync } from "node:fs";
@@ -37,6 +39,14 @@ const FLOW_AXE: Record<string, { spec: string; marker: string }> = {
   "/reautenticar": { spec: "acessibilidade.spec.ts", marker: "/reautenticar" },
 };
 
+/**
+ * Rotas que só levam a outra tela (M13.3a): não têm tela própria para o axe. O teste indicado
+ * confere para onde elas levam (e a tela de destino está em PAGES).
+ */
+const REDIRECTS: Record<string, { spec: string; marker: string }> = {
+  "/carteiras/conta/[accountId]": { spec: "contas-e-cartoes.spec.ts", marker: "/carteiras/conta/" },
+};
+
 /** As rotas do app: cada page.tsx, sem os grupos "(app)" e sem as cópias de modal (@modal). */
 function appRoutes(): string[] {
   const routes = new Set<string>();
@@ -61,7 +71,8 @@ test("toda tela do app passa pelo axe", async () => {
   // O catálogo /dev/ui só existe no dev e só entra em PAGES lá: conta como coberto nos dois modos
   const listed = [...PAGES, ...PUBLIC_PAGES, "/dev/ui"];
   const missing = appRoutes().filter(
-    (route) => !listed.some((page) => matches(route, page)) && !(route in FLOW_AXE),
+    (route) =>
+      !listed.some((page) => matches(route, page)) && !(route in FLOW_AXE) && !(route in REDIRECTS),
   );
   expect(
     missing,
@@ -77,6 +88,18 @@ test("cada tela de FLOW_AXE é conferida pelo axe no teste indicado", async () =
     if (!routes.includes(route)) problems.push(`${route}: a rota não existe mais`);
     const text = readFileSync(path.join(E2E_DIR, spec), "utf8");
     if (!/expectNoA11yViolations\(|checkAxe\(/.test(text)) problems.push(`${spec}: não roda o axe`);
+    if (!text.includes(marker)) problems.push(`${spec}: não achei "${marker}" (${route})`);
+  }
+  expect(problems).toEqual([]);
+});
+
+test("cada rota de REDIRECTS existe e o teste indicado confere para onde ela leva", async () => {
+  test.skip(test.info().project.name !== "desktop", "lê arquivos: um aparelho basta");
+  const routes = appRoutes();
+  const problems: string[] = [];
+  for (const [route, { spec, marker }] of Object.entries(REDIRECTS)) {
+    if (!routes.includes(route)) problems.push(`${route}: a rota não existe mais`);
+    const text = readFileSync(path.join(E2E_DIR, spec), "utf8");
     if (!text.includes(marker)) problems.push(`${spec}: não achei "${marker}" (${route})`);
   }
   expect(problems).toEqual([]);

@@ -19,6 +19,7 @@ import {
   decodeCursor,
   defaultMethod,
   encodeCursor,
+  flowOf,
   hasOriginText,
   installmentSiblingKey,
   isCorrection,
@@ -33,6 +34,7 @@ import {
   transferLegs,
   type Cents,
   type CivilDate,
+  type DateRange,
   type PaymentMethod,
   type PayerFilter,
   type Totals,
@@ -48,6 +50,7 @@ import {
   type WalletScope,
 } from "./access";
 import { writeAudit, type RequestContext } from "./audit";
+import { cashOnInAny, EXPENSE_WHERE, INCOME_WHERE, occurredOnInAny } from "./cash";
 import {
   assertUsableCategory,
   categoryNodes,
@@ -662,9 +665,24 @@ export async function createTransfer(
 export type TransactionType = "expense" | "income" | "transfer";
 
 export type TransactionFilters = {
-  from: CivilDate;
-  to: CivilDate;
+  /**
+   * Os períodos, pela data de caixa (ADR-025): o dia, ou o vencimento da fatura no cartão. Um
+   * (de/até) ou um por mês marcado no combo do Período; vale qualquer um deles. Nunca vazio
+   */
+  periods: readonly DateRange[];
+  /**
+   * Só o que já aconteceu até este dia (M13.3a): o "gasto até hoje" de um mês, em que a compra no
+   * cartão de ontem conta, mesmo vencendo depois de hoje
+   */
+  occurredUntil?: CivilDate | null;
   accountId?: string | null;
+  /**
+   * Que lado (M13.3a): só as contas que não são cartão (Lançamentos), só os cartões (Cartões) ou os
+   * dois (o recorte que um número do painel abre, em duas partes)
+   */
+  side?: ListSide | null;
+  /** Uma fatura (a página de Cartões) */
+  statementId?: string | null;
   /**
    * id da categoria, ou "none" para "sem categoria" (transferências não entram). A categoria vale
    * com as de baixo (M08): "Alimentação" acha o Mercado e a Feira, como no painel.
@@ -672,8 +690,8 @@ export type TransactionFilters = {
   categoryId?: string | null;
   text?: string | null;
   type?: TransactionType | null;
-  /** "Pago por" (M07.4): Compartilhado ou uma pessoa */
-  payer?: PayerFilter | null;
+  /** "Pago por" (M07.4): Compartilhado ou pessoas (M13.3a: uma ou várias, vale qualquer uma) */
+  payers?: readonly PayerFilter[] | null;
   /**
    * Recebidos do banco (M09.1): true = só os que esperam revisão (PENDING). Sem o filtro, a lista
    * mostra o resto, e o que espera revisão fica fora da lista, dos totais e do painel (ADR-011).
@@ -684,6 +702,14 @@ export type TransactionFilters = {
    * a esta lista. MANUAL inclui as categorias antigas sem autor (como a medida conta).
    */
   categorizedBy?: CategorizationSource | null;
+};
+
+/** As contas que não são cartão, ou os cartões. */
+export type ListSide = "accounts" | "cards";
+
+const SIDE_WHERE: Record<ListSide, Prisma.TransactionWhereInput> = {
+  accounts: { account: { is: { kind: { not: "CREDIT_CARD" } } } },
+  cards: { account: { is: { kind: "CREDIT_CARD" } } },
 };
 
 /**
@@ -713,10 +739,15 @@ function whereOf(
 ): Prisma.TransactionWhereInput {
   const and: Prisma.TransactionWhereInput[] = [
     { walletId: { in: [...walletIds] }, deletedAt: null },
-    { occurredOn: { gte: dbDateFromCivil(f.from), lte: dbDateFromCivil(f.to) } },
+    // Os recebidos são a fila do banco: o período é o dia que o banco mandou. O resto, pela data
+    // de caixa (ADR-025)
+    f.received ? occurredOnInAny(f.periods) : cashOnInAny(f.periods),
     f.received ? { status: "PENDING" } : { status: { not: "PENDING" } },
   ];
+  if (f.occurredUntil) and.push({ occurredOn: { lte: dbDateFromCivil(f.occurredUntil) } });
   if (f.accountId) and.push({ accountId: f.accountId });
+  if (f.side) and.push(SIDE_WHERE[f.side]);
+  if (f.statementId) and.push({ statementId: f.statementId });
   if (f.categoryId === "none") and.push({ categoryId: null, transferId: null });
   else if (categoryIds) and.push({ categoryId: { in: [...categoryIds] } });
   if (f.text) {
@@ -729,9 +760,9 @@ function whereOf(
     });
   }
   if (f.type === "transfer") and.push({ transferId: { not: null } });
-  if (f.type === "expense") and.push({ transferId: null, amount: { lt: 0 } });
-  if (f.type === "income") and.push({ transferId: null, amount: { gt: 0 } });
-  if (f.payer) and.push(payerWhere(f.payer));
+  if (f.type === "expense") and.push({ transferId: null }, EXPENSE_WHERE);
+  if (f.type === "income") and.push({ transferId: null }, INCOME_WHERE);
+  if (f.payers && f.payers.length > 0) and.push({ OR: f.payers.map(payerWhere) });
   if (f.categorizedBy === "MANUAL") {
     and.push({
       categoryId: { not: null },
@@ -774,6 +805,8 @@ const LIST_SELECT = {
   installmentGroup: { select: { installmentCount: true } },
   wallet: { select: { id: true, name: true, kind: true } },
   account: { select: { id: true, name: true, kind: true, holderId: true } },
+  /** A fatura da compra no cartão (M13.3a): a data de caixa e o "fatura que vence em" */
+  statement: { select: { id: true, dueDate: true } },
   category: { select: { id: true, name: true, parent: { select: { name: true } } } },
   card: { select: { nickname: true, lastFour: true, holderId: true, sharedPurchases: true } },
   // M09.1: o que o banco informa (parcela, compra em outra moeda)
@@ -794,10 +827,15 @@ function toItem(row: ListRow) {
     originalAmount,
     originalCurrency,
     category,
+    statement,
     ...rest
   } = row;
   return {
     ...rest,
+    /** A fatura (só compra no cartão), com o vencimento */
+    statement: statement ? { id: statement.id, dueDate: civilFromDbDate(statement.dueDate) } : null,
+    /** A data de caixa (ADR-025): o vencimento da fatura no cartão, senão o dia */
+    cashOn: civilFromDbDate(statement?.dueDate ?? row.occurredOn),
     category: category
       ? { id: category.id, name: category.name, parent: category.parent?.name ?? null }
       : null,
@@ -865,7 +903,11 @@ export async function listTransactions(
   };
 }
 
-/** Os totais do filtro, calculados no banco (soma exata em NUMERIC). Mesmo WHERE da lista. */
+/**
+ * Os totais do filtro, calculados no banco (soma exata em NUMERIC), com o MESMO WHERE da lista.
+ * Entrada e saída pela regra flowOf (ADR-025): no cartão, o estorno abate a saída; a
+ * transferência fica fora das duas.
+ */
 export async function sumTransactions(
   db: PrismaClient,
   scope: WalletScope<"view">,
@@ -874,11 +916,11 @@ export async function sumTransactions(
   const where = await whereFor(db, scope.walletIds, scope.householdId, filters);
   const [income, expense, count] = await Promise.all([
     db.transaction.aggregate({
-      where: { AND: [where, { transferId: null, amount: { gt: 0 } }] },
+      where: { AND: [where, { transferId: null }, INCOME_WHERE] },
       _sum: { amount: true },
     }),
     db.transaction.aggregate({
-      where: { AND: [where, { transferId: null, amount: { lt: 0 } }] },
+      where: { AND: [where, { transferId: null }, EXPENSE_WHERE] },
       _sum: { amount: true },
     }),
     db.transaction.count({ where }),
@@ -931,11 +973,15 @@ export async function exportTransactions(
         entity: "wallet",
         entityId: grant.wallet.id,
         metadata: {
-          from: filters.from,
-          to: filters.to,
+          from: filters.periods.map((p) => p.from).toSorted()[0] ?? null,
+          to:
+            filters.periods
+              .map((p) => p.to)
+              .toSorted()
+              .at(-1) ?? null,
           rows: rows.length,
           filters: Object.entries(filters)
-            .filter(([key, value]) => key !== "from" && key !== "to" && value)
+            .filter(([key, value]) => key !== "periods" && value)
             .map(([key]) => key),
         },
       },
@@ -951,6 +997,7 @@ export async function exportTransactions(
         "Categoria",
         "Conta",
         "Cartão",
+        "Vencimento da fatura",
         "Forma",
         "Situação",
         "Carteira",
@@ -958,7 +1005,14 @@ export async function exportTransactions(
       ],
       rows.map((r) => {
         const amount = fromDbDecimal(r.amount);
-        const type = r.transferId ? "Transferência" : amount < 0n ? "Despesa" : "Receita";
+        const flow = flowOf({ amount, accountKind: r.account.kind });
+        const type = r.transferId
+          ? "Transferência"
+          : flow === "income"
+            ? "Receita"
+            : amount > 0n
+              ? "Estorno"
+              : "Despesa";
         return [
           { raw: civilFromDbDate(r.occurredOn) },
           { text: r.description },
@@ -968,6 +1022,7 @@ export async function exportTransactions(
           { text: r.category?.name ?? null },
           { text: r.account.name },
           { text: r.card?.nickname ?? null },
+          { raw: r.statement ? civilFromDbDate(r.statement.dueDate) : "" },
           { raw: METHOD_LABEL[r.method] },
           { raw: STATUS_LABEL[r.status] },
           { text: r.wallet.name },
