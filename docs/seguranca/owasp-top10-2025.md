@@ -100,6 +100,10 @@ para a auditoria, que guarda só a contagem);
 antigo da página do cartão de outra pessoa dá a página 404, sem nada da fatura no HTML; Cartões com o
 id de um cartão de outra pessoa mostra os cartões de quem pede, e a lista filtrada pela carteira de
 outra pessoa vem vazia);
+`packages/db/src/integration/fixa-e-variavel.integration.test.ts` (M13.3b: a limpeza das categorias
+que eram transferência só olha e só muda os lançamentos das carteiras que quem limpa edita; aplicar
+ou desfazer a limpeza de outro lar dá o mesmo NOT_FOUND; o tipo da despesa num toque passa pelo
+crachá do lançamento, e a auditoria guarda só o id e a marca);
 `packages/db/src/permissoes-doc.test.ts` (o `docs/permissoes.md` bate com a matriz);
 `apps/web/e2e/cabecalhos.spec.ts`, bloco "pedido de outra origem é recusado" (**novo no M12.1**:
 o mesmo pedido de uma Server Action é recusado com outra origem e grava com a origem do app; a

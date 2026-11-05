@@ -79,6 +79,8 @@ erDiagram
     Budget ||--o{ BudgetShare : "dividido em (M08)"
     HouseholdMember |o--o{ BudgetShare : "parte de"
     Category |o--o{ Recurrence : classifica
+    Category ||--o{ CategoryCleanup : "limpeza: era transferência (M13.3b)"
+    User |o--o{ CategoryCleanup : "fez"
 
     CardStatement |o--o{ Transaction : "inclui (competência)"
     InstallmentGroup ||--|{ Transaction : "parcelas 1..N"
@@ -163,12 +165,23 @@ erDiagram
         uuid householdId FK
         uuid parentId FK
         enum kind "EXPENSE | INCOME"
+        enum defaultNature "FIXED | VARIABLE: o tipo das despesas dela (M13.3b)"
     }
     CategoryRule {
         uuid id PK
         uuid categoryId FK
         string pattern "minúsculas"
         enum match "CONTAINS | STARTS_WITH | EQUALS"
+        enum nature "FIXED | VARIABLE: as próximas também (M13.3b)"
+    }
+    CategoryCleanup {
+        uuid id PK
+        uuid householdId FK
+        uuid categoryId FK
+        int transactionCount "maior que zero"
+        bool archived "a categoria arquivada junto"
+        json before "cada lançamento como estava (Desfazer, 30 min)"
+        timestamp undoneAt
     }
     Budget {
         uuid id PK
@@ -208,6 +221,7 @@ erDiagram
         uuid transferId "dois lados"
         enum transferPeer "HOUSEHOLD | EXTERNAL: um lado só (M13.2)"
         string label "O que foi (M13.2)"
+        enum nature "FIXED | VARIABLE: a marca da compra; nula = segue a categoria (M13.3b)"
         enum categorizedBy "MANUAL | RULE | HISTORY (M07) | PROVIDER | CLASSIFIER (M10.1) | LLM (M10.2b)"
         smallint categorizationConfidence "0 a 100, da camada (M10.1)"
         timestamp deletedAt "exclusão lógica"
@@ -360,52 +374,54 @@ registro sobreviver mesmo que a pessoa ou o grupo sejam apagados.
 
 ## O que é calculado, e não guardado
 
-| Na planilha antiga                    | No FinTrack                                                      |
-| ------------------------------------- | ---------------------------------------------------------------- |
-| Abas "Despesas Fixas" e "Recorrentes" | lançamento com `recurrenceId` (o tipo está em `Recurrence.kind`) |
-| "Despesa Parcelada", coluna "Parcela" | lançamento com `installmentGroupId` e `installmentNumber`        |
-| "Despesa Variável"                    | lançamento sem recorrência e sem parcelamento                    |
-| Status "PAGO" / "ABERTO" do cartão    | status da fatura (`CardStatement.status`)                        |
-| Status "AGENDADO" / "REALIZADO"       | `status` SCHEDULED / CONFIRMED                                   |
-| Integrante "CASAL"                    | ambiente compartilhado ("Casa")                                  |
-| "Cartão Principal" e "Cartão"         | conta da fatura (`accountId`) e cartão usado (`cardId`)          |
-| "Mês Referência" de compra no cartão  | `CardStatement.referenceMonth` da fatura da compra               |
-| "Quem pagou" (M07.4)                  | `resolvePayer`: cartão conjunto, portador do cartão ou titular   |
+| Na planilha antiga                    | No FinTrack                                                                          |
+| ------------------------------------- | ------------------------------------------------------------------------------------ |
+| Abas "Despesas Fixas" e "Recorrentes" | lançamento com `recurrenceId` (o tipo está em `Recurrence.kind`)                     |
+| "Despesa Parcelada", coluna "Parcela" | lançamento com `installmentGroupId` e `installmentNumber`                            |
+| "Despesa Variável" e "Despesa Fixa"   | `spendingNature` / `NATURE_SQL`: parcela, a marca, recorrência, a categoria (M13.3b) |
+| Status "PAGO" / "ABERTO" do cartão    | status da fatura (`CardStatement.status`)                                            |
+| Status "AGENDADO" / "REALIZADO"       | `status` SCHEDULED / CONFIRMED                                                       |
+| Integrante "CASAL"                    | ambiente compartilhado ("Casa")                                                      |
+| "Cartão Principal" e "Cartão"         | conta da fatura (`accountId`) e cartão usado (`cardId`)                              |
+| "Mês Referência" de compra no cartão  | `CardStatement.referenceMonth` da fatura da compra                                   |
+| "Quem pagou" (M07.4)                  | `resolvePayer`: cartão conjunto, portador do cartão ou titular                       |
 
 ## As travas que moram no banco
 
-| Regra                                                                         | Onde                                                                  |
-| ----------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| O mesmo lançamento importado entra uma vez só                                 | único `(accountId, source, externalId)`                               |
-| Conta, ambiente, categoria e parcela de um lançamento são do mesmo grupo      | chaves compostas com `householdId`                                    |
-| O cartão é da conta do lançamento; a fatura também                            | chaves compostas `(cardId, accountId)`, `(statementId, accountId)`    |
-| Só quem é do grupo entra num ambiente do grupo                                | chave `(householdId, userId)` → `household_member`                    |
-| Cartão guarda só os 4 últimos dígitos                                         | CHECK `payment_card_last_four_check`                                  |
-| Crédito só em cartão; vale só em vale-refeição; fatura só em cartão           | gatilho `transaction_method_matches_account`                          |
-| Valor nunca é zero; importado sempre tem `externalId`                         | CHECKs de `transaction`                                               |
-| Cartão tem fechamento e vencimento; as outras contas, não                     | CHECK `financial_account_card_days_check`                             |
-| Mês de orçamento e de fatura guardado como dia 1                              | CHECKs de `budget` e `card_statement`                                 |
-| Parte do orçado nunca negativa; um Compartilhado só por orçado (M08)          | CHECK `budget_share_amount_check` e índice `budget_share_shared_once` |
-| Parte só para quem é do lar; quem sai perde a parte (M08)                     | chave `(householdId, userId)` → `household_member`, em cascata        |
-| A auditoria só acrescenta                                                     | gatilho `audit_log_append_only`                                       |
-| Convite guarda só o hash do segredo; e-mail em minúsculas (M06)               | CHECKs `household_invite_token_hash_check` e `_email_check`           |
-| Convite não é aceito e cancelado ao mesmo tempo; prazo depois da criação      | CHECKs `household_invite_state_check` e `_expiry_check`               |
-| Nome de lar e de carteira com 1 a 60 caracteres (M06)                         | CHECKs `household_name_length_check` e `wallet_name_length_check`     |
-| "Quem categorizou" só existe com categoria (M07)                              | CHECK `transaction_categorized_by_check`                              |
-| Transferência não tem categoria (M07)                                         | CHECK `transaction_transfer_category_check`                           |
-| Exemplo de treino é uma correção de verdade (M07)                             | CHECKs `categorization_example_change_check` e `_source_check`        |
-| Extrato importado guarda só SHA-256, o final e as contagens (M09.3)           | CHECKs de `file_import` (`_sha256_check`, `_last_four_check`...)      |
-| Só linha de origem OFX aponta para o arquivo (M09.3)                          | CHECK `transaction_file_import_check`                                 |
-| Confiança de 0 a 100 e só de camada automática (M10.1)                        | CHECK `transaction_categorization_confidence_check`                   |
-| Modelo com 20+ exemplos e 2+ categorias; SHA-256 em hex (M10.1)               | CHECKs `classifier_model_counts_check` e `_training_hash_check`       |
-| Proposta de categoria nova só num NEW_CATEGORY, com o nome no padrão (M10.2b) | CHECKs `local_ai_attempt_proposal_check` e `_proposed_name_check`     |
-| Bot: o número só como HMAC e 4 dígitos; código só como SHA-256 (M11)          | CHECKs `bot_link_phone_check` e `bot_link_code_check`                 |
-| Bot: mensagem lida não guarda texto; na fila, sem resultado (M11)             | CHECK `bot_message_check`                                             |
-| Bot: proposta só de despesa, crédito/débito/pix, parcelas só no crédito (M11) | CHECKs `bot_draft_values_check` e `bot_draft_status_check`            |
-| Bot: a conta do mês de 0 a 1000, mês AAAA-MM (M11)                            | CHECK `bot_reply_count_check`                                         |
-| Bot: a conta do Telegram só como HMAC (M12.0b)                                | CHECK `bot_telegram_link_chat_check`                                  |
-| Bot: o canal do código só depois do uso; o id do Telegram com "tg:" (M12.0b)  | CHECKs `bot_link_code_channel_check` e `bot_message_channel_check`    |
-| Bot: a recusa da Meta com código e hora juntos (M12.0b)                       | CHECK `bot_reply_count_failure_check`                                 |
+| Regra                                                                              | Onde                                                                  |
+| ---------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| O mesmo lançamento importado entra uma vez só                                      | único `(accountId, source, externalId)`                               |
+| Conta, ambiente, categoria e parcela de um lançamento são do mesmo grupo           | chaves compostas com `householdId`                                    |
+| O cartão é da conta do lançamento; a fatura também                                 | chaves compostas `(cardId, accountId)`, `(statementId, accountId)`    |
+| Só quem é do grupo entra num ambiente do grupo                                     | chave `(householdId, userId)` → `household_member`                    |
+| Cartão guarda só os 4 últimos dígitos                                              | CHECK `payment_card_last_four_check`                                  |
+| Crédito só em cartão; vale só em vale-refeição; fatura só em cartão                | gatilho `transaction_method_matches_account`                          |
+| Valor nunca é zero; importado sempre tem `externalId`                              | CHECKs de `transaction`                                               |
+| Cartão tem fechamento e vencimento; as outras contas, não                          | CHECK `financial_account_card_days_check`                             |
+| Mês de orçamento e de fatura guardado como dia 1                                   | CHECKs de `budget` e `card_statement`                                 |
+| Parte do orçado nunca negativa; um Compartilhado só por orçado (M08)               | CHECK `budget_share_amount_check` e índice `budget_share_shared_once` |
+| Parte só para quem é do lar; quem sai perde a parte (M08)                          | chave `(householdId, userId)` → `household_member`, em cascata        |
+| A auditoria só acrescenta                                                          | gatilho `audit_log_append_only`                                       |
+| Convite guarda só o hash do segredo; e-mail em minúsculas (M06)                    | CHECKs `household_invite_token_hash_check` e `_email_check`           |
+| Convite não é aceito e cancelado ao mesmo tempo; prazo depois da criação           | CHECKs `household_invite_state_check` e `_expiry_check`               |
+| Nome de lar e de carteira com 1 a 60 caracteres (M06)                              | CHECKs `household_name_length_check` e `wallet_name_length_check`     |
+| "Quem categorizou" só existe com categoria (M07)                                   | CHECK `transaction_categorized_by_check`                              |
+| Transferência não tem categoria (M07)                                              | CHECK `transaction_transfer_category_check`                           |
+| Exemplo de treino é uma correção de verdade (M07)                                  | CHECKs `categorization_example_change_check` e `_source_check`        |
+| Extrato importado guarda só SHA-256, o final e as contagens (M09.3)                | CHECKs de `file_import` (`_sha256_check`, `_last_four_check`...)      |
+| Só linha de origem OFX aponta para o arquivo (M09.3)                               | CHECK `transaction_file_import_check`                                 |
+| Confiança de 0 a 100 e só de camada automática (M10.1)                             | CHECK `transaction_categorization_confidence_check`                   |
+| Modelo com 20+ exemplos e 2+ categorias; SHA-256 em hex (M10.1)                    | CHECKs `classifier_model_counts_check` e `_training_hash_check`       |
+| Proposta de categoria nova só num NEW_CATEGORY, com o nome no padrão (M10.2b)      | CHECKs `local_ai_attempt_proposal_check` e `_proposed_name_check`     |
+| Bot: o número só como HMAC e 4 dígitos; código só como SHA-256 (M11)               | CHECKs `bot_link_phone_check` e `bot_link_code_check`                 |
+| Bot: mensagem lida não guarda texto; na fila, sem resultado (M11)                  | CHECK `bot_message_check`                                             |
+| Bot: proposta só de despesa, crédito/débito/pix, parcelas só no crédito (M11)      | CHECKs `bot_draft_values_check` e `bot_draft_status_check`            |
+| Bot: a conta do mês de 0 a 1000, mês AAAA-MM (M11)                                 | CHECK `bot_reply_count_check`                                         |
+| Bot: a conta do Telegram só como HMAC (M12.0b)                                     | CHECK `bot_telegram_link_chat_check`                                  |
+| Bot: o canal do código só depois do uso; o id do Telegram com "tg:" (M12.0b)       | CHECKs `bot_link_code_channel_check` e `bot_message_channel_check`    |
+| Bot: a recusa da Meta com código e hora juntos (M12.0b)                            | CHECK `bot_reply_count_failure_check`                                 |
+| Fixa ou variável só em despesa avulsa: nunca em parcela nem transferência (M13.3b) | CHECK `transaction_nature_check`                                      |
+| Limpeza com pelo menos um lançamento; o Desfazer depois dela (M13.3b)              | CHECKs `category_cleanup_count_check` e `_undone_check`               |
 
 Cada regra tem um teste em `packages/db/src/integration/`, que tenta quebrá-la contra o
 PostgreSQL de verdade (`pnpm test:integration`).
@@ -541,6 +557,20 @@ OPEN_FINANCE` e o id do banco em `externalId`. A chave única (conta, origem, id
   Final que não está cadastrado deixa o recebido sem cartão (nunca no titular); cadastrar o
   cartão leva os recebidos dele para o cartão e o ambiente do portador (`rerouteReceived`).
 - As decisões e o porquê estão no [ADR-012](adr/0012-revisao-e-reconciliacao.md).
+
+## Fixa ou variável e a limpeza de categorias (M13.3b)
+
+- **O tipo da despesa** sai de quatro lugares, nesta ordem: parcela (a do FinTrack ou a que o banco
+  informa); a marca da compra (`transaction.nature`); fixa, se veio de uma recorrência; o padrão da
+  categoria (`category.defaultNature`). `spendingNature` (core), `natureOf` e `NATURE_SQL`
+  (`packages/db/src/nature.ts`) são a mesma regra, conferida lançamento por lançamento no teste de
+  integração.
+- **"As próximas desta loja também"** é a regra de categoria que leva o tipo (`category_rule.nature`):
+  a compra que chegar com o mesmo texto ganha a categoria e a marca (`rememberRuleTx`).
+- **A limpeza** (`category_cleanup`): uma categoria cujos lançamentos são, na maior parte, um lado
+  de transferência vira transferências numa transação só; `before` guarda cada lançamento como
+  estava e o transferId que ganhou, para o Desfazer de 30 minutos.
+- As decisões e o porquê estão no [ADR-026](adr/0026-fixa-ou-variavel.md).
 
 ## Importar extrato (M09.3)
 

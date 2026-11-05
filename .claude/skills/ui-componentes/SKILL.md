@@ -28,6 +28,8 @@ description: Como construir telas e componentes no FinTrack com shadcn/ui, Tailw
 | Quem pagou (DV, NV, CP)                | `<PayerTile payer />` (texto na tinta `--chart-N-ink`)             | `src/features/transactions/ui/payer-tile.tsx`                           |
 | Filtro "Pago por"                      | `<PayerChips payers current hrefFor />` no `extra` da ListToolbar  | `src/features/transactions/ui/payer-chips.tsx`                          |
 | Bloco de uma página com título         | `<Section id title description>`                                   | `src/components/visual/section.tsx`                                     |
+| Caixa de marcar ou rádio nativo        | `className={cn(NATIVE_CHECK, "size-5")}` (cor e anel do tema)      | `src/lib/styles.ts`                                                     |
+| Fixa, Variável ou Parcela (M13.3b)     | `<NatureTag>`, `<NatureRadios>` e `<NaturePicker>` (a etiqueta)    | `src/features/transactions/ui/nature/`                                  |
 | Ações de uma linha atrás do "⋯"        | `<ActionsMenu label>` + itens com `MENU_ITEM` (M13.1)              | `src/components/visual/actions-menu.tsx`                                |
 | Filtro de marcar (Período, Pago por)   | `<CheckCombo label value selection>` + `<CheckRow>` num form GET   | `src/components/visual/check-combo.tsx`                                 |
 | Topo de lista com Filtros e CSV        | `<ListHeader id title subtitle actions panel activeCount />`       | `src/components/visual/list-header.tsx`                                 |

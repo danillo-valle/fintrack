@@ -51,7 +51,8 @@ test("a linha do lançamento não repete texto: no desktop os detalhes viram col
   const colunas = await linha.evaluate(
     (el) => getComputedStyle(el).gridTemplateColumns.split(" ").length,
   );
-  expect(colunas).toBe(isMobile ? 3 : 7);
+  // No computador: ícone, descrição, categoria, ambiente, tipo da despesa (M13.3b), conta, valor e lixeira
+  expect(colunas).toBe(isMobile ? 3 : 8);
 });
 
 test.describe("telas de entrada", () => {

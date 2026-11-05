@@ -33,6 +33,7 @@ Modelo para um ADR novo: copie `0001-stack-e-monorepo.md` e troque o conteúdo.
 | 023 | [A arquitetura documentada a partir do código: o mapa do fluxo, o C4 e o site](0023-arquitetura-documentada.md)             | aceita | nova (M12.3b)                |
 | 024 | [A preparação para os dados reais: zerar, backup de ponta a ponta, alerta e ZAP ativo](0024-preparacao-para-dados-reais.md) | aceita | nova (M12.4a); adendo M12.4b |
 | 025 | [Contas e cartões separados: toda compra no cartão tem fatura e conta no vencimento](0025-contas-e-cartoes-separados.md)    | aceita | nova (M13.3a)                |
+| 026 | [Fixa ou variável na compra e na categoria, o previsto do mês e a limpeza das transferências](0026-fixa-ou-variavel.md)     | aceita | nova (M13.3b)                |
 
 ## Revisão de 28/10/2026 (M12.3b)
 

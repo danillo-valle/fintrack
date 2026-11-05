@@ -103,6 +103,15 @@ Projeto de portfólio construído em módulos (M00 a M12); cada módulo é uma m
   Período e Pago por como combos de marcar (`?mes=`, `?pago=` repetidos), Cartões por fatura (`/cartoes`,
   `cardStatements`), o Início com Resultado, Na conta hoje, Guardado e Faturas a pagar, Novo lançamento com abas
   (`?aba=`) e Fixas e parcelas (`/fixas`) no menu
+- v1.4.0 (M13.3b, ADR-026, canvas linha N): fixa ou variável pela categoria (`category.defaultNature`) e na
+  compra (`transaction.nature`; nula segue a categoria), sem criar recorrência; a ordem em `spendingNature` (core),
+  `natureOf`/`NATURE_SQL` (`packages/db/src/nature.ts`, teste de concordância) e o tipo para a tela (`natureView`).
+  "As próximas desta loja também" é a regra de categoria com o tipo (`category_rule.nature`, `rememberRuleTx`). O
+  previsto conta cada fixa uma vez (`missingFixedCharges`: a do mês passado que ainda não chegou) e só o variável no
+  ritmo; o Início mostra as três partes (`features/budget/ui/forecast-block.tsx`). A etiqueta Fixa/Variável da lista
+  troca num toque (`features/transactions/ui/nature/`). A limpeza das categorias que eram transferência fica em
+  Ajustes › Categorias (`packages/core/src/category-cleanup.ts`, `packages/db/src/category-cleanup.ts`), com o
+  Desfazer de 30 minutos (`category_cleanup`)
 
 Regras específicas do Next.js 16: @apps/web/AGENTS.md
 
