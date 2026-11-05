@@ -13,6 +13,7 @@ import { NUMBER_LINK } from "@/lib/styles";
 import { cn } from "@/lib/utils";
 import type { PayerOption } from "../payers";
 import { filtersToQuery, type ParsedFilters, type QueryValue } from "../schemas";
+import { civilDayMonth } from "@/lib/dates";
 
 // O caminho de volta e os filtros ativos da lista (M08, canvas D "Drill-down"). Quem chega à
 // lista por um número do painel vê "Voltar para Orçamento · Mercado" e os filtros que formaram o
@@ -34,8 +35,7 @@ function rangeLabel(from: CivilDate, to: CivilDate) {
     const text = monthYear.format(new Date(`${from}T12:00:00Z`));
     return text.charAt(0).toUpperCase() + text.slice(1);
   }
-  const short = (d: CivilDate) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
-  return `${short(from)} a ${short(to)}/${to.slice(0, 4)}`;
+  return `${civilDayMonth(from)} a ${civilDayMonth(to)}/${to.slice(0, 4)}`;
 }
 
 /** Para onde o "Voltar" leva, pelo nome da tela. */
@@ -123,7 +123,7 @@ export function ActiveFilters({
   }
   // O "gasto até hoje" do painel: só o que já aconteceu até o dia
   if (f.upTo) {
-    const label = `Até ${f.upTo.slice(8, 10)}/${f.upTo.slice(5, 7)}`;
+    const label = `Até ${civilDayMonth(f.upTo)}`;
     chips.push({
       key: "aconteceu",
       label: `${label}: só o que já aconteceu`,

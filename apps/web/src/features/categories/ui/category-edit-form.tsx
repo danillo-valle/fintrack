@@ -2,6 +2,8 @@
 
 // Editar categoria (M13.2, prancha M-Categoria): o nome e o tipo. Trocar o tipo só vale sem
 // subcategorias e com os lançamentos do sinal certo: a tela avisa antes, o servidor confere.
+// M13.3b (canvas N-FixaVariavel): numa categoria de despesa, se as despesas dela são fixas ou
+// variáveis por padrão. Com Receita marcada, a escolha some (o CSS lê o rádio; funciona sem JS).
 import { ActionForm } from "@/components/feedback/action-form";
 import {
   Field,
@@ -12,6 +14,7 @@ import {
   FieldSet,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { NatureRadios } from "@/features/transactions/ui/nature/nature-radios";
 import { updateCategoryAction } from "../server/actions";
 
 const KINDS = [
@@ -28,6 +31,7 @@ export function CategoryEditForm({
     id: string;
     name: string;
     kind: "EXPENSE" | "INCOME";
+    defaultNature: "FIXED" | "VARIABLE";
     parentName: string | null;
     transactionCount: number;
   };
@@ -39,7 +43,7 @@ export function CategoryEditForm({
       id={formId}
       idPrefix={prefix}
       aria-label="Editar categoria"
-      className="flex flex-col gap-4"
+      className="group/categoria flex flex-col gap-4"
     >
       {({ field }) => {
         const name = field("name");
@@ -87,6 +91,18 @@ export function CategoryEditForm({
                     : "Sem lançamentos: o tipo pode mudar à vontade."}
               </FieldDescription>
             </FieldSet>
+            <NatureRadios
+              name="defaultNature"
+              legend="As despesas desta categoria são, por padrão"
+              options={[
+                { value: "FIXED", label: "Fixas", hint: "assinaturas, aluguel, escola" },
+                { value: "VARIABLE", label: "Variáveis", hint: "mercado, restaurante, posto" },
+              ]}
+              value={category.defaultNature}
+              description="Trocar o padrão muda as compras desta categoria que você não marcou à mão. As que você marcou ficam como estão."
+              idPrefix={prefix}
+              className="group-has-[input[name=kind][value=INCOME]:checked]/categoria:hidden"
+            />
           </>
         );
       }}

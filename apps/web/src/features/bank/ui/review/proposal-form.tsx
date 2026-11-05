@@ -10,7 +10,7 @@ import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { applyLocalAiProposalAction } from "../../server/review-actions";
-import { dayMonth } from "./parts";
+import { civilDayMonth } from "@/lib/dates";
 
 export type ProposalFormData = {
   transaction: { id: string };
@@ -81,7 +81,7 @@ export function ProposalForm({ formId, page }: { formId: string; page: ProposalF
               <ul className="flex flex-col gap-0.5">
                 {page.siblings.slice(0, 5).map((t) => (
                   <li key={t.id} className="truncate">
-                    {t.description} · <span className="tabular">{dayMonth(t.occurredOn)}</span>
+                    {t.description} · <span className="tabular">{civilDayMonth(t.occurredOn)}</span>
                   </li>
                 ))}
                 {count > 5 ? <li>e mais {count - 5}</li> : null}

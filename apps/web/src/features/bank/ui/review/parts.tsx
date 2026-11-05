@@ -24,8 +24,6 @@ export const MAIN_BUTTON = cn(
   "h-11 gap-2 rounded-xl px-[1.125rem] text-sm font-bold md:h-10",
 );
 
-export const dayMonth = (date: string) => `${date.slice(8, 10)}/${date.slice(5, 7)}`;
-
 const MONTHS = [
   "janeiro",
   "fevereiro",

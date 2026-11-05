@@ -9,7 +9,8 @@ import { ArrowLeftRight, ArrowRight, CreditCard } from "lucide-react";
 import type { TransferSideView, TransferView } from "../../server/review";
 import { AmountText } from "@/components/money/amount-text";
 import { ToneChip } from "@/components/visual/tone-chip";
-import { dayMonth, SMALL_BUTTON, SMALL_PRIMARY } from "./parts";
+import { civilDayMonth } from "@/lib/dates";
+import { SMALL_BUTTON, SMALL_PRIMARY } from "./parts";
 import { ReviewForm, ReviewSubmit } from "./review-actions";
 
 const shown = (side: TransferSideView) => side.label ?? side.description;
@@ -24,7 +25,7 @@ function Side({ title, side }: { title: string; side: TransferSideView }) {
       <span className="text-muted-foreground truncate text-sm">{shown(side)}</span>
       <span className="mt-1 flex items-center justify-between gap-2">
         <span className="text-muted-foreground tabular font-mono text-sm">
-          {dayMonth(side.occurredOn)}
+          {civilDayMonth(side.occurredOn)}
           {side.pending ? "" : " · já conferido"}
         </span>
         <AmountText cents={side.amount} tone="inherit" arrow={false} className="font-bold" />

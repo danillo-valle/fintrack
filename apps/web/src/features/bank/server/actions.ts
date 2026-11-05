@@ -38,6 +38,7 @@ import {
 import { requireRecentAuth, requireUser } from "@/lib/auth/session";
 import { financeChanged } from "@/lib/finance-cache";
 import { logger } from "@/lib/logger";
+import { natureChoiceSchema } from "@/features/transactions/schemas";
 import { providerErrorMessage } from "../messages";
 import {
   credentialsInput,
@@ -216,8 +217,9 @@ export async function requestSyncAction(): Promise<ActionState> {
 export type CategoryState = ActionState & { categoryId: string | null };
 
 /**
- * Grava a categoria de um lançamento (recebido do banco ou não) sem abrir a edição. Uma categoria
- * nova (o texto da busca) é criada antes, no lar. "Sempre categorizar assim" cria a regra.
+ * Grava a categoria de um lançamento (recebido do banco ou não) sem abrir a edição e, numa despesa
+ * avulsa, o tipo (fixa ou variável, M13.3b) que a pessoa trocou no mesmo painel. Uma categoria nova
+ * (o texto da busca) é criada antes, no lar. "As próximas desta loja também" cria ou muda a regra.
  */
 export async function setCategoryAction(
   _prev: CategoryState,
@@ -227,6 +229,9 @@ export async function setCategoryAction(
   const parsed = setCategorySchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ...invalid(parsed.error), categoryId: null };
   const data = parsed.data;
+  const choice = natureChoiceSchema.safeParse(Object.fromEntries(formData));
+  if (!choice.success) return { ...invalid(choice.error), categoryId: null };
+  const nature = choice.data.nature;
 
   let chosen: string | null = null;
   const result = await runAction(async () => {
@@ -251,15 +256,15 @@ export async function setCategoryAction(
     const rememberRule = data.rememberRule
       ? { grant: await requireHouseholdAccess(session, "manage_categories") }
       : null;
-    await setTransactionCategory(prisma, grant, categoryId, { rememberRule }, ctx);
+    await setTransactionCategory(prisma, grant, { categoryId, nature }, { rememberRule }, ctx);
     await financeChanged(session);
     chosen = categoryId;
-    return data.rememberRule
-      ? "Categoria salva. As próximas iguais já chegam assim."
-      : "Categoria salva.";
+    const saved = nature ? "Categoria e tipo salvos." : "Categoria salva.";
+    return data.rememberRule ? `${saved} As próximas desta loja já chegam assim.` : saved;
   });
   if (!result.error) {
-    revalidatePath("/lancamentos");
+    revalidatePath("/lancamentos", "layout");
+    revalidatePath("/cartoes");
     revalidatePath("/carteiras/conta/[accountId]", "page");
   }
   return { ...result, categoryId: chosen };

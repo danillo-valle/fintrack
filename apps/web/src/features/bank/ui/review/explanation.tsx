@@ -16,7 +16,7 @@ import { SOURCE_ICON, SourcePill } from "@/components/visual/source-pill";
 import { SOURCE_LABEL } from "@/lib/labels";
 import { formatBRL } from "@/lib/money";
 import { cn } from "@/lib/utils";
-import { dayMonth } from "./parts";
+import { civilDayMonth } from "@/lib/dates";
 
 const LAYER_NAME: Record<SuggestionSource, string> = {
   RULE: "Regras",
@@ -67,7 +67,7 @@ export function explanationTitle(page: ExplanationPage) {
 export function explanationSubtitle(page: ExplanationPage) {
   const t = page.transaction;
   const sign = t.amount < 0n ? "− " : "+ ";
-  return `${t.description} · ${dayMonth(t.occurredOn)} · ${sign}${formatBRL(t.amount < 0n ? -t.amount : t.amount)}`;
+  return `${t.description} · ${civilDayMonth(t.occurredOn)} · ${sign}${formatBRL(t.amount < 0n ? -t.amount : t.amount)}`;
 }
 
 export function ExplanationBody({ page }: { page: ExplanationPage }) {

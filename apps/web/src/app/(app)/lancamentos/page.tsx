@@ -123,6 +123,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/lan
               category: item.category,
               categorizedBy: item.categorizedBy,
               categorizationConfidence: item.categorizationConfidence,
+              natureView: item.natureView,
               installment: item.installment,
               original: item.original,
               note: `${item.card ? `${item.card.nickname} final ${item.card.lastFour}` : item.account.name} · ${item.wallet.name}`,

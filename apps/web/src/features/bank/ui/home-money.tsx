@@ -11,6 +11,7 @@ import { formatBRL } from "@/lib/money";
 import { NUMBER_LINK, TEXT_LINK } from "@/lib/styles";
 import { cn } from "@/lib/utils";
 import type { BankHome } from "../server/queries";
+import { civilDayMonth } from "@/lib/dates";
 
 const asOfTime = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "America/Sao_Paulo",
@@ -18,7 +19,6 @@ const asOfTime = new Intl.DateTimeFormat("pt-BR", {
   minute: "2-digit",
 });
 const monthName = new Intl.DateTimeFormat("pt-BR", { month: "long", timeZone: "UTC" });
-const dm = (date: string) => `${date.slice(8, 10)}/${date.slice(5, 7)}`;
 
 const SECTION =
   "bg-card flex min-w-0 flex-col gap-3 rounded-[1.25rem] border px-4 py-4 md:px-5 md:py-5";
@@ -194,8 +194,8 @@ export function BillsToPay({ bank, aside }: { bank: BankHome; aside?: React.Reac
                     c.lastFour ? `···· ${c.lastFour}` : null,
                     c.bill
                       ? c.bill.state === "paid"
-                        ? `paga · venceu ${dm(c.bill.dueDate)}`
-                        : `vence ${dm(c.bill.dueDate)}`
+                        ? `paga · venceu ${civilDayMonth(c.bill.dueDate)}`
+                        : `vence ${civilDayMonth(c.bill.dueDate)}`
                       : "nenhuma compra ainda",
                   ]
                     .filter(Boolean)

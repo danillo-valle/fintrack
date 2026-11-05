@@ -5,7 +5,7 @@ import { FileText } from "lucide-react";
 import { formatBRL } from "@/lib/money";
 import type { FileImportSummary } from "../../server/imports";
 import { dayAndTime } from "@/lib/dates";
-import { dayMonth } from "../review/parts";
+import { civilDayMonth } from "@/lib/dates";
 import { PdfGlyph } from "./pdf-file-icon";
 
 /** "31 entraram · 5 já vinham do Meu Pluggy" ou "0 entraram · arquivo já importado". */
@@ -55,9 +55,9 @@ export function ImportHistory({ history }: { history: readonly FileImportSummary
           {history.map((f) => {
             const when = dayAndTime(f.importedAt);
             const period = f.invoice?.dueDate
-              ? `vence ${dayMonth(f.invoice.dueDate)}`
+              ? `vence ${civilDayMonth(f.invoice.dueDate)}`
               : f.period
-                ? `${dayMonth(f.period.from)} a ${dayMonth(f.period.to)}`
+                ? `${civilDayMonth(f.period.from)} a ${civilDayMonth(f.period.to)}`
                 : "sem período";
             return (
               <li

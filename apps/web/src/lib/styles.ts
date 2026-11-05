@@ -14,3 +14,10 @@ export const TEXT_LINK =
  */
 export const NUMBER_LINK =
   "focus-visible:ring-ring rounded-sm underline decoration-dotted decoration-1 underline-offset-4 outline-none hover:decoration-solid focus-visible:ring-3";
+
+/**
+ * Caixa de marcar e botão de rádio nativos (M13.3b): a cor do tema e o anel de 3px no foco, como os
+ * outros campos. Sem isto, o navegador desenha o contorno dele (reprova o foco-visivel.spec.ts).
+ */
+export const NATIVE_CHECK =
+  "accent-primary focus-visible:ring-ring shrink-0 rounded outline-none focus-visible:ring-3";

@@ -19,9 +19,9 @@ import { TEXT_LINK } from "@/lib/styles";
 import { cn } from "@/lib/utils";
 import { botDraftAction } from "../server/actions";
 import type { OpenDraft } from "../server/queries";
+import { civilDayMonth } from "@/lib/dates";
 
 const METHOD: Record<string, string> = { CREDIT: "crédito", DEBIT: "débito", PIX: "pix" };
-const dayMonth = (date: string) => `${date.slice(8, 10)}/${date.slice(5, 7)}`;
 
 export function BotDrafts({ drafts }: { drafts: OpenDraft[] }) {
   const [state, formAction, pending] = useActionState(botDraftAction, INITIAL_ACTION_STATE);
@@ -66,7 +66,7 @@ export function BotDrafts({ drafts }: { drafts: OpenDraft[] }) {
               data-testid="proposta-whatsapp"
             >
               <span className="text-muted-foreground hidden font-mono text-sm tabular-nums md:block">
-                {dayMonth(draft.occurredOn)}
+                {civilDayMonth(draft.occurredOn)}
               </span>
               <span className="flex min-w-0 flex-col gap-0.5">
                 <span className="font-medium break-words">
@@ -74,7 +74,7 @@ export function BotDrafts({ drafts }: { drafts: OpenDraft[] }) {
                   {draft.installments ? ` · ${draft.installments}x` : ""}
                 </span>
                 <span className="text-muted-foreground text-[0.8125rem] break-words">
-                  <span className="md:hidden">{dayMonth(draft.occurredOn)} · </span>
+                  <span className="md:hidden">{civilDayMonth(draft.occurredOn)} · </span>
                   {draft.complete
                     ? `${METHOD[draft.method] ?? draft.method}${draft.payWith ? `, ${draft.payWith}` : ""} · ${draft.wallet ?? "—"}`
                     : "Falta escolher o ambiente ou o cartão (o bot perguntou no WhatsApp)"}

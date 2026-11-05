@@ -19,6 +19,7 @@ import {
   generateRecurrences,
   prisma,
   restoreTransaction,
+  setTransactionNature,
   suggestCategory,
   updateTransaction,
 } from "@fintrack/db";
@@ -42,9 +43,11 @@ import type { Session } from "@/lib/auth";
 import {
   exportSchema,
   generateSchema,
+  natureChoiceSchema,
   newEntrySchema,
   recurrenceIdSchema,
   recurrenceSchema,
+  setNatureSchema,
   suggestSchema,
   transactionIdSchema,
   transactionSchema,
@@ -194,8 +197,10 @@ export async function updateTransactionAction(
   const session = await requireUser();
   const id = transactionIdSchema.safeParse(Object.fromEntries(formData));
   const parsed = transactionSchema.safeParse(Object.fromEntries(formData));
+  const nature = natureChoiceSchema.safeParse(Object.fromEntries(formData));
   if (!id.success) return invalid(id.error);
   if (!parsed.success) return invalid(parsed.error);
+  if (!nature.success) return invalid(nature.error);
   const data = parsed.data;
 
   const result = await runAction(async () => {
@@ -207,7 +212,7 @@ export async function updateTransactionAction(
       grant,
       target,
       account,
-      { ...data, cents: data.amount },
+      { ...data, cents: data.amount, nature: nature.data.nature },
       {
         scope: await requireScope(session, "view"),
         rememberRule: await ruleGrantIfAsked(session, data.rememberRule),
@@ -220,6 +225,41 @@ export async function updateTransactionAction(
   if (!result.error) await financeChanged(session);
   revalidatePath(LIST);
   revalidatePath(`${LIST}/${id.data.transactionId}`);
+  return result;
+}
+
+/**
+ * O tipo da despesa num toque (M13.3b, ADR-026): a etiqueta Fixa/Variável da lista. Não cria
+ * recorrência. Com "as próximas desta loja também", a regra da loja passa a dar a categoria e o
+ * tipo deste lançamento.
+ */
+export async function setNatureAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await requireUser();
+  const parsed = setNatureSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return invalid(parsed.error);
+  const data = parsed.data;
+  const result = await runAction(async () => {
+    const grant = await requireTransactionAccess(session, data.transactionId, "edit");
+    const rememberRule = await ruleGrantIfAsked(session, data.rememberRule);
+    if (!data.nature && !rememberRule) return "Nada mudou.";
+    // Sem troca de tipo, só "as próximas": o tipo fica, e a regra passa a dá-lo
+    await setTransactionNature(
+      prisma,
+      grant,
+      data.nature,
+      { rememberRule },
+      await requestContext(),
+    );
+    await financeChanged(session);
+    return rememberRule ? "Salvo. As próximas desta loja já chegam assim." : "Tipo salvo.";
+  });
+  if (!result.error) {
+    revalidatePath(LIST, "layout");
+    revalidatePath("/cartoes");
+  }
   return result;
 }
 

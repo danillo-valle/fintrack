@@ -96,6 +96,7 @@ export default async function TransactionPage({
                 notes: t.notes,
                 originText: hasOriginText(t.source) ? t.description : null,
                 label: t.label,
+                natureView: t.natureView,
               }}
             />
           </section>

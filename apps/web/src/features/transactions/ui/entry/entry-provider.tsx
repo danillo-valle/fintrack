@@ -28,6 +28,8 @@ import {
   type AccountKind,
   type CardCycle,
   type CivilDate,
+  type ExpenseNature,
+  type NatureView,
 } from "@fintrack/core";
 import { undoToast } from "@/components/feedback/undo-toast";
 import { INITIAL_ACTION_STATE, type ActionState } from "@/lib/action-state";
@@ -65,7 +67,14 @@ export type EntryOptions = {
       sharedPurchases: boolean;
     }[];
   }[];
-  categories: { id: string; name: string; kind: "EXPENSE" | "INCOME"; parentName: string | null }[];
+  categories: {
+    id: string;
+    name: string;
+    kind: "EXPENSE" | "INCOME";
+    parentName: string | null;
+    /** Fixa ou variável por padrão (M13.3b): a frase "Padrão de X" no Tipo da despesa */
+    defaultNature: ExpenseNature;
+  }[];
   canManageCategories: boolean;
   defaults: { walletId: string | null; accountId: string | null; occurredOn: CivilDate };
   /** As pessoas do lar e o Compartilhado, para mostrar quem paga */
@@ -91,6 +100,8 @@ export type ExistingTransaction = {
    */
   originText: string | null;
   label: string | null;
+  /** O tipo da saída (M13.3b): o Tipo da despesa da edição; nulo em entrada e transferência */
+  natureView: NatureView | null;
 };
 
 export type EntryErrors = {
